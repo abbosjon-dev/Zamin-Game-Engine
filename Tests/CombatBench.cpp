@@ -104,7 +104,7 @@ namespace {
         Result r;
         r.Key = twoD ? "Combat2D" : "Combat3D";
         const int lanes = std::max(1, o.Actors / 2);
-        r.Label = std::format("{} snaryad, {} aktor, {} devor ({})", o.Projectiles, lanes * 2, o.Walls, twoD ? "Box2D: 3 nur" : "Jolt: sphere cast");
+        r.Label = std::format("{} projectiles, {} actors, {} walls ({})", o.Projectiles, lanes * 2, o.Walls, twoD ? "Box2D: 3 rays" : "Jolt: sphere cast");
         auto scene = CreateRef<Scene>();
         std::vector<Entity> shooters, targets;
         for (int i = 0; i < lanes; ++i)
@@ -178,7 +178,7 @@ namespace {
         r.Key = "CombatEffects";
         const int effects = std::clamp(o.Effects, 1, 16);
         const int actors = std::max(1, std::min(o.Actors, int(G::CombatWorld::MaxEffects) / effects));
-        r.Label = std::format("{} aktor x {} effekt = {} nusxa (sahna chegarasi 1024), snaryadsiz", actors, effects, actors * effects);
+        r.Label = std::format("{} actors x {} effects = {} instances (the scene limit is 1024), no projectiles", actors, effects, actors * effects);
         auto scene = CreateRef<Scene>();
         std::vector<Entity> victims;
         for (int i = 0; i < actors; ++i)
@@ -250,7 +250,7 @@ int RunCombatBench(int argc, char** argv)
         else if (!std::strcmp(argv[i], "--json") && i + 1 < argc) jsonFile = argv[++i];
         else
         {
-            std::printf("ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d | --3d | --effects-only] [--json <fayl>]\n");
+            std::printf("ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d | --3d | --effects-only] [--json <file>]\n");
             return 1;
         }
     }
@@ -259,8 +259,8 @@ int RunCombatBench(int argc, char** argv)
 #else
     const char* build = "Debug";
 #endif
-    std::printf("Zamin combat benchmark: TickCombat har kadr (60 Hz qadam), %d kadr, %s, operator new hisoblagich: %s\n\n", o.Frames, build,
-                AllocCounter::Available() ? "bor" : "yo'q");
+    std::printf("Zamin combat benchmark: TickCombat every frame (60 Hz step), %d frames, %s, operator new counter: %s\n\n", o.Frames, build,
+                AllocCounter::Available() ? "yes" : "no");
     std::vector<Result> results;
     if (o.TwoD) results.push_back(Projectiles(true, o));
     if (o.ThreeD) results.push_back(Projectiles(false, o));
@@ -268,12 +268,12 @@ int RunCombatBench(int argc, char** argv)
     for (auto& r : results)
     {
         std::printf("%s: %s\n", r.Key.c_str(), r.Label.c_str());
-        std::printf("  TickCombat: o'rtacha %.4f ms, mediana %.4f, p95 %.4f, eng sekin %.4f ms / kadr\n", r.Mean, r.Median, r.P95, r.Max);
-        std::printf("  ajratishlar: %.2f / kadr", r.Allocations);
+        std::printf("  TickCombat: average %.4f ms, median %.4f, p95 %.4f, slowest %.4f ms / frame\n", r.Mean, r.Median, r.P95, r.Max);
+        std::printf("  allocations: %.2f / frame", r.Allocations);
         if (r.Key == "CombatEffects")
-            std::printf("; tiklar: %.1f / qadam; effekt nusxalari: %.0f\n", r.TicksPerStep, r.LivePerFrame);
+            std::printf("; ticks: %.1f / step; effect instances: %.0f\n", r.TicksPerStep, r.LivePerFrame);
         else
-            std::printf("; uchayotgan: %.1f; sweep: %.1f / qadam; aktor testi: %.1f / qadam; zarba: %.2f / kadr\n", r.LivePerFrame, r.SweepsPerStep,
+            std::printf("; in flight: %.1f; sweeps: %.1f / step; actor tests: %.1f / step; hits: %.2f / frame\n", r.LivePerFrame, r.SweepsPerStep,
                         r.ActorTestsPerStep, r.HitsPerFrame);
     }
     if (jsonFile && *jsonFile)

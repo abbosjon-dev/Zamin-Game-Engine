@@ -45,7 +45,7 @@ add_custom_command(OUTPUT ${ZAMIN_ENGINE_NAMES}
     COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin -DOUTPUT=${ZAMIN_ENGINE_NAMES}
             -P ${PROJECT_SOURCE_DIR}/cmake/GenerateEngineNames.cmake
     DEPENDS ${ZAMIN_HEADERS} ${PROJECT_SOURCE_DIR}/cmake/GenerateEngineNames.cmake
-    COMMENT "Zamin nomlari ro'yxati (skript klass nomlarini tekshirish uchun)"
+    COMMENT "The list of Zamin names (for checking script class names)"
     VERBATIM)
 
 # Large scenes are saved and loaded through the JSON library: the scene serializer is optimised in

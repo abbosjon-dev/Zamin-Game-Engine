@@ -144,7 +144,7 @@ foreach(t glm glm-header-only EnTT nlohmann_json box2d Jolt glfw glad imgui imgu
         foreach(_zm_ours Zamin Editor Runtime Tests Projects)
             string(FIND "${_zm_inc}" "${PROJECT_SOURCE_DIR}/${_zm_ours}/" _zm_at)
             if(NOT _zm_at EQUAL -1)
-                message(FATAL_ERROR "${t}: ${_zm_ours}/ papkasi tizim (-isystem) papkasi bo'lib qolardi: ${_zm_inc}")
+                message(FATAL_ERROR "${t}: ${_zm_ours}/ would become a system (-isystem) folder: ${_zm_inc}")
             endif()
         endforeach()
         set_target_properties(${t} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_zm_inc}")

@@ -17,7 +17,7 @@
                 "Class": "HotReloadProbe",
                 "Fields": {
                     "Count": { "Type": "Int", "Value": 3 },
-                    "Label": { "Type": "String", "Value": "saqlangan" },
+                    "Label": { "Type": "String", "Value": "saved" },
                     "Speed": { "Type": "Float", "Value": 7.5 }
                 }
             }

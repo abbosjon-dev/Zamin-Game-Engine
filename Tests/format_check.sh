@@ -46,12 +46,12 @@ if [[ -z "$cf" ]]; then
     done
 fi
 if [[ -z "$cf" ]] || ! command -v "$cf" >/dev/null 2>&1; then
-    echo "clang-format topilmadi (o'rnating: sudo apt-get install clang-format-18, yoki CLANG_FORMAT=<yo'l>)" >&2
+    echo "clang-format not found (install: sudo apt-get install clang-format-18, or CLANG_FORMAT=<path>)" >&2
     exit 2
 fi
 version="$("$cf" --version | sed -n 's/.*version \([0-9]*\).*/\1/p' | head -n 1)"
 if [[ -z "$version" || "$version" -lt 17 ]]; then
-    echo "$cf versiyasi ${version:-?}: kamida 17 kerak (.clang-format AlignConsecutiveShortCaseStatements ishlatadi)" >&2
+    echo "$cf is version ${version:-?}: at least 17 is required (.clang-format uses AlignConsecutiveShortCaseStatements)" >&2
     exit 2
 fi
 
@@ -65,7 +65,7 @@ cd "$root" || exit 2
 if [[ ${#files[@]} -gt 0 ]]; then
     if [[ $fix -eq 1 ]]; then
         "$cf" -i --style=file "${files[@]}" || exit 2
-        echo "Formatlandi: ${#files[@]} ta fayl"
+        echo "Formatted: ${#files[@]} files"
         exit 0
     fi
     bad=0
@@ -74,8 +74,8 @@ if [[ ${#files[@]} -gt 0 ]]; then
         d="$(diff -u --label "a/$f" --label "b/$f" "$f" - <<<"$out")"
         if [[ -n "$d" ]]; then echo "$d"; bad=$((bad + 1)); fi
     done
-    if [[ $bad -eq 0 ]]; then echo "clang-format: ${#files[@]} ta fayl formatlangan"; exit 0; fi
-    echo "clang-format: $bad ta faylda o'zgartiriladigan qatorlar bor (--fix --files ... tuzatadi)" >&2
+    if [[ $bad -eq 0 ]]; then echo "clang-format: ${#files[@]} files are formatted"; exit 0; fi
+    echo "clang-format: $bad files have lines to change (--fix --files ... fixes them)" >&2
     exit 1
 fi
 
@@ -85,13 +85,13 @@ for c in "git-clang-format-$version" git-clang-format; do
     if command -v "$c" >/dev/null 2>&1; then gcf="$c"; break; fi
 done
 if [[ -z "$gcf" ]]; then
-    echo "git-clang-format topilmadi (clang-format paketi bilan keladi)" >&2
+    echo "git-clang-format not found (it comes with the clang-format package)" >&2
     exit 2
 fi
 commit="HEAD"
 if [[ -n "$base" ]]; then
     if ! git rev-parse --verify -q "$base^{commit}" >/dev/null; then
-        echo "commit topilmadi: $base" >&2
+        echo "commit not found: $base" >&2
         exit 2
     fi
     # A branch: from where it left that branch (merge base); a plain older commit is its own merge base.
@@ -116,7 +116,7 @@ if [[ "$diff_out" != diff* && "$diff_out" != *$'\n'diff* ]]; then
         echo "$diff_out" >&2
         exit 2
     fi
-    echo "clang-format: $what dan beri o'zgargan qatorlar formatlangan"
+    echo "clang-format: the lines changed since $what are formatted"
     exit 0
 fi
 
@@ -139,11 +139,11 @@ count="$(grep -c . <<<"$hunks")"
 if [[ $github -eq 1 ]]; then
     while IFS=: read -r f s e; do
         [[ -z "$f" ]] && continue
-        echo "::warning file=$f,line=$s,endLine=$e,title=clang-format::.clang-format bu qatorlarni boshqacha yozadi (Tests/format_check.sh --fix)"
+        echo "::warning file=$f,line=$s,endLine=$e,title=clang-format::.clang-format writes these lines differently (Tests/format_check.sh --fix)"
     done <<<"$hunks"
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         {
-            echo "### clang-format: $count ta bo'lak ($what dan beri o'zgargan qatorlar)"
+            echo "### clang-format: $count hunks (lines changed since $what)"
             echo
             echo '```diff'
             echo "$diff_out" | head -n 400
@@ -151,10 +151,10 @@ if [[ $github -eq 1 ]]; then
         } >>"$GITHUB_STEP_SUMMARY"
     fi
     echo "$diff_out"
-    echo "clang-format: $count ta bo'lak boshqacha formatlanadi (ogohlantirish; tuzatish: Tests/format_check.sh --fix --base <commit>)"
+    echo "clang-format: $count hunks would be formatted differently (a warning; to fix: Tests/format_check.sh --fix --base <commit>)"
     exit 0
 fi
 echo "$diff_out"
 echo
-echo "clang-format: $count ta bo'lak boshqacha formatlanadi ($what dan beri o'zgargan qatorlarda); tuzatish: Tests/format_check.sh --fix${base:+ --base $base}" >&2
+echo "clang-format: $count hunks would be formatted differently (in the lines changed since $what); to fix: Tests/format_check.sh --fix${base:+ --base $base}" >&2
 exit 1

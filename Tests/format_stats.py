@@ -29,14 +29,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXTENSIONS = (".cpp", ".h", ".hpp", ".c", ".cc", ".inl")
 
 KINDS = [
-    ("multi-statement", "bir qatorda bir nechta ifoda (a = 1; b = 2;)"),
-    ("enum", "bir qatorli qisqa enum"),
-    ("list", "bir qatorda bir nechta element (enumerator, ro'yxat) - har biri o'z qatoriga"),
-    ("braced-list", "qo'lda bo'lingan {...} ro'yxatlar"),
-    ("case-align", "case qatorlarini qo'lda tekislash"),
-    ("short-block", "bir qatorli { ...; ...; } bloklar"),
-    ("ternary", "?: zanjirlari"),
-    ("other", "boshqa (qatorlarni bo'lish / tekislash, chekinish)"),
+    ("multi-statement", "several statements on one line (a = 1; b = 2;)"),
+    ("enum", "a short one-line enum"),
+    ("list", "several elements on one line (enumerators, a list) - each onto its own line"),
+    ("braced-list", "{...} lists broken by hand"),
+    ("case-align", "case lines aligned by hand"),
+    ("short-block", "one-line { ...; ...; } blocks"),
+    ("ternary", "?: chains"),
+    ("other", "other (line breaking / alignment, indentation)"),
 ]
 _strings = re.compile(r'"(\\.|[^"\\])*"')
 _multi = re.compile(r';\s*[^\s/}]')
@@ -128,18 +128,18 @@ def main():
 
     version = subprocess.run([args.clang_format, "--version"], capture_output=True, text=True).stdout.strip()
     pct = 100.0 * changed / max(total, 1)
-    print(f".clang-format va mavjud kod ({version})")
-    print(f"  {len(files)} ta fayl, {total} qator: {changed} qator o'zgarardi ({pct:.2f} %), {unchanged} ta fayl o'zgarmasdi")
-    print("\n  O'zgarish turi bo'yicha:")
+    print(f".clang-format and the existing code ({version})")
+    print(f"  {len(files)} files, {total} lines: {changed} lines would change ({pct:.2f} %), {unchanged} files would not change")
+    print("\n  By kind of change:")
     for k, label in KINDS:
         if kinds[k]:
             print(f"    {kinds[k]:6d}  {100.0 * kinds[k] / max(changed, 1):5.1f} %  {k:16s} {label}")
-    print("\n  Modul bo'yicha:")
-    print(f"    {'modul':22s} {'fayl':>5s} {'qator':>7s} {'o`zgarardi':>11s} {'%':>6s} {'o`zgarmas fayl':>15s}")
+    print("\n  By module:")
+    print(f"    {'module':22s} {'files':>5s} {'lines':>7s} {'would change':>12s} {'%':>6s} {'unchanged files':>15s}")
     for name, (nf, nl, nc, nu) in sorted(modules.items(), key=lambda kv: -kv[1][1]):
         print(f"    {name:22s} {nf:5d} {nl:7d} {nc:11d} {100.0 * nc / max(nl, 1):6.2f} {nu:15d}")
     if args.top:
-        print(f"\n  Eng ko'p o'zgaradigan {args.top} ta fayl:")
+        print(f"\n  The {args.top} files that would change most:")
         for path, lines, hunks in sorted(results, key=lambda r: -sum(n for _, n in r[2]))[:args.top]:
             n = sum(c for _, c in hunks)
             if n:
@@ -156,7 +156,7 @@ def main():
                 "Kinds": dict(kinds), "Modules": {k: {"Files": v[0], "Lines": v[1], "Changed": v[2], "UnchangedFiles": v[3]} for k, v in modules.items()},
             }, fh, indent=2)
     if args.max_percent is not None and pct > args.max_percent:
-        print(f"\nXATO: {pct:.2f} % > --max-percent {args.max_percent}", file=sys.stderr)
+        print(f"\nFAIL: {pct:.2f} % > --max-percent {args.max_percent}", file=sys.stderr)
         return 1
     return 0
 

@@ -301,7 +301,7 @@ namespace {
         Result r;
         r.Key = "Physics2D";
         const Run2D a = Simulate2D(o, true), b = Simulate2D(o, true);
-        r.Label = std::format("{}x{} m tilemap maydon, {} dinamik jism, {} motor aktor, 128 snaryad (Box2D)", ArenaW, ArenaH,
+        r.Label = std::format("a {}x{} m tilemap arena, {} dynamic bodies, {} motor actors, 128 projectiles (Box2D)", ArenaW, ArenaH,
                               std::min(o.Bodies2D, 4000), std::min(o.Actors, 64));
         r.Frame = FrameTimeStats::Compute(a.Frame);
         r.Physics = FrameTimeStats::Compute(a.Physics);
@@ -630,7 +630,7 @@ namespace {
         Result r;
         r.Key = "Physics3D";
         const Run3D a = Simulate3D(o, true), b = Simulate3D(o, true);
-        r.Label = std::format("chuqurlik + 65x65 relyef + 0.25 m zinapoya + 35° qiyalik, {} jism, {} Character Controller 3D, 128 sphere cast / kadr (Jolt)",
+        r.Label = std::format("a pit + 65x65 terrain + 0.25 m stairs + a 35° slope, {} bodies, {} Character Controller 3D, 128 sphere casts / frame (Jolt)",
                               std::min(o.Bodies3D, 2048), std::min(o.Actors, 64));
         r.Frame = FrameTimeStats::Compute(a.Frame);
         r.Physics = FrameTimeStats::Compute(a.Physics);
@@ -677,7 +677,7 @@ int RunPhysicsBench(int argc, char** argv)
         else if (!std::strcmp(argv[i], "--json") && i + 1 < argc) jsonFile = argv[++i];
         else
         {
-            std::printf("ZaminBench --physics [--2d | --3d] [--bodies N] [--actors N] [--frames N] [--json <fayl>]\n");
+            std::printf("ZaminBench --physics [--2d | --3d] [--bodies N] [--actors N] [--frames N] [--json <file>]\n");
             return 1;
         }
     }
@@ -687,7 +687,7 @@ int RunPhysicsBench(int argc, char** argv)
     const char* build = "Debug";
 #endif
     Log::SetMinLevel(LogLevel::Warn);
-    std::printf("Zamin fizika stress benchmarki: 60 Hz, %d kadr (+ isinish), har ssenariy ikki marta (determinizm), %s\n\n", o.Frames, build);
+    std::printf("Zamin physics stress benchmark: 60 Hz, %d frames (+ warm-up), every scenario twice (determinism), %s\n\n", o.Frames, build);
     std::vector<Result> results;
     if (o.TwoD) results.push_back(Physics2D(o));
     if (o.ThreeD) results.push_back(Physics3D(o));
@@ -695,20 +695,20 @@ int RunPhysicsBench(int argc, char** argv)
     for (auto& r : results)
     {
         std::printf("%s: %s\n", r.Key.c_str(), r.Label.c_str());
-        std::printf("  kadr (UpdateRuntime): o'rtacha %.3f ms, mediana %.3f, p95 %.3f, eng sekin %.3f ms\n", r.Frame.Average, r.Frame.Median, r.Frame.P95,
+        std::printf("  frame (UpdateRuntime): average %.3f ms, median %.3f, p95 %.3f, slowest %.3f ms\n", r.Frame.Average, r.Frame.Median, r.Frame.P95,
                     r.Frame.Max);
-        std::printf("  fizika qadami (\"Fizika\"): o'rtacha %.3f ms, p95 %.3f ms; ajratishlar: %.1f / kadr\n", r.Physics.Average, r.Physics.P95, r.Allocations);
+        std::printf("  physics step (\"Physics\"): average %.3f ms, p95 %.3f ms; allocations: %.1f / frame\n", r.Physics.Average, r.Physics.P95, r.Allocations);
         if (r.Key == "Physics2D")
-            std::printf("  maydondan chiqqan: %d, NaN: %d, eng katta tezlik %.2f m/s (chegara %.0f), tez: %d; snaryad: %llu otilgan, %llu tekkan\n", r.Escaped,
+            std::printf("  escaped the arena: %d, NaN: %d, top speed %.2f m/s (limit %.0f), too fast: %d; projectiles: %llu fired, %llu hit\n", r.Escaped,
                         r.NonFinite, r.MaxSpeed, SpeedCap2D, r.TooFast, (unsigned long long)r.Fired, (unsigned long long)r.Hits);
         else
-            std::printf("  sphere cast (128): o'rtacha %.3f ms, p95 %.3f ms, tekkan %llu; oyoq-yer orasi eng kam %.3f m (chegara -0.05), botgan: %d, "
-                        "y<-10: %d; yurilgan masofa eng kam %.1f %%, o'rtacha %.1f %% (chegara 80 %%), sekin: %d; chuqurlikdan chiqqan jism: %d, NaN: %d, "
-                        "uxlagan: %d\n",
+            std::printf("  sphere casts (128): average %.3f ms, p95 %.3f ms, hits %llu; smallest foot-ground gap %.3f m (limit -0.05), sunk: %d, "
+                        "y<-10: %d; distance walked at least %.1f %%, average %.1f %% (limit 80 %%), slow: %d; bodies out of the pit: %d, NaN: %d, "
+                        "asleep: %d\n",
                         r.Casts.Average, r.Casts.P95, (unsigned long long)r.CastHits, r.MinClearance, r.Sunk, r.Fell, r.MinProgress * 100.0f,
                         r.MeanProgress * 100.0f, r.Slow, r.Escaped, r.NonFinite, r.Sleeping);
-        std::printf("  determinizm: %016llx %s %016llx; invariantlar: %s\n", (unsigned long long)r.HashA, r.HashA == r.HashB ? "==" : "!=",
-                    (unsigned long long)r.HashB, r.Passed() ? "o'tdi" : "BUZILDI");
+        std::printf("  determinism: %016llx %s %016llx; invariants: %s\n", (unsigned long long)r.HashA, r.HashA == r.HashB ? "==" : "!=",
+                    (unsigned long long)r.HashB, r.Passed() ? "passed" : "BROKEN");
         passed = passed && r.Passed();
     }
     if (jsonFile && *jsonFile)
@@ -739,6 +739,6 @@ int RunPhysicsBench(int argc, char** argv)
         FileSystem::WriteTextFile(jsonFile, out);
         std::printf("\nJSON: %s\n", jsonFile);
     }
-    if (!passed) std::printf("\nFIZIKA STRESS: invariant buzildi\n");
+    if (!passed) std::printf("\nPHYSICS STRESS: an invariant is broken\n");
     return passed ? 0 : 3;
 }

@@ -241,7 +241,7 @@ def main():
     args.build = args.build.resolve()
     args.player = args.build / "bin/ZaminPlayer"
     if not os.access(args.player, os.X_OK):
-        print(f"ZaminPlayer topilmadi: {args.player}", file=sys.stderr)
+        print(f"ZaminPlayer not found: {args.player}", file=sys.stderr)
         return 2
     runner = [] if os.environ.get("DISPLAY") else ["xvfb-run", "-a", "-s", "-screen 0 1600x900x24"]
     out = (args.out or args.build / "SliceBench").resolve()

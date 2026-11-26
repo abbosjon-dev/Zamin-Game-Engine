@@ -61,7 +61,7 @@ def module_of(rel):
     parts = rel.split("/")
     if rel.startswith(ENGINE_PREFIX):
         rest = rel[len(ENGINE_PREFIX):].split("/")
-        return "Zamin/" + (rest[0] if len(rest) > 1 else "(asosiy)")
+        return "Zamin/" + (rest[0] if len(rest) > 1 else "(main)")
     if rel.startswith("Editor/"):
         return "Editor/Panels" if len(parts) > 3 and parts[2] == "Panels" else "Editor"
     if rel.startswith("Runtime/"):
@@ -106,25 +106,25 @@ th{{background:#26303b;color:#fff;font-weight:600}} .num{{text-align:right;font-
 .bar{{width:180px}} .track{{background:#e8ebef;height:10px;border-radius:5px;overflow:hidden}} .fill{{height:10px}}
 tr.total td{{font-weight:700;background:#eef3f8}} code{{font-size:12px}}
 </style></head><body><h1>Zamin Engine - kod qamrovi (gcov)</h1>
-<p>{gcda_count} ta .gcda fayl; vendor kutubxonalari hisobga olinmaydi. Qator: gcov bajariladigan deb belgilagan manba
-qatori (bir marta sanaladi), funksiya: manbadagi bitta funksiya.</p>
+<p>{gcda_count} .gcda files; vendor libraries are not counted. Line: a source line gcov marked as
+executable (counted once), function: one function of the source.</p>
 <div class="cols"><table><tr><th>Modul</th><th>Fayllar</th><th>Qatorlar</th><th colspan=2>Bajarilgan qatorlar</th><th>Funksiyalar</th></tr>
 {"".join(rows)}</table>
-<table><tr><th>Eng ko'p bajarilmagan qatorli fayllar</th><th>Bajarilmagan</th><th colspan=2>Qatorlar</th></tr>{worst_rows}</table></div>
+<table><tr><th>Files with the most lines not executed</th><th>Not executed</th><th colspan=2>Lines</th></tr>{worst_rows}</table></div>
 </body></html>
 """
 
 
 def main():
-    parser = argparse.ArgumentParser(description="gcov ma'lumotlaridan modullar bo'yicha qamrov hisoboti")
-    parser.add_argument("build", help="ZAMIN_COVERAGE=ON build papkasi (.gcda fayllari)")
+    parser = argparse.ArgumentParser(description="A coverage report by module from the gcov data")
+    parser.add_argument("build", help="the ZAMIN_COVERAGE=ON build folder (.gcda files)")
     parser.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), help="repozitoriya ildizi")
-    parser.add_argument("--out", help="hisobot papkasi (standart: <build>/Coverage)")
+    parser.add_argument("--out", help="the report folder (default: <build>/Coverage)")
     parser.add_argument("--gcov", default=os.environ.get("GCOV", "gcov"), help="gcov dasturi (Clang: \"llvm-cov gcov\")")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
-    parser.add_argument("--top", type=int, default=15, help="eng ko'p bajarilmagan qatorli fayllar soni")
-    parser.add_argument("--include-tests", action="store_true", help="testlarning o'z kodi ham hisobotga")
-    parser.add_argument("--min-engine", type=float, default=0.0, help="engine qatorlar qamrovi bundan past bo'lsa chiqish kodi 1")
+    parser.add_argument("--top", type=int, default=15, help="the number of files with the most lines not executed")
+    parser.add_argument("--include-tests", action="store_true", help="the tests' own code goes into the report too")
+    parser.add_argument("--min-engine", type=float, default=0.0, help="exit code 1 when the engine's line coverage is below this")
     args = parser.parse_args()
 
     root = os.path.realpath(args.root)
@@ -132,7 +132,7 @@ def main():
     out = os.path.realpath(args.out or os.path.join(build, "Coverage"))
     gcda = find_gcda(build)
     if not gcda:
-        print(f"{build}: .gcda fayllari yo'q (ZAMIN_COVERAGE=ON build va testlar ishga tushirilganmi?)", file=sys.stderr)
+        print(f"{build}: no .gcda files (was it a ZAMIN_COVERAGE=ON build, and were the tests run?)", file=sys.stderr)
         return 2
 
     # Chunks of files per gcov run (a run per file costs a process each; one run with all of them is not parallel).
@@ -225,23 +225,23 @@ def main():
         return (f"| {name} | {m['Files']} | {m['Lines']} | {m['CoveredLines']} | **{pct(m['CoveredLines'], m['Lines']):.1f} %** | "
                 f"{m['Functions']} | {pct(m['CoveredFunctions'], m['Functions']):.1f} % | {m['UntouchedFiles']} |")
 
-    md = ["# Kod qamrovi (gcov)", "",
-          f"{len(gcda)} ta .gcda fayl, {len(files)} ta manba fayl (vendor kutubxonalar va build papkalari hisobga olinmaydi"
-          f"{'' if args.include_tests else ', testlarning o`z kodi ham'}). "
-          "Qator - gcov bajariladigan deb belgilagan qator; funksiya - manbadagi bitta funksiya (shablon nusxalari birga).", "",
-          "| Modul | Fayllar | Qatorlar | Bajarilgan | Qatorlar % | Funksiyalar | Funksiyalar % | Umuman tegilmagan fayllar |",
+    md = ["# Code coverage (gcov)", "",
+          f"{len(gcda)} .gcda files, {len(files)} source files (vendor libraries and build folders are not counted"
+          f"{'' if args.include_tests else ', nor is the tests` own code'}). "
+          "A line is a line gcov marked as executable; a function is one function of the source (template instances together).", "",
+          "| Module | Files | Lines | Executed | Lines % | Functions | Functions % | Files never touched |",
           "|---|---:|---:|---:|---:|---:|---:|---:|"]
     for name in sorted(modules):
         md.append(row(name, modules[name]))
     md.append("|  |  |  |  |  |  |  |  |")
-    labels = {"Engine": "**Engine (Zamin) jami**", "Editor": "**Editor jami**", "Player": "**Player jami**",
-              "Samples": "**Namuna o'yinlar jami**", "All": "**Hammasi**"}
+    labels = {"Engine": "**Engine (Zamin) total**", "Editor": "**Editor total**", "Player": "**Player total**",
+              "Samples": "**Sample games total**", "All": "**All**"}
     for key, label in labels.items():
         if totals[key]["Files"]:
             md.append(row(label, totals[key]))
     worst = sorted(files.items(), key=lambda kv: kv[1]["Lines"] - kv[1]["CoveredLines"], reverse=True)[:args.top]
-    md += ["", f"## Eng ko'p bajarilmagan qatorli {len(worst)} fayl", "",
-           "| Fayl | Modul | Qatorlar | Bajarilmagan | Qatorlar % |", "|---|---|---:|---:|---:|"]
+    md += ["", f"## The {len(worst)} files with the most lines not executed", "",
+           "| File | Module | Lines | Not executed | Lines % |", "|---|---|---:|---:|---:|"]
     for rel, f in worst:
         md.append(f"| `{rel}` | {f['Module']} | {f['Lines']} | {f['Lines'] - f['CoveredLines']} | {pct(f['CoveredLines'], f['Lines']):.1f} % |")
     text = "\n".join(md) + "\n"
@@ -263,13 +263,13 @@ def main():
     with open(os.path.join(out, "coverage-summary.html"), "w", encoding="utf-8") as fh:
         fh.write(summary_html(modules, totals, labels, worst, len(gcda)))
     print(text)
-    print(f"Hisobot: {os.path.join(out, 'coverage-summary.md')}, {os.path.join(out, 'coverage.json')}")
+    print(f"Report: {os.path.join(out, 'coverage-summary.md')}, {os.path.join(out, 'coverage.json')}")
     if failed:
-        print(f"Diqqat: {failed} ta gcov ishga tushishi xato bilan tugadi", file=sys.stderr)
+        print(f"Warning: {failed} gcov runs failed", file=sys.stderr)
 
     engine = pct(totals["Engine"]["CoveredLines"], totals["Engine"]["Lines"])
     if args.min_engine > 0 and engine < args.min_engine:
-        print(f"Engine qatorlar qamrovi {engine:.1f} % - chegaradan ({args.min_engine:g} %) past", file=sys.stderr)
+        print(f"Engine line coverage {engine:.1f} % - below the limit ({args.min_engine:g} %)", file=sys.stderr)
         return 1
     return 0
 

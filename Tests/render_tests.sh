@@ -33,7 +33,7 @@ if [[ $do_build -eq 1 ]]; then
     cmake --build "$build" --target ZaminRenderTests || exit 2
 fi
 if [[ ! -x "$exe" ]]; then
-    echo "ZaminRenderTests topilmadi: $exe (avval: cmake --build \"$build\" --target ZaminRenderTests yoki --build)" >&2
+    echo "ZaminRenderTests not found: $exe (first: cmake --build \"$build\" --target ZaminRenderTests or --build)" >&2
     exit 2
 fi
 cd "$root"
@@ -41,7 +41,7 @@ export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
 runner=()
 if [[ -z "${DISPLAY:-}" ]]; then
     if ! command -v xvfb-run >/dev/null 2>&1; then
-        echo "Displey yo'q va xvfb-run topilmadi (apt install xvfb)" >&2
+        echo "No display and xvfb-run was not found (apt install xvfb)" >&2
         exit 2
     fi
     runner=(xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp")
@@ -49,7 +49,7 @@ fi
 "${runner[@]}" "$exe" --out "$out" "${args[@]}"
 code=$?
 if [[ -f "$out/summary.md" ]]; then
-    echo "Hisobot: $out/report.json, $out/summary.md"
+    echo "Report: $out/report.json, $out/summary.md"
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         { cat "$out/summary.md"; echo; } >> "$GITHUB_STEP_SUMMARY"
     fi

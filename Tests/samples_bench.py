@@ -107,7 +107,7 @@ def run(game, kind, env_extra, budget, args, runner, out):
         row.update(avg=frame.get("Average"), median=frame.get("Median"), p95=frame.get("P95"), p99=frame.get("P99"),
                    max=frame.get("Max"), update=update.get("Average"), renderer=data.get("Renderer", ""))
     except (OSError, ValueError):
-        row["error"] = "hisobot yo'q"
+        row["error"] = "no report"
     m = re.search(r"Scene \(last frame\): (\d+) objects \((\d+) active\), (\d+) components, (\d+) scripts; most common: (.*)", text)
     if m:
         row.update(entities=int(m.group(1)), active=int(m.group(2)), components=int(m.group(3)), scripts=int(m.group(4)), top=m.group(5))
@@ -144,12 +144,12 @@ def main():
     args.build = os.path.abspath(args.build)
     args.player = os.path.join(args.build, "bin", "ZaminPlayer")
     if not os.access(args.player, os.X_OK):
-        print(f"ZaminPlayer topilmadi: {args.player}", file=sys.stderr)
+        print(f"ZaminPlayer not found: {args.player}", file=sys.stderr)
         return 2
     runner = []
     if not os.environ.get("DISPLAY"):
         if not shutil.which("xvfb-run"):
-            print("Displey yo'q va xvfb-run topilmadi", file=sys.stderr)
+            print("No display and xvfb-run was not found", file=sys.stderr)
             return 2
         runner = ["xvfb-run", "-a", "-s", "-screen 0 1600x900x24"]
     out = os.path.abspath(args.out or os.path.join(args.build, "SampleBench"))
@@ -159,18 +159,18 @@ def main():
     for game, kind, env, budget in SAMPLES:
         if wanted and game.lower() not in wanted:
             continue
-        print(f"[{game}] {args.frames} kadr ({args.warmup} isitish) ...", flush=True)
+        print(f"[{game}] {args.frames} frames ({args.warmup} warm-up) ...", flush=True)
         row = run(game, kind, env, budget, args, runner, out)
         rows.append(row)
-        print(f"  o'rtacha {fmt(row.get('avg'))} ms, p95 {fmt(row.get('p95'))} ms, eng sekin {fmt(row.get('max'), 0)} ms, "
-              f"o'yin kodi {fmt(row.get('game_cpu'), 2)} ms, yangilash {fmt(row.get('update'))} ms, "
+        print(f"  average {fmt(row.get('avg'))} ms, p95 {fmt(row.get('p95'))} ms, slowest {fmt(row.get('max'), 0)} ms, "
+              f"game code {fmt(row.get('game_cpu'), 2)} ms, update {fmt(row.get('update'))} ms, "
               f"{row.get('entities', '-')} obyekt, {row.get('drawcalls', '-')} draw call; {', '.join(row['profile'])}", flush=True)
-    lines = ["| Namuna | Tur | Obyekt (faol) | Draw call | Uchburchak / quad | Kadr o'rtacha | p95 | Eng sekin | FPS | O'yin kodi (CPU) | Byudjet | Eng qimmat qismlar (ms) |",
+    lines = ["| Sample | Kind | Entities (active) | Draw calls | Triangles / quads | Frame average | p95 | Slowest | FPS | Game code (CPU) | Budget | Most expensive parts (ms) |",
              "|---|---|---:|---:|---|---:|---:|---:|---:|---:|---|---|"]
     for r in rows:
         fps = 1000.0 / r["avg"] if isinstance(r.get("avg"), (int, float)) and r["avg"] > 0 else None
         geometry = f"{r.get('triangles', '-')} / {r.get('quads', '-')}"
-        verdict = "XATO" if r.get("error") or r["code"] not in (0,) else ("oshdi" if r["over"] else "OK")
+        verdict = "FAIL" if r.get("error") or r["code"] not in (0,) else ("over" if r["over"] else "OK")
         lines.append(f"| {r['game']} | {r['kind']} | {r.get('entities', '-')} ({r.get('active', '-')}) | {r.get('drawcalls', '-')} | {geometry} | "
                      f"{fmt(r.get('avg'))} ms | {fmt(r.get('p95'))} ms | {fmt(r.get('max'), 0)} ms | {fmt(fps, 0)} | {fmt(r.get('game_cpu'), 2)} ms | "
                      f"{r['budget']:.0f} ms: {verdict} | {', '.join(r['profile'])} |")
@@ -183,9 +183,9 @@ def main():
     failed = [r["game"] for r in rows if r.get("error") or r["code"] != 0]
     over = [r["game"] for r in rows if r["over"]]
     if failed:
-        print(f"\nIshlamadi: {', '.join(failed)} (loglar: {out})")
+        print(f"\nDid not run: {', '.join(failed)} (logs: {out})")
     if over:
-        print(f"\nByudjetdan oshdi: {', '.join(over)}")
+        print(f"\nOver budget: {', '.join(over)}")
     return 1 if failed or (args.check and over) else 0
 
 

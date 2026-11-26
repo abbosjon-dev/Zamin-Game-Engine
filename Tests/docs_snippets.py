@@ -88,7 +88,7 @@ def main():
 
     found = compile_flags(os.path.abspath(args.build))
     if not found:
-        print(f"Hujjat kodlari tekshiruvi o'tkazib yuborildi: {args.build}/compile_commands.json yo'q (avval build qiling)")
+        print(f"The document code check was skipped: no {args.build}/compile_commands.json (build first)")
         return 0
     flags, directory = found
 
@@ -123,9 +123,9 @@ def main():
     failures = 0
     if result.returncode != 0 or "warning:" in result.stderr:
         failures = len(re.findall(r"(?:error|warning):", result.stderr)) or 1
-        print("Hujjatlardagi skript klasslari kompilyatsiya bo'lmadi:")
+        print("The script classes in the documents did not compile:")
         print(result.stderr.strip())
-    print(f"Hujjat kodlari: {total} ta skript klassi, {len(files)} ta fayl, {failures} ta xato")
+    print(f"Document code: {total} script classes, {len(files)} files, {failures} failures")
     return 1 if failures else 0
 
 

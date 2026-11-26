@@ -43,16 +43,16 @@ for project in "${projects[@]}"; do
     if [[ $code -eq 0 ]]; then
         rows+=("| $game | OK | $secs s |")
     else
-        rows+=("| $game | XATO (kod $code) | $secs s |")
+        rows+=("| $game | FAILED (code $code) | $secs s |")
         failed=$((failed + 1))
     fi
 done
 
 {
-    if [[ $failed -eq 0 ]]; then echo "### O'yin build'lari: ${#projects[@]} ta o'yin paketlandi"; else echo "### O'yin build'lari: $failed ta o'yinda xato"; fi
+    if [[ $failed -eq 0 ]]; then echo "### Game builds: ${#projects[@]} games packaged"; else echo "### Game builds: $failed games failed"; fi
     echo
     [[ -f "$out/packages.md" ]] && { cat "$out/packages.md"; echo; }
-    echo "| Loyiha | Eksport testi | Vaqt |"
+    echo "| Project | Export test | Time |"
     echo "|---|---|---|"
     printf '%s\n' "${rows[@]}"
 } >"$out/summary.md"
@@ -60,5 +60,5 @@ done
 echo
 cat "$out/summary.md"
 echo
-echo "Paketlar: $out"
+echo "Packages: $out"
 [[ $failed -eq 0 ]]

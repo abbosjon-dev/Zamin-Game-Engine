@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
         --min-engine) min_engine="$2"; shift 2 ;;
         --compiler) compiler="$2"; shift 2 ;;
         -h|--help) sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "Noma'lum parametr: $1 (--help)" >&2; exit 2 ;;
+        *) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
     esac
 done
 [[ "$build" != /* ]] && build="$PWD/$build"
@@ -72,12 +72,12 @@ if [[ $do_build -eq 1 ]]; then
     code=$?
     grep -E "error|warning|FAILED" "$build/coverage-build.log" | head -n 30
     if [[ $code -ne 0 ]]; then
-        echo "Build xato bilan tugadi (log: $build/coverage-build.log)" >&2
+        echo "The build failed (log: $build/coverage-build.log)" >&2
         exit 2
     fi
 fi
 if [[ ! -x "$build/bin/ZaminTests" ]]; then
-    echo "ZaminTests topilmadi: $build/bin (--no-build siz ishga tushiring)" >&2
+    echo "ZaminTests not found: $build/bin (run without --no-build)" >&2
     exit 2
 fi
 
@@ -94,7 +94,7 @@ if [[ $do_run -eq 1 ]]; then
     code=$?
     tail -n 12 "$out/ZaminTests.log"
     if [[ $code -ne 0 ]]; then
-        echo "ZaminTests yiqildi (chiqish kodi $code, log: $out/ZaminTests.log)"
+        echo "ZaminTests crashed (exit code $code, log: $out/ZaminTests.log)"
         grep -E "FAIL" "$out/ZaminTests.log" | head -n 20
         failures=$((failures + 1))
     fi
@@ -106,23 +106,23 @@ if [[ $do_run -eq 1 ]]; then
         fi
         home="$(mktemp -d)"
         for game in Platformer2D Showcase3D Adventure3D; do
-            echo "== ZaminPlayer $game (coverage, 120 kadr)"
+            echo "== ZaminPlayer $game (coverage, 120 frames)"
             (cd "$root" && HOME="$home" ZAMIN_MAX_FRAMES=120 ZAMIN_SCRIPT_MODULE_DIR="$build/GameModules" \
                 "${runner[@]}" "$build/bin/ZaminPlayer" "Projects/$game") >"$out/Player-$game.log" 2>&1 \
-                || { echo "ZaminPlayer $game yiqildi (log: $out/Player-$game.log)"; failures=$((failures + 1)); }
+                || { echo "ZaminPlayer $game crashed (log: $out/Player-$game.log)"; failures=$((failures + 1)); }
         done
         rm -rf "$home"
-        echo "== Editor smoke testi (coverage)"
+        echo "== Editor smoke test (coverage)"
         if ! ZAMIN_BUILD_DIR="$build" ZAMIN_SCRIPT_MODULE_DIR="$build/GameModules" "$root/Tests/editor_smoke.sh" --out "$out/editor-smoke" \
                 >"$out/EditorSmoke.log" 2>&1; then
-            echo "Editor smoke testi yiqildi (log: $out/EditorSmoke.log)"
+            echo "The editor smoke test crashed (log: $out/EditorSmoke.log)"
             tail -n 20 "$out/EditorSmoke.log"
             failures=$((failures + 1))
         fi
     fi
 fi # do_run
 
-echo "== Hisobot (gcov: $gcov_tool)"
+echo "== Report (gcov: $gcov_tool)"
 report_args=("$build" --root "$root" --out "$out" --gcov "$gcov_tool")
 [[ "$min_engine" != 0 ]] && report_args+=(--min-engine "$min_engine")
 python3 "$root/Tests/coverage_report.py" "${report_args[@]}" || failures=$((failures + 1))
@@ -141,15 +141,15 @@ if [[ $html -eq 1 ]]; then
             --filter "$root/Zamin/src/" --filter "$root/Editor/src/" --filter "$root/Runtime/src/" --filter "$root/Projects/" \
             --exclude '.*/_deps/.*' --gcov-ignore-errors=no_working_dir_found --gcov-ignore-parse-errors=all \
             --html-details "$out/html/index.html" -j 4 >"$out/gcovr.log" 2>&1 \
-            || { echo "gcovr xatosi (log: $out/gcovr.log)"; tail -n 5 "$out/gcovr.log"; }
+            || { echo "gcovr failed (log: $out/gcovr.log)"; tail -n 5 "$out/gcovr.log"; }
     else
-        echo "gcovr o'rnatilmagan (pipx install gcovr): HTML hisobot yo'q, Markdown / JSON hisobot bor"
+        echo "gcovr is not installed (pipx install gcovr): no HTML report, the Markdown / JSON report is there"
     fi
 fi
 
 if [[ $clean -eq 1 ]]; then
     rm -rf "$build"
-    echo "Build papkasi o'chirildi: $build"
+    echo "The build folder was removed: $build"
 fi
-echo "Hisobot: $out/coverage-summary.md"
+echo "Report: $out/coverage-summary.md"
 [[ $failures -eq 0 ]] && exit 0 || exit 1

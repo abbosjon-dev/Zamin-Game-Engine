@@ -47,17 +47,17 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 if [[ ! "$shot_frames" =~ ^[1-9][0-9]{0,4}$ ]]; then
-    echo "--shot-frames: musbat butun son kerak (1..99999)" >&2
+    echo "--shot-frames: a positive integer is required (1..99999)" >&2
     exit 2
 fi
 if [[ ! -x "$editor" || ! -x "$build/bin/ZaminPlayer" ]]; then
-    echo "ZaminEditor / ZaminPlayer topilmadi: $build/bin (avval: cmake --build \"$build\")" >&2
+    echo "ZaminEditor / ZaminPlayer not found: $build/bin (first: cmake --build \"$build\")" >&2
     exit 2
 fi
 project="$(cd "$project" && pwd)"
 project_file="$(ls "$project"/*.zproject 2>/dev/null | head -n 1)"
 if [[ -z "$project_file" ]]; then
-    echo "Loyiha fayli topilmadi: $project/*.zproject" >&2
+    echo "Project file not found: $project/*.zproject" >&2
     exit 2
 fi
 # The game's name (the launcher is <Name>.sh) and product name from the project file.
@@ -78,40 +78,40 @@ if [[ -z "${DISPLAY:-}" ]]; then
     if command -v xvfb-run >/dev/null 2>&1; then
         runner=(xvfb-run -a -s "-screen 0 1600x900x24")
     else
-        echo "Displey yo'q va xvfb-run topilmadi" >&2
+        echo "No display and xvfb-run was not found" >&2
         exit 2
     fi
 fi
 
 failures=0
 pass() { echo "  [OK]   $1"; }
-fail() { echo "  [XATO] $1"; failures=$((failures + 1)); }
+fail() { echo "  [FAIL] $1"; failures=$((failures + 1)); }
 # A log's error lines ("[12:00:00] ERROR APP: ...", CRITICAL).
 log_errors() { grep -E '^\[[^]]*\] (ERROR|CRITICAL) ' "$1" 2>/dev/null; }
 
-echo "Eksport testi: $name ($product) -> $export_dir"
+echo "Export test: $name ($product) -> $export_dir"
 
 # 1. The export (the editor's automation hooks run in its 5th frame; it waits for the export there, then closes).
 start=$(date +%s)
 HOME="$work/home" ZAMIN_EDITOR_EXPORT="$export_dir" ZAMIN_MAX_FRAMES=8 "${runner[@]}" "$editor" "$project" >"$work/editor.log" 2>&1
 code=$?
-echo "  eksport: $(( $(date +%s) - start )) s (log: $work/editor.log)"
-if [[ $code -eq 0 ]]; then pass "editor eksportni tugatdi (chiqish kodi 0)"; else fail "editor chiqish kodi $code"; fi
+echo "  export: $(( $(date +%s) - start )) s (log: $work/editor.log)"
+if [[ $code -eq 0 ]]; then pass "the editor finished the export (exit code 0)"; else fail "editor exit code $code"; fi
 report="$export_dir/export-report.json"
 if [[ ! -f "$report" ]]; then
-    fail "export-report.json yozilmadi"
+    fail "export-report.json was not written"
 elif grep -q '"Succeeded": *true' "$report"; then
-    pass "export-report.json: muvaffaqiyatli ($(grep -c . "$export_dir/export-report.txt" 2>/dev/null || echo 0) qatorli hisobot)"
+    pass "export-report.json: success (a report of $(grep -c . "$export_dir/export-report.txt" 2>/dev/null || echo 0) lines)"
 else
     fail "export-report.json: with errors - $(grep -A3 '"Errors"' "$report" | tr -d '\n' | head -c 300)"
 fi
 if grep -q "Export: .*export incomplete" "$work/editor.log"; then
-    fail "eksport papkasi to'liq emas: $(grep "export incomplete" "$work/editor.log" | head -n 3 | tr '\n' ' ')"
+    fail "the export folder is incomplete: $(grep "export incomplete" "$work/editor.log" | head -n 3 | tr '\n' ' ')"
 fi
 launcher="$export_dir/$name.sh"
 if [[ ! -x "$launcher" ]]; then
-    fail "ishga tushirish skripti yo'q: $launcher"
-    echo "Natija: $failures ta xato (papka: $work)"
+    fail "no launcher script: $launcher"
+    echo "Result: $failures failures (folder: $work)"
     exit 1
 fi
 
@@ -121,7 +121,7 @@ code=$?
 if [[ $code -eq 0 && "$version" == *"$product"* && "$version" == *"Zamin Engine"* ]]; then
     pass "--version: $(echo "$version" | head -n 2 | tr '\n' ' ')"
 else
-    fail "--version (kod $code): $version"
+    fail "--version (code $code): $version"
 fi
 
 # 3. The game runs: its start scene, timed (exit code 0), a log without errors.
@@ -131,27 +131,27 @@ start=$(date +%s)
 HOME="$work/home" "${runner[@]}" "$launcher" --benchmark "$frames" --benchmark-warmup 10 --benchmark-out "$bench" --log-file "$player_log" \
     --windowed --resolution 1280x720 >"$work/player-stdout.log" 2>&1
 code=$?
-echo "  o'yin: $(( $(date +%s) - start )) s (log: $player_log)"
-if [[ $code -eq 0 ]]; then pass "eksport qilingan o'yin $frames kadr ishladi (chiqish kodi 0)"; else fail "o'yin chiqish kodi $code"; fi
+echo "  game: $(( $(date +%s) - start )) s (log: $player_log)"
+if [[ $code -eq 0 ]]; then pass "the exported game ran $frames frames (exit code 0)"; else fail "game exit code $code"; fi
 if [[ -f "$bench" ]] && grep -q "\"Count\": $frames" "$bench"; then
     avg="$(awk '/"Frame": \{/ { f = 1; next } f && /"Average":/ { gsub(/,/, "", $2); print $2; exit }' "$bench")"
-    pass "ishlash testi: $frames kadr, o'rtacha $avg ms"
+    pass "benchmark: $frames frames, average $avg ms"
 else
-    fail "ishlash testi natijasi yo'q yoki to'liq emas: $bench"
+    fail "the benchmark result is missing or incomplete: $bench"
 fi
 if [[ ! -s "$player_log" ]]; then
-    fail "o'yin logi yozilmadi: $player_log"
+    fail "the game log was not written: $player_log"
 else
     errors="$(log_errors "$player_log")"
-    if [[ -z "$errors" ]]; then pass "o'yin logida xato yo'q ($(wc -l <"$player_log") qator)"; else fail "o'yin logida xatolar:"; echo "$errors" | head -n 10 | sed 's/^/           /'; fi
+    if [[ -z "$errors" ]]; then pass "no errors in the game log ($(wc -l <"$player_log") lines)"; else fail "errors in the game log:"; echo "$errors" | head -n 10 | sed 's/^/           /'; fi
     if [[ $has_module -eq 1 ]]; then
         if grep -q "Script module loaded" "$player_log"; then
             pass "$(grep -o "Script module loaded.*" "$player_log" | head -n 1)"
         else
-            fail "skript moduli yuklanmadi"
+            fail "the script module was not loaded"
         fi
     fi
-    if grep -q "Scene load time\|Benchmark: " "$player_log"; then pass "boshlang'ich sahna yuklandi"; else fail "boshlang'ich sahna yuklanmadi"; fi
+    if grep -q "Scene load time\|Benchmark: " "$player_log"; then pass "the start scene was loaded"; else fail "the start scene was not loaded"; fi
 fi
 
 # 4. Headless again, its last frame saved: the picture shows the game (not a black or empty window).
@@ -160,28 +160,28 @@ rm -f "$shot"
 HOME="$work/home" ZAMIN_MAX_FRAMES="$shot_frames" ZAMIN_SCREENSHOT="$shot" "${runner[@]}" "$launcher" --windowed --resolution 1280x720 \
     --log-file "$work/player-shot.log" >"$work/player-shot-stdout.log" 2>&1
 code=$?
-if [[ $code -eq 0 ]]; then pass "eksport qilingan o'yin skrinshot bilan ishladi (chiqish kodi 0)"; else fail "skrinshotli ishga tushirish: chiqish kodi $code"; fi
+if [[ $code -eq 0 ]]; then pass "the exported game ran with a screenshot (exit code 0)"; else fail "the screenshot run: exit code $code"; fi
 if [[ ! -f "$shot" ]]; then
-    fail "skrinshot yozilmadi: $shot"
+    fail "the screenshot was not written: $shot"
 elif check="$(python3 "$root/Tests/png_check.py" "$shot" --size 1280x720 --min-colors 32 --min-stddev 4 2>&1)"; then
-    pass "skrinshot: $(echo "$check" | head -n 1 | sed 's|^.*: ||')"
+    pass "screenshot: $(echo "$check" | head -n 1 | sed 's|^.*: ||')"
 else
-    fail "skrinshot: $(echo "$check" | tr '\n' ' ')"
+    fail "screenshot: $(echo "$check" | tr '\n' ' ')"
 fi
 errors="$(log_errors "$work/player-shot.log")"
-[[ -n "$errors" ]] && { fail "skrinshotli ishga tushirish logida xatolar:"; echo "$errors" | head -n 5 | sed 's/^/           /'; }
+[[ -n "$errors" ]] && { fail "errors in the log of the screenshot run:"; echo "$errors" | head -n 5 | sed 's/^/           /'; }
 
 # 5. Moved elsewhere, it still starts (the launcher finds its files next to itself).
 mv "$export_dir" "$work/moved"
 version="$(HOME="$work/home" "$work/moved/$name.sh" --version 2>&1)"
-if [[ $? -eq 0 && "$version" == *"$product"* ]]; then pass "boshqa papkaga ko'chirilgandan keyin ham ishga tushadi"; else fail "ko'chirilgan papkadan ishga tushmadi: $version"; fi
+if [[ $? -eq 0 && "$version" == *"$product"* ]]; then pass "starts after being moved to another folder too"; else fail "did not start from the moved folder: $version"; fi
 # (Desktop entries take only absolute icon paths: the launcher pointed the entry next to it at the icon here.)
 desktop="$work/moved/$name.desktop"
 if grep -q '^Icon=' "$desktop" 2>/dev/null; then
     if grep -qxF "Icon=$work/moved/$name.png" "$desktop"; then
-        pass "ko'chirilgan papkada .desktop ikonkasi yangi joyni ko'rsatadi"
+        pass "in the moved folder the .desktop icon points to the new location"
     else
-        fail ".desktop ikonkasi yangi joyni ko'rsatmaydi: $(grep '^Icon=' "$desktop")"
+        fail "the .desktop icon does not point to the new location: $(grep '^Icon=' "$desktop")"
     fi
 fi
 mv "$work/moved" "$export_dir"
@@ -190,7 +190,7 @@ mv "$work/moved" "$export_dir"
 if [[ -n "$out" ]]; then
     mkdir -p "$out"
     cp -f "$work"/*.log "$work/game.png" "$bench" "$export_dir/export-report.json" "$export_dir/export-report.txt" "$out/" 2>/dev/null
-    echo "  natijalar: $out"
+    echo "  results: $out"
 fi
 
 # The tested export as a player build (CI artefact): a tar.gz keeps the files' executable bits, which an artefact's
@@ -207,7 +207,7 @@ if [[ -n "$package" && $failures -eq 0 ]]; then
     code=$?
     mv "$work/package/$name" "$export_dir"
     if [[ $code -ne 0 ]]; then
-        fail "paket yaratilmadi: $package/$archive"
+        fail "the package was not created: $package/$archive"
     else
         (cd "$package" && sha256sum "$archive" >"$archive.sha256")
         files="$(tar -tzf "$package/$archive" | grep -vc '/$')"
@@ -216,11 +216,11 @@ if [[ -n "$package" && $failures -eq 0 ]]; then
         tar -C "$work/unpacked" -xzf "$package/$archive"
         version="$(HOME="$work/home" "$work/unpacked/$name/$name.sh" --version 2>&1)"
         if [[ $? -eq 0 && "$version" == *"$product"* ]]; then
-            pass "paket: $archive ($size, $files fayl) - ochilgandan keyin ishga tushadi"
-            [[ -f "$package/packages.md" ]] || printf '| O%syin | Versiya | Paket | Hajmi | Fayllar | SHA-256 |\n|---|---|---|---|---|---|\n' "'" >"$package/packages.md"
+            pass "package: $archive ($size, $files files) - starts after being unpacked"
+            [[ -f "$package/packages.md" ]] || printf '| Game | Version | Package | Size | Files | SHA-256 |\n|---|---|---|---|---|---|\n' >"$package/packages.md"
             echo "| $product | $game_version | \`$archive\` | $size | $files | \`$(cut -c1-16 "$package/$archive.sha256")\` |" >>"$package/packages.md"
         else
-            fail "paket ochilgandan keyin ishga tushmadi: $version"
+            fail "did not start after the package was unpacked: $version"
             rm -f "$package/$archive" "$package/$archive.sha256"
         fi
         rm -rf "$work/unpacked"
@@ -229,9 +229,9 @@ fi
 
 echo
 if [[ $failures -eq 0 ]]; then
-    echo "Eksport testi: hammasi o'tdi"
-    [[ $keep -eq 1 ]] && echo "Papka: $work" || rm -rf "$work"
+    echo "Export test: all passed"
+    [[ $keep -eq 1 ]] && echo "Folder: $work" || rm -rf "$work"
     exit 0
 fi
-echo "Eksport testi: $failures ta xato (papka saqlandi: $work)"
+echo "Export test: $failures failures (folder kept: $work)"
 exit 1

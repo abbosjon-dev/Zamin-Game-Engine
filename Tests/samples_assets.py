@@ -102,7 +102,7 @@ def wav_stats(path):
         channels, width, rate, frames = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
         data = w.readframes(frames)
     if width != 2:
-        raise ValueError(f"{8 * width}-bit (16-bit kerak)")
+        raise ValueError(f"{8 * width}-bit (16-bit is required)")
     count = len(data) // 2
     samples = struct.unpack(f"<{count}h", data[:count * 2]) if count else ()
     peak = max((abs(s) for s in samples), default=0) / 32768.0
@@ -120,13 +120,13 @@ def check_game(game, verbose):
     generator = generator_of(game)
     # 1. generator
     if not os.path.exists(generator):
-        problem(game, f"generator yo'q: {rel(generator, ROOT)}")
+        problem(game, f"no generator: {rel(generator, ROOT)}")
     else:
         with open(generator, encoding="utf-8") as f:
             if f'NAME = "{game}"' not in f.read():
-                problem(game, f"{rel(generator, ROOT)} bu loyihani yozmaydi (NAME = \"{game}\" yo'q)")
+                problem(game, f"{rel(generator, ROOT)} does not write this project (no NAME = \"{game}\")")
     if not os.path.isdir(assets):
-        problem(game, "Assets/ papkasi yo'q")
+        problem(game, "no Assets/ folder")
         return {}
 
     files = asset_files(assets)
@@ -145,28 +145,28 @@ def check_game(game, verbose):
         by_kind[ext][0] += 1
         by_kind[ext][1] += size
         if ext in limits and size > limits[ext]:
-            problem(game, f"{rel(p, assets)} {size // 1024} KB - {ext} uchun chegara {limits[ext] // 1024} KB")
+            problem(game, f"{rel(p, assets)} {size // 1024} KB - the limit for {ext} is {limits[ext] // 1024} KB")
     # 3. meta
     uuids = {}
     for p in data_files:
         meta = p + ".zmeta"
         if not os.path.exists(meta) and not rel(p, assets).startswith("Localization/"):
-            problem(game, f"{rel(p, assets)}: .zmeta yo'q")
+            problem(game, f"{rel(p, assets)}: no .zmeta")
     for meta in metas:
         if not os.path.exists(meta[:-len(".zmeta")]):
-            problem(game, f"{rel(meta, assets)}: asseti yo'q")
+            problem(game, f"{rel(meta, assets)}: its asset is missing")
             continue
         try:
             with open(meta, encoding="utf-8") as f:
                 m = json.load(f)
         except (OSError, ValueError) as e:
-            problem(game, f"{rel(meta, assets)}: o'qilmadi ({e})")
+            problem(game, f"{rel(meta, assets)}: could not be read ({e})")
             continue
         uuid = str(m.get("UUID", ""))
         if not re.fullmatch(r"[0-9a-f]{16}", uuid) or not m.get("Type"):
-            problem(game, f"{rel(meta, assets)}: UUID yoki Type noto'g'ri")
+            problem(game, f"{rel(meta, assets)}: wrong UUID or Type")
         elif uuid in uuids:
-            problem(game, f"{rel(meta, assets)}: UUID {uuid} takrorlanadi ({uuids[uuid]})")
+            problem(game, f"{rel(meta, assets)}: UUID {uuid} is repeated ({uuids[uuid]})")
         else:
             uuids[uuid] = rel(meta, assets)
     # 4. pictures, 5. sounds
@@ -177,24 +177,24 @@ def check_game(game, verbose):
         if ext == ".png":
             size = png_size(p)
             if not size:
-                problem(game, f"{name}: PNG emas")
+                problem(game, f"{name}: not a PNG")
             elif max(size) > MAX_PICTURE_SIDE:
-                problem(game, f"{name}: {size[0]}x{size[1]} - eng ko'pi {MAX_PICTURE_SIDE} px")
+                problem(game, f"{name}: {size[0]}x{size[1]} - at most {MAX_PICTURE_SIDE} px")
         elif ext == ".wav":
             try:
                 channels, rate, seconds, peak = wav_stats(p)
             except (OSError, ValueError, wave.Error, struct.error) as e:
-                problem(game, f"{name}: WAV o'qilmadi ({e})")
+                problem(game, f"{name}: the WAV could not be read ({e})")
                 continue
             sound_seconds += seconds
             if channels not in (1, 2) or not 11025 <= rate <= 48000:
                 problem(game, f"{name}: {channels} kanal, {rate} Hz")
             if seconds > MAX_SOUND_SECONDS:
-                problem(game, f"{name}: {seconds:.1f} s - eng ko'pi {MAX_SOUND_SECONDS:.0f} s")
+                problem(game, f"{name}: {seconds:.1f} s - at most {MAX_SOUND_SECONDS:.0f} s")
             if peak < 0.05:
-                problem(game, f"{name}: deyarli jim (cho'qqi {peak:.3f})")
+                problem(game, f"{name}: almost silent (peak {peak:.3f})")
             elif peak >= 0.999:
-                problem(game, f"{name}: kesilgan (cho'qqi {peak:.3f})")
+                problem(game, f"{name}: clipped (peak {peak:.3f})")
     # 6. references
     referenced = set()
     texts = []
@@ -217,7 +217,7 @@ def check_game(game, verbose):
                 continue  # an Export.AlwaysInclude pattern, not a file
             referenced.add(target)
             if not os.path.exists(os.path.join(assets, target)):
-                problem(game, f"{where} {target} ga ishora qiladi - fayl yo'q")
+                problem(game, f"{where} points to {target} - no such file")
     # Sfx("name") / PlaySound(std::format("Audio/{}.wav", name)): every lower-case string literal of a script that
     # uses that pattern which is a sound's name counts as a use.
     sound_names = {os.path.splitext(rel(p, assets))[0][len("Audio/"):] for p in data_files if rel(p, assets).startswith("Audio/")}
@@ -228,7 +228,7 @@ def check_game(game, verbose):
             referenced.add(f"Audio/{name}.wav")
         for m in re.finditer(r'Sfx\("([a-z0-9_]+)"', text):
             if m.group(1) not in sound_names:
-                problem(game, f"{where}: Sfx(\"{m.group(1)}\") - Audio/{m.group(1)}.wav yo'q")
+                problem(game, f"{where}: Sfx(\"{m.group(1)}\") - Audio/{m.group(1)}.wav is missing")
     used_kinds = ("Audio/", "Textures/", "Models/", "Animations/", "Materials/", "Scripts/") if graph else ("Audio/", "Textures/")
     for p in data_files:
         name = rel(p, assets)
@@ -242,23 +242,23 @@ def check_game(game, verbose):
     patterns = export.get("AlwaysInclude", []) if export.get("ExcludeUnusedAssets", True) else ["*"]
     for target in sorted(referenced - literal):
         if target.startswith("Audio/") and not any(export_includes(target, pat) for pat in patterns):
-            problem(game, f"{target}: skript uni nomi bilan chaqiradi (Sfx), lekin eksport uni olmaydi - loyihaning "
-                          f"Export.AlwaysInclude'iga qo'shing (masalan \"Audio/*.wav\")")
+            problem(game, f"{target}: a script calls it by name (Sfx) but the export does not take it - add it to the project's "
+                          f"Export.AlwaysInclude (for example \"Audio/*.wav\")")
     # 8. input (graph mode: what the graphs read; the language tables; no test data in the assets)
     if graph:
         n_actions, n_axes, n_vectors = check_graph_input(game, project, assets, texts)
         check_languages(game, assets, texts, project)
         for p in data_files:
             if re.search(r"oracle|\btest", rel(p, assets), re.IGNORECASE):
-                problem(game, f"{rel(p, assets)}: test ma'lumoti Assets/ ichida (eksport uni o'yin bilan birga tarqatadi) - Tests/ ga")
+                problem(game, f"{rel(p, assets)}: test data inside Assets/ (the export ships it with the game) - move it to Tests/")
         if not os.path.exists(os.path.join(project, "Tests", "oracle.json")):
-            problem(game, "Tests/oracle.json (headless oracle) yo'q")
+            problem(game, "no Tests/oracle.json (the headless oracle)")
     else:
         n_actions, n_axes, n_vectors = check_input(game, project, sources, assets)
     if verbose:
-        kinds = ", ".join(f"{ext or '-'} {n} ta {size / 1024:.0f} KB" for ext, (n, size) in sorted(by_kind.items()))
-        print(f"  {game:15} {total / 1048576:.2f} MiB ({kinds}); ovozlar {sound_seconds:.1f} s; input: {n_actions} harakat, "
-              f"{n_axes} o'q, {n_vectors} vektor")
+        kinds = ", ".join(f"{ext or '-'} {n} x {size / 1024:.0f} KB" for ext, (n, size) in sorted(by_kind.items()))
+        print(f"  {game:15} {total / 1048576:.2f} MiB ({kinds}); sounds {sound_seconds:.1f} s; input: {n_actions} actions, "
+              f"{n_axes} axes, {n_vectors} vectors")
     return {"files": len(data_files), "bytes": total, "sound_seconds": round(sound_seconds, 1)}
 
 
@@ -289,13 +289,13 @@ def check_graph_input(game, project, assets, texts):
     for name, bindings in actions.items():
         devices = {binding_device(b) for b in bindings}
         if "kb" not in devices:
-            problem(game, f"input: '{name}' harakatida klaviatura / sichqoncha bog'lanishi yo'q")
+            problem(game, f"input: action '{name}' has no keyboard / mouse binding")
         if "pad" not in devices:
-            problem(game, f"input: '{name}' harakatida gamepad bog'lanishi yo'q")
+            problem(game, f"input: action '{name}' has no gamepad binding")
     for name, axis in axes.items():
         sides = axis.get("Negative", []) + axis.get("Positive", [])
         if "pad" not in {binding_device(b) for b in sides} and not axis.get("GamepadAxis"):
-            problem(game, f"input: '{name}' o'qida gamepad stigi ham, tugmasi ham yo'q")
+            problem(game, f"input: axis '{name}' has neither a gamepad stick nor a button")
     read = {}
     for where, node in graph_nodes(texts):
         kind, ins = node.get("Kind", ""), node.get("Inputs", {})
@@ -313,10 +313,10 @@ def check_graph_input(game, project, assets, texts):
     known = set(actions) | set(axes) | set(vectors)
     for name, where in sorted(read.items()):
         if name not in known:
-            problem(game, f"{where}: '{name}' o'qiladi - input xaritasida yo'q")
+            problem(game, f"{where}: '{name}' is read - it is not in the input map")
     used = set(read) | {vectors[v][k] for v in read if v in vectors for k in ("X", "Y")}
     for name in sorted(known - used - {"ToggleFullscreen"}):
-        problem(game, f"input: '{name}' xaritada bor, lekin graflar uni o'qimaydi")
+        problem(game, f"input: '{name}' is in the map but no graph reads it")
     return len(actions), len(axes), len(vectors)
 
 
@@ -326,14 +326,14 @@ def check_languages(game, assets, texts, project):
     for lang in ("uz", "en"):
         path = os.path.join(assets, "Localization", f"{lang}.json")
         if not os.path.exists(path):
-            problem(game, f"Localization/{lang}.json yo'q")
+            problem(game, f"Localization/{lang}.json is missing")
             return
         with open(path, encoding="utf-8") as f:
             tables[lang] = json.load(f)
     for a, b in (("uz", "en"), ("en", "uz")):
         missing = sorted(k for k in tables[a] if k not in tables[b] and not k.startswith("$"))
         for key in missing[:12]:
-            problem(game, f"Localization/{b}.json: '{key}' kaliti yo'q ({a}.json da bor)")
+            problem(game, f"Localization/{b}.json: key '{key}' is missing ({a}.json has it)")
     with open(os.path.join(project, f"{game}.zproject"), encoding="utf-8") as f:
         inputs = json.load(f).get("InputActions", {})
     names = {x["Name"] for k in ("Actions", "Axes", "Vectors") for x in inputs.get(k, [])}
@@ -343,7 +343,7 @@ def check_languages(game, assets, texts, project):
             if token.startswith(("kb:", "pad:")):
                 continue
             if token.split("|", 1)[0] not in names:
-                problem(game, f"{where}: [{token}] input xaritasida yo'q")
+                problem(game, f"{where}: [{token}] is not in the input map")
     for lang, table in tables.items():
         for key, text in table.items():
             if isinstance(text, str) and not key.startswith("input."):
@@ -357,14 +357,14 @@ def check_languages(game, assets, texts, project):
                     continue
                 key = t.get("LocalizationKey", "")
                 if key and not all(key in tables[lang] for lang in tables):
-                    problem(game, f"{where} '{e.get('Tag')}': '{key}' kaliti tillar jadvalida yo'q")
+                    problem(game, f"{where} '{e.get('Tag')}': key '{key}' is not in the language tables")
                 if t.get("InputHints"):
                     hints(f"{where} '{e.get('Tag')}'", t.get("Text", ""))
     for where, node in graph_nodes(texts):
         if node.get("Kind") == "Localization.Text":
             key = node.get("Inputs", {}).get("Key", "")
             if key and not all(key in tables[lang] for lang in tables):
-                problem(game, f"{where} node {node.get('ID')}: Localization.Text '{key}' kaliti tillar jadvalida yo'q")
+                problem(game, f"{where} node {node.get('ID')}: Localization.Text key '{key}' is not in the language tables")
 
 
 def export_includes(path, pattern):
@@ -389,24 +389,24 @@ def check_input(game, project, sources, assets):
     axes = {a["Name"]: a for a in inputs.get("Axes", [])}
     vectors = {v["Name"]: v for v in inputs.get("Vectors", [])}
     if not actions:
-        problem(game, "input xaritasida harakat yo'q")
+        problem(game, "the input map has no actions")
     for name, bindings in actions.items():
         devices = {binding_device(b) for b in bindings}
         if "kb" not in devices:
-            problem(game, f"input: '{name}' harakatida klaviatura / sichqoncha bog'lanishi yo'q")
+            problem(game, f"input: action '{name}' has no keyboard / mouse binding")
         if "pad" not in devices:
-            problem(game, f"input: '{name}' harakatida gamepad bog'lanishi yo'q")
+            problem(game, f"input: action '{name}' has no gamepad binding")
     for name, axis in axes.items():
         sides = axis.get("Negative", []) + axis.get("Positive", [])
         devices = {binding_device(b) for b in sides}
         if "pad" not in devices and not axis.get("GamepadAxis"):
-            problem(game, f"input: '{name}' o'qida gamepad stigi ham, tugmasi ham yo'q")
+            problem(game, f"input: axis '{name}' has neither a gamepad stick nor a button")
         if "kb" not in devices and name not in MOUSE_AXES.get(game, set()):
-            problem(game, f"input: '{name}' o'qida klaviatura tugmasi yo'q")
+            problem(game, f"input: axis '{name}' has no keyboard key")
     for name, vector in vectors.items():
         for key in ("X", "Y"):
             if vector.get(key) not in axes:
-                problem(game, f"input: '{name}' vektorining {key} o'qi ('{vector.get(key)}') xaritada yo'q")
+                problem(game, f"input: the {key} axis ('{vector.get(key)}') of vector '{name}' is not in the map")
     read = set()
     for where, text in sources:
         for m in re.finditer(r'Input::(IsAction\w*|GetAxis2D|GetAxis|GetVector)\("([^"]+)"', text):
@@ -414,13 +414,13 @@ def check_input(game, project, sources, assets):
             read.add(name)
             known = actions if kind.startswith("IsAction") else axes if kind == "GetAxis" else vectors if kind == "GetVector" else axes
             if name not in known:
-                problem(game, f"{where}: Input::{kind}(\"{name}\") - xaritada bunday nom yo'q")
+                problem(game, f"{where}: Input::{kind}(\"{name}\") - no such name in the map")
         for m in re.finditer(r'Input::(IsKey\w*|IsGamepad\w*|GetGamepadAxis|IsAnyKeyJustPressed)\(', text):
-            problem(game, f"{where}: Input::{m.group(1)} - skript tugmani to'g'ridan-to'g'ri o'qiydi (input xaritasidagi harakatdan foydalaning)")
+            problem(game, f"{where}: Input::{m.group(1)} - the script reads a key directly (use an action of the input map)")
     used_axes = read | {vectors[v][k] for v in read if v in vectors for k in ("X", "Y")}
     for name in list(actions) + list(axes) + list(vectors):
         if name not in read and name not in used_axes:
-            problem(game, f"input: '{name}' xaritada bor, lekin skriptlar uni o'qimaydi")
+            problem(game, f"input: '{name}' is in the map but no script reads it")
     # The main menu's controls hint: "[Name]" of the map only (a typo would show as it is), in every language.
     names = set(actions) | set(axes) | set(vectors)
     for lang in ("uz", "en"):
@@ -430,12 +430,12 @@ def check_input(game, project, sources, assets):
         with open(path, encoding="utf-8") as f:
             controls = json.load(f).get("menu", {}).get("controls", "")
         if not controls:
-            problem(game, f"Localization/{lang}.json: menu.controls (boshqaruv ishorasi) yo'q")
+            problem(game, f"Localization/{lang}.json: menu.controls (the controls hint) is missing")
         for token in re.findall(r"\[([^\]]*)\]", controls):
             if token.startswith(("kb:", "pad:")):
                 continue
             if token.split("|", 1)[0] not in names:
-                problem(game, f"Localization/{lang}.json: menu.controls dagi [{token}] input xaritasida yo'q")
+                problem(game, f"Localization/{lang}.json: [{token}] in menu.controls is not in the input map")
     return len(actions), len(axes), len(vectors)
 
 
@@ -447,7 +447,7 @@ def regen(game):
         env = dict(os.environ, ZAMIN_SAMPLES_OUT=out, PYTHONDONTWRITEBYTECODE="1")
         result = subprocess.run([sys.executable, generator], env=env, capture_output=True, text=True)
         if result.returncode != 0:
-            problem(game, f"generator xato bilan tugadi: {(result.stderr or result.stdout).strip().splitlines()[-1:]}")
+            problem(game, f"the generator failed: {(result.stderr or result.stdout).strip().splitlines()[-1:]}")
             return
         made = os.path.join(out, game)
         written = set()
@@ -458,15 +458,15 @@ def regen(game):
                 written.add(name)
                 committed = os.path.join(project, name)
                 if not os.path.exists(committed):
-                    problem(game, f"generator {name} ni yozadi, repozitoriyda yo'q")
+                    problem(game, f"the generator writes {name}, the repository does not have it")
                     continue
                 with open(path, "rb") as a, open(committed, "rb") as b:
                     if a.read() != b.read():
-                        problem(game, f"{name} generator chiqargani bilan bir xil emas (Tools/samples/gen_{game.lower()}.py ni qayta ishga tushiring)")
+                        problem(game, f"{name} differs from what the generator writes (run Tools/samples/gen_{game.lower()}.py again)")
         for path in asset_files(os.path.join(project, "Assets")):
             name = rel(path, project)
             if name not in written:
-                problem(game, f"{name} generatordan emas (qo'lda qo'shilgan yoki eskirgan fayl)")
+                problem(game, f"{name} does not come from the generator (a file added by hand or a stale one)")
 
 
 def main():
@@ -478,14 +478,14 @@ def main():
     every = GAMES + list(GRAPH_GAMES)
     games = [g for g in every if not args.game or g.lower() in {a.lower() for a in args.game}]
     if not games:
-        print(f"Noma'lum o'yin: {', '.join(args.game)} (bor: {', '.join(every)})", file=sys.stderr)
+        print(f"Unknown game: {', '.join(args.game)} (available: {', '.join(every)})", file=sys.stderr)
         return 2
     regen_ok = args.regen
     if args.regen:
         try:
             import numpy  # noqa: F401
         except ImportError:
-            print("numpy yo'q - generatorlar ishga tushirilmaydi (--regen o'tkazib yuborildi)")
+            print("no numpy - the generators are not run (--regen was skipped)")
             regen_ok = False
     summary = {}
     for game in games:
@@ -495,9 +495,9 @@ def main():
     for p in problems:
         print(p)
     total = sum(s.get("bytes", 0) for s in summary.values())
-    print(f"Namuna assetlari: {len(games)} ta o'yin, {sum(s.get('files', 0) for s in summary.values())} ta fayl, "
-          f"{total / 1048576:.1f} MiB{', generatorlar bilan solishtirildi' if regen_ok else ''} - "
-          + ("muammo yo'q" if not problems else f"{len(problems)} ta muammo"))
+    print(f"Sample assets: {len(games)} games, {sum(s.get('files', 0) for s in summary.values())} files, "
+          f"{total / 1048576:.1f} MiB{', compared with the generators' if regen_ok else ''} - "
+          + ("no problems" if not problems else f"{len(problems)} problems"))
     return 1 if problems else 0
 
 

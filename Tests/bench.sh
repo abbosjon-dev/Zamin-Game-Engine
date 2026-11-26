@@ -40,16 +40,16 @@ while [[ $# -gt 0 ]]; do
         --tolerance) tolerance="$2"; shift 2 ;;
         --repeat) repeat="$2"; shift 2 ;;
         -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "Noma'lum parametr: $1 (--help)" >&2; exit 2 ;;
+        *) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
     esac
 done
 [[ "$out" != /* ]] && out="$PWD/$out"
 if ! [[ "$repeat" =~ ^[1-9][0-9]*$ ]]; then
-    echo "--repeat: musbat butun son kerak ($repeat)" >&2
+    echo "--repeat: a positive integer is required ($repeat)" >&2
     exit 2
 fi
 if [[ ! -x "$bench" ]]; then
-    echo "ZaminBench topilmadi: $bench (avval: cmake --build \"$build\" --target ZaminBench)" >&2
+    echo "ZaminBench not found: $bench (first: cmake --build \"$build\" --target ZaminBench)" >&2
     exit 2
 fi
 mkdir -p "$out" || exit 2
@@ -67,7 +67,7 @@ bench_once() # json, log, ZaminBench arguments... - 0 when it ran and wrote its 
     local code=${PIPESTATUS[0]}
     grep -vE '^\[[0-9:]+\] (ZAMIN|APP): ' "$log"
     if [[ $code -ne 0 || ! -f "$json" ]]; then
-        echo "ishlamadi (chiqish kodi $code)"
+        echo "did not run (exit code $code)"
         return 1
     fi
     return 0
@@ -80,7 +80,7 @@ run() # name, ZaminBench arguments...
     echo "== $name: ZaminBench $*"
     rm -f "$out/$name".run*.json
     if ! bench_once "$json" "$log" "$@"; then
-        echo "$name: ishlamadi"
+        echo "$name: did not run"
         failures=$((failures + 1))
         return
     fi
@@ -88,10 +88,10 @@ run() # name, ZaminBench arguments...
     type="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["Build"].lower())' "$json")"
     local baseline="$baselines/$name-$type.json"
     if [[ $update -eq 1 ]]; then
-        mkdir -p "$baselines" && cp "$json" "$baseline" && echo "Boshlang'ich natija yangilandi: ${baseline#$root/}"
+        mkdir -p "$baselines" && cp "$json" "$baseline" && echo "Baseline updated: ${baseline#$root/}"
     elif [[ $compare -eq 1 ]]; then
         if [[ ! -f "$baseline" ]]; then
-            echo "$name: boshlang'ich natija yo'q (${baseline#$root/}; --update-baseline bilan yarating)"
+            echo "$name: no baseline (${baseline#$root/}; create it with --update-baseline)"
         else
             # Slower than the baseline in this run: run again (up to --repeat runs) - it counts when it is
             # slower in every run (each number's best run is compared).
@@ -104,7 +104,7 @@ run() # name, ZaminBench arguments...
                 [[ $attempt -ge $repeat ]] && break
                 attempt=$((attempt + 1))
                 echo
-                echo "== $name: sekinroq ko'rindi - yana bir marta ($attempt/$repeat), har raqamning eng yaxshisi solishtiriladi"
+                echo "== $name: looked slower - once more ($attempt/$repeat), the best of every number is compared"
                 local again="$out/$name.run$attempt.json"
                 bench_once "$again" "$out/$name.run$attempt.txt" "$@" >/dev/null || break
                 runs+=("$again")
@@ -125,8 +125,8 @@ for name in "${names[@]}"; do
         physics) run physics --physics ;;
         animation) run animation --animation ;;
         slicestress) run slicestress --slice-stress ;;
-        *) echo "Noma'lum benchmark: $name (ecs, serialize, prefabs, combat, physics, animation, slicestress)" >&2; exit 2 ;;
+        *) echo "unknown benchmark: $name (ecs, serialize, prefabs, combat, physics, animation, slicestress)" >&2; exit 2 ;;
     esac
 done
-echo "Natijalar: $out"
+echo "Results: $out"
 [[ $failures -eq 0 ]] && exit 0 || exit 1

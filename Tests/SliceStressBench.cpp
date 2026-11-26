@@ -141,14 +141,14 @@ namespace {
         const auto prior = Project::GetActive();
         if (!Project::Load(manifest))
         {
-            r.Error = "loyiha yuklanmadi";
+            r.Error = "the project could not be loaded";
             return r;
         }
         auto scene = CreateRef<Scene>();
         const auto file = Project::GetAssetDirectory() / (twoD ? "Scenes/Orchards.zscene" : "Scenes/Pass.zscene");
         if (!SceneSerializer(scene).Deserialize(file))
         {
-            r.Error = "sahna yuklanmadi";
+            r.Error = "the scene could not be loaded";
             return r;
         }
         Entity hero = scene->GetEntityByUUID(UUID(HeroID));
@@ -159,7 +159,7 @@ namespace {
         const int existing = (int)Enemies(*scene, nullptr).size();
         if (melee.empty())
         {
-            r.Error = "yaqin jang dushmani topilmadi";
+            r.Error = "no melee enemy was found";
             return r;
         }
         const int clones = twoD ? std::max(0, 32 - existing) : std::max(0, 24 - (int)melee.size());
@@ -309,9 +309,9 @@ namespace {
             if (brain && h && h->Dead && (brain->Brain.Mode == G::BrainMode::Chase || brain->Brain.Mode == G::BrainMode::Attack)) r.Inconsistent++;
         }
         r.Animators = (int)scene->GetAnimationStats().Animators;
-        r.Label = twoD ? std::format("Orchards: {} dushman ({} AI miyasi, chegara 32), 200 quti, 64 tagacha snaryad, {} qo'shimcha sprite Animator, {} Light 2D", r.Enemies,
+        r.Label = twoD ? std::format("Orchards: {} enemies ({} AI brains, limit 32), 200 crates, up to 64 projectiles, {} extra sprite Animators, {} Light 2D", r.Enemies,
                                      r.Brains, sprites.size(), r.Lights)
-                       : std::format("Pass: {} dushman ({} AI miyasi; 24 qorovul), qahramon, 64 tagacha snaryad, 200 jism (Jolt)", r.Enemies, r.Brains);
+                       : std::format("Pass: {} enemies ({} AI brains; 24 guards), the hero, up to 64 projectiles, 200 bodies (Jolt)", r.Enemies, r.Brains);
         scene->OnRuntimeStop();
         scene.reset();
         for (const auto& path : models) Model::ReleaseIfUnused(path);
@@ -336,7 +336,7 @@ int RunSliceStressBench(int argc, char** argv)
         else if (!std::strcmp(argv[i], "--json") && i + 1 < argc) jsonFile = argv[++i];
         else
         {
-            std::printf("ZaminBench --slice-stress [--2d | --3d] [--frames N] [--json <fayl>]\n");
+            std::printf("ZaminBench --slice-stress [--2d | --3d] [--frames N] [--json <file>]\n");
             return 1;
         }
     }
@@ -347,7 +347,7 @@ int RunSliceStressBench(int argc, char** argv)
 #endif
     Log::SetMinLevel(LogLevel::Warn);
     Log::SetTerminalOutput(false);
-    std::printf("Zamin slice stress benchmarki: o'yin kodi (Scene::UpdateRuntime, chizishsiz) har kadr, 60 Hz, %d kadr (+90 isinish), %s\n\n", frames, build);
+    std::printf("Zamin slice stress benchmark: game code (Scene::UpdateRuntime, no drawing) every frame, 60 Hz, %d frames (+90 warm-up), %s\n\n", frames, build);
     std::vector<Result> results;
     if (twoD) results.push_back(Run(true, frames));
     if (threeD) results.push_back(Run(false, frames));
@@ -357,11 +357,11 @@ int RunSliceStressBench(int argc, char** argv)
         std::printf("%s: %s\n", r.Key.c_str(), r.Error.empty() ? r.Label.c_str() : r.Error.c_str());
         if (r.Error.empty())
         {
-            std::printf("  o'yin kodi: o'rtacha %.3f ms, mediana %.3f, p95 %.3f, eng sekin %.3f ms / kadr\n", r.Frame.Average, r.Frame.Median, r.Frame.P95, r.Frame.Max);
-            std::printf("  uchayotgan snaryad o'rtacha %.1f (eng ko'p %zu); AI miyasi %d (tirik %d); Animator %d; graf xatosi %d, taqiqlangan xabar %d, "
-                        "nomuvofiq miya %d; invariantlar: %s\n",
+            std::printf("  game code: average %.3f ms, median %.3f, p95 %.3f, slowest %.3f ms / frame\n", r.Frame.Average, r.Frame.Median, r.Frame.P95, r.Frame.Max);
+            std::printf("  projectiles in flight on average %.1f (at most %zu); AI brains %d (alive %d); Animators %d; graph errors %d, forbidden messages %d, "
+                        "inconsistent brains %d; invariants: %s\n",
                         r.LiveProjectiles, r.MaxProjectiles, r.Brains, r.BrainsAlive, r.Animators, r.GraphErrors, r.BadMessages, r.Inconsistent,
-                        r.Passed() ? "o'tdi" : "BUZILDI");
+                        r.Passed() ? "passed" : "BROKEN");
         }
         passed = passed && r.Passed();
     }
@@ -389,6 +389,6 @@ int RunSliceStressBench(int argc, char** argv)
         FileSystem::WriteTextFile(jsonFile, out);
         std::printf("\nJSON: %s\n", jsonFile);
     }
-    if (!passed) std::printf("\nSLICE STRESS: invariant buzildi\n");
+    if (!passed) std::printf("\nSLICE STRESS: an invariant is broken\n");
     return passed ? 0 : 3;
 }

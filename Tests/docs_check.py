@@ -136,30 +136,30 @@ def check_links():
             path, _, anchor = target.partition("#")
             dest = md if not path else os.path.normpath(os.path.join(os.path.dirname(md), path))
             if path and not os.path.exists(dest):
-                problem(f"{rel(md)}: havola topilmadi: {target}")
+                problem(f"{rel(md)}: link target not found: {target}")
                 continue
             if anchor and dest.endswith(".md") and os.path.isfile(dest) and anchor not in anchors(dest):
-                problem(f"{rel(md)}: '{rel(dest)}' da '#{anchor}' sarlavhasi yo'q")
-    notes.append(f"havolalar: {count} ta, {len(markdown_files())} ta Markdown fayl")
+                problem(f"{rel(md)}: '{rel(dest)}' has no heading '#{anchor}'")
+    notes.append(f"links: {count}, {len(markdown_files())} Markdown files")
 
 
 # ------------------------------------------------------------------ 2. components
 def check_components():
     doc_path = os.path.join(ROOT, "docs", "Components.md")
     if not os.path.exists(doc_path):
-        problem("docs/Components.md yo'q")
+        problem("docs/Components.md is missing")
         return
     names, blocks = docs_components.generate()
     doc = read(doc_path)
     new, missing = docs_components.apply(doc, blocks)
     for name in missing:
-        problem(f"docs/Components.md: {name} hujjatlanmagan (bo'lim va <!-- gen:{name} --> bloki yo'q)")
+        problem(f"docs/Components.md: {name} is not documented (no section and no <!-- gen:{name} --> block)")
     for name in names:
         if not re.search(r"^###\s+" + re.escape(name) + r"\s*$", doc, re.M):
-            problem(f"docs/Components.md: '### {name}' sarlavhasi yo'q")
+            problem(f"docs/Components.md: no '### {name}' heading")
     if not missing and new != doc:
-        problem("docs/Components.md: yaratilgan bloklar eskirgan - Tests/docs_components.py --update docs/Components.md")
-    notes.append(f"komponentlar: {len(names)} ta")
+        problem("docs/Components.md: the generated blocks are stale - Tests/docs_components.py --update docs/Components.md")
+    notes.append(f"components: {len(names)}")
 
 
 # ------------------------------------------------------------------ 3. scripting API
@@ -187,16 +187,16 @@ def public_script_functions():
 def check_scripting():
     doc_path = os.path.join(ROOT, "docs", "Scripting.md")
     if not os.path.exists(doc_path):
-        problem("docs/Scripting.md yo'q")
+        problem("docs/Scripting.md is missing")
         return
     doc = read(doc_path)
     names = public_script_functions()
     if len(names) < 100:
-        problem(f"ScriptableEntity.h: ommaviy funksiyalar ro'yxati o'qilmadi ({len(names)} ta)")
+        problem(f"ScriptableEntity.h: the list of public functions could not be read ({len(names)})")
     for name in names:
         if not re.search(r"(?<![\w])" + re.escape(name) + r"(?![\w])", doc):
-            problem(f"docs/Scripting.md: ScriptableEntity::{name} tilga olinmagan")
-    notes.append(f"ScriptableEntity: {len(names)} ta ommaviy funksiya")
+            problem(f"docs/Scripting.md: ScriptableEntity::{name} is not mentioned")
+    notes.append(f"ScriptableEntity: {len(names)} public functions")
 
 
 # ------------------------------------------------------------------ 4. player command line
@@ -204,7 +204,7 @@ def check_player_flags():
     source = read(os.path.join(ROOT, "Zamin", "src", "Zamin", "Project", "PlayerLaunch.cpp"))
     a = source.find("std::string PlayerCommandLine::GetHelpText")
     if a < 0:
-        problem("PlayerLaunch.cpp: PlayerCommandLine::GetHelpText topilmadi")
+        problem("PlayerLaunch.cpp: PlayerCommandLine::GetHelpText not found")
         return
     b = source.find("\n    }\n", a)
     flags = sorted(set(re.findall(r"(?<![\w-])(--[a-z][a-z0-9-]*|-[hv])\b", source[a:b])))
@@ -212,8 +212,8 @@ def check_player_flags():
     text = "\n".join(read(p) for p in docs if os.path.exists(p))
     for flag in flags:
         if not re.search(r"(?<![\w-])" + re.escape(flag) + r"(?![\w-])", text):
-            problem(f"player variantining hujjati yo'q: {flag} (docs/Runtime.md yoki docs/BuildAndExport.md)")
-    notes.append(f"player variantlari: {len(flags)} ta")
+            problem(f"a player option is not documented: {flag} (docs/Runtime.md or docs/BuildAndExport.md)")
+    notes.append(f"player options: {len(flags)}")
 
 
 # ------------------------------------------------------------------ 5. quoted messages
@@ -256,8 +256,8 @@ def check_faq_messages():
         pattern += re.escape(message[pos:])
         rx = re.compile(pattern)
         if not any(rx.search(s) for s in strings):
-            problem(f"docs/FAQ.md:{lineno}: xabar manba kodda topilmadi: {message}")
-    notes.append(f"FAQ xabarlari: {count} ta")
+            problem(f"docs/FAQ.md:{lineno}: message not found in the source code: {message}")
+    notes.append(f"FAQ messages: {count}")
 
 
 # ------------------------------------------------------------------ 6. build options
@@ -278,14 +278,14 @@ def check_build_options():
                 options.append(name)
     for name in options:
         if not re.search(r"(?<![\w])" + re.escape(name) + r"(?![\w])", doc):
-            problem(f"docs/BuildAndExport.md: CMake varianti hujjatlanmagan: {name}")
+            problem(f"docs/BuildAndExport.md: a CMake option is not documented: {name}")
     version = re.search(r"project\(\s*Zamin\s+VERSION\s+([0-9.]+)", read(os.path.join(ROOT, "CMakeLists.txt")))
     doxyfile = os.path.join(ROOT, "Doxyfile")
     if os.path.exists(doxyfile) and version:
         number = re.search(r"^PROJECT_NUMBER\s*=\s*(\S+)", read(doxyfile), re.M)
         if not number or number.group(1) != version.group(1):
-            problem(f"Doxyfile: PROJECT_NUMBER ({number.group(1) if number else '-'}) dvigatel versiyasi emas ({version.group(1)})")
-    notes.append(f"CMake variantlari: {len(options)} ta")
+            problem(f"Doxyfile: PROJECT_NUMBER ({number.group(1) if number else '-'}) is not the engine's version ({version.group(1)})")
+    notes.append(f"CMake options: {len(options)}")
 
 
 # ------------------------------------------------------------------ 7. unit test catalogue
@@ -293,12 +293,12 @@ def check_test_catalog():
     doc_path = os.path.join(ROOT, "docs", "Testing.md")
     text = read(doc_path)
     if test_catalog.BEGIN not in text:
-        problem("docs/Testing.md: unit testlar katalogi belgilari yo'q")
+        problem("docs/Testing.md: the unit test catalog markers are missing")
         return
     sections = test_catalog.catalogue()
     if test_catalog.replace_block(text, test_catalog.markdown(sections)) != text:
-        problem("docs/Testing.md: unit testlar ro'yxati eskirgan - Tests/test_catalog.py --update docs/Testing.md")
-    notes.append(f"unit testlar katalogi: {sum(len(n) for _, n in sections)} ta test")
+        problem("docs/Testing.md: the unit test list is stale - Tests/test_catalog.py --update docs/Testing.md")
+    notes.append(f"unit test catalog: {sum(len(n) for _, n in sections)} tests")
 
 
 # ------------------------------------------------------------------ 8. changelog
@@ -313,7 +313,7 @@ def check_changelog():
 def check_index():
     index_path = os.path.join(ROOT, "docs", "README.md")
     if not os.path.exists(index_path):
-        problem("docs/README.md (hujjatlar indeksi) yo'q")
+        problem("docs/README.md (the documentation index) is missing")
         return
     text = strip_code(read(index_path))
     linked = set()
@@ -326,8 +326,8 @@ def check_index():
     wanted += [os.path.join(ROOT, n) for n in ("CONTRIBUTING.md", "CHANGELOG.md") if os.path.exists(os.path.join(ROOT, n))]
     for path in wanted:
         if os.path.normpath(path) not in linked:
-            problem(f"docs/README.md: {rel(path)} indeksda yo'q")
-    notes.append(f"indeks: {len(wanted)} ta hujjat")
+            problem(f"docs/README.md: {rel(path)} is not in the index")
+    notes.append(f"index: {len(wanted)} documents")
 
 
 # ------------------------------------------------------------------ 10. images
@@ -374,15 +374,15 @@ def check_images():
         size = os.path.getsize(path)
         total += size
         if os.path.normpath(path) not in used:
-            problem(f"docs/images/{name}: hech bir hujjatda ishlatilmagan")
+            problem(f"docs/images/{name}: is not used by any document")
         if size > MAX_IMAGE_BYTES:
-            problem(f"docs/images/{name}: {size // 1024} KB - {MAX_IMAGE_BYTES // 1024} KB dan katta (siqing yoki JPG qiling)")
+            problem(f"docs/images/{name}: {size // 1024} KB - larger than {MAX_IMAGE_BYTES // 1024} KB (compress it or make it a JPG)")
         width = image_width(path)
         if width is None:
-            problem(f"docs/images/{name}: PNG yoki JPEG emas")
+            problem(f"docs/images/{name}: is not a PNG or a JPEG")
         elif width > MAX_IMAGE_WIDTH:
-            problem(f"docs/images/{name}: kengligi {width} px - {MAX_IMAGE_WIDTH} px dan katta")
-    notes.append(f"rasmlar: {len(names)} ta, {total // 1024} KB")
+            problem(f"docs/images/{name}: is {width} px wide - wider than {MAX_IMAGE_WIDTH} px")
+    notes.append(f"pictures: {len(names)}, {total // 1024} KB")
 
 
 def main():
@@ -404,7 +404,7 @@ def main():
     if args.verbose or not problems:
         for n in notes:
             print(n)
-    print(f"Hujjatlar tekshiruvi: {len(problems)} muammo")
+    print(f"Documentation check: {len(problems)} problems")
     return 1 if problems else 0
 
 

@@ -49,7 +49,7 @@ def strip_comments_keep_lines(text):
 def all_components(text):
     m = re.search(r"using\s+AllComponents\s*=\s*ComponentGroup<(.*?)>;", text, re.S)
     if not m:
-        raise SystemExit("Components.h: AllComponents topilmadi")
+        raise SystemExit("Components.h: AllComponents not found")
     return [n.strip() for n in m.group(1).split(",") if n.strip()]
 
 
@@ -426,22 +426,22 @@ def main():
     doc = read(path)
     new, missing = apply(doc, blocks)
     for name in missing:
-        print(f"{path}: {name} uchun bo'lim yo'q (<!-- gen:{name} --> ... <!-- /gen:{name} -->)", file=sys.stderr)
+        print(f"{path}: no section for {name} (<!-- gen:{name} --> ... <!-- /gen:{name} -->)", file=sys.stderr)
     if args.update:
         if new != doc:
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(new)
-            print(f"{path}: yangilandi ({len(names)} komponent)")
+            print(f"{path}: updated ({len(names)} components)")
         else:
-            print(f"{path}: o'zgarish yo'q")
+            print(f"{path}: no change")
         return 1 if missing else 0
     if new != doc:
-        print(f"{path}: yaratilgan bloklar eskirgan - Tests/docs_components.py --update {os.path.relpath(path, ROOT)}",
+        print(f"{path}: the generated blocks are stale - Tests/docs_components.py --update {os.path.relpath(path, ROOT)}",
               file=sys.stderr)
         return 1
     if missing:
         return 1
-    print(f"{path}: {len(names)} komponent, bloklar yangi")
+    print(f"{path}: {len(names)} components, the blocks are up to date")
     return 0
 
 

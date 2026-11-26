@@ -107,7 +107,7 @@ namespace {
             Entity p = source->CreateEntity(parts[i]);
             p.GetComponent<TransformComponent>().Translation = { (float)(i % 4) * 0.2f - 0.3f, (float)(i / 4) * 0.25f, 0.0f };
             if (std::string_view(parts[i]) == "Label")
-                p.AddComponent<TextComponent>().Text = "Dushman";
+                p.AddComponent<TextComponent>().Text = "Enemy";
             else if (std::string_view(parts[i]) == "HitBox" || std::string_view(parts[i]) == "Sensor")
                 p.AddComponent<BoxCollider2DComponent>().IsSensor = true;
             else
@@ -175,7 +175,7 @@ namespace {
         const size_t entities = EntityCount(*scene);
         std::printf("\n%s: %d nusxa, %zu obyekt (prefab: %s)\n", name, instances, entities, prefab.c_str());
         const std::string k = name;
-        report.Add(k + ".Place", "Bog'langan nusxalarni qo'yish (InstantiateLinked)", placeMs);
+        report.Add(k + ".Place", "Placing linked instances (InstantiateLinked)", placeMs);
 
         // ---- 1. save / load, linked against unlinked
         Ref<Scene> unlinked = Scene::Copy(scene);
@@ -191,16 +191,16 @@ namespace {
         const double binarySavePlain = Median(3, [&]() { plainBinary = SceneSerializer(unlinked).SerializeToBinary(); });
         const double binaryLoadLinked = Median(3, [&]() { SceneSerializer(CreateRef<Scene>()).DeserializeFromBinary(linkedBinary); });
         const double binaryLoadPlain = Median(3, [&]() { SceneSerializer(CreateRef<Scene>()).DeserializeFromBinary(plainBinary); });
-        report.Add(k + ".SaveJsonLinked", "Saqlash JSON: bog'langan", saveLinked);
-        report.Add(k + ".SaveJsonPlain", "Saqlash JSON: bog'lanmagan", savePlain);
-        report.Add(k + ".LoadJsonLinked", "Yuklash JSON: bog'langan", loadLinked);
-        report.Add(k + ".LoadJsonPlain", "Yuklash JSON: bog'lanmagan", loadPlain);
-        report.Add(k + ".LoadOverhead", "  bog'lanishlar yuklashga qo'shgani", (loadLinked / std::max(loadPlain, 1e-6) - 1.0) * 100.0, "%", 5.0);
-        report.Add(k + ".SaveBinaryLinked", "Saqlash binar: bog'langan", binarySaveLinked);
-        report.Add(k + ".SaveBinaryPlain", "Saqlash binar: bog'lanmagan", binarySavePlain);
-        report.Add(k + ".LoadBinaryLinked", "Yuklash binar: bog'langan", binaryLoadLinked);
-        report.Add(k + ".LoadBinaryPlain", "Yuklash binar: bog'lanmagan", binaryLoadPlain);
-        report.Add(k + ".LinkBytes", std::format("Bog'lanish baytlari ({:.1f} MB matnda)", (double)linkedText.size() / (1024.0 * 1024.0)),
+        report.Add(k + ".SaveJsonLinked", "Save JSON: linked", saveLinked);
+        report.Add(k + ".SaveJsonPlain", "Save JSON: unlinked", savePlain);
+        report.Add(k + ".LoadJsonLinked", "Load JSON: linked", loadLinked);
+        report.Add(k + ".LoadJsonPlain", "Load JSON: unlinked", loadPlain);
+        report.Add(k + ".LoadOverhead", "  what the links add to loading", (loadLinked / std::max(loadPlain, 1e-6) - 1.0) * 100.0, "%", 5.0);
+        report.Add(k + ".SaveBinaryLinked", "Save binary: linked", binarySaveLinked);
+        report.Add(k + ".SaveBinaryPlain", "Save binary: unlinked", binarySavePlain);
+        report.Add(k + ".LoadBinaryLinked", "Load binary: linked", binaryLoadLinked);
+        report.Add(k + ".LoadBinaryPlain", "Load binary: unlinked", binaryLoadPlain);
+        report.Add(k + ".LinkBytes", std::format("Link bytes (in {:.1f} MB of text)", (double)linkedText.size() / (1024.0 * 1024.0)),
                    (double)(linkedText.size() - std::min(linkedText.size(), plainText.size())) * 100.0 / (double)std::max<size_t>(1, linkedText.size()),
                    "%", 10.0);
 
@@ -227,19 +227,19 @@ namespace {
                     SceneSerializer::DeserializeEntities(*s, text, options);
                 }
             });
-            report.Add(k + ".EntitiesPerSecondOld", "DeserializeEntities (eski chaqiruv): obyekt/s", (double)made / (oldMs / 1000.0), "obj/s");
-            report.Add(k + ".EntitiesPerSecondReport", "DeserializeEntities (hisobot bilan): obyekt/s", (double)made / (reportMs / 1000.0), "obj/s");
+            report.Add(k + ".EntitiesPerSecondOld", "DeserializeEntities (the old call): entities/s", (double)made / (oldMs / 1000.0), "obj/s");
+            report.Add(k + ".EntitiesPerSecondReport", "DeserializeEntities (with a report): entities/s", (double)made / (reportMs / 1000.0), "obj/s");
         }
 
         // ---- 3. SyncScene: everything up to date (the hash fast path), then after the prefab changed
         PrefabUtility::SyncScene(*scene, db);
         const double fastPath = Median(5, [&]() { PrefabUtility::SyncScene(*scene, db); });
-        report.Add(k + ".SyncFastPath", "SyncScene: hammasi yangi (hash tez yo'li)", fastPath, "ms", instances >= 1000 ? 5.0 : 0.0);
+        report.Add(k + ".SyncFastPath", "SyncScene: everything up to date (the hash fast path)", fastPath, "ms", instances >= 1000 ? 5.0 : 0.0);
         {
             const auto clockForced = Clock::now();
             PrefabUtility::SyncResult forced = PrefabUtility::SyncScene(*scene, db, nullptr, true);
             const double forcedMs = Ms(clockForced);
-            report.Add(k + ".SyncForced", std::format("SyncScene: majburiy qayta sinxron ({} nusxa)", forced.Instances), forcedMs, "ms",
+            report.Add(k + ".SyncForced", std::format("SyncScene: forced resync ({} instances)", forced.Instances), forcedMs, "ms",
                        entities >= 20000 ? 300.0 : 0.0);
         }
 
@@ -252,7 +252,7 @@ namespace {
             report.Add(k + ".RecordOne", std::format("RecordOverrides: bitta nusxa ({} obyekt)", PrefabUtility::GetMembers(one).size()), recordOne, "ms");
             report.Add(k + ".RecordPerEntity", "  bitta obyektga", recordOne / (double)std::max<size_t>(1, PrefabUtility::GetMembers(one).size()), "ms", 0.2);
             const double recordAll = Median(3, [&]() { PrefabUtility::RecordOverrides(*scene, {}, true, db); });
-            report.Add(k + ".RecordAll", "RecordOverrides: hamma nusxalar", recordAll);
+            report.Add(k + ".RecordAll", "RecordOverrides: all instances", recordAll);
         }
 
         // ---- 5. Apply that reaches every instance
@@ -265,7 +265,7 @@ namespace {
             const auto clockApply = Clock::now();
             PrefabApplyResult applied = PrefabUtility::Apply(target, PrefabScope::Field, "Transform/Scale", db);
             const double applyMs = Ms(clockApply);
-            report.Add(k + ".ApplyPropagate", std::format("Apply (qiymat) -> {} ta boshqa nusxa yangilandi", applied.InstancesSynced), applyMs);
+            report.Add(k + ".ApplyPropagate", std::format("Apply (a value) -> {} other instances updated", applied.InstancesSynced), applyMs);
         }
 
         // ---- 6. linking old instances (only the prefab named)
@@ -275,12 +275,12 @@ namespace {
                 legacy->GetRegistry().remove<PrefabLinkComponent>(e);
             const auto clockLegacy = Clock::now();
             const size_t linked = PrefabUtility::LinkLegacyInstances(*legacy, db);
-            report.Add(k + ".LegacyLink", std::format("Eski nusxalarni bog'lash ({} ta)", linked), Ms(clockLegacy));
+            report.Add(k + ".LegacyLink", std::format("Linking legacy instances ({})", linked), Ms(clockLegacy));
         }
 
         // ---- 7. Scene::Copy (play mode) with the links
-        report.Add(k + ".CopyLinked", "Scene::Copy (o'yin rejimi): bog'langan", Median(3, [&]() { Scene::Copy(scene); }));
-        report.Add(k + ".CopyPlain", "Scene::Copy (o'yin rejimi): bog'lanmagan", Median(3, [&]() { Scene::Copy(unlinked); }));
+        report.Add(k + ".CopyLinked", "Scene::Copy (play mode): linked", Median(3, [&]() { Scene::Copy(scene); }));
+        report.Add(k + ".CopyPlain", "Scene::Copy (play mode): unlinked", Median(3, [&]() { Scene::Copy(unlinked); }));
 
         // ---- 8. Instantiate(path): the file read every time against PrefabCache
         {
@@ -310,8 +310,8 @@ namespace {
                 }
             });
             const PrefabCache::Stats stats = PrefabCache::GetStats();
-            report.Add(k + ".InstantiateUncached", "Instantiate(path) x1000: har safar o'qib", uncached);
-            report.Add(k + ".InstantiateCached", std::format("Instantiate(path) x1000: PrefabCache ({} o'qish)", stats.Reads), cached);
+            report.Add(k + ".InstantiateUncached", "Instantiate(path) x1000: reading every time", uncached);
+            report.Add(k + ".InstantiateCached", std::format("Instantiate(path) x1000: PrefabCache ({} reads)", stats.Reads), cached);
         }
 
         // ---- 9. PrefabExport::Prepare (419): the checks of an export and the scene's copy written
@@ -332,7 +332,7 @@ namespace {
                 PrefabExportResult prepared;
                 const double prepareMs = Median(3, [&]() { prepared = PrefabExport::Prepare(plan, db, &index); });
                 report.Add(k + ".ExportPrepare",
-                           std::format("PrefabExport::Prepare (419): {} prefab, {} nusxa fayl", prepared.PrefabsChecked, prepared.Baked.size()),
+                           std::format("PrefabExport::Prepare (419): {} prefabs, {} baked files", prepared.PrefabsChecked, prepared.Baked.size()),
                            prepareMs);
             }
             std::error_code ec;
@@ -351,7 +351,7 @@ int RunPrefabBench(int instances, const char* jsonFile)
 #else
     const char* build = "Debug";
 #endif
-    std::printf("Zamin prefab benchmark (%s): bog'langan nusxalar, %d ta sintetik 20 obyektli prefab nusxasi\n", build, instances);
+    std::printf("Zamin prefab benchmark (%s): linked instances, %d instances of a synthetic 20-entity prefab\n", build, instances);
     TempDirectory temp("zamin-prefab-bench");
     const fs::path assets = temp.GetPath();
     Report report;
@@ -359,7 +359,7 @@ int RunPrefabBench(int instances, const char* jsonFile)
         PrefabDatabase db(assets);
         if (!MakeSyntheticPrefabs(assets, db))
         {
-            std::printf("Sintetik prefab yaratilmadi\n");
+            std::printf("The synthetic prefab could not be created\n");
             return 1;
         }
     }

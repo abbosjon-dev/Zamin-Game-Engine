@@ -2,7 +2,7 @@
 """Start-up time of the editor and the player (task 495): each program opens a project and shows one frame
 (ZAMIN_MAX_FRAMES=1) a few times; the table has the median of
 
-  * "birinchi kadr" - the engine's own measurement (StartupTimer): from the moment the engine library was loaded
+  * "first frame" - the engine's own measurement (StartupTimer): from the moment the engine library was loaded
     to the first frame's swap, with its parts (engine: window, GL context, renderer, audio; layers: project,
     scene, editor panels; the first frame itself). A build without StartupTimer (older) has none: "-".
   * "jarayon" - the whole process as seen from outside: exec -> exit after that frame (the shutdown included),
@@ -77,11 +77,11 @@ def main():
     cases = [tuple(c.split(":", 1)) for c in args.case] if args.case else CASES
     for program, _ in cases:
         if not os.access(os.path.join(args.bin, program), os.X_OK):
-            print(f"Dastur topilmadi: {os.path.join(args.bin, program)}", file=sys.stderr)
+            print(f"Program not found: {os.path.join(args.bin, program)}", file=sys.stderr)
             return 2
     xvfb, display = start_xvfb()
     if not display:
-        print("Displey yo'q va Xvfb topilmadi", file=sys.stderr)
+        print("No display and Xvfb was not found", file=sys.stderr)
         return 2
     failed = False
     rows = []
@@ -101,7 +101,7 @@ def main():
                 for _ in range(args.runs):
                     code, wall, inner, log = run_once(path, project, env)
                     if code != 0:
-                        print(f"{program} {project}: chiqish kodi {code}", file=sys.stderr)
+                        print(f"{program} {project}: exit code {code}", file=sys.stderr)
                         failed = True
                     walls.append(wall)
                     if inner:
@@ -114,7 +114,7 @@ def main():
     finally:
         if xvfb:
             xvfb.terminate()
-    print(f"| Dastur | Loyiha | Birinchi kadr (ms) | dvigatel / layer'lar / 1-kadr | Jarayon, mediana (min) ms |")
+    print(f"| Program | Project | First frame (ms) | engine / layers / frame 1 | Process, median (min) ms |")
     print(f"|---|---|---:|---|---:|")
     for program, project, wall, best, inner in rows:
         first = f"{inner[0]:.0f}" if inner else "-"

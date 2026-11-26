@@ -66,11 +66,11 @@ def main():
     out = os.path.abspath(args.out or os.path.join(build, "SampleExports"))
     games = [g for g in SAMPLES if not args.game or g.lower() in {x.lower() for x in args.game}]
     if not games:
-        print("Hech qanday namuna tanlanmadi (--game)", file=sys.stderr)
+        print("No sample was selected (--game)", file=sys.stderr)
         return 2
     for tool in ("ZaminEditor", "ZaminPlayer"):
         if not os.access(os.path.join(build, "bin", tool), os.X_OK):
-            print(f"{tool} topilmadi: {build}/bin (avval: cmake --build {build})", file=sys.stderr)
+            print(f"{tool} not found: {build}/bin (first: cmake --build {build})", file=sys.stderr)
             return 2
     os.makedirs(out, exist_ok=True)
     env = dict(os.environ, ZAMIN_BUILD_DIR=build)
@@ -88,7 +88,7 @@ def main():
             text = proc.stdout.decode("utf-8", "replace")
             with open(os.path.join(out, game + "-export.log"), "w", encoding="utf-8") as f:
                 f.write(text)
-            print("\n".join("   " + line for line in text.splitlines() if "[OK]" in line or "[XATO]" in line or "Eksport testi" in line), flush=True)
+            print("\n".join("   " + line for line in text.splitlines() if "[OK]" in line or "[FAIL]" in line or "Export test" in line), flush=True)
             size, files = folder_size(os.path.join(work, "export"))
             avg = benchmark_average(work)
             ok = proc.returncode == 0
@@ -106,7 +106,7 @@ def main():
             command += ["--game", game]
         for kind in args.kind or ["demo", "smoke"]:
             command += ["--kind", kind]
-        print(f"== eksport qilingan o'yinlar: {', '.join(playable)}", flush=True)
+        print(f"== exported games: {', '.join(playable)}", flush=True)
         code = subprocess.run(command, env=env).returncode
         try:
             with open(os.path.join(out, "cases", "report.json"), encoding="utf-8") as f:
@@ -114,29 +114,29 @@ def main():
         except (OSError, ValueError):
             report = {}
         if code != 0:
-            failed.append("o'yin holatlari")
+            failed.append("game cases")
     for name in sorted({g for g in games} - set(playable)):
-        failed.append(f"{name} (eksport papkasi yo'q)")
+        failed.append(f"{name} (no export folder)")
 
     # The table (docs/Samples.md quotes it).
     cases = {}
     for case in report.get("cases", []):
         cases.setdefault(case["game"], []).append(case)
-    lines = ["| Namuna | Eksport | Hajmi | Fayllar | Kadr (o'rtacha, Debug) | Holatlar |", "|---|---|---:|---:|---:|---|"]
+    lines = ["| Sample | Export | Size | Files | Frame (average, Debug) | Cases |", "|---|---|---:|---:|---:|---|"]
     for row in rows or [{"game": g, "export": True, "size": folder_size(os.path.join(out, g, "export"))[0],
                          "files": folder_size(os.path.join(out, g, "export"))[1], "avg": benchmark_average(os.path.join(out, g)),
                          "seconds": 0} for g in playable]:
         played = cases.get(row["game"], [])
-        verdict = ", ".join(f"{c['kind']} {'OK' if c['passed'] else 'XATO'}" for c in played) or "-"
+        verdict = ", ".join(f"{c['kind']} {'OK' if c['passed'] else 'FAIL'}" for c in played) or "-"
         avg = f"{row['avg']:.1f} ms" if isinstance(row["avg"], (int, float)) else "-"
-        lines.append(f"| {row['game']} | {'OK' if row['export'] else 'XATO'} | {row['size'] / 1048576:.1f} MiB | {row['files']} | {avg} | {verdict} |")
+        lines.append(f"| {row['game']} | {'OK' if row['export'] else 'FAIL'} | {row['size'] / 1048576:.1f} MiB | {row['files']} | {avg} | {verdict} |")
     with open(os.path.join(out, "exports.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     print("\n" + "\n".join(lines))
     if failed:
-        print(f"\nNatija: o'tmadi - {', '.join(failed)} (papka: {out})")
+        print(f"\nResult: failed - {', '.join(failed)} (folder: {out})")
         return 1
-    print(f"\nNatija: {len(games)} ta namuna eksport qilindi va eksportdan o'ynaldi (papka: {out})")
+    print(f"\nResult: {len(games)} samples exported and played from the export (folder: {out})")
     return 0
 
 

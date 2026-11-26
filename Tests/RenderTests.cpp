@@ -254,7 +254,7 @@ namespace {
         text.GetTransform().Translation = { -4.0f, -3.6f, 0.0f };
         text.GetTransform().Scale = { 0.8f, 0.8f, 1.0f };
         auto& label = text.AddComponent<TextComponent>();
-        label.Text = "Zamin 2D: sprite, doira, matn";
+        label.Text = "Zamin 2D: sprite, circle, text";
         label.AlignV = TextAlignV::Baseline; // starts on its first baseline (world text before alignment)
         return scene;
     }
@@ -371,14 +371,14 @@ namespace {
                     file = entry.path();
             if (file.empty() || !Project::Load(file))
             {
-                ZM_ERROR("Loyiha yuklanmadi: {}", dir.string());
+                ZM_ERROR("The project could not be loaded: {}", dir.string());
                 return nullptr;
             }
             auto scene = CreateRef<Scene>();
             SceneSerializer serializer(scene);
             if (!serializer.Deserialize(Project::GetAssetFileSystemPath(scenePath)))
             {
-                ZM_ERROR("Sahna yuklanmadi: {} ({})", scenePath, serializer.GetLastError());
+                ZM_ERROR("The scene could not be loaded: {} ({})", scenePath, serializer.GetLastError());
                 return nullptr;
             }
             scene->ResolveAssets();
@@ -389,43 +389,43 @@ namespace {
     std::vector<RenderCase> MakeCases()
     {
         std::vector<RenderCase> cases;
-        cases.push_back({ "Lit3D", "PBR primitivlar, quyosh soyasi (kaskadlar), nuqtali va spot yorug'lik, gradient osmon",
+        cases.push_back({ "Lit3D", "PBR primitives, the sun's shadow (cascades), point and spot lights, a gradient sky",
                           BuildLitScene, LookAt({ 0, 1, 0 }, 11.0f, 25.0f, 30.0f) });
         {
-            RenderCase c{ "Lit3D_NoCulling", "Lit3D: frustum culling va instancing o'chiq - bir xil chiqishi kerak", BuildLitScene,
+            RenderCase c{ "Lit3D_NoCulling", "Lit3D: frustum culling and instancing off - must come out the same", BuildLitScene,
                           LookAt({ 0, 1, 0 }, 11.0f, 25.0f, 30.0f), "Lit3D" };
             c.NoCullingOrInstancing = true;
             cases.push_back(c);
         }
-        cases.push_back({ "Materials", "Shaffof (saralangan), emissive + bloom, unlit, ikki tomonlama, instanced qator, tuman",
+        cases.push_back({ "Materials", "Transparent (sorted), emissive + bloom, unlit, two-sided, an instanced row, fog",
                           BuildMaterialsScene, LookAt({ 0, 1, 0 }, 13.0f, 20.0f, -15.0f) });
-        cases.push_back({ "Sky", "Bir nechta quyosh (faqat biri soya), osmon gradienti egriligi va katta quyosh diski",
+        cases.push_back({ "Sky", "Several suns (only one casts a shadow), the sky gradient's curve and a big sun disk",
                           BuildSkyScene, LookAt({ 0, 2.5f, 0 }, 10.0f, -2.0f, 0.0f) });
-        cases.push_back({ "PostEffects", "SSAO, bloom rangi va linza changi, xromatik aberratsiya, vinyetka, plyonka donasi, FXAA",
+        cases.push_back({ "PostEffects", "SSAO, bloom tint and lens dirt, chromatic aberration, vignette, film grain, FXAA",
                           BuildPostScene, LookAt({ 0, 1, 0 }, 11.0f, 25.0f, 30.0f) });
         {
-            RenderCase c{ "DebugNormals", "Debug ko'rinish: normallar (tonemapping'siz)", BuildLitScene,
+            RenderCase c{ "DebugNormals", "Debug view: normals (no tonemapping)", BuildLitScene,
                           LookAt({ 0, 1, 0 }, 11.0f, 25.0f, 30.0f) };
             c.Options.DebugView = RenderDebugView::Normals;
             cases.push_back(c);
         }
-        cases.push_back({ "Sprites2D", "Renderer2D: sprite'lar (aylangan, shaffof, saralangan), doira va halqalar, matn",
+        cases.push_back({ "Sprites2D", "Renderer2D: sprites (rotated, transparent, sorted), circles and rings, text",
                           BuildSpritesScene, LookAt({ 0, 0, 0 }, 9.0f, 0.0f, 0.0f, true) });
-        cases.push_back({ "Particles", "Particle'lar: additive doiralar, shaffof quadlar, flipbook, lokal fazo, tekis quadlar, izlar "
-                          "(billboardlar GPU instancing bilan)", BuildParticlesScene, LookAt({ 0, 1.4f, 0 }, 10.0f, 12.0f, 15.0f) });
+        cases.push_back({ "Particles", "Particles: additive circles, transparent quads, flipbook, local space, flat quads, trails "
+                          "(billboards with GPU instancing)", BuildParticlesScene, LookAt({ 0, 1.4f, 0 }, 10.0f, 12.0f, 15.0f) });
         {
-            RenderCase c{ "Particles_NoInstancing", "Particles: instancing o'chiq (har particle 2D partiyada) - bir xil chiqishi kerak",
+            RenderCase c{ "Particles_NoInstancing", "Particles: instancing off (every particle in the 2D batch) - must come out the same",
                           BuildParticlesScene, LookAt({ 0, 1.4f, 0 }, 10.0f, 12.0f, 15.0f), "Particles" };
             c.NoCullingOrInstancing = true;
             cases.push_back(c);
         }
-        cases.push_back({ "Showcase3D", "Showcase3D namunasi: modellar, teksturalar, HDRI, skinned mesh",
+        cases.push_back({ "Showcase3D", "The Showcase3D sample: models, textures, HDRI, a skinned mesh",
                           ProjectScene("Showcase3D", "Scenes/Showcase.zscene"), LookAt({ 0, 1.5f, 0 }, 22.0f, 22.0f, 20.0f) });
-        cases.push_back({ "Platformer2D", "Platformer2D namunasi: tilemap, sprite'lar, matn",
+        cases.push_back({ "Platformer2D", "The Platformer2D sample: tilemap, sprites, text",
                           ProjectScene("Platformer2D", "Scenes/Level1.zscene"), LookAt({ 8, 3, 0 }, 14.0f, 0.0f, 0.0f, true) });
         {
-            RenderCase c{ "SelectionOutline", "Editor tanlash konturi: skinned model, boshqa obyekt orqasidagi sfera (xira qismi), "
-                          "ko'p tanlov, hover, matn", ProjectScene("Showcase3D", "Scenes/Showcase.zscene"),
+            RenderCase c{ "SelectionOutline", "The editor's selection outline: a skinned model, a sphere behind another object (its dim part), "
+                          "multi-selection, hover, text", ProjectScene("Showcase3D", "Scenes/Showcase.zscene"),
                           LookAt({ -1.5f, 1.2f, 0.0f }, 15.0f, 16.0f, -38.0f) };
             c.Outline = { "Tentacle", "Title", "Cube 5", "Sphere 6" }; // Sphere 6 behind the hovered Hero Sphere
             c.OutlineHover = "Hero Sphere";
@@ -600,18 +600,18 @@ namespace {
             std::fclose(f);
         }
 
-        std::string md = std::format("### Rendering regressiya testi: {} ta holat, {} xato\n\n", results.size(), failed);
-        md += std::format("GL: {} / {} / {}. Chegara: kanal farqi > {}, ruxsat {:.2f}% piksel, {}x{}.\n\n", gl.Vendor, gl.Renderer, gl.Version,
+        std::string md = std::format("### Rendering regression test: {} cases, {} failures\n\n", results.size(), failed);
+        md += std::format("GL: {} / {} / {}. Threshold: channel difference > {}, allowed {:.2f}% of the pixels, {}x{}.\n\n", gl.Vendor, gl.Renderer, gl.Version,
                           threshold, maxPercent, s_Width, s_Height);
-        md += "| Holat | Natija | Farqli piksellar | Eng katta farq | O'rtacha farq |\n|---|---|---:|---:|---:|\n";
+        md += "| Case | Result | Differing pixels | Largest difference | Average difference |\n|---|---|---:|---:|---:|\n";
         for (const CaseResult& r : results)
         {
-            const char* status = r.Status == "ok" ? "OK" : r.Status == "updated" ? "yangilandi" : "**XATO**";
+            const char* status = r.Status == "ok" ? "OK" : r.Status == "updated" ? "updated" : "**FAILED**";
             md += std::format("| {} | {} | {:.3f}% | {} | {:.3f} |\n", r.Name, r.Error.empty() ? std::string(status) : std::string(status) + ": " + r.Error,
                               r.DifferentPercent, r.MaxDelta, r.MeanDelta);
         }
         if (failed > 0)
-            md += "\nFarq rasmlari (`<holat>.compare.png`: etalon | yangi | farq) artefaktlarda.\n";
+            md += "\nThe difference pictures (`<case>.compare.png`: reference | new | difference) are in the artifacts.\n";
         f = std::fopen((outDir / "summary.md").string().c_str(), "wb");
         if (f)
         {
@@ -663,7 +663,7 @@ int main(int argc, char** argv)
     {
         for (const RenderCase& c : cases)
             std::printf("%-16s %s%s\n", c.Name.c_str(), c.Description.c_str(),
-                        c.Reference.empty() ? "" : (" (etalon: " + c.Reference + ")").c_str());
+                        c.Reference.empty() ? "" : (" (reference: " + c.Reference + ")").c_str());
         return 0;
     }
 
@@ -705,7 +705,7 @@ int main(int argc, char** argv)
         {
             std::printf("[FAIL] %-16s the scene was not set up\n", c.Name.c_str());
             result.Status = "error";
-            result.Error = "sahna tayyorlanmadi";
+            result.Error = "the scene could not be prepared";
             failed++;
             continue;
         }
@@ -722,7 +722,7 @@ int main(int argc, char** argv)
             {
                 std::printf("[FAIL] %-16s reference not written: %s\n", c.Name.c_str(), reference.string().c_str());
                 result.Status = "error";
-                result.Error = "etalon yozilmadi";
+                result.Error = "the reference could not be written";
                 failed++;
             }
             continue;
@@ -736,7 +736,7 @@ int main(int argc, char** argv)
                         error.c_str(), reference.string().c_str());
             write(c.Name + ".png", s_Width, pixels);
             result.Status = "error";
-            result.Error = "etalon yo'q yoki o'qilmadi";
+            result.Error = "the reference is missing or could not be read";
             failed++;
             continue;
         }
@@ -746,7 +746,7 @@ int main(int argc, char** argv)
                         s_Width, s_Height);
             write(c.Name + ".png", s_Width, pixels);
             result.Status = "error";
-            result.Error = std::format("etalon o'lchami {}x{}", expected.Width, expected.Height);
+            result.Error = std::format("the reference is {}x{}", expected.Width, expected.Height);
             failed++;
             continue;
         }

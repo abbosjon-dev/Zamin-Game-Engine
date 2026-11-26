@@ -109,9 +109,9 @@ namespace {
     std::vector<BenchCase> MakeCases()
     {
         std::vector<BenchCase> cases;
-        cases.push_back({ "Oddiy", "shakl, gravitatsiya, qarshilik, aylanish (modullarsiz)",
+        cases.push_back({ "Plain", "shape, gravity, drag, rotation (no modules)",
                           [](Scene& s, int n) { Grid(s, n, 50, [](PS&, int) {}); } });
-        cases.push_back({ "Tezlik modullari", "tezlik umr bo'yi (chiziqli + orbita + radial) va tezlik chegarasi",
+        cases.push_back({ "Velocity modules", "velocity over lifetime (linear + orbital + radial) and the speed limit",
                           [](Scene& s, int n) {
                               Grid(s, n, 50, [](PS& ps, int) {
                                   ps.VelocityOverLifetime.Enabled = true;
@@ -122,7 +122,7 @@ namespace {
                                   ps.LimitVelocity.MaxSpeed = 2.0f;
                               });
                           } });
-        cases.push_back({ "Bitta katta tizim", "bitta tizimda hamma particle'lar, shovqin bilan (tizim ichida bo'laklab parallel)",
+        cases.push_back({ "One big system", "all particles in one system, with noise (parallel in chunks inside the system)",
                           [](Scene& s, int n) {
             Grid(s, n, 1, [](PS& ps, int) {
                 ps.Noise.Enabled = true;
@@ -136,7 +136,7 @@ namespace {
                                   ps.Noise.Octaves = 2;
                               });
                           } });
-        cases.push_back({ "To'qnashuv", "yer tekisligi bilan to'qnashuv (sakrash)",
+        cases.push_back({ "Collision", "collision with the ground plane (bouncing)",
                           [](Scene& s, int n) {
                               Grid(s, n, 50, [](PS& ps, int) {
                                   ps.Collision.Enabled = true;
@@ -151,7 +151,7 @@ namespace {
                                   ps.Trails.MinVertexDistance = 0.02f;
                               });
                           } });
-        cases.push_back({ "Sub-emitter", "har o'lgan particle'dan 2 ta yangi (shablon tizim)",
+        cases.push_back({ "Sub-emitter", "2 new ones from every dead particle (a template system)",
                           [](Scene& s, int n) {
                               Grid(s, n * 2 / 3, 25, [](PS&, int) {});
                               Entity t = s.CreateEntity("Shablon");
@@ -173,7 +173,7 @@ namespace {
                                   ps.SubEmitters.Emitters = { sub };
                               }
                           } });
-        cases.push_back({ "Ob-havo (yomg'ir)", "Yomg'ir preset'i: kamera yuradi, o'rash, sachrash",
+        cases.push_back({ "Weather (rain)", "the Rain preset: the camera moves, wrapping, splashes",
                           [](Scene& s, int n) {
                               ParticlePreset rain = *ParticlePresets::GetBuiltin("Rain");
                               rain.System.MaxParticles = n;
@@ -181,7 +181,7 @@ namespace {
                               ParticlePresets::Instantiate(s, rain);
                           },
                           true });
-        cases.push_back({ "Chizishga tayyorlash", "oddiy + har kadrda saralash, rang va o'lcham (chizishning CPU qismi)",
+        cases.push_back({ "Draw preparation", "plain + sorting, colour and size every frame (the CPU part of drawing)",
                           [](Scene& s, int n) {
                               Grid(s, n, 50, [](PS& ps, int i) {
                                   ps.Additive = i % 2 == 0;
@@ -261,14 +261,14 @@ namespace {
         scene->FindEntityByName(names[0]); // the indices are made once
         scene->CountEntitiesWithTag("Enemy");
 
-        std::printf("Zamin sahna qidiruvi benchmark: %d obyekt\n\n", count);
-        std::printf("%-44s %14s %14s %9s\n", "Amal", "indeks", "skan", "farq");
+        std::printf("Zamin scene lookup benchmark: %d entities\n\n", count);
+        std::printf("%-44s %14s %14s %9s\n", "Operation", "index", "scan", "ratio");
         auto row = [&](const char* what, double indexed, double scanned) {
             std::printf("%-44s %11.4f ms %11.4f ms %8.0fx\n", what, indexed, scanned, indexed > 0.0 ? scanned / indexed : 0.0);
         };
         int pick = 0;
         auto nextName = [&]() -> const std::string& { pick = (pick * 7919 + 13) % count; return names[(size_t)pick]; };
-        row("FindEntityByName x1000 (bitta kadr)",
+        row("FindEntityByName x1000 (one frame)",
             TimeMs([&]() { for (int i = 0; i < lookups; i++) sink += (uint32_t)scene->FindEntityByName(nextName()); }, 5),
             TimeMs([&]() { for (int i = 0; i < 20; i++) sink += (uint32_t)scanName(nextName()); }, 1) * (lookups / 20));
         row("FindEntitiesWithTag(\"Enemy\") x1000 (1 %)",
@@ -290,21 +290,21 @@ namespace {
         std::vector<Entity> spawned;
         const double frame = TimeMs([&]() {
             for (int i = 0; i < 50; i++)
-                spawned.push_back(scene->CreateEntity("O'q"));
+                spawned.push_back(scene->CreateEntity("Bullet"));
             for (int i = 0; i < 100; i++)
-                sink += (uint32_t)scene->FindEntityByName(i % 2 ? std::string_view("O'q") : std::string_view(nextName()));
+                sink += (uint32_t)scene->FindEntityByName(i % 2 ? std::string_view("Bullet") : std::string_view(nextName()));
             for (Entity e : spawned)
                 scene->DestroyEntity(e);
             spawned.clear();
         }, 50);
-        std::printf("\n%-44s %11.4f ms   (indeks qayta qurilishi: %u)\n", "Kadr: 50 yaratish + 100 qidiruv + 50 o'chirish", frame,
+        std::printf("\n%-44s %11.4f ms   (index rebuilds: %u)\n", "Frame: 50 creates + 100 lookups + 50 destroys", frame,
                     scene->GetNameCacheStats().Rebuilds - rebuilds);
         // The once-a-frame check for direct writes (InvalidateNameCache: as at a new frame).
         const double check = TimeMs([&]() {
             scene->InvalidateNameCache();
             sink += (uint32_t)scene->FindEntityByName(names[1]);
         }, 20);
-        std::printf("%-44s %11.4f ms\n", "Kadr boshidagi tekshiruv (to'g'ridan-to'g'ri yozuvlar)", check);
+        std::printf("%-44s %11.4f ms\n", "The check at the start of a frame (direct writes)", check);
         [[maybe_unused]] static volatile size_t s_Sink; // a volatile store: the work is not optimised away
         s_Sink = sink;
         return 0;
@@ -440,12 +440,12 @@ namespace {
         }
         const FrameTimeStats culledStats = FrameTimeStats::Compute(culledTimes);
         const FrameTimeStats seenStats = FrameTimeStats::Compute(visibility);
-        std::printf("Animator benchmark: %d animator (%d suyak, blend tree + qatlam), %d kadr, %s\n", count, joints, frames,
-                    JobSystem::IsParallel() ? std::format("vazifalar tizimi: {} ishchi oqim", JobSystem::GetWorkerCount()).c_str() : "bitta oqim");
-        std::printf("  kadr: o'rtacha %.2f ms, mediana %.2f ms, eng kam %.2f ms (pozalar: %u)\n", stats.Average, stats.Median, stats.Min,
+        std::printf("Animator benchmark: %d animators (%d bones, blend tree + layer), %d frames, %s\n", count, joints, frames,
+                    JobSystem::IsParallel() ? std::format("job system: {} worker threads", JobSystem::GetWorkerCount()).c_str() : "one thread");
+        std::printf("  frame: average %.2f ms, median %.2f ms, minimum %.2f ms (poses: %u)\n", stats.Average, stats.Median, stats.Min,
                     (unsigned)posed);
-        std::printf("  culling bilan: kadr o'rtacha %.2f ms (pozalar: %u, kamera ko'rmagani: %u), ko'rinishni belgilash "
-                    "(MarkVisibleAnimators) o'rtacha %.3f ms, eng kam %.3f ms\n",
+        std::printf("  with culling: frame average %.2f ms (poses: %u, not seen by the camera: %u), marking visibility "
+                    "(MarkVisibleAnimators) average %.3f ms, minimum %.3f ms\n",
                     culledStats.Average, (unsigned)scene->GetAnimationStats().Posed, (unsigned)scene->GetAnimationStats().Culled,
                     seenStats.Average, seenStats.Min);
         if (profile)
@@ -533,20 +533,20 @@ int main(int argc, char** argv)
             jobs = std::clamp(std::atoi(argv[++i]), 0, (int)JobSystem::MaxWorkers);
         else
         {
-            std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile] [--jobs N]\n"
+            std::printf("ZaminBench [--frames N] [--scale X] [--case <part of a name>] [--profile] [--jobs N]\n"
                         "ZaminBench --animators N [--frames N] [--jobs N]\n"
                         "ZaminBench --queries [--entities N]\n"
-                        "ZaminBench --serialize [--entities N] [--content 2d|3d|all] [--json <fayl>]\n"
-                        "ZaminBench --serialize --prefabs [--instances N] [--json <fayl>]\n"
+                        "ZaminBench --serialize [--entities N] [--content 2d|3d|all] [--json <file>]\n"
+                        "ZaminBench --serialize --prefabs [--instances N] [--json <file>]\n"
                         "ZaminBench --nav [--agents N] [--grid N] [--frames N] [--jobs N]\n"
-                        "ZaminBench --ecs [--entities N] [--frames N] [--json <fayl>]\n"
-                        "ZaminBench --fonts [--json <fayl>]\n"
-                        "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--json <fayl>]\n"
-                        "ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d|--3d|--effects-only] [--json <fayl>]\n"
-                        "ZaminBench --physics [--2d|--3d] [--bodies N] [--actors N] [--frames N] [--json <fayl>]\n"
-                        "ZaminBench --animation [--humanoids N] [--sprites N] [--model <glb>] [--controller <sahna>:<UUID>] [--frames N] [--jobs N] [--json <fayl>]\n"
-                        "ZaminBench --animators N --model <glb> [--controller <sahna>:<UUID>] | --animators N --sprite-clips\n"
-                        "ZaminBench --slice-stress [--2d|--3d] [--frames N] [--json <fayl>]\n");
+                        "ZaminBench --ecs [--entities N] [--frames N] [--json <file>]\n"
+                        "ZaminBench --fonts [--json <file>]\n"
+                        "ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <part of a name>] [--json <file>]\n"
+                        "ZaminBench --combat [--projectiles N] [--actors N] [--walls N] [--effects N] [--frames N] [--2d|--3d|--effects-only] [--json <file>]\n"
+                        "ZaminBench --physics [--2d|--3d] [--bodies N] [--actors N] [--frames N] [--json <file>]\n"
+                        "ZaminBench --animation [--humanoids N] [--sprites N] [--model <glb>] [--controller <scene>:<UUID>] [--frames N] [--jobs N] [--json <file>]\n"
+                        "ZaminBench --animators N --model <glb> [--controller <scene>:<UUID>] | --animators N --sprite-clips\n"
+                        "ZaminBench --slice-stress [--2d|--3d] [--frames N] [--json <file>]\n");
             return 1;
         }
     }
@@ -572,16 +572,16 @@ int main(int argc, char** argv)
 #if defined(NDEBUG)
     const char* build = "Release";
 #elif defined(ZAMIN_PARTICLES_OPTIMIZED_IN_DEBUG)
-    const char* build = "Debug (particle simulyatsiyasi -O2 bilan: ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG)";
+    const char* build = "Debug (the particle simulation with -O2: ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG)";
 #else
-    const char* build = "Debug (optimallashtirilmagan: Release'da o'nlab barobar tez)";
+    const char* build = "Debug (not optimized: tens of times faster in Release)";
 #endif
     if (jobs > 0)
         JobSystem::Init((uint32_t)jobs);
-    std::printf("Zamin particle benchmark: ~%d particle, %d kadr, 1/60 s qadam, %s, %s\n\n", particles, frames, build,
-                JobSystem::IsParallel() ? std::format("vazifalar tizimi: {} ishchi oqim", JobSystem::GetWorkerCount()).c_str()
+    std::printf("Zamin particle benchmark: ~%d particles, %d frames, 1/60 s step, %s, %s\n\n", particles, frames, build,
+                JobSystem::IsParallel() ? std::format("job system: {} worker threads", JobSystem::GetWorkerCount()).c_str()
                                         : "bitta oqim");
-    std::printf("%-22s %9s %10s %10s %10s %12s\n", "Holat", "Particle", "o'rtacha", "eng kam", "eng ko'p", "ns/particle");
+    std::printf("%-22s %9s %10s %10s %10s %12s\n", "Case", "Particles", "average", "minimum", "maximum", "ns/particle");
     Profiler::SetEnabled(true);
     double sink = 0.0;
     for (const BenchCase& bench : MakeCases())

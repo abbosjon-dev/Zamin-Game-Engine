@@ -187,7 +187,7 @@ namespace {
     std::vector<RenderBenchCase> MakeRenderCases()
     {
         std::vector<RenderBenchCase> cases;
-        cases.push_back({ "sprites", "spritelar (ortografik kamera, choragi teksturali)", [](int sprites, int) {
+        cases.push_back({ "sprites", "sprites (orthographic camera, a quarter textured)", [](int sprites, int) {
                               auto scene = CreateRef<Scene>();
                               const float side = std::ceil(std::sqrt((float)sprites));
                               AddCamera(scene, true, { 0.0f, 0.0f, 10.0f }, glm::vec3(0.0f), side * 1.05f); // the whole height
@@ -201,10 +201,10 @@ namespace {
             AddMeshes(scene, count);
             return scene;
         };
-        cases.push_back({ "meshes", "meshlar (soyali quyosh, nuqtali chiroq, instancing)", meshes });
-        cases.push_back({ "meshes-noinst", "o'sha meshlar instancing'siz", meshes, false });
-        cases.push_back({ "meshes-allshadow", "o'sha meshlar, soya tashlovchilar faqat kaskad hajmi bo'yicha kesilganda", meshes, true, true, false });
-        cases.push_back({ "combined", "spritelar (orqadagi devorda) va meshlar bitta sahnada", [](int sprites, int count) {
+        cases.push_back({ "meshes", "meshes (a sun with shadows, a point light, instancing)", meshes });
+        cases.push_back({ "meshes-noinst", "the same meshes without instancing", meshes, false });
+        cases.push_back({ "meshes-allshadow", "the same meshes with shadow casters culled by the cascade volume only", meshes, true, true, false });
+        cases.push_back({ "combined", "sprites (on the back wall) and meshes in one scene", [](int sprites, int count) {
                               auto scene = CreateRef<Scene>();
                               const float side = std::ceil(std::sqrt((float)count)) * 1.6f;
                               AddCamera(scene, false, { 0.0f, side * 0.55f, side * 0.75f }, { glm::radians(-38.0f), 0.0f, 0.0f }, 0.0f);
@@ -249,8 +249,8 @@ namespace {
             }
             return scene;
         };
-        cases.push_back({ "mixed2d", "sprite / doira / matn navbatma-navbat (24 tekstura)", mixed2d });
-        cases.push_back({ "mixed2d-sorted", "o'sha sahna BatchOrder'siz (saralangan tartib)", mixed2d, true, false });
+        cases.push_back({ "mixed2d", "sprite / circle / text in turn (24 textures)", mixed2d });
+        cases.push_back({ "mixed2d-sorted", "the same scene without BatchOrder (sorted order)", mixed2d, true, false });
         return cases;
     }
 
@@ -307,7 +307,7 @@ namespace {
         auto ms = [](Clock::time_point a, Clock::time_point b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
         std::vector<std::filesystem::path> images, models;
         CollectLoadables(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets", images, models);
-        std::printf("\nYuklash (Showcase3D): %zu rasm, %zu model\n", images.size(), models.size());
+        std::printf("\nLoading (Showcase3D): %zu pictures, %zu models\n", images.size(), models.size());
         for (int round = 0; round < 2; round++)
         {
             const bool async = round == 1;
@@ -342,7 +342,7 @@ namespace {
                 ready += t && t->IsReady() ? 1 : 0;
             for (const auto& m : loaded)
                 ready += m && !m->IsLoading() ? 1 : 0;
-            std::printf("  %-10s asosiy oqim band %.1f ms (eng uzun kadr %.1f ms, %d kadr), hammasi tayyor %.1f ms, tayyor %zu / %zu\n",
+            std::printf("  %-10s main thread busy %.1f ms (longest frame %.1f ms, %d frames), everything ready in %.1f ms, ready %zu / %zu\n",
                         async ? "fon (async)" : "darhol", blocked, longestFrame, frames, total, ready, textures.size() + loaded.size());
         }
         AsyncLoader::SetEnabled(false);
@@ -374,8 +374,8 @@ int RunRenderBench(int argc, char** argv)
         }
         else
         {
-            std::printf("ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <nom qismi>] [--size WxH] [--json <fayl>] "
-                        "[--shots <papka>]\n");
+            std::printf("ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case <part of a name>] [--size WxH] [--json <file>] "
+                        "[--shots <folder>]\n");
             return 1;
         }
     }
@@ -397,10 +397,10 @@ int RunRenderBench(int argc, char** argv)
 #else
     const char* build = "Debug";
 #endif
-    std::printf("Zamin render benchmark: %d sprite, %d mesh, %d kadr, %ux%u, %s\nGL: %s / %s / %s\n\n", sprites, meshes, frames, w, h, build,
+    std::printf("Zamin render benchmark: %d sprites, %d meshes, %d frames, %ux%u, %s\nGL: %s / %s / %s\n\n", sprites, meshes, frames, w, h, build,
                 gl.Vendor.c_str(), gl.Renderer.c_str(), gl.Version.c_str());
-    std::printf("%-14s %8s | %-26s | %-37s | %s\n", "Holat", "Obyekt", "CPU ms (o'rt / med / p95)", "Kadr ms, GPU bilan (o'rt / med / p95 / max)",
-                "Chizildi");
+    std::printf("%-14s %8s | %-26s | %-37s | %s\n", "Case", "Objects", "CPU ms (avg / med / p95)", "Frame ms, with the GPU (avg / med / p95 / max)",
+                "Drawn");
 
     FramebufferSpecification targetSpec;
     targetSpec.Width = w;
@@ -495,17 +495,17 @@ int RunRenderBench(int argc, char** argv)
         result.AllocationsPerFrame = (double)allocations / (double)std::max(1, frames);
         const RenderStatistics& s = result.Stats;
         std::printf("%-14s %8d | %7.2f / %7.2f / %7.2f | %7.2f / %7.2f / %7.2f / %7.2f | %u chaqiriq, %u kvad, %u mesh (%u instans), %s uchburchak, "
-                    "%.1f ajratma / kadr\n",
+                    "%.1f allocations / frame\n",
                     c.Name, result.Entities, result.CpuAverage, result.CpuMedian, result.CpuP95, result.FrameAverage, result.FrameMedian,
                     result.FrameP95, result.FrameMax, s.DrawCalls, s.QuadCount, s.MeshCount, s.InstancedMeshCount,
                     RenderStatistics::FormatCount(s.TriangleCount).c_str(), result.AllocationsPerFrame);
         if (s.ShadowCasterCount + s.CulledShadowCasterCount > 0)
-            std::printf("%-14s %8s   soya: %u chizildi, %u kesildi (%u ko'rinmas soya), kaskadlar %u/%u/%u/%u; uniform bufer %u (%u bayt)\n", "", "",
+            std::printf("%-14s %8s   shadows: %u drawn, %u culled (%u unseen shadows), cascades %u/%u/%u/%u; uniform buffer %u (%u bytes)\n", "", "",
                         s.ShadowCasterCount, s.CulledShadowCasterCount, s.CulledShadowByViewCount, s.CascadeShadowCasters[0],
                         s.CascadeShadowCasters[1], s.CascadeShadowCasters[2], s.CascadeShadowCasters[3], s.UniformBufferUploads,
                         s.UniformBufferBytes);
         if (s.Flush2DTextures + s.Flush2DKind + s.Flush2DState + s.Reordered2DCount > 0)
-            std::printf("%-14s %8s   2D batch bo'linishi: tekstura %u, tur %u, holat %u; BatchOrder ko'chirgan %u\n", "", "", s.Flush2DTextures,
+            std::printf("%-14s %8s   2D batch breaks: texture %u, kind %u, state %u; moved by BatchOrder %u\n", "", "", s.Flush2DTextures,
                         s.Flush2DKind, s.Flush2DState, s.Reordered2DCount);
         results.push_back(result);
     }

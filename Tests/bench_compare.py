@@ -12,7 +12,7 @@ of them (the smallest; the largest for throughputs) - a real regression is slowe
 The files are the "Results" maps of `ZaminBench --ecs / --serialize / --serialize --prefabs --json <file>`: each key
 has "Ms" (the ECS benchmark) or "Value" + "Unit". Lower is better for every unit (ms, ns, MB, B, %) except the
 throughputs (".../s", e.g. obj/s). A number that got worse by more than --tolerance percent and by more than the
-unit's smallest change that counts (ms 0.5, ms/kadr 0.2, ns 100, B 16, MB 0.2, % 2, obj/s 1000; --min-abs sets one
+unit's smallest change that counts (ms 0.5, ms/frame 0.2, ns 100, B 16, MB 0.2, % 2, obj/s 1000; --min-abs sets one
 for all) is a regression: the exit code is then 1. Tiny numbers are noise, and so are the rows marked "Noisy"
 (file I/O: the disk cache decides) - they are listed, never counted. A key that is in one file only is listed, not
 counted. Numbers from different computers or build types are not comparable (the script says so when the "Build"
@@ -23,7 +23,7 @@ import json
 import sys
 
 # The smallest change (in the unit) that counts: below it a difference is measurement noise.
-MIN_ABS = {"ms": 0.5, "ms/kadr": 0.2, "ns": 100.0, "B": 16.0, "MB": 0.2, "%": 2.0, "obj/s": 1000.0}
+MIN_ABS = {"ms": 0.5, "ms/frame": 0.2, "ns": 100.0, "B": 16.0, "MB": 0.2, "%": 2.0, "obj/s": 1000.0}
 
 
 def load(path):
@@ -35,7 +35,7 @@ def load(path):
             continue
         noisy = bool(entry.get("Noisy", False))
         if "Ms" in entry:
-            results[key] = (float(entry["Ms"]), "ms/kadr" if entry.get("PerFrame") else "ms", noisy)
+            results[key] = (float(entry["Ms"]), "ms/frame" if entry.get("PerFrame") else "ms", noisy)
         elif "Value" in entry:
             results[key] = (float(entry["Value"]), str(entry.get("Unit", "")), noisy)
     return data, results
@@ -58,22 +58,22 @@ def best_of(runs):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ZaminBench natijalarini boshlang'ich natija bilan solishtirish")
+    parser = argparse.ArgumentParser(description="Compare ZaminBench results with a baseline")
     parser.add_argument("baseline")
-    parser.add_argument("current", nargs="+", help="yangi natija(lar); bir nechta bo'lsa har raqamning eng yaxshisi")
-    parser.add_argument("--tolerance", type=float, default=25.0, help="ruxsat etilgan sekinlashish, foiz (standart 25)")
-    parser.add_argument("--min-abs", type=float, default=None, help="bundan kichik farq hisobga olinmaydi (o'z birligida; standart birlikka qarab)")
-    parser.add_argument("--markdown", help="jadvalni Markdown faylga ham yozish")
+    parser.add_argument("current", nargs="+", help="the new result(s); with several, the best of every number")
+    parser.add_argument("--tolerance", type=float, default=25.0, help="the allowed slowdown, per cent (default 25)")
+    parser.add_argument("--min-abs", type=float, default=None, help="a smaller difference does not count (in its own unit; the default depends on the unit)")
+    parser.add_argument("--markdown", help="also write the table to a Markdown file")
     args = parser.parse_args()
 
     base_data, base = load(args.baseline)
     cur_data, cur = best_of([load(path) for path in args.current])
     notes = []
     if base_data.get("Build") != cur_data.get("Build"):
-        notes.append(f"build turlari farq qiladi: {base_data.get('Build')} va {cur_data.get('Build')} - raqamlar solishtirilmaydi")
+        notes.append(f"the build types differ: {base_data.get('Build')} and {cur_data.get('Build')} - the numbers are not comparable")
     for field in ("Entities", "Instances", "Frames"):
         if field in base_data and field in cur_data and base_data[field] != cur_data[field]:
-            notes.append(f"{field}: {base_data[field]} va {cur_data[field]} - o'lchamlar farq qiladi")
+            notes.append(f"{field}: {base_data[field]} and {cur_data[field]} - the sizes differ")
 
     rows, regressions, faster = [], [], []
     for key in base:
@@ -87,7 +87,7 @@ def main():
         floor = args.min_abs if args.min_abs is not None else MIN_ABS.get(unit, 0.0)
         mark = ""
         if noisy:
-            mark = "(I/O, hisobga olinmaydi)" if abs(worse) > args.tolerance else ""
+            mark = "(I/O, not counted)" if abs(worse) > args.tolerance else ""
         elif worse > args.tolerance and abs(new - old) > floor:
             mark = "SEKINLASHDI"
             regressions.append(key)
@@ -100,22 +100,22 @@ def main():
 
     width = max([len(r[0]) for r in rows] + [10])
     floor_text = f"{args.min_abs:g}" if args.min_abs is not None else "birlikka qarab"
-    current = args.current[0] if len(args.current) == 1 else f"{', '.join(args.current)} (har raqamning eng yaxshisi)"
-    print(f"Boshlang'ich: {args.baseline}\nYangi:        {current}\nChegara: {args.tolerance:g} % (va farq > {floor_text})\n")
+    current = args.current[0] if len(args.current) == 1 else f"{', '.join(args.current)} (the best of every number)"
+    print(f"Baseline: {args.baseline}\nNew:      {current}\nLimit: {args.tolerance:g} % (and a difference > {floor_text})\n")
     for note in notes:
-        print(f"Diqqat: {note}")
-    print(f"{'Kalit':<{width}}  {'avval':>12}  {'hozir':>12}  {'birlik':<7}  {'farq':>8}")
+        print(f"Note: {note}")
+    print(f"{'Key':<{width}}  {'before':>12}  {'now':>12}  {'unit':<7}  {'diff':>8}")
     for key, old, new, unit, change, mark in rows:
         print(f"{key:<{width}}  {old:12.3f}  {new:12.3f}  {unit:<7}  {change:+7.1f}%  {mark}")
     if only_base:
-        print(f"\nFaqat boshlang'ichda: {', '.join(only_base)}")
+        print(f"\nOnly in the baseline: {', '.join(only_base)}")
     if only_cur:
-        print(f"Faqat yangisida: {', '.join(only_cur)}")
-    print(f"\n{len(rows)} raqam solishtirildi: {len(regressions)} sekinlashdi, {len(faster)} tezlashdi")
+        print(f"Only in the new one: {', '.join(only_cur)}")
+    print(f"\n{len(rows)} numbers compared: {len(regressions)} slower, {len(faster)} faster")
 
     if args.markdown:
         with open(args.markdown, "w", encoding="utf-8") as f:
-            f.write(f"| Kalit | avval | hozir | birlik | farq | |\n|---|---:|---:|---|---:|---|\n")
+            f.write(f"| Key | before | now | unit | diff | |\n|---|---:|---:|---|---:|---|\n")
             for key, old, new, unit, change, mark in rows:
                 f.write(f"| {key} | {old:.3f} | {new:.3f} | {unit} | {change:+.1f}% | {mark} |\n")
             f.write(f"\n{len(rows)} raqam: {len(regressions)} sekinlashdi, {len(faster)} tezlashdi\n")

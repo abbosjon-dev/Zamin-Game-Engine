@@ -44,7 +44,7 @@ include(cmake/Coverage.cmake)
 # ZAMIN_GAME_MODULE_OUTPUT_DIR set by hand decides over both.
 if(NOT ZAMIN_GAME_MODULE_OUTPUT_DIR AND NOT CMAKE_BINARY_DIR STREQUAL "${CMAKE_SOURCE_DIR}/build")
     set(ZAMIN_GAME_MODULE_OUTPUT_DIR ${CMAKE_BINARY_DIR}/GameModules)
-    message(STATUS "Zamin: o'yin modullari bu build papkasida: ${ZAMIN_GAME_MODULE_OUTPUT_DIR}")
+    message(STATUS "Zamin: game modules in this build folder: ${ZAMIN_GAME_MODULE_OUTPUT_DIR}")
 endif()
 include(cmake/Dependencies.cmake)
 # zamin_target_settings (warnings of our own targets), zamin_add_game_module.

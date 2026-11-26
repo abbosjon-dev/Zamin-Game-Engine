@@ -54,7 +54,7 @@ set(ZAMIN_TEMPLATE_SOURCES ${ZAMIN_TEMPLATE_DIR}/TemplateFullCheck.cpp ${ZAMIN_T
 add_custom_command(OUTPUT ${ZAMIN_TEMPLATE_SOURCES}
     COMMAND ZaminScriptTemplateGen ${ZAMIN_TEMPLATE_DIR}
     DEPENDS ZaminScriptTemplateGen
-    COMMENT "Skript shablonlari kompilyatsiya tekshiruvi uchun yaratilmoqda"
+    COMMENT "Generating the script templates for the compile check"
     VERBATIM)
 add_library(ZaminScriptTemplateCheck OBJECT ${ZAMIN_TEMPLATE_SOURCES})
 target_link_libraries(ZaminScriptTemplateCheck PRIVATE Zamin)
@@ -77,13 +77,13 @@ add_custom_target(render_tests
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/render_tests.sh
     DEPENDS ZaminRenderTests
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Rendering regressiya testi (etalon rasmlar bilan solishtirish)"
+    COMMENT "Rendering regression test (comparison with the reference pictures)"
     USES_TERMINAL VERBATIM)
 add_custom_target(update_render_references
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/render_tests.sh --update
     DEPENDS ZaminRenderTests
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Rendering etalon rasmlari qayta yaratilmoqda (Tests/Reference)"
+    COMMENT "Regenerating the rendering reference pictures (Tests/Reference)"
     USES_TERMINAL VERBATIM)
 
 # Particle benchmark (not part of ctest): times the particle update headless - about 50 000
@@ -103,7 +103,7 @@ add_custom_target(particle_bench
     COMMAND $<TARGET_FILE:ZaminBench>
     DEPENDS ZaminBench
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Particle benchmark (ms / kadr)"
+    COMMENT "Particle benchmark (ms / frame)"
     USES_TERMINAL VERBATIM)
 # Navigation benchmark: 200 Nav Agents on a 256 x 256 grid - the bakes, the path searches on one thread
 # and batched over the job system, ms / frame (ZaminBench --nav).
@@ -111,7 +111,7 @@ add_custom_target(nav_bench
     COMMAND $<TARGET_FILE:ZaminBench> --nav
     DEPENDS ZaminBench
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Navigatsiya benchmark (yo'l qidirish, agentlar, bake)"
+    COMMENT "Navigation benchmark (path finding, agents, bake)"
     USES_TERMINAL VERBATIM)
 
 # The headless benchmarks keep working: quick runs at small sizes under ctest (label "bench"; they fail when a
@@ -131,7 +131,7 @@ add_custom_target(bench
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/bench.sh
     DEPENDS ZaminBench
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Headless benchmarklar (ECS, serializatsiya, prefablar) JSON natijalari bilan"
+    COMMENT "Headless benchmarks (ECS, serialization, prefabs) with JSON results"
     USES_TERMINAL VERBATIM)
 
 # Rendering benchmark (a GL context: xvfb-run without a display): 10 000 sprites, 1 000 meshes and both together,
@@ -150,7 +150,7 @@ add_custom_target(player_bench
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/player_bench.sh
     DEPENDS ZaminPlayer
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Player ishlash testi (headless, ms / kadr)"
+    COMMENT "Player benchmark (headless, ms / frame)"
     USES_TERMINAL VERBATIM)
 # Automatic export test (needs a display too): the editor exports Platformer2D into a temporary folder, the
 # exported game runs headless from its launcher (exit code, log, script module, a screenshot that shows the game,
@@ -159,7 +159,7 @@ add_custom_target(export_test
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/export_test.sh
     DEPENDS ZaminPlayer
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Eksport testi (editor eksporti + eksport qilingan o'yin headless)"
+    COMMENT "Export test (the editor's export + the exported game headless)"
     USES_TERMINAL VERBATIM)
 if(TARGET ZaminEditor)
     add_dependencies(export_test ZaminEditor)
@@ -170,7 +170,7 @@ add_custom_target(package_games
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/package_games.sh
     DEPENDS ZaminPlayer
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "O'yin build'lari: eksport, tekshiruv, tar.gz paketlar"
+    COMMENT "Game builds: export, check, tar.gz packages"
     USES_TERMINAL VERBATIM)
 if(TARGET ZaminEditor)
     add_dependencies(package_games ZaminEditor)
@@ -188,12 +188,12 @@ endforeach()
 add_custom_target(format_check
     COMMAND ${PROJECT_SOURCE_DIR}/Tests/format_check.sh
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "clang-format: o'zgargan qatorlar"
+    COMMENT "clang-format: changed lines"
     USES_TERMINAL VERBATIM)
 add_custom_target(format_stats
     COMMAND ${PROJECT_SOURCE_DIR}/Tests/format_check.sh --stats --top 20
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "clang-format: butun kod baza .clang-format dan qanchalik farq qiladi"
+    COMMENT "clang-format: how far the whole code base is from .clang-format"
     USES_TERMINAL VERBATIM)
 
 # The editor smoke test (every window, page, menu and popup for a few frames; errors, OpenGL error flags and
@@ -202,7 +202,7 @@ add_custom_target(format_stats
 add_custom_target(editor_smoke
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/editor_smoke.sh
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Editor smoke testi (barcha oynalar, menyular, popup'lar)"
+    COMMENT "Editor smoke test (every window, menu and popup)"
     USES_TERMINAL VERBATIM)
 add_custom_target(hot_reload_test
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/hot_reload_test.sh
@@ -278,7 +278,7 @@ if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
             ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_test.py --out ${CMAKE_BINARY_DIR}/SampleTests
         DEPENDS ZaminPlayer
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMENT "Namuna o'yinlar testi (demo bot, menyular, headless)"
+        COMMENT "Sample games test (demo bot, menus, headless)"
         USES_TERMINAL VERBATIM)
     foreach(game ${ZAMIN_SAMPLE_GAMES})
         if(TARGET ${game})

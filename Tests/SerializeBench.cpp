@@ -109,7 +109,7 @@ namespace {
                 nsc.Fields["SpinSpeed"] = speed;
             }
             if (i % 50 == 7)
-                e.AddComponent<TextComponent>().Text = std::format("Matn {}", i);
+                e.AddComponent<TextComponent>().Text = std::format("Text {}", i);
             if (i % 7 == 0)
                 e.AddTag("Pickup");
         }
@@ -198,7 +198,7 @@ namespace {
             SceneSerializer textLoader(loaded);
             clock = Clock::now();
             if (!textLoader.Deserialize(textFile))
-                std::printf("JSON yuklanmadi: %s\n", textLoader.GetLastError().c_str());
+                std::printf("The JSON could not be loaded: %s\n", textLoader.GetLastError().c_str());
             load.push_back(ElapsedMilliseconds(clock));
             textTimings.push_back(textLoader.GetTiming());
 
@@ -206,25 +206,25 @@ namespace {
             SceneSerializer binaryLoader(fromBinary);
             clock = Clock::now();
             if (!binaryLoader.Deserialize(binaryFile))
-                std::printf("Binar kesh yuklanmadi: %s\n", binaryLoader.GetLastError().c_str());
+                std::printf("The binary cache could not be loaded: %s\n", binaryLoader.GetLastError().c_str());
             binaryLoad.push_back(ElapsedMilliseconds(clock));
             binaryTimings.push_back(binaryLoader.GetTiming());
             if (run == 0)
             {
                 // Both give the same scene as the source (saved again: the same text).
                 const bool same = SceneSerializer(loaded).SerializeToString() == text && SceneSerializer(fromBinary).SerializeToString() == text;
-                std::printf("  Tekshiruv: JSON va binar keshdan yuklangan sahna qayta saqlanganda bir xil matn: %s\n", same ? "ha" : "YO'Q");
+                std::printf("  Check: the scene loaded from JSON and from the binary cache saves back as the same text: %s\n", same ? "yes" : "NO");
                 ok = ok && same && loaded->GetEntitiesInOrder().size() == source->GetEntitiesInOrder().size();
             }
         }
         const double mb = (double)textBytes / (1024.0 * 1024.0), binaryMb = (double)binaryBytes / (1024.0 * 1024.0);
         const double saveMs = MedianOf(save), loadMs = MedianOf(load), binarySaveMs = MedianOf(binarySave), binaryLoadMs = MedianOf(binaryLoad);
-        report.Add(key + ".SaveJson", "Saqlash: JSON matn (SerializeToString)", saveMs, "ms",
+        report.Add(key + ".SaveJson", "Save: JSON text (SerializeToString)", saveMs, "ms",
                    std::format("({:.1f} MB, {:.0f} MB/s)", mb, MBps(textBytes, saveMs)));
-        report.Add(key + ".WriteFile", "  faylga yozish", MedianOf(write), "ms", {}, true);
-        report.Add(key + ".SaveBinary", "Saqlash: binar kesh (MessagePack)", binarySaveMs, "ms",
+        report.Add(key + ".WriteFile", "  writing the file", MedianOf(write), "ms", {}, true);
+        report.Add(key + ".SaveBinary", "Save: binary cache (MessagePack)", binarySaveMs, "ms",
                    std::format("({:.1f} MB, {:.0f} MB/s)", binaryMb, MBps(binaryBytes, binarySaveMs)));
-        report.Add(key + ".LoadJson", "Yuklash: JSON matn (Deserialize)", loadMs, "ms", std::format("({:.0f} MB/s)", MBps(textBytes, loadMs)));
+        report.Add(key + ".LoadJson", "Load: JSON text (Deserialize)", loadMs, "ms", std::format("({:.0f} MB/s)", MBps(textBytes, loadMs)));
         for (size_t s = 0; s < SceneLoadTiming::StageCount; s++)
         {
             std::vector<double> v;
@@ -234,7 +234,7 @@ namespace {
                 report.Add(std::format("{}.LoadJson.{}", key, s), std::format("  {}", SceneLoadTiming::StageName((SceneLoadTiming::Stage)s)), ms, "ms",
                            {}, s == (size_t)SceneLoadTiming::Stage::Read);
         }
-        report.Add(key + ".LoadBinary", "Yuklash: binar kesh (Deserialize)", binaryLoadMs, "ms",
+        report.Add(key + ".LoadBinary", "Load: binary cache (Deserialize)", binaryLoadMs, "ms",
                    std::format("({:.1f}x JSON'dan tez)", binaryLoadMs > 0.0 ? loadMs / binaryLoadMs : 0.0));
         for (size_t s = 0; s < SceneLoadTiming::StageCount; s++)
         {
@@ -261,7 +261,7 @@ namespace {
     std::vector<ComponentCase> ComponentCases()
     {
         return {
-            { "Base", "(bo'sh obyekt: ID, Tag, Transform, Relationship)", {} },
+            { "Base", "(an empty entity: ID, Tag, Transform, Relationship)", {} },
             { "SpriteRenderer", "SpriteRenderer", [](Entity e) { e.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/coin.png"; } },
             { "CircleRenderer", "CircleRenderer", [](Entity e) { e.AddComponent<CircleRendererComponent>(); } },
             { "Text", "Text", [](Entity e) { e.AddComponent<TextComponent>().Text = "Salom, dunyo"; } },
@@ -273,7 +273,7 @@ namespace {
             { "PolygonCollider2D", "PolygonCollider2D (5 nuqta)", [](Entity e) { e.AddComponent<PolygonCollider2DComponent>(); } },
             { "Rigidbody3D", "Rigidbody3D", [](Entity e) { e.AddComponent<Rigidbody3DComponent>(); } },
             { "BoxCollider3D", "BoxCollider3D", [](Entity e) { e.AddComponent<BoxCollider3DComponent>(); } },
-            { "NativeScript", "NativeScript (3 maydon)",
+            { "NativeScript", "NativeScript (3 fields)",
               [](Entity e) {
                   auto& nsc = e.AddComponent<NativeScriptComponent>();
                   nsc.ClassName = "Coin";
@@ -286,7 +286,7 @@ namespace {
                   nsc.Fields["Kind"] = c;
               } },
             { "AudioSource", "AudioSource", [](Entity e) { e.AddComponent<AudioSourceComponent>().Path = "Audio/coin.wav"; } },
-            { "ParticleSystem", "ParticleSystem (standart modullar)", [](Entity e) { e.AddComponent<ParticleSystemComponent>(); } },
+            { "ParticleSystem", "ParticleSystem (default modules)", [](Entity e) { e.AddComponent<ParticleSystemComponent>(); } },
             { "Animator", "Animator", [](Entity e) { e.AddComponent<AnimatorComponent>(); } },
             { "UIButton", "UITransform + UIButton",
               [](Entity e) {
@@ -299,9 +299,9 @@ namespace {
     void BenchComponents(SerializeReport& report)
     {
         const int count = 1000, runs = 5;
-        std::printf("\nKomponent narxi: %d obyekt, har birida faqat shu komponent; bo'sh obyekt narxi ayirilgan (uning qatori - butun obyekt),\n"
-                "%d marta mediana, bitta komponent uchun\n", count, runs);
-        std::printf("  %-46s %12s %12s %10s\n", "Komponent", "saqlash ns", "yuklash ns", "JSON bayt");
+        std::printf("\nComponent cost: %d entities, each with only this component; the empty entity's cost is subtracted (its own row is a whole entity),\n"
+                "the median of %d runs, for one component\n", count, runs);
+        std::printf("  %-46s %12s %12s %10s\n", "Component", "save ns", "load ns", "JSON bytes");
         double baseSave = 0.0, baseLoad = 0.0, baseBytes = 0.0;
         for (const ComponentCase& c : ComponentCases())
         {
@@ -351,7 +351,7 @@ int RunSerializeBench(int count, const char* jsonFile, const std::string& conten
     Ref<Project> project = Project::Load(root / "Platformer2D.zproject");
     if (!project)
     {
-        std::printf("Platformer2D loyihasi ochilmadi: %s\n", root.string().c_str());
+        std::printf("The Platformer2D project could not be opened: %s\n", root.string().c_str());
         return 1;
     }
     Project::SetActive(project);
@@ -364,13 +364,13 @@ int RunSerializeBench(int count, const char* jsonFile, const std::string& conten
     const char* build = "Debug";
 #endif
     const bool all = content == "all";
-    std::printf("Zamin sahna serializatsiyasi benchmark: %d obyekt (%s), har raqam 3 marta o'lchanib mediana\n", count, build);
+    std::printf("Zamin scene serialization benchmark: %d entities (%s), every number is the median of 3 measurements\n", count, build);
     SerializeReport report;
     const int runs = 3;
     bool ok = true; // the checks (what was read back is what was saved)
     if (all || content == "2d")
     {
-        std::printf("\n2D sahna: spritelar, 2D jismlar, skriptlar (maydonlar bilan), matnlar, teglar, ierarxiya\n");
+        std::printf("\n2D scene: sprites, 2D bodies, scripts (with fields), texts, tags, hierarchy\n");
         auto source = CreateRef<Scene>();
         source->SetName("Large2D");
         FillLarge2DScene(*source, count);
@@ -378,7 +378,7 @@ int RunSerializeBench(int count, const char* jsonFile, const std::string& conten
     }
     if (all || content == "3d")
     {
-        std::printf("\n3D sahna: meshlar (material bilan), 3D jismlar, yorug'liklar, particle'lar, ovozlar, skriptlar, ierarxiya\n");
+        std::printf("\n3D scene: meshes (with materials), 3D bodies, lights, particles, sounds, scripts, hierarchy\n");
         auto source = CreateRef<Scene>();
         source->SetName("Large3D");
         FillLarge3DScene(*source, count);
@@ -409,8 +409,8 @@ int RunSerializeBench(int count, const char* jsonFile, const std::string& conten
         }
         report.Add("Clipboard.Copy", "Nusxalash (SerializeEntities)", MedianOf(copy), "ms",
                    std::format("({:.2f} MB)", (double)text.size() / (1024.0 * 1024.0)));
-        report.Add("Clipboard.Paste", "Joylash (DeserializeEntities, yangi UUID)", MedianOf(paste), "ms",
-                   std::format("({} obyekt{})", pasted, pasted == selection.size() ? "" : " - KAM!"));
+        report.Add("Clipboard.Paste", "Paste (DeserializeEntities, new UUIDs)", MedianOf(paste), "ms",
+                   std::format("({} entities{})", pasted, pasted == selection.size() ? "" : " - TOO FEW!"));
         ok = ok && pasted == selection.size();
         BenchComponents(report);
     }
@@ -423,6 +423,6 @@ int RunSerializeBench(int count, const char* jsonFile, const std::string& conten
     fs::remove_all(dir, ec);
     Project::SetActive(nullptr);
     if (!ok)
-        std::printf("\nTEKSHIRUV O'TMADI: o'qilgan sahna saqlanganidan farq qiladi\n");
+        std::printf("\nCHECK FAILED: the scene read back differs from the one saved\n");
     return ok ? 0 : 1;
 }

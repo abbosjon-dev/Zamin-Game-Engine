@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
 done
 [[ "$out" != /* ]] && out="$PWD/$out"
 if [[ ! -x "$bench" ]]; then
-    echo "ZaminBench topilmadi: $bench (avval: cmake --build \"$build\" --target ZaminBench)" >&2
+    echo "ZaminBench not found: $bench (first: cmake --build \"$build\" --target ZaminBench)" >&2
     exit 2
 fi
 mkdir -p "$out" || exit 2
@@ -38,7 +38,7 @@ mkdir -p "$out" || exit 2
 runner=()
 if [[ -z "${DISPLAY:-}" ]]; then
     if ! command -v xvfb-run >/dev/null 2>&1; then
-        echo "Displey yo'q va xvfb-run topilmadi (apt install xvfb)" >&2
+        echo "No display and xvfb-run was not found (apt install xvfb)" >&2
         exit 2
     fi
     runner=(xvfb-run -a -s "-screen 0 1600x900x24 -nolisten tcp")
@@ -52,7 +52,7 @@ HOME="$home" "${runner[@]}" "$bench" --render --json "$report" "${args[@]}" 2>&1
 code=${PIPESTATUS[0]}
 [[ -z "${ZAMIN_BENCH_HOME:-}" ]] && rm -rf "$home"
 if [[ $code -ne 0 || ! -f "$report" ]]; then
-    echo "Render benchmark ishlamadi (chiqish kodi $code)"
+    echo "The render benchmark did not run (exit code $code)"
     exit 1
 fi
 if [[ -n "$max_avg" ]]; then

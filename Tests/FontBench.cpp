@@ -57,7 +57,7 @@ int RunFontBench(const char* jsonFile)
     uintmax_t bytes = 0;
     for (const auto& entry : std::filesystem::directory_iterator(cache))
         bytes += entry.file_size();
-    std::printf("Asosiy atlas (2048 px): rasterlash %.1f ms, keshga yozish bilan %.1f ms, keshdan o'qish %.1f ms (fayl %.2f MB)\n", Median(baked), stored,
+    std::printf("Main atlas (2048 px): rasterizing %.1f ms, with writing the cache %.1f ms, reading from the cache %.1f ms (file %.2f MB)\n", Median(baked), stored,
                 Median(loaded), (double)bytes / (1024.0 * 1024.0));
 
     // ---- glyph lookups and layout
@@ -83,7 +83,7 @@ int RunFontBench(const char* jsonFile)
             if (const Glyph* g = atlas.Find(cp))
                 sink += g->Advance;
     const double tableNs = Ms(start) * 1e6 / ((double)rounds * (double)codepoints.size());
-    std::printf("Glif qidirish: hash xarita %.2f ns, to'g'ridan-to'g'ri jadval %.2f ns\n", mapNs, tableNs);
+    std::printf("Glyph lookup: hash map %.2f ns, direct table %.2f ns\n", mapNs, tableNs);
 
     const TextMetrics metrics = TextMetrics::Of(font.get());
     TextLayoutSettings wrap;
@@ -101,8 +101,8 @@ int RunFontBench(const char* jsonFile)
         layoutNs[kerning] = Ms(start) * 1e6 / (2000.0 * (double)codepoints.size());
         widths[kerning] = TextLayout::MeasureWidth("AVATAR To'p Yer", metrics, 24.0f, 0.0f);
     }
-    std::printf("Matn joylash (so'z o'rash, 24 px): kerning'siz %.1f ns / belgi, kerning bilan %.1f ns / belgi\n", layoutNs[0], layoutNs[1]);
-    std::printf("\"AVATAR To'p Yer\" kengligi 24 px: %.2f px -> kerning bilan %.2f px (AV %.3f em)\n", widths[0], widths[1], font->GetKerning('A', 'V'));
+    std::printf("Text layout (word wrap, 24 px): without kerning %.1f ns / character, with kerning %.1f ns / character\n", layoutNs[0], layoutNs[1]);
+    std::printf("\"AVATAR To'p Yer\" width at 24 px: %.2f px -> with kerning %.2f px (AV %.3f em)\n", widths[0], widths[1], font->GetKerning('A', 'V'));
 
     FontAtlasCache::SetDirectory(previous);
     std::error_code ec;

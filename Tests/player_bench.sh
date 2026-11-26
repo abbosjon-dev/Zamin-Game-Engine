@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 if [[ ! -x "$player" ]]; then
-    echo "ZaminPlayer topilmadi: $player (avval: cmake --build \"$build\")" >&2
+    echo "ZaminPlayer not found: $player (first: cmake --build \"$build\")" >&2
     exit 2
 fi
 if [[ ${#projects[@]} -eq 0 ]]; then
@@ -49,12 +49,12 @@ if [[ -z "${DISPLAY:-}" ]]; then
     if command -v xvfb-run >/dev/null 2>&1; then
         runner=(xvfb-run -a -s "-screen 0 1920x1080x24")
     else
-        echo "Displey yo'q va xvfb-run topilmadi - player oynasi ochilmaydi" >&2
+        echo "No display and xvfb-run was not found - the player window cannot open" >&2
         exit 2
     fi
 fi
 if ! mkdir -p "$out" 2>/dev/null || [[ ! -d "$out" || ! -w "$out" ]]; then
-    echo "Natijalar papkasi yaratilmadi yoki yozib bo'lmaydi: $out" >&2
+    echo "The results folder could not be created or is not writable: $out" >&2
     exit 2
 fi
 home="${ZAMIN_BENCH_HOME:-}"
@@ -82,13 +82,13 @@ for project in "${projects[@]}"; do
     [[ -n "$max_avg" ]] && args+=(--benchmark-max-avg "$max_avg")
     [[ -n "$max_p95" ]] && args+=(--benchmark-max-p95 "$max_p95")
     args+=("${extra[@]}")
-    echo "== $name: $frames kadr ($warmup isitish), $resolution"
+    echo "== $name: $frames frames ($warmup warm-up), $resolution"
     start=$(date +%s)
     HOME="$home" "${runner[@]}" "$player" "${args[@]}" >/dev/null 2>&1
     code=$?
     seconds=$(( $(date +%s) - start ))
     if [[ ! -f "$report" ]]; then
-        echo "   XATO: natija yozilmadi (chiqish kodi $code, $seconds s) - log: $log"
+        echo "   FAILED: no result was written (exit code $code, $seconds s) - log: $log"
         summary+=("$(printf '%-14s %8s %8s %8s %8s %8s  %s' "$name" - - - - - "ishlamadi ($code)")")
         failed=1
         continue
@@ -98,23 +98,23 @@ for project in "${projects[@]}"; do
     p95=$(frame_value "$report" P95)
     p99=$(frame_value "$report" P99)
     fps=$(frame_value "$report" AverageFPS)
-    status="o'tdi"
+    status="passed"
     if [[ $code -eq 3 ]]; then
-        status="chegaradan oshdi"
+        status="over the limit"
         failed=1
     elif [[ $code -ne 0 ]]; then
-        status="xato ($code)"
+        status="failed ($code)"
         failed=1
     fi
-    echo "   o'rtacha $avg ms, mediana $median, p95 $p95, p99 $p99 ms ($fps FPS) - $status, $seconds s"
+    echo "   average $avg ms, median $median, p95 $p95, p99 $p99 ms ($fps FPS) - $status, $seconds s"
     summary+=("$(printf '%-14s %8s %8s %8s %8s %8s  %s' "$name" "$avg" "$median" "$p95" "$p99" "$fps" "$status")")
 done
 [[ $cleanup_home -eq 1 ]] && rm -rf "$home"
 
 echo
-printf '%-14s %8s %8s %8s %8s %8s  %s\n' "Loyiha" "o'rt.ms" "med.ms" "p95 ms" "p99 ms" "FPS" "natija"
+printf '%-14s %8s %8s %8s %8s %8s  %s\n' "Project" "avg ms" "med.ms" "p95 ms" "p99 ms" "FPS" "result"
 for line in "${summary[@]}"; do
     echo "$line"
 done
-echo "Hisobotlar: $out"
+echo "Reports: $out"
 exit $failed

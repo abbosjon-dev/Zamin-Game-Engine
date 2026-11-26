@@ -69,7 +69,7 @@ def replace_block(text, block):
     a = text.find(BEGIN)
     b = text.find(END)
     if a < 0 or b < 0 or b < a:
-        raise SystemExit(f"belgilar topilmadi: {BEGIN} ... {END}")
+        raise SystemExit(f"markers not found: {BEGIN} ... {END}")
     return text[:a] + block.rstrip("\n") + text[b + len(END):]
 
 
@@ -86,9 +86,9 @@ def main():
         new = replace_block(text, block)
         if args.check:
             if new != text:
-                print(f"{path}: testlar ro'yxati eskirgan (Tests/test_catalog.py --update {path})", file=sys.stderr)
+                print(f"{path}: the test list is stale (Tests/test_catalog.py --update {path})", file=sys.stderr)
                 return 1
-            print(f"{path}: testlar ro'yxati yangi")
+            print(f"{path}: the test list is up to date")
             return 0
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(new)

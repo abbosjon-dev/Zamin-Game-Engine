@@ -42,7 +42,7 @@ def main():
             "// clang-format off\n" + "\n".join(lines) + "\n// clang-format on\n")
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(text)
-    print(f"{len(codepoints)} ta ikonka, {len(ranges)} ta oraliq: {os.path.relpath(OUT, ROOT)}")
+    print(f"{len(codepoints)} icons, {len(ranges)} ranges: {os.path.relpath(OUT, ROOT)}")
 
 
 if __name__ == "__main__":

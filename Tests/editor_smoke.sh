@@ -35,13 +35,13 @@ done
 [[ ${#projects[@]} -eq 0 ]] && projects=("$root/Projects/Showcase3D" "$root/Projects/Platformer2D")
 [[ "$out" != /* ]] && out="$PWD/$out"
 if [[ ! -x "$editor" ]]; then
-    echo "ZaminEditor topilmadi: $editor (avval: cmake --build \"$build\" --target ZaminEditor)" >&2
+    echo "ZaminEditor not found: $editor (first: cmake --build \"$build\" --target ZaminEditor)" >&2
     exit 2
 fi
 runner=()
 if [[ -z "${DISPLAY:-}" ]]; then
     if ! command -v xvfb-run >/dev/null 2>&1; then
-        echo "Displey yo'q va xvfb-run topilmadi (apt install xvfb)" >&2
+        echo "No display and xvfb-run was not found (apt install xvfb)" >&2
         exit 2
     fi
     runner=(xvfb-run -a -s "-screen 0 1600x900x24 -nolisten tcp")
@@ -52,15 +52,15 @@ mkdir -p "$out"
 work="$(mktemp -d "${TMPDIR:-/tmp}/zamin-editor-smoke.XXXXXX")"
 summary="$out/summary.md"
 {
-    echo "### Editor smoke testi"
+    echo "### Editor smoke test"
     echo
-    echo "| Loyiha | Natija | Qadamlar | Kadrlar | Vaqt | Xatolar |"
+    echo "| Project | Result | Steps | Frames | Time | Errors |"
     echo "|---|---|---|---|---|---|"
 } >"$summary"
 
 failed=0
 for project in "${projects[@]}"; do
-    project="$(cd "$project" 2>/dev/null && pwd)" || { echo "Loyiha topilmadi: $project" >&2; failed=$((failed + 1)); continue; }
+    project="$(cd "$project" 2>/dev/null && pwd)" || { echo "Project not found: $project" >&2; failed=$((failed + 1)); continue; }
     name="$(basename "$project")"
     log="$out/$name.log"
     # A copy without the exports and the editor's own state (layouts, caches, autosaves).
@@ -71,7 +71,7 @@ for project in "${projects[@]}"; do
         rm -rf "$out/$name-shots"
         env_shots=(ZAMIN_EDITOR_SMOKE_SHOTS="$out/$name-shots")
     fi
-    echo "Editor smoke testi: $name (log: $log)"
+    echo "Editor smoke test: $name (log: $log)"
     start=$(date +%s)
     # ZAMIN_MAX_FRAMES: a safety net (the test closes the editor itself) that also keeps the frame rate unlimited.
     env HOME="$work/home-$name" ZAMIN_EDITOR_OPEN_ALL_PANELS=1 ZAMIN_GL_DEBUG=1 ZAMIN_MAX_FRAMES=20000 "${env_shots[@]}" \
@@ -86,28 +86,28 @@ for project in "${projects[@]}"; do
     errors="$(echo "$result" | grep -oE '[0-9]+ errors' | head -n 1 | cut -d' ' -f1)"
     if [[ $code -eq 0 && "$result" == *"smoke test passed:"* ]]; then
         echo "  [OK]   $result ($seconds s)"
-        echo "| $name | o'tdi | $steps | $frames | $seconds s | 0 |" >>"$summary"
+        echo "| $name | passed | $steps | $frames | $seconds s | 0 |" >>"$summary"
     else
         failed=$((failed + 1))
-        reason="chiqish kodi $code"
-        [[ $code -eq 124 ]] && reason="vaqt tugadi (900 s)"
-        [[ $code -gt 128 && $code -ne 124 ]] && reason="dastur yiqildi (signal $((code - 128)))"
+        reason="exit code $code"
+        [[ $code -eq 124 ]] && reason="timed out (900 s)"
+        [[ $code -gt 128 && $code -ne 124 ]] && reason="the program crashed (signal $((code - 128)))"
         [[ -n "$result" ]] && reason="$reason; $result"
-        echo "  [XATO] $reason"
+        echo "  [FAIL] $reason"
         grep -E "Smoke error|IM_ASSERT|Assertion|crash|Crash" "$log" | head -n 20 | sed 's/^/           /'
-        echo "| $name | **o'tmadi** ($reason) | ${steps:--} | ${frames:--} | $seconds s | ${errors:--} |" >>"$summary"
+        echo "| $name | **failed** ($reason) | ${steps:--} | ${frames:--} | $seconds s | ${errors:--} |" >>"$summary"
     fi
-    [[ $shots -eq 1 && -d "$out/$name-shots" ]] && echo "  rasmlar: $out/$name-shots ($(ls "$out/$name-shots" | wc -l) ta)"
+    [[ $shots -eq 1 && -d "$out/$name-shots" ]] && echo "  pictures: $out/$name-shots ($(ls "$out/$name-shots" | wc -l))"
 done
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     { cat "$summary"; echo; } >>"$GITHUB_STEP_SUMMARY"
 fi
-if [[ $keep -eq 1 ]]; then echo "Ish papkasi: $work"; else rm -rf "$work"; fi
+if [[ $keep -eq 1 ]]; then echo "Work folder: $work"; else rm -rf "$work"; fi
 echo
 if [[ $failed -eq 0 ]]; then
-    echo "Editor smoke testi: hammasi o'tdi (${#projects[@]} loyiha; hisobot: $summary)"
+    echo "Editor smoke test: all passed (${#projects[@]} projects; report: $summary)"
     exit 0
 fi
-echo "Editor smoke testi: $failed ta loyiha o'tmadi (hisobot: $summary)"
+echo "Editor smoke test: $failed projects failed (report: $summary)"
 exit 1

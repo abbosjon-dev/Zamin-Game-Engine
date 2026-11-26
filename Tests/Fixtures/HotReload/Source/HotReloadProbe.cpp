@@ -1,7 +1,7 @@
 // The hot reload test's script (Tests/hot_reload_test.sh). The editor builds it as version 1 and plays the
 // scene; the test then changes the next line to version 2 and builds the module again while the editor runs.
 // The editor reloads it and plays again: the new code runs (it moves along Y, it has a new field) with the
-// values the scene gave the fields before (Speed 7.5, Label "saqlangan", Count 3).
+// values the scene gave the fields before (Speed 7.5, Label "saved", Count 3).
 #define HOT_RELOAD_VERSION 1
 
 #include <Zamin/Zamin.h>
@@ -14,7 +14,7 @@ class HotReloadProbe : public ScriptableEntity
 {
 public:
     float Speed = 1.0f;             // the scene: 7.5
-    std::string Label = "standart"; // the scene: "saqlangan"
+    std::string Label = "default"; // the scene: "saved"
     int Count = 0;                  // the scene: 3
 #if HOT_RELOAD_VERSION >= 2
     int Extra = 42;                 // new in version 2: not in the scene, its default
@@ -38,7 +38,7 @@ public:
         else
             position.x += Speed * ts;
         if (++m_Frames == 20)
-            ZM_INFO("HotReloadProbe v{}: 20 kadr, pozitsiya ({:.2f}, {:.2f})", HOT_RELOAD_VERSION, position.x, position.y);
+            ZM_INFO("HotReloadProbe v{}: 20 frames, position ({:.2f}, {:.2f})", HOT_RELOAD_VERSION, position.x, position.y);
     }
 
 private:

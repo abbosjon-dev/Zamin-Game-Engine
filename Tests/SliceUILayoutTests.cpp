@@ -283,7 +283,7 @@ namespace {
             std::string error;
             if (!ui->Open(name, error))
             {
-                std::printf("    %s: '%s' ochilmadi: %s\n", file.c_str(), name.c_str(), error.c_str());
+                std::printf("    %s: '%s' could not be opened: %s\n", file.c_str(), name.c_str(), error.c_str());
                 continue;
             }
             for (int i = 0; i < 12; ++i) scene->UpdateRuntime(1.0f / 30.0f); // its show tween
@@ -303,7 +303,7 @@ namespace {
         LayoutTally tally;
         for (const auto& file : scenes)
             AuditSceneScreens(file, 45, tally);
-        std::printf("    %s: %d ekran x %zu o'lcham/UI masshtab = %d audit, %d element, eng kichik matn %.1f px, %d xato\n", name.c_str(), tally.Screens,
+        std::printf("    %s: %d screens x %zu sizes/UI scales = %d audits, %d elements, smallest text %.1f px, %d issues\n", name.c_str(), tally.Screens,
                     AuditMatrix().size(), tally.Audits, tally.Elements, tally.MinFont, tally.Issues);
         CHECK(tally.Screens >= minScreens);
         CHECK(tally.Issues == 0);

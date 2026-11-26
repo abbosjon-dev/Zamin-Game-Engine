@@ -1,4 +1,4 @@
-// Build-time check: writes the new-script templates (Editor > Skriptlar > Yangi C++ skript)
+// Build-time check: writes the new-script templates (Editor > Scripts > New C++ script)
 // to files that the build then compiles (target ZaminScriptTemplateCheck), so a template
 // that stops compiling breaks the build instead of the user's first script.
 #include <Zamin/Scripting/ScriptTemplate.h>
@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        std::fprintf(stderr, "ishlatish: ZaminScriptTemplateGen <papka>\n");
+        std::fprintf(stderr, "usage: ZaminScriptTemplateGen <folder>\n");
         return 1;
     }
     std::filesystem::path dir = argv[1];
@@ -39,6 +39,6 @@ int main(int argc, char** argv)
               WriteIfChanged(dir / "TemplateMinimalCheck.cpp", ScriptTemplate::Generate("TemplateMinimalCheck", ScriptTemplateKind::Minimal)) &&
               WriteIfChanged(dir / "ProjectStarterCheck.cpp", ScriptTemplate::GenerateProjectStarter());
     if (!ok)
-        std::fprintf(stderr, "Shablon fayllari yozilmadi: %s\n", dir.string().c_str());
+        std::fprintf(stderr, "The template files could not be written: %s\n", dir.string().c_str());
     return ok ? 0 : 1;
 }

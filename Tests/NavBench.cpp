@@ -258,9 +258,9 @@ int RunNavBench(int agents, int size, int frames, int jobs)
 #if defined(NDEBUG)
     const char* build = "Release";
 #else
-    const char* build = "Debug (optimallashtirilmagan: Release'da bir necha barobar tez)";
+    const char* build = "Debug (not optimized: several times faster in Release)";
 #endif
-    std::printf("Zamin navigatsiya benchmark: %dx%d grid, %d agent, %s, vazifalar tizimi: %u ishchi oqim\n\n", size, size, agents, build,
+    std::printf("Zamin navigation benchmark: %dx%d grid, %d agents, %s, job system: %u worker threads\n\n", size, size, agents, build,
                 JobSystem::GetWorkerCount());
 
     // ---- the searches alone
@@ -268,33 +268,33 @@ int RunNavBench(int agents, int size, int frames, int jobs)
     MakeLevel(size, 7, [&](int x, int y) { grid.SetWalkable(x, y, false); });
     grid.Erode(0.3f);
     const std::vector<Pair> pairs = MakePairs(grid, agents, 99);
-    std::printf("Grid: %zu / %zu katak yuriladigan (xonalar, eshiklar, to'siqlar)\n", grid.CountWalkable(), grid.GetCellCount());
+    std::printf("Grid: %zu / %zu cells walkable (rooms, doors, obstacles)\n", grid.CountWalkable(), grid.GetCellCount());
     const SearchResult serial = RunSearches(grid, pairs, false, 5);
     const SearchResult parallel = RunSearches(grid, pairs, true, 5);
-    std::printf("\nYo'l qidirish (A* + string pulling), %d ta yo'l bir vaqtda:\n", agents);
-    std::printf("  bitta oqim:         %8.2f ms  (yo'liga %.3f ms)\n", serial.Milliseconds, serial.Milliseconds / agents);
-    std::printf("  vazifalar tizimi:   %8.2f ms  (%.1f barobar tez)\n", parallel.Milliseconds,
+    std::printf("\nPath finding (A* + string pulling), %d paths at once:\n", agents);
+    std::printf("  one thread:         %8.2f ms  (%.3f ms per path)\n", serial.Milliseconds, serial.Milliseconds / agents);
+    std::printf("  job system:         %8.2f ms  (%.1f times faster)\n", parallel.Milliseconds,
                 parallel.Milliseconds > 0.0 ? serial.Milliseconds / parallel.Milliseconds : 0.0);
-    std::printf("  to'liq yo'llar %d / %d, o'rtacha %.0f katak ochildi, %.1f burchak\n", serial.Complete, agents, serial.Expanded, serial.Corners);
+    std::printf("  complete paths %d / %d, on average %.0f cells expanded, %.1f corners\n", serial.Complete, agents, serial.Expanded, serial.Corners);
 
     // ---- the scene: Nav Agents
-    std::printf("\nSahna: %d Nav Agent, %d kadr (1/60 s)\n", agents, frames);
-    std::printf("%-20s %10s %12s %14s %12s %10s %10s\n", "Holat", "bake 2D", "1-kadr", "(yo'llar)", "o'rtacha", "p95", "yo'l/kadr");
+    std::printf("\nScene: %d Nav Agents, %d frames (1/60 s)\n", agents, frames);
+    std::printf("%-20s %10s %12s %14s %12s %10s %10s\n", "Case", "bake 2D", "frame 1", "(paths)", "average", "p95", "paths/frame");
     for (bool par : { false, true })
     {
         const SceneResult r = RunScene(size, agents, frames, par);
-        std::printf("%-20s %7.1f ms %9.2f ms %11.2f ms %9.3f ms %7.3f ms %10.1f\n", par ? "vazifalar tizimi" : "bitta oqim", r.BakeMilliseconds,
+        std::printf("%-20s %7.1f ms %9.2f ms %11.2f ms %9.3f ms %7.3f ms %10.1f\n", par ? "job system" : "one thread", r.BakeMilliseconds,
                     r.FirstFrame, (double)r.FirstFramePaths, r.Frames.Average, r.Frames.P95, r.PathsPerFrame);
     }
 
     // ---- the 3D bake
     int walkable = 0;
     const double bake3D = Bake3D(size, walkable);
-    std::printf("\nNavGrid 3D bake: %dx%d katak (nurlar bilan), %.1f ms, %d tasi yuriladigan\n", size, size, bake3D, walkable);
+    std::printf("\nNavGrid 3D bake: %dx%d cells (with rays), %.1f ms, %d of them walkable\n", size, size, bake3D, walkable);
     // The bench bakes without the .znav cache: what a grid costs at play start when it is baked.
-    std::printf("\nXulosa: benchmark .znav keshisiz ishlaydi - grid o'yin boshlanganda qurilsa, yuqoridagi bake vaqti sahna yuklanishiga "
-                "qo'shiladi. Katta grid'lar uchun NavGrid > \"Faylda saqlash\" (CacheBake): editor bake'ni sahna bilan .znav fayliga "
-                "yozadi va o'yin manbalar o'zgarmagan bo'lsa uni qayta qurmasdan o'qiydi.\n");
+    std::printf("\nSummary: the benchmark runs without the .znav cache - when the grid is built as the game starts, the bake time above is added to "
+                "the scene load. For big grids NavGrid > \"Save to a file\" (CacheBake): the editor writes the bake into a .znav file with the scene "
+                "and the game reads it without rebuilding when the sources have not changed.\n");
     JobSystem::Shutdown();
     return 0;
 }

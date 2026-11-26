@@ -121,7 +121,7 @@ namespace {
         const size_t colon = spec.rfind(':');
         if (colon == std::string::npos || colon == 0)
         {
-            error = "--controller <sahna.zscene>:<obyekt UUID>";
+            error = "--controller <scene.zscene>:<entity UUID>";
             return false;
         }
         const std::string file = spec.substr(0, colon);
@@ -129,13 +129,13 @@ namespace {
         const std::string text = std::filesystem::exists(file) ? FileSystem::ReadTextFile(file) : std::string();
         if (text.empty())
         {
-            error = "sahna o'qilmadi: " + file;
+            error = "the scene could not be read: " + file;
             return false;
         }
         nlohmann::json scene = nlohmann::json::parse(text, nullptr, false);
         if (scene.is_discarded() || !scene.contains("Entities"))
         {
-            error = "sahna JSON emas: " + file;
+            error = "the scene is not JSON: " + file;
             return false;
         }
         for (const auto& e : scene["Entities"])
@@ -147,19 +147,19 @@ namespace {
                 auto temp = CreateRef<Scene>();
                 if (!SceneSerializer(temp).DeserializeFromString(one.dump()))
                 {
-                    error = "Animator o'qilmadi";
+                    error = "the Animator could not be read";
                     return false;
                 }
                 Entity source = temp->GetEntityByUUID(UUID(id));
                 if (!source || !source.HasComponent<AnimatorComponent>())
                 {
-                    error = "Animator o'qilmadi";
+                    error = "the Animator could not be read";
                     return false;
                 }
                 out = source.GetComponent<AnimatorComponent>();
                 return true;
             }
-        error = std::format("{} da {} obyektning Animator'i yo'q", file, id);
+        error = std::format("entity {1} in {0} has no Animator", file, id);
         return false;
     }
 
@@ -350,7 +350,7 @@ namespace {
         std::string error;
         if (!model || !model->IsSkinned())
         {
-            r.Error = "model yuklanmadi yoki skinned emas: " + o.ModelPath;
+            r.Error = "the model could not be loaded or is not skinned: " + o.ModelPath;
             return r;
         }
         if (!LoadController(o.Controller, controller, error))
@@ -359,7 +359,7 @@ namespace {
             return r;
         }
         r.Joints = (int)model->GetSkeleton().Joints.size();
-        r.Label = std::format("{} odam ({} suyak, {}), Locomotion 1D + UpperBody/Hit qatlamlari + event'lar, yarmi ekrandan tashqarida (CullPose)",
+        r.Label = std::format("{} humanoids ({} bones, {}), Locomotion 1D + UpperBody/Hit layers + events, half of them off screen (CullPose)",
                               o.Humanoids, r.Joints, std::filesystem::path(o.ModelPath).filename().string());
         // The pose with and without workers: the very same bits.
         const int poseFrames = std::min(o.Frames, 120);
@@ -477,7 +477,7 @@ namespace {
     {
         Result r;
         r.Key = "AnimationSprites";
-        r.Label = std::format("{} sprite Animator (DriveSpriteClips, 2D blend tree: Idle + 4 yo'nalish, yo'nalish doim aylanadi)", o.Sprites);
+        r.Label = std::format("{} sprite Animator (DriveSpriteClips, 2D blend tree: Idle + 4 directions, the direction keeps turning)", o.Sprites);
         const auto dir = std::filesystem::temp_directory_path() / std::format("zamin-sprite-bench-{}", uint64_t(UUID()));
         std::vector<std::string> paths;
         const auto infos = WriteSpriteClips(dir, paths);
@@ -619,9 +619,9 @@ int RunAnimationBench(int argc, char** argv)
         else if (!std::strcmp(argv[i], "--json") && i + 1 < argc) jsonFile = argv[++i];
         else
         {
-            std::printf("ZaminBench --animation [--humanoids N] [--sprites N] [--model <glb>] [--controller <sahna>:<UUID>] [--frames N] [--jobs N]\n"
-                        "                       [--humanoids-only | --sprites-only] [--json <fayl>]\n"
-                        "ZaminBench --animators N --model <glb> [--controller <sahna>:<UUID>] | --animators N --sprite-clips\n");
+            std::printf("ZaminBench --animation [--humanoids N] [--sprites N] [--model <glb>] [--controller <scene>:<UUID>] [--frames N] [--jobs N]\n"
+                        "                       [--humanoids-only | --sprites-only] [--json <file>]\n"
+                        "ZaminBench --animators N --model <glb> [--controller <scene>:<UUID>] | --animators N --sprite-clips\n");
             return 1;
         }
     }
@@ -642,8 +642,8 @@ int RunAnimationBench(int argc, char** argv)
     const char* build = "Debug";
 #endif
     Log::SetMinLevel(LogLevel::Warn);
-    std::printf("Zamin animatsiya stress benchmarki: 60 Hz, %d kadr, vazifalar tizimi 0 va %d ishchi oqim, %s, operator new hisoblagich: %s\n\n", o.Frames,
-                o.Jobs, build, AllocCounter::Available() ? "bor" : "yo'q");
+    std::printf("Zamin animation stress benchmark: 60 Hz, %d frames, job system with 0 and %d worker threads, %s, operator new counter: %s\n\n", o.Frames,
+                o.Jobs, build, AllocCounter::Available() ? "yes" : "no");
     std::vector<Result> results;
     if (o.RunHumanoids) results.push_back(Humanoids(o));
     if (o.RunSprites) results.push_back(Sprites(o));
@@ -657,28 +657,28 @@ int RunAnimationBench(int argc, char** argv)
             continue;
         }
         auto line = [](const char* name, const Timing& t) {
-            std::printf("  %s: kadr o'rtacha %.3f ms, mediana %.3f, p95 %.3f, eng sekin %.3f; Animator yangilash o'rtacha %.3f ms, p95 %.3f; ajratishlar %.1f / kadr",
+            std::printf("  %s: frame average %.3f ms, median %.3f, p95 %.3f, slowest %.3f; Animator update average %.3f ms, p95 %.3f; allocations %.1f / frame",
                         name, t.Frame.Average, t.Frame.Median, t.Frame.P95, t.Frame.Max, t.Update.Average, t.Update.P95, t.Allocations);
         };
         line("bitta oqim", r.Single);
-        if (r.Key == "AnimationHumanoids") std::printf("; pozalangan %u, culled %u", r.Single.Posed, r.Single.Culled);
+        if (r.Key == "AnimationHumanoids") std::printf("; posed %u, culled %u", r.Single.Posed, r.Single.Culled);
         std::printf("\n");
         if (r.Jobs > 0)
         {
-            line(std::format("{} ishchi", r.Jobs).c_str(), r.Parallel);
+            line(std::format("{} workers", r.Jobs).c_str(), r.Parallel);
             std::printf("\n");
         }
         if (r.Key == "AnimationHumanoids")
-            std::printf("  blend og'irlik xatosi eng ko'p %.2e (chegara 1e-5), NaN/inf matritsa %d, culling sizishi %d, poza %016llx %s %016llx (0 va %d ishchi)\n",
+            std::printf("  blend weight error at most %.2e (limit 1e-5), NaN/inf matrices %d, culling leaks %d, pose %016llx %s %016llx (0 and %d workers)\n",
                         r.MaxWeightError, r.NonFinite, r.CullLeaks, (unsigned long long)r.PoseHashSingle, r.PoseHashSingle == r.PoseHashParallel ? "==" : "!=",
                         (unsigned long long)r.PoseHashParallel, r.Jobs);
         else
-            std::printf("  kadr = StartFrame + floor(faza x soni) buzilgan: %d, faza uzilishi: %d, klip almashishi: %d\n", r.FrameMismatches, r.PhaseBreaks,
+            std::printf("  frame = StartFrame + floor(phase x count) broken: %d, phase breaks: %d, clip switches: %d\n", r.FrameMismatches, r.PhaseBreaks,
                         r.Switches);
-        std::printf("  event'lar (6 s): 20 Hz %llu, 30 Hz %llu, 60 Hz %llu, 144 Hz %llu; mos kelmagan %d%s\n", (unsigned long long)r.EventsAtRate[20],
+        std::printf("  events (6 s): 20 Hz %llu, 30 Hz %llu, 60 Hz %llu, 144 Hz %llu; mismatches %d%s\n", (unsigned long long)r.EventsAtRate[20],
                     (unsigned long long)r.EventsAtRate[30], (unsigned long long)r.EventsAtRate[60], (unsigned long long)r.EventsAtRate[144], r.RateMismatches,
-                    r.Key == "AnimationHumanoids" ? std::format(", Hit (3 zarba = 3 event) xato {}", r.HitMisses).c_str() : "");
-        std::printf("  invariantlar: %s\n", r.Passed() ? "o'tdi" : "BUZILDI");
+                    r.Key == "AnimationHumanoids" ? std::format(", Hit (3 strikes = 3 events) misses {}", r.HitMisses).c_str() : "");
+        std::printf("  invariants: %s\n", r.Passed() ? "passed" : "BROKEN");
         passed = passed && r.Passed();
     }
     if (jsonFile && *jsonFile)
@@ -714,6 +714,6 @@ int RunAnimationBench(int argc, char** argv)
         FileSystem::WriteTextFile(jsonFile, out);
         std::printf("\nJSON: %s\n", jsonFile);
     }
-    if (!passed) std::printf("\nANIMATSIYA STRESS: invariant buzildi\n");
+    if (!passed) std::printf("\nANIMATION STRESS: an invariant is broken\n");
     return passed ? 0 : 3;
 }

@@ -173,7 +173,7 @@ def main():
                 row["Seconds"] = round(seconds, 1)
                 rows["U1"] = row
                 shutil.copy(png, out / f"{game}-U1.png")
-                print(f"  {game} U1: {row['Audits']} audit, {len(row['Screens'])} ekran, eng kichik matn {row['MinFontPx']} px, {seconds:.0f} s")
+                print(f"  {game} U1: {row['Audits']} audit, {len(row['Screens'])} screens, smallest text {row['MinFontPx']} px, {seconds:.0f} s")
             if "U2" in phases:
                 # The same HOME: the 120 % setting comes back at start; then the gamepad tour sets 80 %.
                 tape, frames = gamepad_tour(game)
@@ -188,7 +188,7 @@ def main():
                     raise RuntimeError(f"{game} U2: the 80 % UI scale was not applied ({row['UIScales']})")
                 row["Seconds"] = round(seconds, 1)
                 rows["U2-gamepad"] = row
-                print(f"  {game} U2 gamepad: {row['Audits']} audit, {len(row['Screens'])} ekran, masshtablar {row['UIScales']}, {seconds:.0f} s")
+                print(f"  {game} U2 gamepad: {row['Audits']} audit, {len(row['Screens'])} screens, scales {row['UIScales']}, {seconds:.0f} s")
                 # Mouse: where the audit says the Settings button and the settings' Back are (window px, y down).
                 text, audits, _, _ = run("U2-probe", homes["pad"], 60, audit="40", elements=True, sizes=cfg["tour"])
                 size = [int(v) for v in cfg["tour"].split("x")]
@@ -207,7 +207,7 @@ def main():
                 text, audits, seconds, _ = run("U2-mouse", homes["pad"], 140, tape)
                 need("U2 mouse", text, ["Menu: Settings", "SLICE_SETTINGS music=", "Menu: Main"])
                 rows["U2-mouse"] = {"Clicks": [[sx, sy], [bx, by]], "Seconds": round(seconds, 1)}
-                print(f"  {game} U2 sichqoncha: Settings ({sx},{sy}) va Back ({bx},{by}) bosildi")
+                print(f"  {game} U2 mouse: Settings ({sx},{sy}) and Back ({bx},{by}) clicked")
             if "U3" in phases:
                 for device, pad in (("keyboard", False), ("gamepad", True)):
                     tape = fuzz_tape(args.seed + (1000 if pad else 0) + (0 if game == "LanternKeeper" else 7), args.fuzz_frames, pad)
@@ -234,12 +234,12 @@ def main():
                     issues = sum(len(a["Issues"]) for a in every)
                     for a in every:
                         for i in a["Issues"][:3]:
-                            print(f"    {game} U3 {device}: {a['Scene']}/{a['Top'] or 'HUD'} kadr {a['Frame']} {a['Viewport']}: {i['Rule']} {i['Detail']}")
+                            print(f"    {game} U3 {device}: {a['Scene']}/{a['Top'] or 'HUD'} frame {a['Frame']} {a['Viewport']}: {i['Rule']} {i['Detail']}")
                     row = {"Frames": args.fuzz_frames, "Segments": segments, "Audits": len(every), "MaxDepth": depth, "InvariantBreaks": breaks,
                            "Issues": issues, "Screens": sorted({f"{a['Scene']}/{a['Top'] or 'HUD'}" for a in every}), "Seconds": round(seconds, 1)}
                     rows[f"U3-{device}"] = row
-                    print(f"  {game} U3 {device}: {args.fuzz_frames} kadr, {segments} bo'lak, {len(every)} audit, eng chuqur {depth} panel, "
-                          f"{breaks} invariant buzilishi, {issues} xato, {seconds:.0f} s")
+                    print(f"  {game} U3 {device}: {args.fuzz_frames} frames, {segments} segments, {len(every)} audits, deepest {depth} panels, "
+                          f"{breaks} invariant breaks, {issues} issues, {seconds:.0f} s")
                     if breaks or issues:
                         raise RuntimeError(f"{game} U3 {device}: {breaks} invariant break(s), {issues} audit issue(s)")
             if "UW" in phases:
@@ -250,16 +250,16 @@ def main():
                 subprocess.run(["python3", str(ROOT / "Tests/png_check.py"), str(png)], check=True)
                 shutil.copy(png, out / f"{game}-ultrawide.png")
                 rows["UW"] = {"Audits": len(audits), "Seconds": round(seconds, 1)}
-                print(f"  {game} UW: 2560x1080 menyu, {len(audits)} audit, {seconds:.0f} s")
+                print(f"  {game} UW: 2560x1080 menu, {len(audits)} audits, {seconds:.0f} s")
         except Exception as error:  # noqa: BLE001
             failures.append(f"{game}: {error}")
-            print(f"XATO {game}: {error}")
+            print(f"FAIL {game}: {error}")
     (out / "Report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
-    print(f"Hisobot: {out / 'Report.json'}")
+    print(f"Report: {out / 'Report.json'}")
     if failures:
         print("\n".join(failures))
         return 1
-    print("UI darvozasi: o'tdi")
+    print("UI gate: passed")
     return 0
 
 

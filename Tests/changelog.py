@@ -99,9 +99,9 @@ def check(path, out):
     """Problems of CHANGELOG.md against the history: appended to `out`; returns a note."""
     commits = git_log()
     if commits is None:
-        return "CHANGELOG: to'liq git tarixi yo'q (arxiv yoki shallow clone), tekshirilmadi"
+        return "CHANGELOG: no full git history (an archive or a shallow clone), not checked"
     if not os.path.exists(path):
-        out.append("CHANGELOG.md yo'q")
+        out.append("CHANGELOG.md is missing")
         return ""
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
@@ -118,32 +118,32 @@ def check(path, out):
         sections[m.group(1)] = (i + 1, m.group(2).strip(), body.strip())
     for key, items in groups:
         if key not in sections:
-            out.append(f"CHANGELOG.md: '## {key}' bo'limi yo'q ({len(items)} ta commit) - Tests/changelog.py --commits {key}")
+            out.append(f"CHANGELOG.md: no '## {key}' section ({len(items)} commits) - Tests/changelog.py --commits {key}")
             continue
         lineno, title, body = sections[key]
         if key in names and names[key] not in title:
-            out.append(f"CHANGELOG.md:{lineno}: {key} sarlavhasida milestone nomi yo'q: '{names[key]}'")
+            out.append(f"CHANGELOG.md:{lineno}: the {key} heading lacks the milestone name: '{names[key]}'")
         expected = summary_line(key, items, key == newest)
         if key == newest:
             # The newest milestone grows with every commit (this file's own too): only where it starts is checked.
             if f"`{items[0][0]}`" not in body:
-                out.append(f"CHANGELOG.md:{lineno + 1}: {key} birinchi commit'i `{items[0][0]}` emas; kutilgan: {expected}")
+                out.append(f"CHANGELOG.md:{lineno + 1}: the first commit of {key} is not `{items[0][0]}`; expected: {expected}")
         elif body != expected:
-            out.append(f"CHANGELOG.md:{lineno + 1}: {key} qatori tarixga mos emas; kutilgan: {expected}")
+            out.append(f"CHANGELOG.md:{lineno + 1}: the {key} line does not match the history; expected: {expected}")
     for key in sorted(done):
         if key not in sections:
-            out.append(f"CHANGELOG.md: {key} ({names.get(key, '')}) vazifalari bajarilgan, lekin bo'limi yo'q")
+            out.append(f"CHANGELOG.md: {key} ({names.get(key, '')}) has finished tasks but no section")
     known = {c[0] for c in commits}
     for m in re.finditer(r"`([0-9a-f]{7})`", text):
         if m.group(1) not in known:
-            out.append(f"CHANGELOG.md: commit topilmadi: {m.group(1)}")
-    return f"CHANGELOG: {len(groups)} ta milestone, {len(commits)} ta commit"
+            out.append(f"CHANGELOG.md: commit not found: {m.group(1)}")
+    return f"CHANGELOG: {len(groups)} milestones, {len(commits)} commits"
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--commits", metavar="MNN", help="shu milestone'ning commit'lari")
-    ap.add_argument("--check", action="store_true", help="CHANGELOG.md tarixga mosligini tekshirish")
+    ap.add_argument("--commits", metavar="MNN", help="the commits of this milestone")
+    ap.add_argument("--check", action="store_true", help="check that CHANGELOG.md matches the history")
     args = ap.parse_args()
     commits = git_log()
     if args.check:
@@ -154,7 +154,7 @@ def main():
         print(note)
         return 1 if problems else 0
     if commits is None:
-        print("to'liq git tarixi topilmadi (arxiv yoki shallow clone)", file=sys.stderr)
+        print("no full git history (an archive or a shallow clone)", file=sys.stderr)
         return 2
     groups = group(commits)
     if args.commits:
@@ -164,7 +164,7 @@ def main():
                 for h, date, subject in items:
                     print(f"{h} {date} {subject}")
                 return 0
-        print(f"{key}: commit'lar yo'q", file=sys.stderr)
+        print(f"{key}: no commits", file=sys.stderr)
         return 1
     names, _ = milestone_names()
     for key, items in groups:

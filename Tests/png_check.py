@@ -19,7 +19,7 @@ def read_png(path):
     with open(path, "rb") as f:
         data = f.read()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
-        raise ValueError("PNG emas")
+        raise ValueError("not a PNG")
     pos, width, height, depth, kind, idat = 8, 0, 0, 0, 0, []
     while pos < len(data):
         length, tag = struct.unpack(">I4s", data[pos:pos + 8])
@@ -33,7 +33,7 @@ def read_png(path):
             break
     channels = {0: 1, 2: 3, 6: 4}.get(kind)
     if depth != 8 or channels is None:
-        raise ValueError(f"qo'llanmaydigan PNG turi (bit {depth}, rang turi {kind})")
+        raise ValueError(f"unsupported PNG kind (bit depth {depth}, colour type {kind})")
     raw = zlib.decompress(b"".join(idat))
     stride = width * channels
     rows, prev, at = [], bytearray(stride), 0
@@ -70,7 +70,7 @@ def main():
     try:
         width, height, channels, rows = read_png(args.png)
     except (OSError, ValueError, zlib.error, struct.error) as error:
-        print(f"{args.png}: o'qilmadi - {error}")
+        print(f"{args.png}: could not be read - {error}")
         return 2
     colors, total, total2, count = set(), 0.0, 0.0, 0
     step = max(1, (width * height) // 200000)  # a sample of the pixels on big pictures
@@ -85,14 +85,14 @@ def main():
             count += 1
     mean = total / count if count else 0.0
     stddev = math.sqrt(max(0.0, total2 / count - mean * mean)) if count else 0.0
-    print(f"{args.png}: {width}x{height}, {len(colors)} xil rang, yorqinlik o'rtacha {mean:.1f}, tarqoqlik {stddev:.1f}")
+    print(f"{args.png}: {width}x{height}, {len(colors)} colours, mean brightness {mean:.1f}, spread {stddev:.1f}")
     problems = []
     if args.size and args.size != f"{width}x{height}":
-        problems.append(f"o'lcham {width}x{height}, kutilgan {args.size}")
+        problems.append(f"size {width}x{height}, expected {args.size}")
     if len(colors) < args.min_colors:
-        problems.append(f"{len(colors)} xil rang (kamida {args.min_colors} kerak) - rasm deyarli bir xil")
+        problems.append(f"{len(colors)} colours (at least {args.min_colors} required) - the picture is almost uniform")
     if stddev < args.min_stddev:
-        problems.append(f"yorqinlik tarqoqligi {stddev:.1f} (kamida {args.min_stddev} kerak) - rasm bo'sh ko'rinadi")
+        problems.append(f"brightness spread {stddev:.1f} (at least {args.min_stddev} required) - the picture looks empty")
     for problem in problems:
         print(f"  {problem}")
     return 1 if problems else 0

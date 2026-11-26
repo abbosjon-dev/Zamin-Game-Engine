@@ -83,7 +83,7 @@ if [[ "$compiler" == clang ]] && command -v clang >/dev/null 2>&1; then
     rt_dir="$(clang --print-runtime-dir 2>/dev/null)"
     if [[ -n "$rt_dir" && ! -e "$rt_dir/libclang_rt.$rt-$(uname -m).a" && ! -e "$rt_dir/libclang_rt.$rt.a" ]]; then
         clang_major="$(clang -dumpversion | cut -d. -f1)"
-        echo "Clang'ning $mode sanitizer runtime'i topilmadi ($rt_dir/libclang_rt.$rt-$(uname -m).a):" >&2
+        echo "Clang's $mode sanitizer runtime was not found ($rt_dir/libclang_rt.$rt-$(uname -m).a):" >&2
         echo "  sudo apt-get install libclang-rt-$clang_major-dev" >&2
         exit 2
     fi
@@ -107,7 +107,7 @@ if [[ $do_build -eq 1 ]]; then
         if ! cmake -S "$root" -B "$build" "${generator[@]}" "${cc[@]}" -DCMAKE_BUILD_TYPE="$build_type" \
                 -DZAMIN_SANITIZE="$mode" "${extra_cmake[@]}" >"$build.configure.log" 2>&1; then
             cat "$build.configure.log" >&2
-            echo "cmake sozlash muvaffaqiyatsiz" >&2
+            echo "the cmake configure failed" >&2
             exit 2
         fi
         rm -f "$build.configure.log"
@@ -117,12 +117,12 @@ if [[ $do_build -eq 1 ]]; then
     [[ $smoke -eq 0 && $editor_smoke -eq 1 ]] && targets+=(ZaminEditor Platformer2D Showcase3D)
     echo "== Build: ${targets[*]}"
     if ! cmake --build "$build" --parallel "$jobs" --target "${targets[@]}"; then
-        echo "build muvaffaqiyatsiz" >&2
+        echo "the build failed" >&2
         exit 2
     fi
 fi
 if [[ ! -x "$build/bin/ZaminTests" ]]; then
-    echo "ZaminTests topilmadi: $build/bin (--no-build siz ishga tushiring)" >&2
+    echo "ZaminTests not found: $build/bin (run without --no-build)" >&2
     exit 2
 fi
 mkdir -p "$log_dir"
@@ -145,10 +145,10 @@ check() {
     local name="$1" code="$2" log="$3" secs="${4:-?}" reports
     reports="$(grep -cE "ERROR: (AddressSanitizer|LeakSanitizer)|WARNING: ThreadSanitizer|runtime error:|SUMMARY: (Address|Leak|Thread|UndefinedBehavior)Sanitizer" "$log")"
     if [[ "$code" -ne 0 || "$reports" -ne 0 ]]; then
-        echo "[XATO] $name: chiqish kodi $code, sanitizer xabarlari $reports - $log"
+        echo "[FAIL] $name: exit code $code, sanitizer reports $reports - $log"
         grep -E -m 20 -A 12 "ERROR: (AddressSanitizer|LeakSanitizer)|WARNING: ThreadSanitizer|runtime error:" "$log" | head -n 80
         failures=$((failures + 1))
-        rows+=("| $name | XATO (kod $code, $reports ta xabar) | $secs s | \`$(basename "$log")\` |")
+        rows+=("| $name | FAILED (code $code, $reports reports) | $secs s | \`$(basename "$log")\` |")
     else
         echo "[OK] $name ($log)"
         rows+=("| $name | OK | $secs s | \`$(basename "$log")\` |")
@@ -174,7 +174,7 @@ if [[ $smoke -eq 1 || $editor_smoke -eq 1 ]]; then
     runner=()
     if [[ -z "${DISPLAY:-}" ]]; then
         if ! command -v xvfb-run >/dev/null 2>&1; then
-            echo "xvfb-run yo'q: smoke o'tkazib yuborildi" >&2
+            echo "no xvfb-run: the smoke run was skipped" >&2
             exit 2
         fi
         runner=(xvfb-run -a -s "-screen 0 1600x900x24")
@@ -205,23 +205,23 @@ fi
 # ---- the editor smoke test (every window / menu / popup / inspector) under the sanitizer --------------------------
 if [[ $editor_smoke -eq 1 ]]; then
     smoke_dir="$log_dir/EditorSmoke"
-    echo "== Editor smoke testi (Showcase3D, Platformer2D)"
+    echo "== Editor smoke test (Showcase3D, Platformer2D)"
     start=$(date +%s)
     ZAMIN_BUILD_DIR="$build" "$root/Tests/editor_smoke.sh" --out "$smoke_dir" "$root/Projects/Showcase3D" "$root/Projects/Platformer2D" \
         >"$log_dir/EditorSmoke.log" 2>&1
     code=$?
-    grep -E "\[(OK|XATO)\]" "$log_dir/EditorSmoke.log" | sed 's/^ */   /'
+    grep -E "\[(OK|FAIL)\]" "$log_dir/EditorSmoke.log" | sed 's/^ */   /'
     # The script's own verdict (exit code) and every project's editor log searched for sanitizer reports.
     reports_log="$log_dir/EditorSmoke-all.log"
     cat "$log_dir/EditorSmoke.log" "$smoke_dir"/*.log >"$reports_log" 2>/dev/null
-    check "Editor smoke testi" "$code" "$reports_log" $(( $(date +%s) - start ))
+    check "Editor smoke test" "$code" "$reports_log" $(( $(date +%s) - start ))
 fi
 
 echo
 if [[ $failures -eq 0 ]]; then
-    verdict="Sanitizer ($mode): xato yo'q"
+    verdict="Sanitizer ($mode): no errors"
 else
-    verdict="Sanitizer ($mode): $failures ta xato"
+    verdict="Sanitizer ($mode): $failures failures"
 fi
 echo "$verdict"
 {
@@ -229,14 +229,14 @@ echo "$verdict"
     echo
     echo "Build: \`$(basename "$build")\` ($build_type${compiler:+, $compiler}), $(date -u '+%Y-%m-%d %H:%M UTC')"
     echo
-    echo "| Ishga tushirish | Natija | Vaqt | Log |"
+    echo "| Run | Result | Time | Log |"
     echo "|---|---|---|---|"
     printf '%s\n' "${rows[@]}"
 } >"$log_dir/summary.md"
 [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && cat "$log_dir/summary.md" >>"$GITHUB_STEP_SUMMARY"
-echo "Hisobot: $log_dir/summary.md"
+echo "Report: $log_dir/summary.md"
 if [[ $clean -eq 1 ]]; then
     rm -rf "$build"
-    echo "build papkasi o'chirildi: $build"
+    echo "the build folder was removed: $build"
 fi
 [[ $failures -eq 0 ]]

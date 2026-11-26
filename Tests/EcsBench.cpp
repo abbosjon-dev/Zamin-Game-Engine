@@ -53,7 +53,7 @@ namespace {
         void Add(std::string key, std::string label, double ms, size_t items, bool perFrame = false)
         {
             const double ns = items > 0 ? ms * 1e6 / (double)items : 0.0;
-            std::printf("  %-58s %10.3f %-7s %9.1f ns / ta  (%zu)\n", label.c_str(), ms, perFrame ? "ms/kadr" : "ms", ns, items);
+            std::printf("  %-58s %10.3f %-7s %9.1f ns each  (%zu)\n", label.c_str(), ms, perFrame ? "ms/frame" : "ms", ns, items);
             Rows.push_back({ std::move(key), std::move(label), ms, items, perFrame });
         }
 
@@ -160,11 +160,11 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
     std::mt19937 rng(431);
     [[maybe_unused]] static volatile double s_Sink; // a volatile store: the work is not optimised away
     double sink = 0.0;
-    std::printf("Zamin ECS benchmark: %d obyekt, %s, har raqam 3 marta o'lchanib mediana (ms, ns / ta)\n", count, build);
+    std::printf("Zamin ECS benchmark: %d entities, %s, every number is the median of 3 measurements (ms, ns each)\n", count, build);
     EcsReport report;
 
     // ---- the bare registry: what the Scene API adds on top of it shows next to these
-    report.Section("EnTT registry (taqqoslash uchun: nom, UUID xaritasi, sahna tartibi, ierarxiya yo'q)");
+    report.Section("EnTT registry (for comparison: no name, UUID map, scene order or hierarchy)");
     auto filledRegistry = [count]() {
         RegistryState r;
         r.Entities.reserve((size_t)count);
@@ -178,7 +178,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
         }
         return r;
     };
-    report.Add("EnTT.Create", "create + emplace<Transform> (+ yarmiga Sprite)",
+    report.Add("EnTT.Create", "create + emplace<Transform> (+ a Sprite on half of them)",
                Median<RegistryState>(runs, []() { return RegistryState(); },
                                      [count](RegistryState& r) {
                                          for (int i = 0; i < count; i++)
@@ -190,7 +190,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                          }
                                      }),
                n);
-    report.Add("EnTT.View1", "view<Transform>: har biriga yozish (x10)",
+    report.Add("EnTT.View1", "view<Transform>: write to each (x10)",
                Median<RegistryState>(runs, filledRegistry,
                                      [](RegistryState& r) {
                                          for (int k = 0; k < 10; k++)
@@ -198,7 +198,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                                  t.Translation.x += 1.0f;
                                      }) / 10.0,
                n);
-    report.Add("EnTT.View2", "view<Transform, Sprite> (yarmi mos, x10)",
+    report.Add("EnTT.View2", "view<Transform, Sprite> (half match, x10)",
                Median<RegistryState>(runs, filledRegistry,
                                      [&sink](RegistryState& r) {
                                          for (int k = 0; k < 10; k++)
@@ -206,7 +206,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                                  sink += (double)(t.Translation.x * sprite.Color.r);
                                      }) / 10.0,
                (n + 1) / 2);
-    report.Add("EnTT.Destroy", "destroy (har biri alohida, eng eskisidan)",
+    report.Add("EnTT.Destroy", "destroy (one by one, oldest first)",
                Median<RegistryState>(runs, filledRegistry,
                                      [](RegistryState& r) {
                                          for (entt::entity e : r.Entities)
@@ -215,9 +215,9 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                n);
 
     // ---- creating and components
-    report.Section("Sahna: yaratish va komponentlar");
+    report.Section("Scene: creation and components");
     auto empty = []() { return SceneState{ CreateRef<Scene>(), {} }; };
-    report.Add("Scene.CreateEntity", "CreateEntity(nom): ID, Transform, Tag, Relationship, UUID xaritasi",
+    report.Add("Scene.CreateEntity", "CreateEntity(name): ID, Transform, Tag, Relationship, UUID map",
                Median<SceneState>(runs, empty,
                                   [count](SceneState& s) {
                                       for (int i = 0; i < count; i++)
@@ -227,7 +227,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
     std::vector<UUID> ids(n);
     for (UUID& id : ids)
         id = UUID();
-    report.Add("Scene.CreateEntityWithUUID", "CreateEntityWithUUID (yuklovchi yo'li)",
+    report.Add("Scene.CreateEntityWithUUID", "CreateEntityWithUUID (the loader's path)",
                Median<SceneState>(runs, empty,
                                   [&ids](SceneState& s) {
                                       for (size_t i = 0; i < ids.size(); i++)
@@ -235,14 +235,14 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                   }),
                n);
     auto flat = [count]() { return MakeScene(count, false, false); };
-    report.Add("Scene.AddSprite", "AddComponent<SpriteRenderer> har biriga",
+    report.Add("Scene.AddSprite", "AddComponent<SpriteRenderer> on each",
                Median<SceneState>(runs, flat,
                                   [](SceneState& s) {
                                       for (Entity e : s.Entities)
                                           e.AddComponent<SpriteRendererComponent>();
                                   }),
                n);
-    report.Add("Scene.AddBody2D", "AddComponent<Rigidbody2D> + <BoxCollider2D> (beshdan biriga)",
+    report.Add("Scene.AddBody2D", "AddComponent<Rigidbody2D> + <BoxCollider2D> (on one in five)",
                Median<SceneState>(runs, flat,
                                   [](SceneState& s) {
                                       for (size_t i = 0; i < s.Entities.size(); i += 5)
@@ -253,7 +253,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                   }),
                (n + 4) / 5 * 2);
     auto full = [count]() { return MakeScene(count, true, false); };
-    report.Add("Scene.RemoveSprite", "RemoveComponent<SpriteRenderer> har biridan",
+    report.Add("Scene.RemoveSprite", "RemoveComponent<SpriteRenderer> from each",
                Median<SceneState>(runs, full,
                                   [](SceneState& s) {
                                       for (Entity e : s.Entities)
@@ -262,8 +262,8 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                n);
 
     // ---- iterating and looking up
-    report.Section("Sahna: aylanib chiqish va qidirish");
-    report.Add("Scene.View1", "GetAllEntitiesWith<Transform>: har biriga yozish (x10)",
+    report.Section("Scene: iteration and lookup");
+    report.Add("Scene.View1", "GetAllEntitiesWith<Transform>: write to each (x10)",
                Median<SceneState>(runs, full,
                                   [](SceneState& s) {
                                       for (int k = 0; k < 10; k++)
@@ -288,7 +288,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                               sink += (double)(t.Translation.y + box.Size.x);
                                   }) / 10.0,
                (n + 4) / 5);
-    report.Add("Scene.EntityGetComponent", "Entity::GetComponent<Transform> sahna tartibida (skriptlar kabi)",
+    report.Add("Scene.EntityGetComponent", "Entity::GetComponent<Transform> in scene order (as scripts do)",
                Median<SceneState>(runs, full,
                                   [&sink](SceneState& s) {
                                       for (Entity e : s.Entities)
@@ -307,7 +307,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                   }),
                n);
     // The per-frame loops' way since task 484: the component's pool looked up once (HotStorages), not per entity.
-    report.Add("Scene.PoolGet", "Transform pool'i bir marta olinib (kesh), har biriga get",
+    report.Add("Scene.PoolGet", "the Transform pool taken once (cached), get on each",
                Median<SceneState>(runs, full,
                                   [&](SceneState& s) {
                                       auto& pool = s.World->GetRegistry().storage<TransformComponent>();
@@ -315,7 +315,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                           sink += (double)pool.get((entt::entity)e).Translation.y;
                                   }),
                n);
-    report.Add("Scene.TryGetComponent", "Entity::TryGetComponent<Rigidbody2D> (20 % bor)",
+    report.Add("Scene.TryGetComponent", "Entity::TryGetComponent<Rigidbody2D> (20 % have one)",
                Median<SceneState>(runs, full,
                                   [&sink](SceneState& s) {
                                       for (Entity e : s.Entities)
@@ -342,12 +342,12 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                            sink += (double)(uint32_t)l.Scene.World->GetEntityByUUID(id);
                                    }),
                n);
-    report.Add("Scene.EntitiesInOrder", "GetEntitiesInOrder (sahna tartibidagi ro'yxat)",
+    report.Add("Scene.EntitiesInOrder", "GetEntitiesInOrder (the list in scene order)",
                Median<SceneState>(runs, full, [&sink](SceneState& s) { sink += (double)s.World->GetEntitiesInOrder().size(); }), n);
 
     // ---- hierarchy
-    report.Section("Sahna: ierarxiya (har 10-obyekt keyingi 9 tasining ota-onasi)");
-    report.Add("Scene.SetParent", "SetParent (dunyo transformi saqlanadi)",
+    report.Section("Scene: hierarchy (every 10th entity is the parent of the next 9)");
+    report.Add("Scene.SetParent", "SetParent (the world transform is kept)",
                Median<SceneState>(runs, full,
                                   [](SceneState& s) {
                                       Entity group;
@@ -361,7 +361,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                   }),
                n - (n + 9) / 10);
     auto grouped = [count]() { return MakeScene(count, true, true); };
-    report.Add("Scene.WorldTransform", "GetWorldTransform har biriga (chuqurlik 2)",
+    report.Add("Scene.WorldTransform", "GetWorldTransform on each (depth 2)",
                Median<SceneState>(runs, grouped,
                                   [&sink](SceneState& s) {
                                       for (Entity e : s.Entities)
@@ -370,7 +370,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                n);
     // Asked again with nothing moved (what a frame's systems do: physics, audio, lights, drawing ...), then with
     // every group's root moved (its children's world transforms change with it).
-    report.Add("Scene.WorldTransformAgain", "GetWorldTransform yana (hech narsa qimirlamagan)",
+    report.Add("Scene.WorldTransformAgain", "GetWorldTransform again (nothing moved)",
                Median<SceneState>(runs,
                                   [count]() {
                                       SceneState s = MakeScene(count, true, true);
@@ -383,7 +383,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                           sink += (double)s.World->GetWorldTransform(e)[3].x;
                                   }),
                n);
-    report.Add("Scene.WorldTransformMoved", "GetWorldTransform guruh ildizlari siljigandan keyin",
+    report.Add("Scene.WorldTransformMoved", "GetWorldTransform after the group roots moved",
                Median<SceneState>(runs,
                                   [count]() {
                                       SceneState s = MakeScene(count, true, true);
@@ -400,7 +400,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                n);
     report.Add("Scene.HierarchyOrder", "GetEntitiesInHierarchyOrder",
                Median<SceneState>(runs, grouped, [&sink](SceneState& s) { sink += (double)s.World->GetEntitiesInHierarchyOrder().size(); }), n);
-    report.Add("Scene.GetChildren", "GetChildren har bir guruhga",
+    report.Add("Scene.GetChildren", "GetChildren on every group",
                Median<SceneState>(runs, grouped,
                                   [&sink](SceneState& s) {
                                       for (size_t i = 0; i < s.Entities.size(); i += 10)
@@ -419,8 +419,8 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                Median<SceneState>(runs, grouped, [&sink](SceneState& s) { sink += (double)Scene::Copy(s.World)->GetEntitiesInOrder().size(); }), n);
 
     // ---- destroying
-    report.Section("Sahna: o'chirish (sahna tartibi saqlanadi)");
-    report.Add("Destroy.NewestFirst", "DestroyEntity: eng yangisidan boshlab",
+    report.Section("Scene: destruction (scene order is kept)");
+    report.Add("Destroy.NewestFirst", "DestroyEntity: newest first",
                Median<SceneState>(runs, full,
                                   [](SceneState& s) {
                                       for (auto it = s.Entities.rbegin(); it != s.Entities.rend(); ++it)
@@ -435,16 +435,16 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                   }),
                n);
     const size_t oldest = std::min<size_t>(n, 1000);
-    report.Add("Destroy.OldestFirst", std::format("DestroyEntity: eng eskisidan boshlab ({} ta, sahnada {})", oldest, n),
+    report.Add("Destroy.OldestFirst", std::format("DestroyEntity: oldest first ({}, {} in the scene)", oldest, n),
                Median<SceneState>(runs, full,
                                   [oldest](SceneState& s) {
                                       for (size_t i = 0; i < oldest; i++)
                                           s.World->DestroyEntity(s.Entities[i]);
                                   }),
                oldest);
-    report.Add("Destroy.Batch", "DestroyEntities(hammasi) - bitta to'plam",
+    report.Add("Destroy.Batch", "DestroyEntities(all) - one batch",
                Median<SceneState>(runs, full, [](SceneState& s) { s.World->DestroyEntities(s.Entities); }), n);
-    report.Add("Destroy.Groups", "DestroyEntity guruh ildiziga (bolalari bilan)",
+    report.Add("Destroy.Groups", "DestroyEntity on a group root (with its children)",
                Median<SceneState>(runs, grouped,
                                   [](SceneState& s) {
                                       for (size_t i = 0; i < s.Entities.size(); i += 10)
@@ -452,7 +452,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                                   }),
                n);
     // In a running scene (no bodies: the frame is the queue's flush): a script's Destroy waits for the frame's end.
-    report.Add("Destroy.Deferred", "DestroyEntityDeferred eng eskisidan + kadr oxiridagi bo'shatish",
+    report.Add("Destroy.Deferred", "DestroyEntityDeferred oldest first + the flush at the end of the frame",
                Median<SceneState>(runs,
                                   [count]() {
                                       SceneState s = MakeScene(count, false, false);
@@ -470,7 +470,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
                n);
 
     // ---- runtime frames of a scene this size (no camera: nothing is drawn, the update only)
-    report.Section(std::format("O'yin kadri (UpdateRuntime, {} kadr o'rtachasi; kamerasiz - faqat yangilash)", frames).c_str());
+    report.Section(std::format("A game frame (UpdateRuntime, the average of {} frames; no camera - update only)", frames).c_str());
     const float dt = 1.0f / 60.0f;
     // The heap allocations of the frames themselves (UpdateRuntime; the beforeFrame work not counted), per frame.
     double framesAllocs = 0.0;
@@ -500,7 +500,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
     auto noteAllocs = [&](const char* key) {
         if (!AllocCounter::Available())
             return;
-        std::printf("  %-58s %10.1f ajratma / kadr\n", "  (UpdateRuntime ichidagi heap ajratmalari)", framesAllocs);
+        std::printf("  %-58s %10.1f allocations / frame\n", "  (heap allocations inside UpdateRuntime)", framesAllocs);
         report.Allocations.emplace_back(key, framesAllocs);
     };
     auto noBodies = [count]() {
@@ -517,7 +517,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
             times.push_back(runFrames(s, {}));
         }
         std::sort(times.begin(), times.end());
-        report.Add("Frame.Idle", "bo'sh kadr: spritelar, ierarxiya (fizikasiz, skriptsiz)", times[1], n, true);
+        report.Add("Frame.Idle", "an idle frame: sprites, hierarchy (no physics, no scripts)", times[1], n, true);
         noteAllocs("Frame.Idle");
     }
     const size_t scripts = std::max<size_t>(1, n / 10);
@@ -534,7 +534,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
             times.push_back(runFrames(s, {}));
         }
         std::sort(times.begin(), times.end());
-        report.Add("Frame.Scripts", std::format("{} skript OnUpdate (har biri Transform'ni o'zgartiradi)", scripts), times[1], scripts, true);
+        report.Add("Frame.Scripts", std::format("{} scripts' OnUpdate (each changes its Transform)", scripts), times[1], scripts, true);
         noteAllocs("Frame.Scripts");
     }
     const int churn = 500;
@@ -543,7 +543,7 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
         for (int r = 0; r < runs; r++)
         {
             SceneState s = noBodies();
-            Entity bullet = s.World->CreateEntity("O'q");
+            Entity bullet = s.World->CreateEntity("Bullet");
             bullet.AddComponent<SpriteRendererComponent>().Color = { 1.0f, 1.0f, 0.0f, 1.0f };
             std::vector<Entity> alive;
             double spawnMs = 0.0;
@@ -566,10 +566,10 @@ int RunEcsBench(int count, int frames, const char* jsonFile)
         }
         std::sort(times.begin(), times.end());
         std::sort(spawnTimes.begin(), spawnTimes.end());
-        report.Add("Frame.Churn", std::format("{} Instantiate + {} Destroy har kadr ({} obyektli sahnada)", churn, churn, n), times[1],
+        report.Add("Frame.Churn", std::format("{} Instantiate + {} Destroy every frame (in a scene of {} entities)", churn, churn, n), times[1],
                    (size_t)churn * 2, true);
-        report.Add("Frame.ChurnSpawn", std::format("  shundan {} Instantiate (o'yin davomida)", churn), spawnTimes[1], (size_t)churn, true);
-        report.Add("Frame.ChurnRest", std::format("  qolgani: kadr yangilanishi va {} Destroy", churn), times[1] - spawnTimes[1], (size_t)churn,
+        report.Add("Frame.ChurnSpawn", std::format("  of which {} Instantiate (during the game)", churn), spawnTimes[1], (size_t)churn, true);
+        report.Add("Frame.ChurnRest", std::format("  the rest: the frame update and {} Destroy", churn), times[1] - spawnTimes[1], (size_t)churn,
                    true);
         noteAllocs("Frame.Churn");
     }

@@ -571,7 +571,7 @@ ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 | `ZaminBench --physics` / `--animation` / `--slice-stress` | vertical slice stress darvozalari: Box2D/Jolt + motor/Character Controller, odam va sprite animator olomoni, slice darajalari to'lib-toshganda o'yin kodi (yuqorida) |
 | `Tests/startup_bench.py` | editor va player ishga tushish vaqti: birinchi kadrgacha (dvigatel / layer'lar / 1-kadr) va jarayon vaqti, ikki build solishtirish (`--bin`, `--module-dir`) |
 | `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
-| `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#ishlash-tezligi) |
+| `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#performance) |
 
 
 ## P1 xarita render workload'i (2026-11-10)

@@ -221,7 +221,7 @@ query the keyboard or the gamepad directly, and the control hint of the main men
 `Tests/samples_export.py` (ctest `SampleExports`) exports the nine samples with the editor (`Tests/export_test.sh`)
 and plays the exported games (`<export>/<Game>.sh`) with `samples_test.py --exported`: the demo + record cases of the
 six games and the smoke of the older samples. `Tests/samples_bench.py` measures each sample's frame time, the number
-of entities in the scene and its most expensive parts ([Samples.md](Samples.md#ishlash-tezligi)).
+of entities in the scene and its most expensive parts ([Samples.md](Samples.md#performance)).
 
 ## 6. Sanitizers
 

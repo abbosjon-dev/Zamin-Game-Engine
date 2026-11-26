@@ -2,7 +2,7 @@
 
 The state at the end of M25 (tasks 481–500): where the time goes, what was fixed and what remains. Every number was
 measured (profiler records, benchmarks); the before / after tables and how to reproduce them —
-[Benchmarks.md](Benchmarks.md), the samples table — [Samples.md](Samples.md#ishlash-tezligi).
+[Benchmarks.md](Benchmarks.md), the samples table — [Samples.md](Samples.md#performance).
 
 **Environment:** 4 vCPU Intel Xeon @ 2.10 GHz, no GPU — Mesa 25.2.8 **llvmpipe** (LLVM 20.1.2, a software rasterizer),
 xvfb, GCC 13.3, a **Release** build, a 1280x720 window. On llvmpipe the "GPU" work also runs on these four cores: the
@@ -54,7 +54,7 @@ samples with `--quality Low` too: no SSAO, small shadow maps): the remaining fra
 llvmpipe's vertex work together, i.e. an upper bound on the engine's work. 2D: 1.9–9.3 ms, 3D: 8.5–12.7 ms —
 within 16.6 ms (60 FPS); EndlessRunner was 26.6 ms (the vertex work of 155K triangles) - with the primitive LODs it is
 15.1-15.5 ms (67K triangles; p95 still 19-20 ms). The table:
-[Samples.md](Samples.md#m25-tekshiruvi-2026-11-09).
+[Samples.md](Samples.md#the-m25-check-2026-11-09).
 
 **The slowest frames.** In TopDownShooter the first run has one frame of ~0.8 s: when a large text (the wave banner)
 is first drawn, the font atlas of that size is rasterized (~600 glyphs). The font cache (485) writes it to disk: on

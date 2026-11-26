@@ -634,7 +634,7 @@ SaveData::SubmitRecord("Racing.BestLap", lapSeconds, RecordOrder::Lower);
 SaveData::Save();
 ```
 
-Olti M24 namuna o'yin rekordlarini shunday saqlaydi ([Samples.md](Samples.md#rekordlar-savedata)).
+Olti M24 namuna o'yin rekordlarini shunday saqlaydi ([Samples.md](Samples.md#records-savedata)).
 
 **Lokalizatsiya** — `Localize("menu.start")`, `Localize("hud.score", score)` (`{0}` o'rniga), `LocalizePlural(...)`;
 til almashsa `OnLanguageChanged` keladi. Til fayllari: `Assets/Localization/<til>.json` ([ProjectSettings.md](ProjectSettings.md)).

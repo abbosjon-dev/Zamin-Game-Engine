@@ -1,171 +1,171 @@
-# Visual Script: kodsiz gameplay
+# Visual Script: gameplay without code
 
-Zamin Visual Script — engine ichidagi `.zgraph` node muharriri va chegaralangan bajarish tizimi.
-2D va 3D loyihalar uchun bir xil ishlaydi. Graph asosidagi loyiha C++ kompilyatori yoki o'yin `.so` modulini talab qilmaydi.
-Gameplay graph authoring va bajarish bo‘limi typed funksiyalar, kolleksiyalar, debug va compiler-free eksport bilan ishlaydi. Unreal Blueprints bilan to‘liq tenglik da’vo qilinmaydi.
+Zamin Visual Script is the engine's built-in `.zgraph` node editor and a bounded execution system.
+It works the same for 2D and 3D projects. A graph-based project needs neither a C++ compiler nor a game `.so` module.
+The gameplay graph authoring and execution part works with typed functions, collections, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
 
-## Boshlash
+## Getting started
 
-1. Content Browser bo'sh joyida o'ng tugma → **Yangi visual skript (.zgraph)**. Yoki **Oyna → Visual Script** oynasida `Scripts/NewGraph.zgraph` yo'lini kiriting va **New** bosing.
-2. Chapdagi qidiruv orqali node qo'shing. O'ngdagi panelda uning qiymatlarini sozlang.
-3. Chiqish pinini, keyin kirish pinini bosing. Faqat bir xil turdagi pinlar ulanadi. Oq pinlar bajarish tartibi; rangli pinlar ma'lumotdir. Bir nechta harakat uchun **Sequence** ishlating.
-4. **Save** qiling. Ierarxiyada obyektni tanlang va **Attach saved graph** bosing. Bu sahna o'zgarishi: sahnani ham saqlang.
-5. **Play** bosing. **Instance overrides** orqali bitta graph nusxalarining tezligi, rangi va boshqa o'zgaruvchilarini alohida sozlash mumkin; o'yin paytida muharrir tahriri yopiladi.
+1. Right-click an empty spot in the Content Browser → **New visual script (.zgraph)**. Or, in the **Window → Visual Script** window, enter the path `Scripts/NewGraph.zgraph` and press **New**.
+2. Add a node through the search on the left. Set its values in the panel on the right.
+3. Click an output pin, then an input pin. Only pins of the same type connect. White pins are the execution order; colored pins are data. Use **Sequence** for several actions.
+4. **Save**. Select an entity in the hierarchy and press **Attach saved graph**. This is a scene change: save the scene too.
+5. Press **Play**. Through **Instance overrides** the speed, color and other variables of the instances of one graph can be set separately; editing in the editor is closed while the game runs.
 
-O'rta sichqon tugmasi — pan; g'ildirak — zoom; **Grafni sig'dirish** — hamma node'ni ko'rinishga sig'dirish.
-Node sarlavhasini tortish — joylashuv; pin ustida o'ng tugma — simlarni uzish.
-Ctrl-click — ko‘p node tanlash; Ctrl+A — hammasi; Ctrl+C/V — nusxa olish/qo‘yish; Ctrl+D — ko‘paytirish; Delete — tanlanganlarni o‘chirish. Guruh sarlavhasini tortish tanlanganlarni birga ko‘chiradi. Copy/Paste/Duplicate tugmalari ham mavjud. Clipboard shu editor sessiyasida saqlanadi; ichki simlar va zarur signaturalar ko‘chadi. Nom to‘qnashsa yangi nom beriladi, yaroqsiz paste graphni o‘zgartirmaydi. Tanlangan node **Delete node** orqali ham o‘chadi. Graphning o'z **Undo/Redo** tarixi 64 holat / 32 MB bilan chegaralangan.
-Saqlanmagan graph ustiga boshqa fayl ochilmaydi; **Saqlash** yoki **O'zgarishlarni tashlash** bilan davom etiladi.
-Fayl atomik yoziladi; yozish xatosida tahrirlar oynada qoladi.
+Middle mouse button — pan; wheel — zoom; **Fit graph** — fit every node into the view.
+Dragging a node's header — position; right-clicking a pin — disconnect its wires.
+Ctrl-click — select several nodes; Ctrl+A — all of them; Ctrl+C/V — copy/paste; Ctrl+D — duplicate; Delete — delete the selected ones. Dragging a group header moves the selected nodes together. There are also Copy/Paste/Duplicate buttons. The clipboard is kept for the current editor session; the inner wires and the needed signatures are copied with the nodes. A name clash gets a new name, and an invalid paste does not change the graph. A selected node can also be deleted with **Delete node**. The graph's own **Undo/Redo** history is limited to 64 states / 32 MB.
+Another file does not open over an unsaved graph; you go on with **Save** or **Discard edits**.
+The file is written atomically; on a write error the edits stay in the window.
 
-## Ishlaydigan imkoniyatlar
+## What works
 
-- Hayot sikli: Create, Enable, Start, Disable, Destroy, Update, LateUpdate.
-- Collision/trigger, UI pointer/click/select/input, animatsiya, audio tugashi, AI target/patrol, scene va language hodisalari.
-- Number, Bool, String, Vec2/3/4, Entity qiymatlar; qat'iy turli pinlar; graph o'zgaruvchilari va nusxa uchun overrides.
+- The lifecycle: Create, Enable, Start, Disable, Destroy, Update, LateUpdate.
+- Collision/trigger, UI pointer/click/select/input, animation, audio finished, AI target/patrol, scene and language events.
+- Number, Bool, String, Vec2/3/4, Entity values; strictly typed pins; graph variables and per-instance overrides.
 - Branch, Sequence, For/Index/Completed, While, Break, Delay.
-- Typed Function.Entry/Call/Return: parametrlar, bir nechta natija, har chaqiruvga alohida lokal o‘zgaruvchilar, nested/delayed chaqiruvlar. Eski Function/Call graphlari ham ishlaydi.
-- Bool/Number/String/Vec2/Vec3/Vec4/Entity massivlari: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat va snapshot ForEach.
-- Event.Custom + EmitEvent: graph nusxasi ichida nomlangan hodisa, Number/Text/Bool/Vector3/Other payload. Boshqa obyektga xabar uchun SendMessage ishlatiladi.
-- Matematik, mantiqiy va vektor amallari, matn birlashtirish, raqamni matnga aylantirish (`FormatNumber` — 0..6 o'nlik xona, `FormatTime` — `mm:ss` / `h:mm:ss`).
-- Input axis/action, transform, entity qidirish/yaratish/o'chirish, active holati va taglar.
-- 2D/3D raycast (Hit, Entity, Point, Normal, Distance); navigatsiya destination/stop/arrival.
-- Animator typed parametr/damping, state/transition, 1D/2D blend og‘irligi, root motion va layer boshqaruvi ([animatsiya qo‘llanmasi](Animation.md#73-modelsiz-2d-holatlar-va-blueprint)).
-- Scene yuklash (`LoadScene` ixtiyoriy `FadeOut`/`FadeIn`/`Color` bilan: 0..10 s, FadeIn −1 — FadeOut kabi; standart qiymatlar va pinlarsiz eski graphlar avvalgidek darhol almashtiradi), `QuitGame` (editor'da Play'ni to'xtatadi), `App.DemoMode` (`ZAMIN_DEMO` o'rnatilgan va `0` emas); Number/Bool/String global GameState va uning save/load amallari.
-- Sozlamalar ko'priklari: `Audio.SetGroupVolume`/`Audio.GroupVolume` (Music/SFX/UI guruhlari, 0..2), `FadeAudio` (Target, 0..2, 0..30 s), `Localization.SetLanguage`/`.Language`/`.Text` (kalit ≤ 128 bayt, topilmasa Fallback), `Display.SetFullscreen`/`Display.IsFullscreen` (oynasiz holatda faqat saqlanadi), `Localization.SaveSettings`/`Display.SaveSettings` (o'yinchi tanlagan til va ekran sozlamalarini SaveData'ga yozadi — Player va Editor Play keyingi safar ularni yuklaydi, buyruq qatori ustun), `Display.SetUIScale`/`Display.UIScale` (o'yinchining UI o'lchami 0.5..2: har UI Canvas, keyin yuklanadigan sahnalar ham; [UI.md](UI.md#4-ui-canvas-ekranga-moslashish)), `UIValue` (slider/toggle/progress qiymati: Found, Value, On) va `SetUIValue` (oraliqqa qisiladi; `Notify` standart bo'yicha o'chiq — saqlangan qiymat ko'rsatiladi, qayta qo'llanmaydi), `PlaySpriteClip`, `ShakeCamera` (0..1, 0..5 s, .1..100 Hz).
-- Vektor/burchak yordamchilari: `SubtractVec2/3/4`, `DotVec*`, `DistanceVec*`, `LengthVec*`, `NormalizeVec*` (nol vektor nolga qoladi), `Atan2`, `LerpAngle` (qisqa yo'l, radian).
-- 2D/3D velocity, force, impulse, 3D torque; prefab, audio, animation, sprite rang, UI matni, xabarlar.
-- `ReadField.<Type>` / `WriteField.<Type>` boshqa obyektning ro'yxatdan o'tgan C++ maydonlari bilan ishlaydi. Number Float/Int ga moslanadi; Int kasr va overflow'ni rad etadi; maydonning Range cheklovi saqlanadi.
+- Typed Function.Entry/Call/Return: parameters, several results, separate local variables for each call, nested/delayed calls. Old Function/Call graphs still work.
+- Bool/Number/String/Vec2/Vec3/Vec4/Entity arrays: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat and a snapshot ForEach.
+- Event.Custom + EmitEvent: a named event inside a graph instance, with a Number/Text/Bool/Vector3/Other payload. SendMessage is used for a message to another entity.
+- Math, logic and vector operations, joining text, turning a number into text (`FormatNumber` — 0..6 decimal places, `FormatTime` — `mm:ss` / `h:mm:ss`).
+- Input axis/action, transform, finding/creating/destroying entities, the active state and tags.
+- 2D/3D raycasts (Hit, Entity, Point, Normal, Distance); navigation destination/stop/arrival.
+- Animator typed parameters/damping, states/transitions, 1D/2D blend weights, root motion and layer control ([the animation guide](Animation.md#73-modelsiz-2d-holatlar-va-blueprint)).
+- Scene loading (`LoadScene` with an optional `FadeOut`/`FadeIn`/`Color`: 0..10 s, FadeIn −1 — the same as FadeOut; the default values and old graphs without the pins switch at once as before), `QuitGame` (stops Play in the editor), `App.DemoMode` (`ZAMIN_DEMO` is set and not `0`); Number/Bool/String global GameState and its save/load operations.
+- Settings bridges: `Audio.SetGroupVolume`/`Audio.GroupVolume` (the Music/SFX/UI groups, 0..2), `FadeAudio` (Target, 0..2, 0..30 s), `Localization.SetLanguage`/`.Language`/`.Text` (a key ≤ 128 bytes, Fallback when not found), `Display.SetFullscreen`/`Display.IsFullscreen` (without a window it is only saved), `Localization.SaveSettings`/`Display.SaveSettings` (write the language and display settings the player chose to SaveData — the Player and Editor Play load them next time, the command line wins), `Display.SetUIScale`/`Display.UIScale` (the player's UI size 0.5..2: every UI Canvas, the scenes loaded later too; [UI.md](UI.md#4-ui-canvas-ekranga-moslashish)), `UIValue` (a slider/toggle/progress value: Found, Value, On) and `SetUIValue` (clamped to the range; `Notify` is off by default — the saved value is shown, not applied again), `PlaySpriteClip`, `ShakeCamera` (0..1, 0..5 s, .1..100 Hz).
+- Vector/angle helpers: `SubtractVec2/3/4`, `DotVec*`, `DistanceVec*`, `LengthVec*`, `NormalizeVec*` (a zero vector stays zero), `Atan2`, `LerpAngle` (the short way, radians).
+- 2D/3D velocity, force, impulse, 3D torque; prefabs, audio, animation, sprite color, UI text, messages.
+- `ReadField.<Type>` / `WriteField.<Type>` work with another entity's registered C++ fields. Number is adapted to Float/Int; Int rejects fractions and overflow; the field's Range limit is kept.
 
-`Update.Delta` — soniyalardagi vaqt; aylanish qiymatlari radianlarda. `Translate` hamda `SetPosition` fizik jismlar bilan ham sinxronlanadi.
-SetScale render transformini o'zgartiradi; runtime collider geometriyasini qayta yasamaydi.
-`Target` bo'sh turganda **Self** ishlatiladi. **None** yoki qidiruvdan qaytgan nol UUID o'z obyektiga aylantirilmaydi: noto'g'ri target diagnostika beradi.
-Entity qiymatiga ierarxiyadan obyekt tortib tashlash mumkin.
+`Update.Delta` is the time in seconds; rotation values are in radians. `Translate` and `SetPosition` are synchronized with physics bodies too.
+SetScale changes the render transform; it does not rebuild the runtime collider geometry.
+When `Target` is empty, **Self** is used. **None**, or a zero UUID returned by a lookup, is not turned into the entity itself: an invalid target gives a diagnostic.
+An entity can be dragged from the hierarchy onto an Entity value.
 
-## Funksiya va kolleksiyalarni yozish
+## Writing functions and collections
 
-Properties ichidagi **Typed functions → Function name → Create function** typed kirish/qaytish juftligini yaratadi.
-Funksiya daraxtida Inputs/Outputs/Locals turini, nomini va boshlang‘ich qiymatini tahrirlang; **Add call node** bilan chaqiring.
-Entry parametr chiqishlarini tana amallariga, natijani Return kirishiga ulang. Return faqat o‘z funksiyasida ishlaydi.
-Natijali funksiya bajarilish yo‘li Return’siz tugasa, VM aniq xato bilan to‘xtaydi; natijasiz funksiya erkin tugashi mumkin.
-Local.Get/Set faqat shu chaqiruvning qiymatiga tegadi; rekursiya va parallel Delay vazifalari ularni ulashmaydi.
-Funksiya/graph o‘zgaruvchisini Rename qilish tegishli node nomlarini ham yangilaydi. Pin nomi/turi o‘zgarsa
-mos kelmay qolgan simlar/literallar olib tashlanadi; Undo ularni tiklaydi. Event ma’lumotini funksiyaga argument orqali bering.
+**Typed functions → Function name → Create function** in Properties creates a typed entry/return pair.
+In the function tree edit the type, name and initial value of the Inputs/Outputs/Locals; call it with **Add call node**.
+Connect the Entry's parameter outputs to the body's operations and the result to the Return's input. Return works only in its own function.
+If the execution path of a function with results ends without a Return, the VM stops with a clear error; a function without results may end freely.
+Local.Get/Set touch only the value of the current call; recursion and parallel Delay tasks do not share them.
+Renaming a function/graph variable updates the names of its nodes too. When a pin's name/type changes,
+the wires/literals that no longer fit are removed; Undo restores them. Pass event data to a function through an argument.
 
-Massiv literalida Add/Remove, 16 elementli sahifalar va **Paste array JSON** bor. `Array.Get/Set/Remove` indeksi
-0 dan boshlanadi; kasr/manfiy/chegaradan tashqari indeks bajarilish xatosidir. Slice Start/Count butun va chegarada bo‘lishi kerak.
-Find topilmasa -1 qaytaradi. ForEach kirish massivining nusxasi ustida ishlaydi: tana ichida global massivni o‘zgartirish
-joriy aylanish tarkibini o‘zgartirmaydi. Body’dan qaytgach keyingi element, so‘ng Completed ishlaydi; Break eng ichki loopni tugatadi.
-Break typed funksiya chegarasidan tashqaridagi caller loopga o‘ta olmaydi.
-EmitEvent joriy zanjirdan keyin navbatdagi VM bajarish davrida yetkaziladi; rekursiv synchronous event stack yaratmaydi.
+An array literal has Add/Remove, pages of 16 elements and **Paste array JSON**. The index of `Array.Get/Set/Remove`
+starts at 0; a fractional/negative/out-of-range index is an execution error. Slice Start/Count must be integers within range.
+Find returns -1 when nothing is found. ForEach works on a copy of the input array: changing the global array inside the body
+does not change the contents of the current loop. After returning from Body the next element runs, then Completed; Break ends the innermost loop.
+Break cannot cross a typed function boundary into a caller's loop.
+EmitEvent is delivered in the VM's next execution pass after the current chain; it does not build a recursive synchronous event stack.
 
-## Bajarish qoidalari va debug
+## Execution rules and debugging
 
-Ma'lumot pinlari kerak bo'lgan paytda hisoblanadi: loop ichidagi Get yangilangan o'zgaruvchini ko'radi.
-Sequence shoxlari tartib bilan bajariladi; shox ichidagi Delay tugagach keyingisi boshlanadi.
-For Count butun 0..100000 qiymat bo'lishi kerak. While sharti har aylanishda qayta hisoblanadi.
-Break ichki loopni tugatadi va uning Completed chiqishiga o'tadi.
-Delay kutayotgan hodisaning ma'lumotlari va bajarish stekini saqlaydi. Entity/script nofaol bo'lsa kutish ham to'xtaydi.
-Bir hodisani qayta-qayta boshlash alohida bajarish vazifalarini yaratadi; har frame uzun Delay boshlash o'rniga buni Start yoki tegishli input hodisasidan boshlang.
+Data pins are evaluated when they are needed: a Get inside a loop sees the updated variable.
+Sequence branches run in order; when a Delay inside a branch finishes, the next branch starts.
+For Count must be an integer value 0..100000. A While condition is evaluated again on every iteration.
+Break ends the inner loop and goes on to its Completed output.
+A Delay keeps the data of the waiting event and the execution stack. When the entity/script is inactive, the wait stops too.
+Starting one event again and again creates separate execution tasks; instead of starting a long Delay every frame, start it from Start or the relevant input event.
 
-Play paytida tanlangan obyektning graph oynasida **Enable breakpoints**, **Pause**, **Continue**, **Step**, o‘zgaruvchilar va oxirgi 128 node izi mavjud. Calls chaqiruv zanjiri, Function frame argument/lokallari va Retained data hajmi ko‘rsatiladi.
-Breakpoint graph nusxasini to'xtatadi; boshqa obyektlar va o'yin simulyatsiyasi davom etadi. O'yinning umumiy Pause boshqaruvi alohida.
-Player'da breakpoints avtomatik o'chirilgan; editor debug belgisi buildga majburiy to'xtash kiritmaydi.
+While playing, the graph window of the selected entity has **Enable breakpoints**, **Pause**, **Continue**, **Step**, the variables and a trace of the last 128 nodes. The call chain (Calls), the Function frame's arguments/locals and the size of the Retained data are shown.
+A breakpoint stops the graph instance; the other entities and the game simulation go on. The game's general Pause control is separate.
+In the Player breakpoints are off automatically; the editor's debug marker adds no forced stop to a build.
 
-Bajarish 10000 ko'rsatma bilan chegaralanadi; cheksiz loop o'rniga node raqami bilan xato chiqadi.
-Ma'lumot chuqurligi 128, bajarish steki 1024, bir vaqtdagi vazifalar 128, o'zaro graph chaqiruv chuqurligi 32 bilan cheklangan.
-Graph 4096 node / 8192 sim / 256 o‘zgaruvchi / 64 funksiya / 4 MB faylgacha; matn qiymati 64 KB gacha.
-Har funksiyada 32 kirish, 32 natija va 32 lokal; defaultlar jami 64 KiB, typed chaqiruv chuqurligi 32.
-Massiv 1024 element va hisoblangan 64 KiB payload bilan chegaralangan. Event 32 kalit va 64 KiB.
-VM saqlab turgan qiymatlar/vazifa yozuvlari jami 8 MiB bilan chegaralangan; bu umumiy process RSS o‘lchovi emas.
-Noma'lum node, yo'qolgan pin, tur xatosi, ikki manbali ma'lumot kirishi, takrorlangan ID, data cycle va nolga bo'lish rad etiladi.
-Xato shu graph nusxasini to'xtatadi va konsol/debug panelga chiqadi.
+Execution is limited to 10000 instructions; instead of an endless loop, an error with the node number comes out.
+The data depth is limited to 128, the execution stack to 1024, the simultaneous tasks to 128 and the depth of cross-graph calls to 32.
+A graph holds up to 4096 nodes / 8192 wires / 256 variables / 64 functions / a 4 MB file; a text value up to 64 KB.
+Each function has 32 inputs, 32 results and 32 locals; the defaults together 64 KiB, a typed call depth of 32.
+An array is limited to 1024 elements and a computed payload of 64 KiB. An event to 32 keys and 64 KiB.
+The values/task records the VM keeps are limited to 8 MiB in total; this is not a measure of the whole process RSS.
+Unknown nodes, missing pins, type errors, a data input with two sources, duplicate IDs, data cycles and division by zero are rejected.
+An error stops that graph instance and is printed to the console/debug panel.
 
-## Saqlash, C++ va eksport
+## Saving, C++ and export
 
-Graph engine'ning mavjud `NativeScriptComponent` lifecycle'ida ichki `Zamin.VisualGraph` hosti orqali ishlaydi.
-Shuning uchun bitta obyektning bitta skript slotiga C++ yoki visual graph ulanadi. C++ skript bor obyektga ulash tugmasi almashtirishni aniq ko'rsatadi.
-Ikkisini birlashtirish uchun alohida controller obyektlari, xabarlar va aks ettirilgan maydonlardan foydalaning.
-C++ metodlari avtomatik nodega aylanmaydi: faqat katalogdagi API va ro'yxatga olingan maydonlar mavjud.
-Gameplay nodelarining sanab o'tiladigan Number pinlari (AbilityDefine/ProjectileDefine/AreaDefine Kind,
-EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, jihoz Slot) node inspectorida nomlangan ro'yxat
-(combo, `Visual::PinChoices`) bo'lib ko'rinadi va indeks oddiy raqam sifatida saqlanadi; Play paytida inspector
-tanlangan aktyorning [jang holati](GameplayCombat.md#editor-authoring)ni ham ko'rsatadi.
-Curve/Enum/custom struct pinlari, macro/collapse, graph inheritance, network RPC va bytecode/native code generation alohida rivojlantirish bosqichlaridir. Typed funksiyalar va yuqoridagi yetti massiv turi ushbu bo‘limga kiradi.
+A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
+That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
+To combine the two, use separate controller entities, messages and reflected fields.
+C++ methods do not become nodes automatically: only the API in the catalogue and registered fields are available.
+The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine/AreaDefine Kind,
+EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
+(a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
+[combat state](GameplayCombat.md#editor-authoring) of the selected actor.
+Curve/Enum/custom struct pins, macros/collapse, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions and the seven array types above are part of this one.
 
-Graph assets registryda ro'yxatlanadi, Content Browser'da ochiladi, asset inspector diagnostika ko'rsatadi.
-Graph ichidagi asset yo'llari reference scan va rename bilan yuritiladi. Graph o'zgaruvchisini override qiladigan asset yo'lini
-ichki JSON matniga yashirish o'rniga graph node'ining Path qiymatida saqlash tavsiya qilinadi: nested override matni reference scanner tomonidan tahlil qilinmaydi.
-Play'dan chiqqach graph tahriri qayta ochiladi. Saqlangan graph keyingi Play'da yuklanadi; Play ichida faylni jonli almashtirish yo'q.
-C++ hot reload graph o'zgaruvchilarini saqlaydi, lekin boshqa native taymerlar kabi kutayotgan bajarishlarni qayta boshlaydi.
+Graph assets are listed in the registry, open in the Content Browser, and the asset inspector shows their diagnostics.
+Asset paths inside a graph take part in the reference scan and in renames. Rather than hiding an asset path that overrides a graph variable
+inside nested JSON text, keeping it in a graph node's Path value is recommended: the reference scanner does not parse nested override text.
+After leaving Play, graph editing opens again. A saved graph is loaded on the next Play; there is no live replacement of the file during Play.
+C++ hot reload keeps the graph variables, but, like other native timers, restarts the pending executions.
 
-## Namunalar va tekshiruv
+## Samples and checks
 
-[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) C++ modulisiz ikkita sahnaga ega:
+[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) has two scenes without a C++ module:
 
-- `Visual2D`: WASD/arrow input → 2D velocity; triggerga tegish rangni vaqtincha o'zgartiradi.
-- `Visual3D`: ikkita kub bir graph bilan, turli Speed override’lari orqali teskari tezliklarda aylanadi.
-- Ikkala sahnada `BlueprintGameplay.zgraph`: massiv → ForEach → typed Award(Amount, Factor) → lokal/Delay/Return → Total → Finished event → Print. Multiplier override sabab 2D jami 12, 3D jami 18.
+- `Visual2D`: WASD/arrow input → 2D velocity; touching a trigger changes the color for a while.
+- `Visual3D`: two cubes with one graph spin at opposite speeds through different Speed overrides.
+- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18.
 
-`ZaminTests --filter VisualGraph` VM, tur/format/cycle tekshiruvi, delay/loop/function davom etishi, budget, debug, izolyatsiya,
-C++ maydon ko'prigi, haqiqiy sahna lifecycle va null target himoyasini bajaradi.
+`ZaminTests --filter VisualGraph` runs the VM, the type/format/cycle checks, continuing delays/loops/functions, the budget, debugging, isolation,
+the C++ field bridge, a real scene lifecycle and the null target protection.
 
-Haqiqiy ImGui sichqon regressiyasi (node qo'shish, typed sim, rad etish, save/undo/redo):
+The real ImGui mouse regression (adding nodes, a typed wire, rejection, save/undo/redo):
 
 ```bash
 ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2 \
   xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/visual_graph_editor_test.py
 ```
 
-Sinov `xdotool` va ImageMagick `import` vositasini talab qiladi; asl namunani o'zgartirmaydi.
+The test needs `xdotool` and the ImageMagick `import` tool; it does not change the original sample.
 
-2026-11-10 tekshiruvi: 173 node ta'rifi; 26 ta VisualGraph sinovi (boshqa yuklangan sahna obyektiga murojaat ham kiradi),
-682 umumiy unit test, 12 render holati va ikki loyiha bo'yicha 223 + 265 editor qadami xatosiz o'tdi.
-Haqiqiy X11/ImGui amallarida node qo'shish, save, undo/redo, typed sim va noto'g'ri simni rad etish tekshirildi.
-UI'siz Player'da 3D aylanish, 2D fizik trigger → graph → GameState → disk save zanjiri ishladi.
-Bu sinovlar Linux/Mesa dasturiy rendering muhitida bajarildi; boshqa platformalar yoki fizik GPU sertifikati emas.
+The 2026-11-10 check: 173 node definitions; 26 VisualGraph tests (including a reference to an entity in another loaded scene),
+682 unit tests overall, 12 render cases and 223 + 265 editor steps over two projects passed without errors.
+In real X11/ImGui operations, adding nodes, save, undo/redo, a typed wire and rejecting a wrong wire were checked.
+In the Player without UI, the 3D rotation and the chain 2D physics trigger → graph → GameState → disk save worked.
+These tests ran in a Linux/Mesa software rendering environment; they are not a certification for other platforms or physical GPUs.
 
-## World navigation va traversal
+## World navigation and traversal
 
-- **SetWorldDestination**: NavAgent'ni world atlas rejimiga o‘tkazadi; Position world Vec3,
-  Success Complete/Partial route topilganini bildiradi. Failed uchun false. Target default Self.
-- **NavTraversalState** (pure): Pending, Link/Revision/Ticket (aniq String), Entry/Exit (Vec3), Status.
-  UUID'lar Number emas: 2^53 dan katta qiymatlar ham yaxlitlanmaydi.
-- **Event.NavTraversalRequested**: Self agent entry'ga kelganda bir marta, har yangi ticket uchun;
-  Link, Revision, Ticket, Entry, Exit payload. VM paused bo‘lsa event mavjud queue qoidalariga amal qiladi.
-- **CompleteNavTraversal**: event'dan Link/Revision/Ticket va Target; Success bool. Xarita o‘zgarishi,
-  cancel, band controller exit yoki noto‘g‘ri token false beradi. Keyin Branch bilan retry/cancel tanlanadi.
-- **CancelNavTraversal**: pending so‘rovni bekor qilib agentni to‘xtatadi; Success bool.
+- **SetWorldDestination**: switches a NavAgent to the world atlas mode; Position is a world Vec3,
+  Success says a Complete/Partial route was found. False for Failed. Target defaults to Self.
+- **NavTraversalState** (pure): Pending, Link/Revision/Ticket (exact Strings), Entry/Exit (Vec3), Status.
+  The UUIDs are not Numbers: values above 2^53 are not rounded either.
+- **Event.NavTraversalRequested**: once when the Self agent reaches the entry, for each new ticket;
+  a Link, Revision, Ticket, Entry, Exit payload. When the VM is paused the event follows the existing queue rules.
+- **CompleteNavTraversal**: Link/Revision/Ticket and Target from the event; a Success bool. A map change,
+  a cancel, a blocked controller exit or a wrong token gives false. Then Branch chooses retry/cancel.
+- **CancelNavTraversal**: cancels the pending request and stops the agent; a Success bool.
 
-Delay task event tokenlarini o‘zi bilan saqlaydi. Kechikishdan keyin NavTraversalState'dan yangi token
-olib eski action'ga qo‘llash o‘rniga event pinlarini complete'ga ulang. Bu explicit teleport handshake;
-character yurishi fizikaga bog‘liq, controller exit band bo‘lsa ko‘chmaydi. Rigidbody traversal completion
-hozir qo‘llanmaydi. Namuna: WorldWorkshop2D/3D `Scripts/WorldTraversal.zgraph`, B tugmasi bilan.
+A Delay task keeps the event tokens with it. Instead of taking a new token from NavTraversalState after the delay
+and applying it to the old action, connect the event pins to the complete. This is an explicit teleport handshake;
+a character's walk depends on physics, and it does not move while the controller exit is blocked. Rigidbody traversal completion
+is not applied yet. Sample: WorldWorkshop2D/3D `Scripts/WorldTraversal.zgraph`, with the B key.
 
-Async world policy'da SetWorldDestination true worker request qabul qilinganini bildiradi, path status None
-bo‘lishi mumkin. **NavQueryPending** pure bool accepted query tayyor bo‘lguncha true; portal Pending alohida.
-Backpressure'da destination intent retry qilinadi, StopMoving bilan bekor qilinadi. Sample graph Searching
-variable'ni shu node bilan yangilaydi. Natija revision/goal/start/entity generation tekshiruvlaridan keyin qo‘llanadi.
+Under the async world policy, SetWorldDestination true means the worker request was accepted; the path status may be None.
+The pure bool **NavQueryPending** is true until an accepted query is ready; the portal Pending is separate.
+Under backpressure the destination intent is retried and StopMoving cancels it. The sample graph updates the Searching
+variable with this node. The result is applied after the revision/goal/start/entity generation checks.
 
-`NavSteeringState` — pure Navigation node. `TargetEntity` (bo‘sh: o‘zi), outputs `Preferred`,
-`Velocity` (Vector3), `Neighbors` (Number), `Blocked`, `Limited` (Bool). NavAgent bo‘lmasa
-zero/false qaytaradi. Velocity world clearance’dan keyingi harakat buyrug‘i; fizik actual velocity
-kerak bo‘lsa body/controller query ishlatiladi. `CrowdMonitor.zgraph` namunasida Event.Update
-uchta variable’ni yangilaydi; ko‘rsatkichlar oxirgi navigatsiya update’iga tegishli.
+`NavSteeringState` is a pure Navigation node. `TargetEntity` (empty: itself), outputs `Preferred`,
+`Velocity` (Vector3), `Neighbors` (Number), `Blocked`, `Limited` (Bool). Without a NavAgent it
+returns zero/false. Velocity is the movement command after the world clearance; when the physical actual velocity
+is needed, use a body/controller query. In the `CrowdMonitor.zgraph` sample Event.Update
+updates three variables; the indicators belong to the last navigation update.
 
-`NavRecoveryState`: pure node, optional TargetEntity, outputs `Phase` (String), `Retries`,
-`StalledSeconds`, `Cooldown` (Number), `Exhausted` (Bool). Agent yo‘q: Idle/0/false.
-`RetryNavigation`: exec, optional TargetEntity, Then/Success. Active destination’li world agentning
-watchdog’ini reset qilib, re-path so‘raydi va pending traversal token’ini bekor qiladi; yangi
-query keyingi owner nav update’ida boshlanadi. `RecoveryMonitor.zgraph` 8 node / 9 link bilan
-holatni o‘qish va Message orqali retry’ni ko‘rsatadi.
+`NavRecoveryState`: a pure node, an optional TargetEntity, outputs `Phase` (String), `Retries`,
+`StalledSeconds`, `Cooldown` (Number), `Exhausted` (Bool). No agent: Idle/0/false.
+`RetryNavigation`: exec, an optional TargetEntity, Then/Success. It resets the watchdog of a world agent with an active
+destination, asks for a re-path and cancels the pending traversal token; the new
+query starts at the owner's next nav update. `RecoveryMonitor.zgraph`, with 8 nodes / 9 links, shows reading the
+state and a retry through Message.
 
-Typed funksiyalar/kolleksiyalar modeli va VM testlari: `ZaminTests --filter Blueprint`.
-Real 2D/3D Player/editor screenshotlari va modulsiz eksport tekshiruvi:
+The typed functions/collections model and the VM tests: `ZaminTests --filter Blueprint`.
+Real 2D/3D Player/editor screenshots and the module-free export check:
 
 ```bash
 python3 Tests/blueprint_workflow_test.py --build build-review --exports
 ```
 
-Eksport tekshiruvi ikkala sahnada haqiqiy score loglarini, PNG, eksport hisoboti va ko‘chirilgan launcher versiyasini tekshiradi.
-Sahna lifecycle testi Total qiymati va vazifalar tugashini VM ichidan ham tekshiradi.
+The export check verifies the real score logs, the PNGs, the export report and the relocated launcher version in both scenes.
+The scene lifecycle test also checks the Total value and that the tasks finished from inside the VM.

@@ -1,354 +1,354 @@
-# Namuna o'yinlar galereyasi
+# The sample games gallery
 
-Zamin Engine bilan namuna o'yinlar va Blueprint workshop loyihalari keladi (`Projects/`). Oltitasi M24 bosqichida yozilgan kichik, lekin to'liq
-o'yinlar: bosh menyu, pauza, natijalar oynasi, rekordlar, klaviatura va gamepad, o'zbek va ingliz tili, demo bot.
-Namuna o'yinlar standart holda inglizcha boshlanadi (`"DefaultLanguage": "en"`); o'zbekcha o'yin menyusidagi til tugmasi
-bilan tanlanadi va o'yinchi sozlamalarida saqlanadi.
-Bu olti o'yinning gameplay kodi C++ skriptlarda (`Projects/<O'yin>/Source/`), rasm, model va ovozlar esa koddan yaratilgan
-(`Tools/samples/gen_<o'yin>.py`, [Tools/samples/README.md](../Tools/samples/README.md)). Pastdagi rasmlar haqiqiy
-o'yindan, `ZaminPlayer` da headless olingan (bot o'ynayapti).
+Zamin Engine comes with sample games and Blueprint workshop projects (`Projects/`). Six of them, written in the M24 stage, are small but complete
+games: a main menu, a pause, a results window, records, keyboard and gamepad, Uzbek and English, a demo bot.
+The sample games start in English by default (`"DefaultLanguage": "en"`); Uzbek is chosen with the language button in the game
+menu and is kept in the player's settings.
+The gameplay code of these six games is in C++ scripts (`Projects/<Game>/Source/`), while the pictures, models and sounds are generated
+from code (`Tools/samples/gen_<game>.py`, [Tools/samples/README.md](../Tools/samples/README.md)). The pictures below come from the real
+game, taken headless in `ZaminPlayer` (a bot is playing).
 
-- [Ikki vertical slice](#ikki-vertical-slice-lantern-keeper-va-beacon-pass) · [Olti yangi o'yin](#olti-yangi-oyin) · [Eski namunalar](#eski-namunalar)
-- [Hammasiga umumiy](#hammasiga-umumiy): [menyular](#menyular), [rekordlar (SaveData)](#rekordlar-savedata),
-  [boshqaruv: input action'lar va gamepad](#boshqaruv-input-actionlar-va-gamepad), [demo rejim](#demo-rejim)
-- [Testlar](#testlar) · [Eksport qilib tekshirish](#eksport-qilib-tekshirish) · [Ishlash tezligi](#ishlash-tezligi)
-- [Rasmlarni yangilash](#rasmlarni-yangilash)
+- [Two vertical slices](#two-vertical-slices-lantern-keeper-and-beacon-pass) · [Six new games](#six-new-games) · [The older samples](#the-older-samples)
+- [Common to all of them](#common-to-all-of-them): [menus](#menus), [records (SaveData)](#records-savedata),
+  [controls: input actions and gamepad](#controls-input-actions-and-gamepad), [demo mode](#demo-mode)
+- [Tests](#tests) · [Checking by exporting](#checking-by-exporting) · [Performance](#performance)
+- [Updating the pictures](#updating-the-pictures)
 
-Ishga tushirish: editor launcher'ida **Namuna o'yinlar** kartasini bosing yoki player bilan:
+To run them: click a card under **Sample games** in the editor launcher, or with the player:
 
 ```bash
-./build/bin/ZaminPlayer Projects/Breakout              # o'yin: bosh menyudan
-ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: bot o'ynaydi
+./build/bin/ZaminPlayer Projects/Breakout              # the game: from the main menu
+ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Racing   # demo: a bot plays
 ```
 
-## Ikki vertical slice: Lantern Keeper va Beacon Pass
+## Two vertical slices: Lantern Keeper and Beacon Pass
 
-Engine'ning gameplay paketlaridan (motor, kamera, combat, AI, quest, loadout, UI, save) kompilyatorsiz yig'ilgan ikkita
-tugallangan o'yin — menyu, darajalar, boss, g'alaba va mag'lubiyat ekranlari, saqlash/davom etish, demo pilot.
-Batafsil: [VerticalSlices.md](VerticalSlices.md).
+Two finished games assembled without a compiler from the engine's gameplay packages (motor, camera, combat, AI, quest, loadout, UI,
+save) — a menu, levels, a boss, victory and defeat screens, save/continue, a demo pilot.
+More: [VerticalSlices.md](VerticalSlices.md).
 
 | | |
 |---|---|
 | ![Lantern Keeper](images/sample-lanternkeeper.jpg) | ![Beacon Pass](images/sample-beaconpass.jpg) |
-| **Lantern Keeper** (`Projects/LanternKeeper`, 2D): Bog'lar va Yertola, ikki daraja orasida transfer, Soya Bek | **Beacon Pass** (`Projects/BeaconPass`, 3D): character controller, Animator locomotion, Qora qorovul, mash'al |
+| **Lantern Keeper** (`Projects/LanternKeeper`, 2D): the Orchards and the Crypt, a transfer between the two levels, Soya Bek | **Beacon Pass** (`Projects/BeaconPass`, 3D): a character controller, Animator locomotion, the Black Warden, a torch |
 
 ```bash
-ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/LanternKeeper   # pilot menyudan g'alabagacha o'ynaydi
-./build/bin/ZaminPlayer Projects/BeaconPass                    # o'zingiz: WASD, sichqoncha, Space, J/K, Q, E
+ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/LanternKeeper   # the pilot plays from the menu to the victory
+./build/bin/ZaminPlayer Projects/BeaconPass                    # yourself: WASD, mouse, Space, J/K, Q, E
 ```
 
-Tekshiruvlari: headless oracle, mag'lubiyat rejasi, determinizm va kesish/buzilgan saqlash matritsasi (`ZaminTests
---filter LanternKeeper*` / `BeaconPass*`), Player/Editor workflow'i yangi jarayonda davom etish, gamepad, eksport va
-haqiqiy ko'chirish bilan (`Tests/slice_workflow_test.py --exports`), UI darvozasi (`Tests/slice_ui_test.py`), Blueprint
-mualliflik testi (`Tests/slice_editor_test.py`) va ishlash tezligi (`Tests/slice_bench.py`,
+Their checks: a headless oracle, a defeat plan, determinism and a cut/corrupt save matrix (`ZaminTests
+--filter LanternKeeper*` / `BeaconPass*`), the Player/Editor workflow with continuing in a fresh process, gamepad, export and a
+real relocation (`Tests/slice_workflow_test.py --exports`), the UI gate (`Tests/slice_ui_test.py`), the Blueprint
+authoring test (`Tests/slice_editor_test.py`) and performance (`Tests/slice_bench.py`,
 [VerticalSlices.md](VerticalSlices.md#resume-export-and-profiling)).
 
 ## Compiler-free quest/progression
 
-[QuestWorkshop](../Projects/QuestWorkshop/README.md): haqiqiy collect/kill/interact/trigger, quest zanjiri,
-reward/XP, yangi jarayondan davom etish va duplicate claim rad etish. [Quest qo‘llanmasi](GameplayQuest.md).
+[QuestWorkshop](../Projects/QuestWorkshop/README.md): real collect/kill/interact/trigger, a quest chain,
+reward/XP, continuing from a fresh process and rejecting a duplicate claim. [The quest guide](GameplayQuest.md).
 
 ## Compiler-free gameplay UI
 
-[UIWorkshop](../Projects/UIWorkshop/README.md): live health/coin/bag HUD, sahifalangan inventory,
-modal fokus, pause/control oynalari va menyudan save/load. Keyboard/gamepad. [UI qo‘llanmasi](GameplayUI.md).
+[UIWorkshop](../Projects/UIWorkshop/README.md): a live health/coin/bag HUD, a paged inventory,
+modal focus, pause/control windows and save/load from the menu. Keyboard/gamepad. [The UI guide](GameplayUI.md).
 
 ## Compiler-free save/resume
 
-[SaveWorkshop](../Projects/SaveWorkshop/README.md): health, inventory, ishlatilgan interaction,
-AI va prefab slotlarini yangi jarayondan tiklash. WASD / E / Ctrl / Space. [Save qo‘llanmasi](GameplaySave.md).
+[SaveWorkshop](../Projects/SaveWorkshop/README.md): restoring health, the inventory, used interactions,
+AI and prefab slots from a fresh process. WASD / E / Ctrl / Space. [The save guide](GameplaySave.md).
 
 ## Compiler-free AI workshop
 
 [AIWorkshop](../Projects/AIWorkshop/README.md): 2D/3D patrol, chase, attack, investigate, return,
-LOS shutters va mustaqil NPC prefab spawn. WASD / E / Ctrl. [AI qo‘llanmasi](GameplayAI.md).
+LOS shutters and spawning an independent NPC prefab. WASD / E / Ctrl. [The AI guide](GameplayAI.md).
 
-## Compiler-free combat va interaction
+## Compiler-free combat and interaction
 
 [RulesWorkshop](../Projects/RulesWorkshop/README.md): 2D/3D health/shield, death/respawn, melee,
-key/medkit/locked door/coin kurslari. Native game module kerak emas. WASD / Space / Ctrl / E.
-[Gameplay rules qo‘llanmasi](GameplayRules.md).
+key/medkit/locked door/coin courses. No native game module needed. WASD / Space / Ctrl / E.
+[The gameplay rules guide](GameplayRules.md).
 
 ## Compiler-free gameplay workshop
 
-[GameplayWorkshop](../Projects/GameplayWorkshop/README.md): o‘ynaladigan 2D/3D motor, kamera,
-velocity→Animator, sakrash, checkpoint, marra va diskdan qayta tiklash. C++ game module kerak emas.
-WASD / Space / Shift / E. [Gameplay qo‘llanmasi](Gameplay.md).
+[GameplayWorkshop](../Projects/GameplayWorkshop/README.md): a playable 2D/3D motor, camera,
+velocity→Animator, jumping, a checkpoint, a finish line and restoring from disk. No C++ game module needed.
+WASD / Space / Shift / E. [The gameplay guide](Gameplay.md).
 
-## Olti yangi o'yin
+## Six new games
 
 | | |
 |---|---|
 | ![Neon Arena](images/sample-topdownshooter.jpg) | ![Zamin Breakout](images/sample-breakout.jpg) |
-| **[Neon Arena](../Projects/TopDownShooter/README.md)** — 2D twin-stick shooter | **[Zamin Breakout](../Projects/Breakout/README.md)** — 2D g'isht sindirish |
+| **[Neon Arena](../Projects/TopDownShooter/README.md)** — a 2D twin-stick shooter | **[Zamin Breakout](../Projects/Breakout/README.md)** — 2D brick breaking |
 | ![FPS Arena](images/sample-fpsarena.jpg) | ![Warehouse Keeper](images/sample-sokoban.jpg) |
-| **[FPS Arena](../Projects/FPSArena/README.md)** — 3D birinchi shaxs, parkur va nishon otish | **[Warehouse Keeper](../Projects/Sokoban/README.md)** — 3D Sokoban, 10 daraja |
+| **[FPS Arena](../Projects/FPSArena/README.md)** — 3D first person, parkour and target shooting | **[Warehouse Keeper](../Projects/Sokoban/README.md)** — 3D Sokoban, 10 levels |
 | ![Silk Road](images/sample-endlessrunner.jpg) | ![Valley Race](images/sample-racing.jpg) |
-| **[Silk Road](../Projects/EndlessRunner/README.md)** — 3D cheksiz yugurish | **[Valley Race](../Projects/Racing/README.md)** — 3D poyga |
+| **[Silk Road](../Projects/EndlessRunner/README.md)** — a 3D endless runner | **[Valley Race](../Projects/Racing/README.md)** — a 3D race |
 
 ### Neon Arena (`Projects/TopDownShooter`)
 
-Neon maydonda kema: chap stik / WASD bilan yurasiz, o'ng stik / sichqoncha bilan nishonga olasiz. Dushmanlar
-to'lqin-to'lqin bo'lib portallardan chiqadi (besh xil: quvuvchi, to'da, otuvchi, hujumchi, har 5-to'lqinda tank),
-ketma-ket o'ldirishlar kombo ko'paytuvchisini oshiradi, bonuslar — jon, tez otish, uchtalik o'q.
-**Ko'rsatadi:** 2D yorug'lik va neon pol (Lit sprite'lar), bloom, zarralar va chaqnash yorug'liklari, kamera
-silkinishi, `Instantiate` bilan shablonlardan dushman va o'qlar, 2D fizika qatlamlari, UI tween'lar.
-**Rekord:** eng katta hisob va eng uzoq to'lqin.
+A ship on a neon field: you move with the left stick / WASD and aim with the right stick / mouse. The enemies
+come out of portals in waves (five kinds: a chaser, a swarm, a shooter, a charger, and a tank every 5th wave),
+kills in a row raise the combo multiplier, and the bonuses are health, rapid fire and a triple shot.
+**Shows:** 2D lights and a neon floor (Lit sprites), bloom, particles and flash lights, camera
+shake, enemies and bullets from templates with `Instantiate`, 2D physics layers, UI tweens.
+**Record:** the highest score and the longest wave.
 
 ### Zamin Breakout (`Projects/Breakout`)
 
-Raketka bilan to'pni qaytarib g'ishtlarni sindirasiz: besh xil g'isht (oddiy, qattiq, po'lat, oltin, bomba), olti
-bonus (keng raketka, uchta to'p, sekin to'p, olov to'pi, lazer, +1 jon), olti daraja. **Ko'rsatadi:** Box2D (tez
-to'p — `Bullet`, to'qnashuv callback'lari, lazer uchun `Raycast2D`), darajani matndan qurish, zarralar, bloom.
-**Rekord:** eng katta hisob va eng uzoq daraja.
+You bounce the ball back with the paddle and break the bricks: five kinds of bricks (plain, hard, steel, gold, bomb), six
+bonuses (a wide paddle, three balls, a slow ball, a fireball, a laser, +1 life), six levels. **Shows:** Box2D (a fast
+ball — `Bullet`, collision callbacks, `Raycast2D` for the laser), building a level from text, particles, bloom.
+**Record:** the highest score and the furthest level.
 
 ### FPS Arena (`Projects/FPSArena`)
 
-Quyosh botayotgan arenada birinchi shaxs: sichqoncha / o'ng stik bilan qarash, yugurish (chidamlilik bilan), sakrash
-(coyote time), cho'kkalash, sakratgichlar. Ikki rejim: parkur (oltita nuqta, aylana vaqti) va 60 soniyalik nishon
-otish (raycast qurol, to'rt xil nishon, seriya ko'paytuvchisi). **Ko'rsatadi:** Character Controller 3D, kursor
-qulfi, `Raycast` bilan otish, soyalar, SSAO, tuman, normal xaritali PBR materiallar. **Rekord:** eng yaxshi aylana
-vaqti va nishon otish ochkosi.
+First person in an arena at sunset: looking with the mouse / right stick, running (with stamina), jumping
+(coyote time), crouching, jump pads. Two modes: parkour (six points, a lap time) and a 60-second target
+range (a raycast gun, four kinds of targets, a streak multiplier). **Shows:** Character Controller 3D, the cursor
+lock, shooting with `Raycast`, shadows, SSAO, fog, PBR materials with normal maps. **Record:** the best lap
+time and the target range score.
 
 ### Warehouse Keeper (`Projects/Sokoban`)
 
-Kichik robot qutilarni yorqin doiralarga itaradi: 10 ta daraja, orqaga qaytarish (undo), darajani qaytadan boshlash,
-darajalar menyusi. Demo bot har darajani BFS yechuvchi bilan yechadi. **Ko'rsatadi:** o'yin qoidalari dvigateldan
-alohida (`Board.cpp`) — headless test qilinadi, katakma-katak silliq harakat (tween), konfetti zarralari, 3D yorug'lik
-va soyalar. **Rekord:** har daraja uchun eng kam qadam.
+A small robot pushes crates onto glowing circles: 10 levels, undo, restarting a level,
+a level menu. The demo bot solves every level with a BFS solver. **Shows:** the game rules are separate from the
+engine (`Board.cpp`) — they are tested headless, smooth cell-by-cell movement (tweens), confetti particles, 3D lights
+and shadows. **Record:** the fewest moves for each level.
 
 ### Silk Road (`Projects/EndlessRunner`)
 
-Ipak yo'li bo'ylab savdogar yuguradi: uch yo'lak, sakrash, sirpanish, besh xil to'siq naqshi, tangalar, magnit va
-qalqon. Tezlik masofa bilan oshadi, dunyo oldinda protsedurali quriladi. **Ko'rsatadi:** cheksiz yo'l (UV
-siljishi), obyektlarni qayta ishlatish, kichik qadamli simulyatsiya (sekin kadrda ham to'siqdan o'tib ketmaydi),
-tuman va kun yorug'ligi. **Rekord:** eng katta ochko va eng uzoq masofa.
+A merchant runs along the Silk Road: three lanes, jumping, sliding, five obstacle patterns, coins, a magnet and a
+shield. The speed rises with the distance, and the world ahead is built procedurally. **Shows:** an endless road (UV
+scrolling), reusing entities, a small-step simulation (it does not pass through an obstacle even in a slow frame),
+fog and daylight. **Record:** the highest score and the longest distance.
 
 ### Valley Race (`Projects/Racing`)
 
-Tog' vodiysidagi 750 metrlik aylanma trassada uchta bot raqib bilan uch aylana: start svetofori, 8 ta nazorat
-nuqtasi, aylana vaqti, o'rinlar. Arkada mashina fizikasi: tezlanish, tezlikka bog'liq rul, yon ilashish, qo'l
-tormozida drift, o'tda sekinlashish. **Ko'rsatadi:** generator yasagan `.obj` trassa (Catmull-Rom spline), mashinalar
-to'qnashuvi, g'ildirak tutuni, dvigatel va sirpanish ovozi (balandligi tezlikka qarab). **Rekord:** eng yaxshi
-aylana vaqti.
+Three laps against three bot rivals on a 750-metre circuit in a mountain valley: a start light, 8
+checkpoints, lap times, positions. Arcade car physics: acceleration, speed-dependent steering, side grip, a
+handbrake drift, slowing down on grass. **Shows:** a `.obj` track made by the generator (a Catmull-Rom spline), car
+collisions, wheel smoke, an engine and skid sound (its pitch follows the speed). **Record:** the best
+lap time.
 
-## Eski namunalar
+## The older samples
 
 | Platformer2D | Showcase3D | Adventure3D |
 |---|---|---|
 | ![Platformer2D](images/game-platformer2d.jpg) | ![Showcase3D](images/game-showcase3d.jpg) | ![Adventure3D](images/game-adventure3d.jpg) |
-| [2D platformer](../Projects/Platformer2D/README.md): tilemap, parallaks, 2D yorug'lik, menyu va yuklanish ekrani | [3D ko'rgazma](../Projects/Showcase3D/README.md): PBR, soyalar, post-processing, fizika, zarralar | [3D sarguzasht](../Projects/Adventure3D/README.md): orol, uchinchi shaxs qahramon, NPC'lar, animatsiya |
+| [A 2D platformer](../Projects/Platformer2D/README.md): a tilemap, parallax, 2D lights, a menu and a loading screen | [A 3D showcase](../Projects/Showcase3D/README.md): PBR, shadows, post-processing, physics, particles | [A 3D adventure](../Projects/Adventure3D/README.md): an island, a third-person hero, NPCs, animation |
 
-## Hammasiga umumiy
+## Common to all of them
 
-### Menyular
+### Menus
 
-Har o'yinda bosh menyu (orqasida bot o'ynaydi), pauza menyusi (Esc / Start) va natijalar oynasi bor; hammasi UI
-komponentlaridan ([UI.md](UI.md)), klaviatura, sichqoncha va gamepad bilan boshqariladi (UI navigatsiyasi). Menyular
-ochilganda jurnalga `Menu: ...` yoziladi — testlar shu qatorlarni tekshiradi.
+Every game has a main menu (with a bot playing behind it), a pause menu (Esc / Start) and a results window; all of them are made
+of UI components ([UI.md](UI.md)) and are controlled with the keyboard, the mouse and a gamepad (UI navigation). When a menu
+opens, `Menu: ...` is written to the log — the tests check these lines.
 
-### Rekordlar (SaveData)
+### Records (SaveData)
 
-Har o'yin o'z rekordini [`SaveData::SubmitRecord`](Scripting.md#18-saqlash-lokalizatsiya-log) bilan saqlaydi:
-natija avvalgisidan yaxshi bo'lsa yoziladi (vaqt va qadamlar uchun `RecordOrder::Lower`). Rekord o'yin tugaganda,
-pauzadan bosh menyuga chiqilganda, qaytadan boshlanganda va o'yin yopilganda hisoblanadi; bosh menyu orqasidagi bot
-rekord qo'ymaydi. Ishga tushganda o'yin `Records: ...`, yangi rekordda `New record: ...` deb yozadi; bosh menyu va
-HUD rekordni ko'rsatadi, natijalar oynasi esa "YANGI REKORD!" deydi.
+Every game saves its record with [`SaveData::SubmitRecord`](Scripting.md#18-saqlash-lokalizatsiya-log):
+the result is written when it is better than the previous one (`RecordOrder::Lower` for times and moves). The record is counted
+when the game ends, when leaving from the pause to the main menu, when restarting and when the game is closed; the bot behind the
+main menu does not set records. On start the game writes `Records: ...`, and `New record: ...` on a new record; the main menu and the
+HUD show the record, and the results window says "NEW RECORD!".
 
-| O'yin | SaveData kalitlari | Qaysi biri yaxshi |
+| Game | SaveData keys | Which is better |
 |---|---|---|
-| Neon Arena | `Neon.BestScore`, `Neon.BestWave` | katta |
-| Zamin Breakout | `Breakout.BestScore`, `Breakout.BestLevel` | katta |
-| FPS Arena | `FPSArena.BestLap` / `FPSArena.BestRange` (+ `FPSArena.Sensitivity` sozlamasi) | kichik vaqt / katta ochko |
-| Warehouse Keeper | `Sokoban.Best.<daraja>` (+ `Sokoban.Level` — keyingi daraja) | kam qadam |
-| Silk Road | `EndlessRunner.Best`, `EndlessRunner.BestDistance` | katta |
-| Valley Race | `Racing.BestLap` (har aylana tugaganda) | kichik vaqt |
+| Neon Arena | `Neon.BestScore`, `Neon.BestWave` | larger |
+| Zamin Breakout | `Breakout.BestScore`, `Breakout.BestLevel` | larger |
+| FPS Arena | `FPSArena.BestLap` / `FPSArena.BestRange` (+ the `FPSArena.Sensitivity` setting) | a smaller time / a larger score |
+| Warehouse Keeper | `Sokoban.Best.<level>` (+ `Sokoban.Level` — the next level) | fewer moves |
+| Silk Road | `EndlessRunner.Best`, `EndlessRunner.BestDistance` | larger |
+| Valley Race | `Racing.BestLap` (when each lap ends) | a smaller time |
 
-Fayl: `~/.local/share/Zamin Studio/<Mahsulot>/savedata.json`. `ZAMIN_DEMO_RECORDS=1` bilan demo botning natijasi ham
-rekord bo'ladi — testlar rekord yozilib, keyingi ishga tushirishda o'qilishini shunday tekshiradi.
+The file: `~/.local/share/Zamin Studio/<Product>/savedata.json`. With `ZAMIN_DEMO_RECORDS=1` the demo bot's result becomes a
+record too — this is how the tests check that the record is written and read on the next run.
 
-### Boshqaruv: input action'lar va gamepad
+### Controls: input actions and gamepad
 
-O'yinlar tugmalarni to'g'ridan-to'g'ri o'qimaydi: hamma narsa loyihaning input xaritasidagi harakat, o'q va
-vektorlardan (`Input::IsActionPressed("Fire")`, `Input::GetVector("Move")`; Loyiha sozlamalari → Input). Har harakatning
-klaviatura / sichqoncha va gamepad bog'lanishi bor; tugmani qayta bog'lash uchun kodni o'zgartirish shart emas.
-Bosh menyudagi boshqaruv yozuvi ham xaritadan olinadi (matn komponentining **Boshqaruv ishoralari**, `InputHints`):
-klaviatura bilan "WASD - yurish", gamepad qo'lga olinishi bilan "chap stik / D-pad - yurish" ko'rinadi
+The games do not read keys directly: everything comes from the actions, axes and vectors of the project's input map
+(`Input::IsActionPressed("Fire")`, `Input::GetVector("Move")`; Project settings → Input). Every action has a
+keyboard / mouse and a gamepad binding; rebinding a key needs no code change.
+The controls caption in the main menu also comes from the map (the text component's **Control hints**, `InputHints`):
+with the keyboard it shows "WASD - move", and as soon as a gamepad is picked up, "left stick / D-pad - move"
 ([UI.md](UI.md#6-matn)).
 
-| O'yin | Harakatlar (klaviatura · gamepad) | O'qlar / vektorlar |
+| Game | Actions (keyboard · gamepad) | Axes / vectors |
 |---|---|---|
-| Neon Arena | `Fire` LKM, J · RT, RB; `Dash` Space, Shift · A, LB; `Pause` Esc, P · Start | `Move` WASD · chap stik, D-pad; `Aim` strelkalar · o'ng stik |
-| Zamin Breakout | `Action` Space, LKM, Up, W · A, RT; `Pause` Esc, P · Start | `MoveX` A/D, strelkalar · chap stik, D-pad |
-| FPS Arena | `Jump` Space · A; `Sprint` Shift · L3; `Crouch` C, Ctrl · B; `Fire` LKM · RT, RB; `Reload` R · X; `Pause` Esc, P · Start | `Move` WASD, strelkalar · chap stik; `Look` sichqoncha · o'ng stik |
-| Warehouse Keeper | `Undo` Z, Backspace · X; `Restart` R · Y; `Pause` Esc, P · Start | `Move` WASD, strelkalar · chap stik, D-pad |
-| Silk Road | `Left` / `Right` A/D, strelkalar · D-pad, LB/RB; `Jump` Space, W, Up · A; `Slide` S, Down · B; `Pause` Esc, P · Start | `Steer` · chap stik |
-| Valley Race | `Handbrake` Space · X, A; `Reset` R · Y; `Pause` Esc, P · Start | `Steer` A/D, strelkalar · chap stik; `Throttle` W, Up · RT; `Brake` S, Down · LT |
+| Neon Arena | `Fire` LMB, J · RT, RB; `Dash` Space, Shift · A, LB; `Pause` Esc, P · Start | `Move` WASD · left stick, D-pad; `Aim` arrows · right stick |
+| Zamin Breakout | `Action` Space, LMB, Up, W · A, RT; `Pause` Esc, P · Start | `MoveX` A/D, arrows · left stick, D-pad |
+| FPS Arena | `Jump` Space · A; `Sprint` Shift · L3; `Crouch` C, Ctrl · B; `Fire` LMB · RT, RB; `Reload` R · X; `Pause` Esc, P · Start | `Move` WASD, arrows · left stick; `Look` mouse · right stick |
+| Warehouse Keeper | `Undo` Z, Backspace · X; `Restart` R · Y; `Pause` Esc, P · Start | `Move` WASD, arrows · left stick, D-pad |
+| Silk Road | `Left` / `Right` A/D, arrows · D-pad, LB/RB; `Jump` Space, W, Up · A; `Slide` S, Down · B; `Pause` Esc, P · Start | `Steer` · left stick |
+| Valley Race | `Handbrake` Space · X, A; `Reset` R · Y; `Pause` Esc, P · Start | `Steer` A/D, arrows · left stick; `Throttle` W, Up · RT; `Brake` S, Down · LT |
 
-`Tests/samples_assets.py` (ctest `SampleAssets`) xaritani tekshiradi: har harakatda ikkala qurilma bor, skriptlar
-o'qiydigan har nom xaritada bor va xaritadagi har nom o'qiladi, skriptlar klaviatura yoki gamepad'ni to'g'ridan-to'g'ri
-so'ramaydi (faqat sichqoncha — nishon / qarash uchun), menyudagi ishora faqat xaritadagi nomlarni ishlatadi.
+`Tests/samples_assets.py` (ctest `SampleAssets`) checks the map: every action has both devices, every name the scripts
+read is in the map and every name in the map is read, the scripts do not ask for the keyboard or the gamepad directly
+(only the mouse — for aiming / looking), and the menu hint uses only names from the map.
 
-### Demo rejim
+### Demo mode
 
-`ZAMIN_DEMO=1` (yoki o'yin skriptining `AutoDemo` maydoni) — bot o'ynaydi va jurnalga `Demo: ...` qatorlarini yozadi.
-FPS Arena'da `ZAMIN_DEMO=range` — nishon otish raundi; Breakout va Warehouse Keeper'da `ZAMIN_START_LEVEL=<n>` — shu
-darajadan. Kadr vaqti qat'iy bo'lsa (`ZAMIN_CAPTURE_FPS=20`), bot har kompyuterda bir xil o'ynaydi.
+`ZAMIN_DEMO=1` (or the game script's `AutoDemo` field) — a bot plays and writes `Demo: ...` lines to the log.
+In FPS Arena `ZAMIN_DEMO=range` — the target range round; in Breakout and Warehouse Keeper `ZAMIN_START_LEVEL=<n>` — from that
+level. With a fixed frame time (`ZAMIN_CAPTURE_FPS=20`) the bot plays the same on every computer.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py` (ctest `Sample<O'yin>`, label `samples`) har o'yinni player'da headless ishga tushiradi
+`Tests/samples_test.py` (ctest `Sample<Game>`, label `samples`) runs every game headless in the player
 ([Testing.md](Testing.md)):
 
-| Holat | Nima tekshiriladi |
+| Case | What is checked |
 |---|---|
-| `demo` | bot o'ynaydi: ochko, to'lqin / daraja / aylana / masofa o'sadi (`Demo: ...` qatorlari) |
-| rekord (`demo` dan keyin) | demo natijasi `New record: ...` bo'lib SaveData fayliga yoziladi; o'sha HOME bilan ikkinchi ishga tushirish `Records: ...` da xuddi shu qiymatni o'qiydi va bosh menyuni ko'rsatadi |
-| `menus` | klaviatura: bosh menyu → o'yin → pauza → davom → pauza → bosh menyu (ba'zilarida natijalar oynasi ham) |
-| `gamepad` | faqat gamepad (simulyatsiya: `ZAMIN_PLAYER_INPUT` `pad=A`, `stick=LeftX,0.8`): A bilan o'yin, o'yinning o'z boshqaruvi (stik, tugmalar, triggerlar), Start bilan pauza, D-pad + A bilan bosh menyu; ishoralar gamepad'ga o'tadi (`Input device: gamepad`) va o'yinda natija bor (o'q otildi, g'isht sindi, daraja yechildi, masofa) |
-| `smoke` | eski namunalar ishga tushadi, rasm chiqaradi |
+| `demo` | a bot plays: the score, the wave / level / lap / distance grow (`Demo: ...` lines) |
+| record (after `demo`) | the demo result is written to the SaveData file as `New record: ...`; a second run with the same HOME reads the same value in `Records: ...` and shows the main menu |
+| `menus` | keyboard: main menu → game → pause → resume → pause → main menu (in some, the results window too) |
+| `gamepad` | the gamepad only (simulated: `ZAMIN_PLAYER_INPUT` `pad=A`, `stick=LeftX,0.8`): the game with A, the game's own controls (stick, buttons, triggers), the pause with Start, the main menu with D-pad + A; the hints switch to the gamepad (`Input device: gamepad`) and the game has a result (a shot was fired, a brick broke, a level was solved, a distance) |
+| `smoke` | the older samples start and render a picture |
 
 ```bash
-python3 Tests/samples_test.py --game Racing                # bitta o'yinning hamma holatlari
-python3 Tests/samples_test.py --kind gamepad               # olti o'yin gamepad bilan
-ctest --test-dir build -L samples                          # hammasi (sekin: ~25 daqiqa, llvmpipe)
+python3 Tests/samples_test.py --game Racing                # all the cases of one game
+python3 Tests/samples_test.py --kind gamepad               # the six games with a gamepad
+ctest --test-dir build -L samples                          # all of them (slow: ~25 minutes, llvmpipe)
 ```
 
-## Eksport qilib tekshirish
+## Checking by exporting
 
-`Tests/samples_export.py` (ctest `SampleExports`, label `samples;slow`) to'qqiz namunaning har birini editor bilan
-eksport qiladi va eksport qilingan o'yinni o'yinchi qanday olsa shunday tekshiradi: `Tests/export_test.sh`
-(Release skript moduli, eksport papkasi tekshiruvi, `<O'yin>.sh --version`, vaqtli ishga tushirish, skrinshot,
-boshqa papkaga ko'chirish), keyin eksportdagi `<O'yin>.sh` bilan `samples_test.py --exported` holatlari — olti yangi
-o'yinning bot demosi (rekord bilan) va eski namunalarning smoke'i.
+`Tests/samples_export.py` (ctest `SampleExports`, label `samples;slow`) exports each of the nine samples with the editor
+and checks the exported game the way a player would get it: `Tests/export_test.sh`
+(the Release script module, a check of the export folder, `<Game>.sh --version`, a timed run, a screenshot,
+moving it to another folder), then the `samples_test.py --exported` cases with the exported `<Game>.sh` — the bot demo
+(with a record) of the six new games and the smoke of the older samples.
 
 ```bash
-python3 Tests/samples_export.py                       # hammasi (~40 daqiqa); natija: build/SampleExports/exports.md
-python3 Tests/samples_export.py --game Racing         # bitta o'yin
-python3 Tests/samples_test.py --exported build/SampleExports --kind gamepad   # boshqa holatlar eksportdagi o'yinda
+python3 Tests/samples_export.py                       # all of them (~40 minutes); the result: build/SampleExports/exports.md
+python3 Tests/samples_export.py --game Racing         # one game
+python3 Tests/samples_test.py --exported build/SampleExports --kind gamepad   # other cases on the exported game
 ```
 
-### Natija (2026-11-08, Debug engine, eksport qilingan Release skript modullari)
+### Result (2026-11-08, Debug engine, exported Release script modules)
 
-| Namuna | Eksport | Hajmi | Fayllar | Kadr (o'rtacha) | Eksportdagi o'yin |
+| Sample | Export | Size | Files | Frame (mean) | The exported game |
 |---|---|---:|---:|---:|---|
-| Neon Arena | OK | 44.2 MiB | 66 | 54.7 ms | demo + rekord OK |
-| Zamin Breakout | OK | 43.9 MiB | 66 | 56.0 ms | demo + rekord OK |
-| FPS Arena | OK | 44.3 MiB | 92 | 243.7 ms | demo + rekord OK |
-| Warehouse Keeper | OK | 44.1 MiB | 68 | 264.3 ms | demo + rekord OK |
-| Silk Road | OK | 43.9 MiB | 72 | 267.9 ms | demo + rekord OK |
-| Valley Race | OK | 44.7 MiB | 70 | 221.6 ms | demo + rekord OK |
+| Neon Arena | OK | 44.2 MiB | 66 | 54.7 ms | demo + record OK |
+| Zamin Breakout | OK | 43.9 MiB | 66 | 56.0 ms | demo + record OK |
+| FPS Arena | OK | 44.3 MiB | 92 | 243.7 ms | demo + record OK |
+| Warehouse Keeper | OK | 44.1 MiB | 68 | 264.3 ms | demo + record OK |
+| Silk Road | OK | 43.9 MiB | 72 | 267.9 ms | demo + record OK |
+| Valley Race | OK | 44.7 MiB | 70 | 221.6 ms | demo + record OK |
 | Platformer2D | OK | 45.1 MiB | 125 | 28.2 ms | smoke OK |
 | Showcase3D | OK | 49.5 MiB | 202 | 188.0 ms | smoke OK |
 | Adventure3D | OK | 43.1 MiB | 50 | 158.8 ms | smoke OK |
 
-Hajmning ~40 MiB i — player va dvigatel (Debug build'dan eksport: strip qilingan bo'lsa ham kattaroq); o'yinning o'zi
-1–5 MiB. Kadr vaqti — `export_test.sh` ning 60 kadrlik o'lchovi (Debug dvigatel, bosh menyu, 1280x720, llvmpipe).
+~40 MiB of the size is the player and the engine (an export from a Debug build: larger even when stripped); the game itself is
+1–5 MiB. The frame time is the 60-frame measurement of `export_test.sh` (Debug engine, main menu, 1280x720, llvmpipe).
 
-**Eksport topgan xato.** Birinchi eksportda Neon Arena va Zamin Breakout eksportdagi o'yinda ovoz chiqarmasdi:
-ular ovozni qisqa nomi bilan chaqiradi (`Sfx("hit")` → `"Audio/hit.wav"` ish vaqtida yasaladi), eksport esa C++
-satrlarida to'liq yo'l ko'rmagani uchun WAV fayllarni "ishlatilmagan" deb tashlab ketardi (`excluded-assets.txt`).
-Ikkala loyihaga `"Export": { "AlwaysInclude": [ "Audio/*.wav" ] }` qo'shildi
-([ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)), `Tests/samples_assets.py` esa endi qisqa
-nom bilan chaqiriladigan har ovoz eksportga kirishini tekshiradi.
+**A bug the export found.** On the first export Neon Arena and Zamin Breakout had no sound in the exported game:
+they call sounds by a short name (`Sfx("hit")` → `"Audio/hit.wav"` is built at runtime), and the export, seeing no full path
+in the C++ strings, left the WAV files out as "unused" (`excluded-assets.txt`).
+`"Export": { "AlwaysInclude": [ "Audio/*.wav" ] }` was added to both projects
+([ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)), and `Tests/samples_assets.py` now checks that every
+sound called by a short name gets into the export.
 
-## Ishlash tezligi
+## Performance
 
-`Tests/samples_bench.py` har namunani `ZaminPlayer --benchmark` bilan headless o'lchaydi: yangi o'yinlarda bot o'ynaydi
-(`ZAMIN_DEMO=1`, qat'iy o'yin soati `ZAMIN_CAPTURE_FPS=30` — har ishga tushirishda o'yinning bir xil lahzalari), 90 ta
-isitish kadridan keyin 300 kadr o'lchanadi. `ZAMIN_PLAYER_STATS` bilan player chiqishda oxirgi kadrning sahnasini
-(obyektlar, eng ko'p komponentlar), chizilganlarni va profiler daraxtini yozadi; `--benchmark` esa eng sekin kadrning
-profilini ham ("Benchmark: slowest frame ...").
+`Tests/samples_bench.py` measures each sample headless with `ZaminPlayer --benchmark`: in the new games a bot plays
+(`ZAMIN_DEMO=1`, a fixed game clock `ZAMIN_CAPTURE_FPS=30` — the same moments of the game on every run), and 300 frames are
+measured after 90 warm-up frames. With `ZAMIN_PLAYER_STATS` the player writes the last frame's scene
+(entities, the most common components), what was drawn and the profiler tree when it exits; `--benchmark` adds the profile of the
+slowest frame ("Benchmark: slowest frame ...").
 
 ```bash
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_BUILD_EDITOR=OFF -DZAMIN_BUILD_TESTS=OFF \
-      -DZAMIN_GAME_MODULE_OUTPUT_DIR=$PWD/build-release/GameModules     # o'yin modullari o'z papkasiga
+      -DZAMIN_GAME_MODULE_OUTPUT_DIR=$PWD/build-release/GameModules     # the game modules into their own folder
 cmake --build build-release
-ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --check   # jadval: build-release/SampleBench/samples-bench.md
+ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --check   # the table: build-release/SampleBench/samples-bench.md
 ```
 
-### Natija (2026-11-08)
+### Result (2026-11-08)
 
-Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GPU yo'q — Mesa 25.2.8 llvmpipe (dasturiy rasterizator), xvfb, oyna 1280x720,
-GCC 13.3, **Release** build. "O'yin kodi" — kadrdagi skriptlar, fizika, particle'lar, animatsiya va audio (CPU);
-"Eng qimmat qismlar" — oxirgi kadrning profiler daraxtidan; byudjet — shu kompyuterdagi kadr vaqti + ~15% (regressiya
-chegarasi), yana har o'yinda eng sekin kadr ≤ 1000 ms va o'yin kodi ≤ 3 ms (`--check`).
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, no GPU — Mesa 25.2.8 llvmpipe (a software rasterizer), xvfb, a 1280x720 window,
+GCC 13.3, a **Release** build. "Game code" is the frame's scripts, physics, particles, animation and audio (CPU);
+"The most expensive parts" come from the last frame's profiler tree; the budget is the frame time on this computer + ~15% (the regression
+limit), plus a slowest frame ≤ 1000 ms and game code ≤ 3 ms in every game (`--check`).
 
-| Namuna | Tur | Obyekt (faol) | Draw call | Uchburchak / quad | Kadr o'rtacha | p95 | Eng sekin | FPS | O'yin kodi (CPU) | Byudjet | Eng qimmat qismlar (ms) |
+| Sample | Kind | Entities (active) | Draw calls | Triangles / quads | Frame mean | p95 | Slowest | FPS | Game code (CPU) | Budget | The most expensive parts (ms) |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---|---|
-| TopDownShooter | 2D | 124 (69) | 30 | 0 / 219 | 53.3 ms | 62.9 ms | 784 ms | 19 | 0.20 ms | 65 ms: OK | Post-processing 31.3, Bloom 27.7, Sahnalar (chizish) 1.1, Skriptlar 0.1 |
-| Breakout | 2D | 223 (164) | 31 | 0 / 267 | 44.9 ms | 50.6 ms | 141 ms | 22 | 0.23 ms | 55 ms: OK | Post-processing 25.1, Bloom 21.6, Sahnalar (chizish) 1.3, Skriptlar 0.1 |
-| FPSArena | 3D | 251 (213) | 67 | 11816 / 207 | 123.5 ms | 152.1 ms | 197 ms | 8 | 0.55 ms | 145 ms: OK | Post-processing 103.7, SSAO 77.0, Sahnalar (chizish) 23.4, Bloom 13.2 |
-| Sokoban | 3D | 219 (172) | 53 | 6782 / 208 | 127.6 ms | 141.0 ms | 468 ms | 8 | 0.08 ms | 150 ms: OK | Post-processing 97.4, SSAO 72.4, Sahnalar (chizish) 15.2, Bloom 12.1 |
-| EndlessRunner | 3D | 502 (403) | 74 | 155284 / 50 | 155.5 ms | 183.9 ms | 213 ms | 6 | 0.15 ms | 180 ms: OK | Post-processing 85.5, SSAO 60.7, Sahnalar (chizish) 57.8, Bloom 12.0 |
-| Racing | 3D | 552 (525) | 69 | 21672 / 64 | 112.9 ms | 132.8 ms | 209 ms | 9 | 0.11 ms | 135 ms: OK | Post-processing 71.0, SSAO 41.7, Sahnalar (chizish) 23.2, Bloom 16.8 |
-| Platformer2D | 2D | 108 (60) | 8 | 0 / 115 | 11.1 ms | 12.5 ms | 16 ms | 90 | 0.03 ms | 15 ms: OK | Post-processing 4.0, Sahnalar (chizish) 0.3, Fizika 0.0, Skriptlar 0.0 |
-| Showcase3D | 3D | 48 (48) | 84 | 20010 / 39 | 99.3 ms | 110.3 ms | 140 ms | 10 | 0.41 ms | 125 ms: OK | Post-processing 70.5, SSAO 55.5, Sahnalar (chizish) 16.7, Bloom 11.5 |
-| Adventure3D | 3D | 73 (72) | 62 | 10658 / 151 | 148.7 ms | 169.7 ms | 198 ms | 7 | 0.45 ms | 185 ms: OK | Post-processing 113.6, SSAO 98.8, Sahnalar (chizish) 19.5, Bloom 11.2 |
+| TopDownShooter | 2D | 124 (69) | 30 | 0 / 219 | 53.3 ms | 62.9 ms | 784 ms | 19 | 0.20 ms | 65 ms: OK | Post-processing 31.3, Bloom 27.7, Scenes (render) 1.1, Scripts 0.1 |
+| Breakout | 2D | 223 (164) | 31 | 0 / 267 | 44.9 ms | 50.6 ms | 141 ms | 22 | 0.23 ms | 55 ms: OK | Post-processing 25.1, Bloom 21.6, Scenes (render) 1.3, Scripts 0.1 |
+| FPSArena | 3D | 251 (213) | 67 | 11816 / 207 | 123.5 ms | 152.1 ms | 197 ms | 8 | 0.55 ms | 145 ms: OK | Post-processing 103.7, SSAO 77.0, Scenes (render) 23.4, Bloom 13.2 |
+| Sokoban | 3D | 219 (172) | 53 | 6782 / 208 | 127.6 ms | 141.0 ms | 468 ms | 8 | 0.08 ms | 150 ms: OK | Post-processing 97.4, SSAO 72.4, Scenes (render) 15.2, Bloom 12.1 |
+| EndlessRunner | 3D | 502 (403) | 74 | 155284 / 50 | 155.5 ms | 183.9 ms | 213 ms | 6 | 0.15 ms | 180 ms: OK | Post-processing 85.5, SSAO 60.7, Scenes (render) 57.8, Bloom 12.0 |
+| Racing | 3D | 552 (525) | 69 | 21672 / 64 | 112.9 ms | 132.8 ms | 209 ms | 9 | 0.11 ms | 135 ms: OK | Post-processing 71.0, SSAO 41.7, Scenes (render) 23.2, Bloom 16.8 |
+| Platformer2D | 2D | 108 (60) | 8 | 0 / 115 | 11.1 ms | 12.5 ms | 16 ms | 90 | 0.03 ms | 15 ms: OK | Post-processing 4.0, Scenes (render) 0.3, Physics 0.0, Scripts 0.0 |
+| Showcase3D | 3D | 48 (48) | 84 | 20010 / 39 | 99.3 ms | 110.3 ms | 140 ms | 10 | 0.41 ms | 125 ms: OK | Post-processing 70.5, SSAO 55.5, Scenes (render) 16.7, Bloom 11.5 |
+| Adventure3D | 3D | 73 (72) | 62 | 10658 / 151 | 148.7 ms | 169.7 ms | 198 ms | 7 | 0.45 ms | 185 ms: OK | Post-processing 113.6, SSAO 98.8, Scenes (render) 19.5, Bloom 11.2 |
 
-Qanday o'qish kerak:
+How to read it:
 
-- **Kadrni rasterizatsiya oladi, o'yin kodi emas.** Har o'yinda skriptlar, fizika, particle'lar va animatsiya birga
-  kadrda 0.03–0.55 ms. Qolgani — piksellarni CPU'da bo'yash (llvmpipe): 3D sahnaning PBR yoritilishi va soyalari,
-  SSAO, bloom, 2D yorug'liklar (Neon Arena va Breakout'da har piksel uchun 20+ ta 2D chiroq). Haqiqiy GPU'da hamma
-  namuna 60 FPS dan ancha tez ishlaydi.
-- **Vaqt qayerda ko'rinishi.** llvmpipe chizishni kechiktiradi va rasm birinchi o'qilganda bajaradi: 3D sahnaning
-  bo'yalishi "SSAO" ichida (u chuqurlikni birinchi o'qiydi), 2D sahnaniki "Bloom" ichida ko'rinadi. Profiler'da endi
-  post-processing o'tishlari alohida (`SSAO`, `Bloom`, `FXAA`).
-- **Obyektlar soni kichik** (48–552): ECS yangilanishi va sahna bo'ylab yurish kadrda sezilmaydi; eng ko'pi Vodiy
-  Poygasi (552 — trassa bo'laklari, daraxtlar, to'siqlar) va Silk Road (502 — oldinda qurilgan dunyo, uchburchaklar
-  eng ko'p: 155K).
+- **Rasterization takes the frame, not the game code.** In every game the scripts, physics, particles and animation together take
+  0.03–0.55 ms of the frame. The rest is shading pixels on the CPU (llvmpipe): the PBR lighting and shadows of a 3D scene,
+  SSAO, bloom, 2D lights (in Neon Arena and Breakout 20+ 2D lights per pixel). On a real GPU every
+  sample runs well above 60 FPS.
+- **Where the time shows up.** llvmpipe defers drawing and does it when the image is first read: the shading of a 3D scene
+  shows up inside "SSAO" (it reads the depth first), that of a 2D scene inside "Bloom". The profiler now has the
+  post-processing passes separately (`SSAO`, `Bloom`, `FXAA`).
+- **The entity counts are small** (48–552): the ECS update and walking the scene do not show up in the frame; the most are in Valley
+  Race (552 — track pieces, trees, obstacles) and Silk Road (502 — the world built ahead, with the most triangles:
+  155K).
 
-### Topilgan va tuzatilgan muammolar
+### Problems found and fixed
 
-| Muammo | Sabab | Tuzatish | Natija (o'rtacha / eng sekin kadr) |
+| Problem | Cause | Fix | Result (mean / slowest frame) |
 |---|---|---|---|
-| O'yin o'rtasida 0.5–3 soniyalik qotishlar (banner, ochko yozuvi chiqqanda) | Har yangi shrift o'lchami (task 232) — yangi atlas tekstura; u 2D batch'ning 16 ta slotli shaderiga kirganda drayver shaderni shu teksturalar to'plami uchun qaytadan kompilyatsiya qiladi (llvmpipe'da har "variant" ~1-2 s) | Matn o'z batch'ida, bitta sampler'li shader bilan chiziladi (`Renderer2D`: `TEXT_ATLAS` dasturi) — uning varianti bitta, sprite'lar shaderi esa endi shrift atlaslarini ko'rmaydi | Breakout 66.0 / 2993 → **44.9 / 141 ms**; Neon Arena 63.1 / 2317 → **53.3 / 784 ms**; FPS Arena 129.9 / 1614 → **123.5 / 197 ms** |
-| Bir xil o'lchamdagi shrift atlasini qayta-qayta yasash | Atlaslar 8 ta bilan cheklangan edi, o'yin UI'si esa ~12 o'lcham ishlatadi: 2 s ishlatilmagan atlas o'chib, banner yana chiqqanda qayta yasalardi (har biri 4-20 ms) | `Font::MaxSizedAtlases` 16 | qayta yasash yo'q |
-| SSAO har namunada (piksel boshiga 16 ta matritsa teskarisi) | Ko'rinish nuqtasi har namunada `inverse(projection)` × vec4 bilan tiklanardi | Perspektiv proyeksiya hadlaridan bir necha amal bilan (natija o'sha) | ~3% (llvmpipe'da asosiy vaqt sahnaning o'zida) |
+| 0.5–3 second freezes in the middle of a game (when a banner or a score label appears) | Every new font size (task 232) is a new atlas texture; when it enters the 16-slot shader of the 2D batch, the driver recompiles the shader for that set of textures (on llvmpipe each "variant" takes ~1-2 s) | Text is drawn in its own batch with a single-sampler shader (`Renderer2D`: the `TEXT_ATLAS` program) — it has one variant, and the sprite shader no longer sees the font atlases | Breakout 66.0 / 2993 → **44.9 / 141 ms**; Neon Arena 63.1 / 2317 → **53.3 / 784 ms**; FPS Arena 129.9 / 1614 → **123.5 / 197 ms** |
+| Building a font atlas of the same size again and again | The atlases were limited to 8, while the game UI uses ~12 sizes: an atlas unused for 2 s was deleted and built again when the banner appeared again (4-20 ms each) | `Font::MaxSizedAtlases` 16 | no rebuilding |
+| SSAO per sample (16 matrix inverses per pixel) | The view-space point was reconstructed per sample with `inverse(projection)` × vec4 | With a few operations from the perspective projection terms (the same result) | ~3% (on llvmpipe the main time is in the scene itself) |
 
-Qolgan bir martalik qotishlar (Neon Arena ~0.8 s, Warehouse Keeper ~0.45 s — yangi sprite / material birinchi chizilganda
-shader varianti) faqat llvmpipe'da sezilarli; o'yin davomida takrorlanmaydi. Oldingi o'lchovlar bilan solishtirish
-uchun jadvalni shu kompyuterda qayta oling ([Benchmarks.md](Benchmarks.md)).
+The remaining one-off freezes (Neon Arena ~0.8 s, Warehouse Keeper ~0.45 s — a shader variant when a new sprite / material is first
+drawn) are noticeable only on llvmpipe; they do not repeat during the game. To compare with earlier measurements,
+take the table again on this computer ([Benchmarks.md](Benchmarks.md)).
 
 
-### M25 tekshiruvi (2026-11-09)
+### The M25 check (2026-11-09)
 
-Xuddi shu muhit va buyruq, M25 optimallashtirishlaridan keyin. llvmpipe og'ir 3D'da 60 FPS ga yetmaydi — shuning
-uchun 60 FPS talabi **CPU vaqti** bo'yicha tekshirildi: namunalar 284x160 oynada (piksellar 1280x720 ning 5 %)
-o'lchandi, 3D'lar `--quality Low` bilan ham (SSAO yo'q, kichik soya xaritalari). Qolgan vaqt — dvigatelning CPU ishi
-(o'yin kodi, sahna, culling, batching, chizish buyruqlari) va llvmpipe'ning vertex ishi birga, ya'ni dvigatel CPU
-vaqtining yuqori chegarasi. Rasterizatsiya (GPU ishi) — chapdagi 1280x720 ustunlar bilan farqi.
+The same environment and command, after the M25 optimizations. llvmpipe does not reach 60 FPS in heavy 3D — that is
+why the 60 FPS requirement was checked by **CPU time**: the samples were measured in a 284x160 window (5 % of the pixels of
+1280x720), the 3D ones with `--quality Low` too (no SSAO, small shadow maps). The remaining time is the engine's CPU work
+(game code, the scene, culling, batching, draw commands) and llvmpipe's vertex work together, i.e. an upper bound on the engine's
+CPU time. Rasterization (the GPU work) is the difference from the 1280x720 columns on the left.
 
-| Namuna | 1280x720: kadr o'rtacha / p95 | FPS | O'yin kodi (CPU) | Kichik oyna: kadr o'rtacha / p95 | CPU ≤ 16.6 ms |
+| Sample | 1280x720: frame mean / p95 | FPS | Game code (CPU) | Small window: frame mean / p95 | CPU ≤ 16.6 ms |
 |---|---:|---:|---:|---:|---|
-| TopDownShooter (2D) | 62.4 / 73.8 ms | 16 | 0.23 ms | 9.3 / 8.0 ms* | ha |
-| Breakout (2D) | 48.9 / 58.1 ms | 20 | 0.18 ms | 7.5 / 9.2 ms | ha |
-| Platformer2D (2D) | 12.5 / 15.8 ms | 80 | 0.04 ms | 1.9 / 2.3 ms | ha |
-| FPSArena | 131.6 / 175.2 ms | 8 | 0.40 ms | 8.5 / 11.5 ms (Low) | ha |
-| Sokoban | 131.5 / 157.2 ms | 8 | 0.08 ms | 9.7 / 9.3 ms* (Low) | ha |
-| Racing | 109.4 / 124.0 ms | 9 | 0.16 ms | 12.7 / 21.2 ms (Low) | o'rtacha ha, p95 yo'q |
-| Showcase3D | 108.4 / 132.5 ms | 9 | 0.39 ms | 10.3 / 11.6 ms (Low) | ha |
-| Adventure3D | 152.9 / 176.1 ms | 7 | 0.50 ms | 10.5 / 12.7 ms (Low) | ha |
-| EndlessRunner | 145.2 / 169.1 ms | 7 | 0.11 ms | 26.6 / 32.0 ms (Low) -> **15.1-15.5 / 18.7-20.3 ms** primitivlar LOD'i bilan | o'rtacha ha, p95 yo'q |
+| TopDownShooter (2D) | 62.4 / 73.8 ms | 16 | 0.23 ms | 9.3 / 8.0 ms* | yes |
+| Breakout (2D) | 48.9 / 58.1 ms | 20 | 0.18 ms | 7.5 / 9.2 ms | yes |
+| Platformer2D (2D) | 12.5 / 15.8 ms | 80 | 0.04 ms | 1.9 / 2.3 ms | yes |
+| FPSArena | 131.6 / 175.2 ms | 8 | 0.40 ms | 8.5 / 11.5 ms (Low) | yes |
+| Sokoban | 131.5 / 157.2 ms | 8 | 0.08 ms | 9.7 / 9.3 ms* (Low) | yes |
+| Racing | 109.4 / 124.0 ms | 9 | 0.16 ms | 12.7 / 21.2 ms (Low) | mean yes, p95 no |
+| Showcase3D | 108.4 / 132.5 ms | 9 | 0.39 ms | 10.3 / 11.6 ms (Low) | yes |
+| Adventure3D | 152.9 / 176.1 ms | 7 | 0.50 ms | 10.5 / 12.7 ms (Low) | yes |
+| EndlessRunner | 145.2 / 169.1 ms | 7 | 0.11 ms | 26.6 / 32.0 ms (Low) -> **15.1-15.5 / 18.7-20.3 ms** with the primitive LODs | mean yes, p95 no |
 
-\* o'rtacha bitta uzun kadr tufayli p95 dan katta: birinchi o'yinda katta matnning shrift atlasi rasterlanadi
-(TopDownShooter ~0.8 s, keyingi ishga tushirishlarda diskdagi keshdan — eng sekin kadr 866 -> 148 ms).
+\* the mean is above the p95 because of one long frame: on the first run the font atlas of a large text is rasterized
+(TopDownShooter ~0.8 s; on later runs it comes from the cache on disk — the slowest frame 866 -> 148 ms).
 
-Xulosa: o'yin kodi hamma joyda ≤ 0.55 ms; 2D namunalar va beshta 3D namuna CPU bo'yicha 60 FPS byudjetiga sig'adi.
-Silk Road (EndlessRunner) sig'magan edi — 155K uchburchagining vertex ishi llvmpipe'da CPU'da bajariladi. Endi
-uzoqdagi shar / silindr / konuslar soddaroq nusxasini chizadi (primitivlar LOD'i, [Rendering.md](Rendering.md#15-samaradorlik-va-sifat-darajalari)):
-kadr uchburchaklari 155K -> 67K. Release build, 284x160, Low, navbatma-navbat 3 juft o'lchov (`ZAMIN_PRIMITIVE_LOD=0` -
-LOD'siz): LOD'siz o'rtacha 22.7-24.1 ms (p95 28.9-31.4), LOD bilan **15.1-15.5 ms** (p95 18.7-20.3) - o'rtacha 60 FPS
-byudjetiga sig'adi, eng sekin 5 % kadrlar hali 19-20 ms (Racing kabi). 1280x720 dagi kadrning qolgani — piksellarni bo'yash (SSAO, bloom), u haqiqiy GPU'da videokartada bo'ladi.
-Batafsil tahlil: [Performance.md](Performance.md).
+Conclusion: the game code is ≤ 0.55 ms everywhere; the 2D samples and five 3D samples fit the 60 FPS budget by CPU.
+Silk Road (EndlessRunner) did not fit — the vertex work of its 155K triangles runs on the CPU on llvmpipe. Now
+distant spheres / cylinders / cones draw a simpler copy (the primitive LODs, [Rendering.md](Rendering.md#15-samaradorlik-va-sifat-darajalari)):
+the frame's triangles 155K -> 67K. A Release build, 284x160, Low, 3 alternating pairs of measurements (`ZAMIN_PRIMITIVE_LOD=0` -
+without LODs): without LODs a mean of 22.7-24.1 ms (p95 28.9-31.4), with LODs **15.1-15.5 ms** (p95 18.7-20.3) - the mean fits the 60 FPS
+budget, the slowest 5 % of frames are still 19-20 ms (like Racing). The rest of the frame at 1280x720 is shading pixels (SSAO, bloom), which on a real GPU happens on the graphics card.
+A detailed analysis: [Performance.md](Performance.md).
 
-## Rasmlarni yangilash
+## Updating the pictures
 
-- `python3 Tools/samples/make_gallery.py` — shu sahifadagi o'yin rasmlari (`docs/images/sample-*.jpg`, 960x540);
-- `python3 Tools/samples/make_thumbnails.py` — launcher kartalaridagi rasmlar (`Projects/*/Thumbnail.jpg`);
-- `python3 Tools/samples/gen_<o'yin>.py` — o'yinning assetlari, sahnasi va loyiha fayli (generator o'zgarsa;
-  `Tests/samples_assets.py --regen` natija bir xil ekanini tekshiradi).
+- `python3 Tools/samples/make_gallery.py` — the game pictures on this page (`docs/images/sample-*.jpg`, 960x540);
+- `python3 Tools/samples/make_thumbnails.py` — the pictures on the launcher cards (`Projects/*/Thumbnail.jpg`);
+- `python3 Tools/samples/gen_<game>.py` — the game's assets, scene and project file (when the generator changes;
+  `Tests/samples_assets.py --regen` checks that the result is the same).
 
 ## LoadoutWorkshop
 

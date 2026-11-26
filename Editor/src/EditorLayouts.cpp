@@ -1,5 +1,5 @@
-// The editor's window layouts (Oyna > Joylashuv): the built-in ones built with ImGui's dock builder
-// (Standart, 2D, Animatsiya, 4 ko'rinish), the user's saved ones - ImGui's window / docking settings
+// The editor's window layouts (Window > Layout): the built-in ones built with ImGui's dock builder
+// (Default, 2D, Animation, 4 views), the user's saved ones - ImGui's window / docking settings
 // with the open windows, one .zlayout file each in ~/.config/zamin/layouts - and the windows to
 // save, apply, rename and delete them.
 #include "EditorLayer.h"
@@ -337,7 +337,7 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
-        // ---- the Joylashuvlar window
+        // ---- the Layouts window
         if (!m_ShowLayouts)
             return;
         ImGui::SetNextWindowSize(ImVec2(em * 42.0f, em * 28.0f), ImGuiCond_FirstUseEver);

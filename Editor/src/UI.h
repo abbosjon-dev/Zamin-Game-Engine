@@ -25,7 +25,7 @@
 // Small helpers for a consistent, good-looking editor UI.
 namespace Zamin::UI {
 
-    // The theme's accent colour (Sozlamalar > Ko'rinish) and its darker shade (pressed buttons,
+    // The theme's accent colour (Preferences > View) and its darker shade (pressed buttons,
     // the current preset, selected rows).
     inline ImVec4 AccentColor(float alpha = 1.0f)
     {
@@ -192,7 +192,7 @@ namespace Zamin::UI {
     // With a tooltip: shown when the title is hovered (a dotted underline hints at it).
     inline void PropertyHeader(const char* text, const char* tooltip = nullptr)
     {
-        text = Tr(text); // the editor's language (Sozlamalar > Ko'rinish > Editor tili)
+        text = Tr(text); // the editor's language (Preferences > View > Editor language)
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Dummy(ImVec2(0.0f, 2.0f));

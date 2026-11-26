@@ -285,7 +285,7 @@ namespace Zamin {
                                                 Tr("Qiymatni o'ng tugma bilan shu prefabga ham qo'llash mumkin")).c_str());
                 }
 
-        // [Tanlash] [Brauzerda] [O'zgarishlar (N)] [Qo'llash] [Qaytarish]
+        // [Select root] [In browser] [Changes (N)] [Apply] [Revert]
         if (entity != root)
         {
             if (UI::ToolbarButton(ICON_FA_ARROW_UP, Tr("Nusxa ildizini tanlash")))

@@ -286,9 +286,9 @@ namespace Zamin {
         std::map<std::string, CameraBookmarks> Bookmarks;
         InspectorFoldState Inspector;
         ContentBrowserSettings ContentBrowser;
-        // The game view's size while playing (viewport toolbar / Ko'rinish menu).
+        // The game view's size while playing (viewport toolbar / View menu).
         GameViewResolution GameView;
-        // The extra scene views (Oyna > Ko'rinishlar) and the entities' names over the views.
+        // The extra scene views (Window > Views) and the entities' names over the views.
         std::array<SceneViewSettings, SceneViewSettings::Count> SceneViews{ SceneViewSettings::GetDefault(0), SceneViewSettings::GetDefault(1),
                                                                             SceneViewSettings::GetDefault(2) };
         EntityLabelSettings EntityLabels;

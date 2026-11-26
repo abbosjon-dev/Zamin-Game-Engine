@@ -263,7 +263,7 @@ namespace Zamin {
         void SetAutoTileRuleEditor(bool open, int variant = -1) { m_EditRule = open; m_EditRuleVariant = variant; }
         // The picker found `tile` (of auto-tile rule `rule`, -1 none) on the map: it becomes the brush.
         void PickTile(int tile, int rule = -1);
-        // ---- tile palette window (Oyna > Plitka palitrasi): the selected tilemap's palette, bigger
+        // ---- tile palette window (Window > Tile palette): the selected tilemap's palette, bigger
         void DrawTilePaletteWindow(bool* open);
         // Automation: the palette zoom (0 = fit the width) of the inspector (0) / the window (1), and
         // the tile whose collision / animation the inspector edits.
@@ -536,7 +536,7 @@ namespace Zamin {
     private:
         Ref<Scene> m_Context;
         SceneManager* m_SceneManager = nullptr;
-        // The scene file the inspector's Sub-sahna section describes (read again when it changes).
+        // The scene file the inspector's Sub-scene section describes (read again when it changes).
         struct SubSceneFileCache
         {
             std::string Path;

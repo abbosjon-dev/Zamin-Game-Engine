@@ -456,7 +456,7 @@ namespace Zamin {
         ImGui::PushID("##prefabStageBar");
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f, 0.45f, 0.65f, 0.55f));
-        // ◀ Sahna "Level1" › Enemy.zprefab › Weapon.zprefab: a level clicked is gone back to.
+        // ◀ Scene "Level1" › Enemy.zprefab › Weapon.zprefab: a level clicked is gone back to.
         std::optional<size_t> leaveTo;
         const PrefabStageLevel& first = m_PrefabStages.front();
         const std::string sceneName = first.OuterScene ? first.OuterScene->GetName() : std::string();

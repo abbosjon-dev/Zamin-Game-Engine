@@ -202,7 +202,7 @@ namespace Zamin {
         bool OpenPrefabStage(const std::string& prefab, uint64_t focus = 0, bool recover = false);
         bool SavePrefabStage();
         // Leaves prefab mode down to `keep` levels (0: back to the scene): each level with unsaved
-        // edits asks Saqlash / Saqlamaslik / Bekor qilish first; `then` runs once all are closed.
+        // edits asks Save / Don't save / Cancel first; `then` runs once all are closed.
         void RequestLeavePrefabStages(size_t keep, std::function<void()> then = {});
         void PopPrefabStage();
         // Every level closed at once, unsaved prefab edits dropped (a project closes / another opens).
@@ -347,7 +347,7 @@ namespace Zamin {
         bool UI_GameViewResolutionItems();
 
         // ---- keyboard shortcuts (EditorShortcuts.cpp): one table for the keys the editor dispatches,
-        // the menus' labels and the shortcuts window (Yordam > Klaviatura yorliqlari, F1); rebound
+        // the menus' labels and the shortcuts window (Help > Keyboard shortcuts, F1); rebound
         // keys are kept in preferences.json.
         void RegisterShortcuts();
         void ApplyShortcutPreferences();
@@ -524,9 +524,9 @@ namespace Zamin {
         void UI_Launcher();
         void UI_Modals();
 
-        // ---- window layouts (EditorLayouts.cpp): the built-in ones (Standart, 2D, Animatsiya,
-        // 4 ko'rinish) built by code, the user's saved ones (ImGui's window settings + the open
-        // windows, ~/.config/zamin/layouts/*.zlayout); Oyna > Joylashuv.
+        // ---- window layouts (EditorLayouts.cpp): the built-in ones (Default, 2D, Animation,
+        // 4 views) built by code, the user's saved ones (ImGui's window settings + the open
+        // windows, ~/.config/zamin/layouts/*.zlayout); Window > Layout.
         struct LayoutPanel
         {
             const char* Key;      // in layout files ("Hierarchy")
@@ -542,12 +542,12 @@ namespace Zamin {
         void UI_BuildLayout(BuiltInLayout layout, unsigned int dockspaceID);
         bool SaveCurrentLayout(const std::string& name);
         void UI_LayoutMenu();
-        void UI_LayoutWindows();   // the save prompt and Joylashuvlar (manage) window
+        void UI_LayoutWindows();   // the save prompt and Layouts (manage) window
         // ZAMIN_EDITOR_LAYOUT=<built-in key | saved name>[,save=<name>][,manage][,saveprompt].
         void ApplyLayoutAutomation(std::string_view spec);
 
         // ---- scene views (EditorSceneViews.cpp): the main viewport (view 0) and up to three extra
-        // ones (Oyna > Ko'rinishlar), each with its own editor camera; axis views (Top / Front /
+        // ones (Window > Views), each with its own editor camera; axis views (Top / Front /
         // Right ... orthographic) from the toolbar, the axis navigator or the numpad keys.
         SceneViewTarget GetSceneViewTarget(int index);
         // The view camera shortcuts act on: the one under the mouse, else the one with the keyboard.
@@ -567,7 +567,7 @@ namespace Zamin {
         // The axis navigator in a view's corner: click an axis for its view, the centre toggles the
         // projection. True: the mouse is over it.
         bool UI_ViewAxisNavigator(const SceneViewTarget& view, ImVec2 center, float radius);
-        // The axis view menu (Perspektiv / Yuqoridan / Old ...) of a view.
+        // The axis view menu (Perspective / From the top / Front ...) of a view.
         void UI_ViewAxisItems(int index);
         // The transform gizmo in a view (the main viewport's tools: mode, snapping, pivot).
         bool UI_TransformGizmo(const SceneViewTarget& view);
@@ -583,7 +583,7 @@ namespace Zamin {
         // The selection outline in an extra view's picture.
         void RenderSceneViewOutline(int extraIndex);
 
-        // ---- scene statistics (EditorSceneStats.cpp): Oyna > Sahna statistikasi - entities, components,
+        // ---- scene statistics (EditorSceneStats.cpp): Window > Scene statistics - entities, components,
         // scripts, prefab instances and the assets the scene names with memory estimates; a row
         // selects its entities.
         void UI_SceneStatistics();
@@ -820,7 +820,7 @@ namespace Zamin {
         glm::vec2 m_TerrainPreviousCenter{ 0 };
         bool m_TerrainHasPrevious = false;
         std::string m_TerrainMessage, m_TerrainPrefab;
-        bool m_ShowTilePalette = false;     // Oyna > Plitka palitrasi
+        bool m_ShowTilePalette = false;     // Window > Tile palette
         bool m_TileHoverOverride = false;   // automation: the preview cell below instead of the mouse
         bool m_TileDragHeld = false;        // automation: a rectangle stroke stays held (its preview shows)
         // The tiles of the painted layer as the tool would leave them (drawn by the scene view in
@@ -999,7 +999,7 @@ namespace Zamin {
         EditorLayoutLibrary m_Layouts;
         std::optional<BuiltInLayout> m_PendingBuiltInLayout; // built by the next frame's dock space
         std::string m_PendingLayout;          // a saved layout loaded before the next frame
-        bool m_ShowLayouts = false;           // the Joylashuvlar window
+        bool m_ShowLayouts = false;           // the Layouts window
         bool m_OpenSaveLayout = false;        // the save prompt opens
         std::string m_LayoutName;             // the save prompt's name field
         std::string m_LayoutRenameFrom, m_LayoutRenameTo;

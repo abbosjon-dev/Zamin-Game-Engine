@@ -16,9 +16,9 @@ namespace Zamin {
 
     namespace fs = std::filesystem;
 
-    // Launcher: namuna o'yinlar kartalar ko'rinishida - har birida loyihaning rasmi (.zproject "Thumbnail", o'yinning
-    // haqiqiy skrinshotidan olingan kichik JPG / PNG), nomi (Player > mahsulot nomi) va tavsifi ("Description").
-    // Kartani bosish loyihani ochadi. Ro'yxat bir necha soniyada bir yangilanadi, rasmlar bir marta yuklanadi.
+    // Launcher: the sample games as cards - each with the project's picture (.zproject "Thumbnail", a small JPG / PNG
+    // taken from a real screenshot of the game), its name (Player > Product name) and description ("Description").
+    // Clicking a card opens the project. The list is refreshed every few seconds, the pictures are loaded once.
 
     const std::vector<ProjectSummary>& EditorLayer::GetLauncherSamples()
     {

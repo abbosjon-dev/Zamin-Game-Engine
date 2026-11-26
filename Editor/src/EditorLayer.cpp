@@ -99,7 +99,7 @@ namespace Zamin {
         static std::string iniPath = (ConfigDirectory() / "editor-layout.ini").string();
         ImGui::GetIO().IniFilename = iniPath.c_str();
         m_LayoutInitialized = fs::exists(iniPath);
-        // Saved window layouts (Oyna > Joylashuv).
+        // Saved window layouts (Window > Layout).
         m_Layouts.SetDirectory(ConfigDirectory() / "layouts");
         m_Layouts.Refresh();
 
@@ -671,14 +671,14 @@ namespace Zamin {
             if (const char* prefab = std::getenv("ZAMIN_EDITOR_PREFAB"))
                 ApplyPrefabAutomation(prefab);
             // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Obyekt|Skriptlar|Oyna|Yordam>[/recent|/layout|/views]: that main
-            // menu kept open (screenshots).
+            // menu (File, Edit, View, Object, Scripts, Window, Help, named by its translation key) kept open (screenshots).
             if (const char* menu = std::getenv("ZAMIN_EDITOR_MENU"))
                 m_OpenMenu = menu;
-            // ZAMIN_EDITOR_ABOUT=1: the "Zamin haqida" window (the engine's version, commit and build).
+            // ZAMIN_EDITOR_ABOUT=1: the "About Zamin" window (the engine's version, commit and build).
             if (std::getenv("ZAMIN_EDITOR_ABOUT"))
                 m_ShowAbout = true;
             // ZAMIN_EDITOR_LAYOUT=<Default|2D|Animation|FourViews|<saved name>>[,save=<name>][,manage][,saveprompt]: a window
-            // layout applied / the current one saved / the Joylashuvlar window or the save prompt opened.
+            // layout applied / the current one saved / the Layouts window or the save prompt opened.
             if (const char* layout = std::getenv("ZAMIN_EDITOR_LAYOUT"))
                 ApplyLayoutAutomation(layout);
             // ZAMIN_EDITOR_RECOVER=1 | later | delete: the recovery prompt's "Tiklash" (the offered copy is
@@ -1882,7 +1882,7 @@ namespace Zamin {
             m_RuntimeScenes->RenderTransition(m_FinalFramebuffer->GetSpecification().Width, m_FinalFramebuffer->GetSpecification().Height);
         m_FinalFramebuffer->Unbind();
 
-        // The extra scene views (Oyna > Ko'rinishlar), each from its own camera; a fly speed the
+        // The extra scene views (Window > Views), each from its own camera; a fly speed the
         // wheel changed becomes every view's.
         RenderSceneViews(ts);
         SyncFlySpeed();
@@ -6422,7 +6422,7 @@ namespace Zamin {
     {
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGuiID dockspaceID = ImGui::GetID("ZaminDockSpace");
-        // The first run (no layout file yet) or a built-in layout chosen (Oyna > Joylashuv): its
+        // The first run (no layout file yet) or a built-in layout chosen (Window > Layout): its
         // dock tree is built before the dock space and the windows of this frame.
         const bool firstRun = !m_LayoutInitialized;
         if (firstRun && !m_PendingBuiltInLayout)

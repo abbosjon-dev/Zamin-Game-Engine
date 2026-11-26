@@ -9,7 +9,7 @@
 
 namespace Zamin {
 
-    // "Animator grafi" window (Oyna > Animator grafi): an Animator's state machine as a graph -
+    // "Animator graph" window (Window > Animator graph): an Animator's state machine as a graph -
     // states are nodes (clip / 1D blend tree; the default one marked), transitions arrows, plus the
     // "any state" node. Nodes are dragged (positions are saved with the component), a transition is
     // drawn by Shift-dragging from one node to another (or the node's menu), arrows and nodes are

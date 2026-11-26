@@ -123,7 +123,7 @@ namespace Zamin {
         bool RecordSelection = true;
     };
 
-    // The editor's window layout (Oyna > Joylashuv).
+    // The editor's window layout (Window > Layout).
     struct LayoutPreferences
     {
         std::string Current;  // the layout last chosen (a built-in one's key or a saved one's name; "" none)
@@ -150,8 +150,8 @@ namespace Zamin {
         UndoPreferences Undo;
         LayoutPreferences Layout;
         ExternalEditorPreferences ExternalEditor;
-        IdleThrottleSettings Idle;    // fewer frames while unfocused / idle (Sozlamalar > Ishlash)
-        // The editor UI's language (Sozlamalar > Ko'rinish > Til): "uz" (the default) or "en".
+        IdleThrottleSettings Idle;    // fewer frames while unfocused / idle (Preferences > Performance)
+        // The editor UI's language (Preferences > View > Language): "en" (the default) or "uz".
         std::string Language = "en";
         // Keyboard shortcuts rebound in the shortcuts window: id -> chord ("" = unbound).
         std::map<std::string, std::string> Shortcuts;

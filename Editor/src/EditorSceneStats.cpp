@@ -1,4 +1,4 @@
-// The scene statistics window (Oyna > Sahna statistikasi): how many entities the open scene has
+// The scene statistics window (Window > Scene statistics): how many entities the open scene has
 // (active / inactive, roots, depth, prefab instances), the components by type, the C++ scripts by
 // class, the prefabs placed and the assets the scene names with what they hold and an estimate of
 // their memory. The tables sort by any column; a row selects its entities (Ctrl: adds them),

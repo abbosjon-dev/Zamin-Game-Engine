@@ -1,4 +1,4 @@
-// Entity names over the scene views (Ko'rinish > Obyekt nomlari, the viewport toolbar's names
+// Entity names over the scene views (View > Object names, the viewport toolbar's names
 // button): the selection's or every entity's name above it, fading out with the distance from the
 // camera; where labels would overlap the selection, the hovered entity and the nearest are kept.
 // A click on a name selects its entity.

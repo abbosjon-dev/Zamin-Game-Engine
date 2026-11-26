@@ -11,7 +11,7 @@
 
 namespace Zamin {
 
-    // "Animatsiya" window (Oyna > Animatsiya): edits the property clips (.zanim) of an Animation
+    // "Animation" window (Window > Animation): edits the property clips (.zanim) of an Animation
     // Player - its tracks (a property of the player's entity or of a child, by name path), their
     // keys on a dope sheet or as curves (step / linear / Bezier with tangent handles), the clip's
     // events, length, frame rate and wrap mode. Scrubbing / playing previews the clip in the scene

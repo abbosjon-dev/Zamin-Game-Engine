@@ -10,7 +10,7 @@
 
 namespace Zamin {
 
-    // The editor's layouts that come with it (Oyna > Joylashuv): built by code, always there, never
+    // The editor's layouts that come with it (Window > Layout): built by code, always there, never
     // overwritten. FourViews splits the scene area into the viewport and three axis views.
     enum class BuiltInLayout : uint8_t { Default = 0, Mode2D, Animation, FourViews, Count };
 

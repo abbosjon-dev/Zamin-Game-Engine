@@ -918,7 +918,7 @@ namespace Zamin {
             {
                 ma_sound_set_spatialization_enabled(sound, MA_TRUE);
                 ApplySpatialModel(sound);
-                // Negative: the project's defaults (Audio > 3D ovoz).
+                // Negative: the project's defaults (Audio > 3D sound).
                 const float minDistance = std::max(0.01f, params.MinDistance >= 0.0f ? params.MinDistance : s_Mixer.Spatial.MinDistance);
                 const float maxDistance = std::max(minDistance, params.MaxDistance >= 0.0f ? params.MaxDistance : s_Mixer.Spatial.MaxDistance);
                 ma_sound_set_min_distance(sound, minDistance);

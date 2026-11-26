@@ -1,6 +1,6 @@
 // The editor's keyboard shortcuts: the actions bound to the shortcut table (ShortcutRegistry), the
-// keys pressed each frame dispatched through it, and the shortcuts window (Yordam > Klaviatura
-// yorliqlari) that lists, searches and rebinds them.
+// keys pressed each frame dispatched through it, and the shortcuts window (Help > Keyboard
+// shortcuts) that lists, searches and rebinds them.
 #include "EditorLayer.h"
 #include "UI.h"
 

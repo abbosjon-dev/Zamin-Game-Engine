@@ -1,5 +1,5 @@
-// The editor's scene views: the main viewport (view 0) and up to three extra ones ("Ko'rinish 2" ...
-// "Ko'rinish 4", Oyna > Ko'rinishlar), each a window with its own editor camera. The extra views are
+// The editor's scene views: the main viewport (view 0) and up to three extra ones ("View 2" ...
+// "View 4", Window > Views), each a window with its own editor camera. The extra views are
 // drawn after the main picture (the same frame of the scene: grid, selection outline, debug shapes,
 // icons, entity names, the transform gizmo); clicking in one selects. Axis views (Top / Front /
 // Right ... orthographic) come from the views' menus, the axis navigator in their corner or the
@@ -506,7 +506,7 @@ namespace Zamin {
         const float width = axisWidth + spacing + buttonSize * 4 + caretWidth + spacing * 4;
         const ImVec2 pos(view.Bounds[0].x + 8.0f, view.Bounds[0].y + 8.0f);
         if (view.Size.x < width + 20.0f)
-            return; // too narrow: the menus stay reachable from the main viewport's Ko'rinish menu
+            return; // too narrow: the menus stay reachable from the main viewport's View menu
         dl->AddRectFilled(ImVec2(pos.x - 4, pos.y - 4), ImVec2(pos.x + width + 4, pos.y + buttonSize + 4), IM_COL32(18, 20, 24, 210), 7.0f);
         ImGui::SetCursorScreenPos(pos);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0));

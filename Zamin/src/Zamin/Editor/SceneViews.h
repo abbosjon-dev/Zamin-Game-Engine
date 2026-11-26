@@ -48,7 +48,7 @@ namespace Zamin {
     // Which entities show their names in the editor's scene views, and how.
     enum class EntityLabelMode : uint8_t { Off = 0, Selected, All };
 
-    // The names of entities drawn over the scene views (Ko'rinish > Obyekt nomlari): for the
+    // The names of entities drawn over the scene views (View > Object names): for the
     // selection or every entity, fading out with the distance from the camera, the nearest ones
     // kept where labels would overlap.
     struct EntityLabelSettings

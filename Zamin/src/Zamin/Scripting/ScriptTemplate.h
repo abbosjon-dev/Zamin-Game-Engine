@@ -11,7 +11,7 @@ namespace Zamin {
         Minimal,    // OnCreate + OnUpdate and one field
     };
 
-    // Source code for new C++ script classes (Editor: Skriptlar > Yangi C++ skript).
+    // Source code for new C++ script classes (Editor: Scripts > New C++ script).
     namespace ScriptTemplate {
 
         // Keeps letters, digits and '_' ("my enemy-2" -> "myenemy2"); a leading digit gets a '_' prefix.

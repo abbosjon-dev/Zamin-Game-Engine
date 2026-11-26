@@ -361,7 +361,7 @@ oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
   gravitatsiyasiga ergashadi (Loyiha sozlamalari > Fizika). Fizika qadami (`"PhysicsStep"`) ham shunday: yo'q
   bo'lsa loyihaniki (Loyiha sozlamalari > Vaqt).
 - **v4 → v5**: prefab nusxasi bog'lanishlari (`"Editor"` ichida `PrefabEntity`, `Overrides` ...) qo'shildi;
-  `Editor.Prefab` yo'lidagi `\` → `/`. Batafsil: [Prefabs.md](Prefabs.md#13-versiya-va-migratsiya).
+  `Editor.Prefab` yo'lidagi `\` → `/`. Batafsil: [Prefabs.md](Prefabs.md#13-version-and-migration).
 
 Prefab (`.zprefab`) va nusxalash buferi ham shu zanjirdan o'tadi (`"Version"`, `"Kind"`; versiyasizi — v0). Har
 fayl versiyasi uchun migratsiya bir marta logga yoziladi (hech narsa o'zgarmagan bo'lsa yozilmaydi). Fayl
@@ -594,7 +594,7 @@ bo'limi ochiq).
 sinaydigan `SceneManagementFlow` (menyu → fonda so'nish bilan daraja → uning sub-sahnasi, doimiy menejer,
 GameState, servislar, hodisalar, vaqt). Prefab va serializatsiya testlari (`ZAMIN_TESTS=Prefab`; bog'lanish,
 override, Apply / Revert, ichma-ich, variantlar, hot reload, bufer, eksport tekshiruvi) ro'yxati:
-[Prefabs.md](Prefabs.md#18-testlar).
+[Prefabs.md](Prefabs.md#18-tests).
 
 ```bash
 ZAMIN_TESTS=Scene ./build/bin/ZaminTests        # nomida "Scene" bor testlar

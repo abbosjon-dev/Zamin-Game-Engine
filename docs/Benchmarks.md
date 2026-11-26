@@ -1,348 +1,353 @@
-# Benchmarklar va ularning boshlang'ich natijalari
+# Benchmarks and their baseline results
 
-Dvigatelning tezligini o'lchaydigan dasturlar va o'lchangan **boshlang'ich natija** (baseline): keyingi o'zgarish
-tezlikni qanchalik o'zgartirganini shu raqamlar bilan solishtiring. Raqamlar bir xil kompyuter, bir xil build turi va
-bir xil sozlamalarda olinganda solishtiriladi.
+The programs that measure the engine's speed and the measured **baseline**: compare the next change against these
+numbers to see how much it changed the speed. Numbers are comparable when taken on the same computer, with the same
+build type and the same settings.
 
-## Rendering: 10 000 sprite, 1 000 mesh (`ZaminBench --render`)
+## Rendering: 10 000 sprites, 1 000 meshes (`ZaminBench --render`)
 
-`Tests/RenderBench.cpp`, ishga tushirish: `Tests/render_bench.sh` (yoki `cmake --build build --target render_bench`).
-GL konteksti kerak: displey bo'lmasa qat'iy 1600x900x24 xvfb ekrani, va har doim Mesa'ning dasturiy rasterizatori
-(llvmpipe) - raqamlar kompyuterlar orasida va shu jadval bilan solishtirilsin (GPU bilan: `ZAMIN_RENDER_BENCH_GPU=1`).
-Sahnalar o'yin (player) kabi chiziladi: asosiy kamera, sahna kadri (`OnUpdateRuntime`) chiziqli HDR nishonga, keyin
-post-processing oynaga. Har holat 20 kadr qizdiriladi, keyin 120 kadr o'lchanadi:
+`Tests/RenderBench.cpp`, run with `Tests/render_bench.sh` (or `cmake --build build --target render_bench`).
+It needs a GL context: without a display a fixed 1600x900x24 xvfb screen, and always Mesa's software rasterizer
+(llvmpipe) - so the numbers compare across computers and with this table (with the GPU: `ZAMIN_RENDER_BENCH_GPU=1`).
+The scenes are drawn as in the game (player): the main camera, the scene frame (`OnUpdateRuntime`) into a linear HDR
+target, then post-processing to the window. Every case warms up for 20 frames, then 120 frames are measured:
 
-| Holat | Nima chiziladi |
+| Case | What is drawn |
 |---|---|
-| `sprites` | 10 000 sprite (choragi 4 xil teksturadan biri bilan), ortografik kamera |
-| `meshes` | 1 000 primitiv (kub, shar, silindr, konus; 8 material) yer ustida, soyali quyosh va nuqtali chiroq, perspektiv kamera; GPU instancing bilan (odatdagidek) |
-| `meshes-noinst` | o'sha meshlar instancing'siz (instancing nima tejashini ko'rsatadi) |
-| `combined` | spritelar (orqadagi devorda) va meshlar bitta sahnada |
+| `sprites` | 10 000 sprites (a quarter with one of 4 textures), an orthographic camera |
+| `meshes` | 1 000 primitives (cube, sphere, cylinder, cone; 8 materials) on the ground, a shadow-casting sun and a point light, a perspective camera; with GPU instancing (as usual) |
+| `meshes-noinst` | the same meshes without instancing (shows what instancing saves) |
+| `combined` | the sprites (on a wall at the back) and the meshes in one scene |
 
-**CPU** - kadr boshidan hamma buyruq yuborilguncha; **Kadr (GPU bilan)** - `glFinish` gacha (GPU ham tugatgan).
-`--json` har holat raqamlarini yozadi (`render-bench.json`), `--max-avg <ms>` chegaradan sekin holatda skriptni
-yiqitadi, `--shots <papka>` har holatning oxirgi kadrini PNG qilib saqlaydi.
+**CPU** - from the start of the frame until every command is submitted; **Frame (with the GPU)** - until `glFinish`
+(the GPU has finished too). `--json` writes every case's numbers (`render-bench.json`), `--max-avg <ms>` fails the
+script on a case slower than the limit, `--shots <folder>` saves every case's last frame as a PNG.
 
-### Boshlang'ich natija (2026-11-08)
+### Baseline (2026-11-08)
 
-Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, Mesa 25.2.8 llvmpipe (LLVM 20.1.2, 256 bit), xvfb 1600x900x24, oyna 1280x720,
-GCC 13.3, **Release** build (`-DCMAKE_BUILD_TYPE=Release`), 120 kadr.
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, Mesa 25.2.8 llvmpipe (LLVM 20.1.2, 256 bit), xvfb 1600x900x24, a 1280x720
+window, GCC 13.3, a **Release** build (`-DCMAKE_BUILD_TYPE=Release`), 120 frames.
 
-| Holat | Obyekt | CPU ms (o'rtacha / mediana / p95) | Kadr ms, GPU bilan (o'rtacha / mediana / p95 / max) | Chizildi |
+| Case | Objects | CPU ms (average / median / p95) | Frame ms, with the GPU (average / median / p95 / max) | Drawn |
 |---|---:|---|---|---|
-| sprites | 10 001 | 18.72 / 18.21 / 21.51 | 24.51 / 23.92 / 27.68 / 31.40 | 3 draw call, 10 000 kvad |
-| meshes | 1 004 | 130.30 / 128.23 / 152.16 | 136.54 / 134.36 / 158.17 / 170.86 | 46 draw call, 1 001 mesh (1 000 instans), 649K uchburchak |
-| meshes-noinst | 1 004 | 135.24 / 130.99 / 156.46 | 141.68 / 137.29 / 163.78 / 187.51 | 2 027 draw call, 1 001 mesh, 649K uchburchak |
-| combined | 11 004 | 138.78 / 135.09 / 169.44 | 145.10 / 141.27 / 176.07 / 183.91 | 47 draw call, 8 500 kvad, 1 001 mesh (1 000 instans) |
+| sprites | 10 001 | 18.72 / 18.21 / 21.51 | 24.51 / 23.92 / 27.68 / 31.40 | 3 draw calls, 10 000 quads |
+| meshes | 1 004 | 130.30 / 128.23 / 152.16 | 136.54 / 134.36 / 158.17 / 170.86 | 46 draw calls, 1 001 meshes (1 000 instances), 649K triangles |
+| meshes-noinst | 1 004 | 135.24 / 130.99 / 156.46 | 141.68 / 137.29 / 163.78 / 187.51 | 2 027 draw calls, 1 001 meshes, 649K triangles |
+| combined | 11 004 | 138.78 / 135.09 / 169.44 | 145.10 / 141.27 / 176.07 / 183.91 | 47 draw calls, 8 500 quads, 1 001 meshes (1 000 instances) |
 
-Debug build'da (o'sha kompyuter, 20 kadr) taxminan: sprites 75 ms, meshes 150 ms, combined 209 ms - spritelarda
-Debug ~3 marta sekin (CPU tomonidagi batching), meshlarda farq kichik (vaqtni rasterizatsiya oladi).
+In a Debug build (the same computer, 20 frames) roughly: sprites 75 ms, meshes 150 ms, combined 209 ms - Debug is ~3
+times slower with sprites (the CPU-side batching), with meshes the difference is small (rasterization takes the time).
 
-Qanday o'qish kerak:
+How to read it:
 
-- **10 000 sprite 3 ta draw call'da** chiziladi (Renderer2D batching: bir batch'da ko'p kvad, teksturalar slotlarda) -
-  Release'da kadr ~25 ms dasturiy rasterizator bilan; haqiqiy GPU'da bu bir necha ms.
-- **Instancing** draw call'larni 2 027 dan 46 ga tushiradi (soya kaskadlari bilan birga). llvmpipe'da vaqt deyarli bir
-  xil (u yerda uchburchaklarni CPU rasterlaydi - 649K uchburchak, soya kaskadlarining chizishlari ham kiradi); haqiqiy
-  GPU'da draw call soni CPU vaqtini ko'proq belgilaydi.
-- `combined` holatda 1 500 sprite kamera ko'rinishidan tashqarida (frustum culling): 8 500 kvad chizildi.
-- Natija mashinaga bog'liq: boshqa kompyuterda avval shu jadvalni o'sha yerda qayta oling, keyin o'zgarishni
-  solishtiring. Kichik farqlar (±5-10%) shovqin; p95 va max ayniqsa xvfb ostida tebranadi.
+- **10 000 sprites are drawn in 3 draw calls** (Renderer2D batching: many quads per batch, textures in slots) - ~25 ms
+  per frame in Release with the software rasterizer; on a real GPU this is a few ms.
+- **Instancing** cuts the draw calls from 2 027 to 46 (together with the shadow cascades). On llvmpipe the time is
+  almost the same (there the CPU rasterizes the triangles - 649K triangles, the shadow cascades' draws included); on a
+  real GPU the draw call count decides more of the CPU time.
+- In the `combined` case 1 500 sprites are outside the camera view (frustum culling): 8 500 quads were drawn.
+- The result depends on the machine: on another computer first take this table there again, then compare the change.
+  Small differences (±5-10%) are noise; p95 and max fluctuate especially under xvfb.
 
-## ECS: yaratish, aylanib chiqish, o'chirish (`ZaminBench --ecs`)
+## ECS: creating, iterating, deleting (`ZaminBench --ecs`)
 
-`Tests/EcsBench.cpp`, ishga tushirish: `ZaminBench --ecs [--entities N] [--frames N] [--json fayl]` yoki
-`Tests/bench.sh --only ecs`. Headless (oyna, GPU kerak emas). N obyekt (standart 10 000) sahnaning o'z API'si orqali
-(editor, yuklovchi va skriptlar ishlatadigan yo'l) yaratiladi, komponent oladi, aylanib chiqiladi, ierarxiyaga
-qo'yiladi, qidiriladi, nusxalanadi va o'chiriladi; taqqoslash uchun yonida yalang'och EnTT registry (nom, UUID
-xaritasi, sahna tartibi, ierarxiya yo'q). Oxirida shu o'lchamdagi sahnaning o'yin kadrlari (`UpdateRuntime`,
-kamerasiz, ya'ni faqat yangilash): bo'sh, N/10 skript bilan, va har kadr 500 obyekt yaratilib 500 tasi o'chiriladigan holat. Har
-raqam 3 marta o'lchanadi (har safar yangi sahna) va mediana olinadi; **ns / ta** - bitta obyekt (yoki komponent)
-uchun.
+`Tests/EcsBench.cpp`, run with `ZaminBench --ecs [--entities N] [--frames N] [--json file]` or
+`Tests/bench.sh --only ecs`. Headless (no window or GPU needed). N objects (10 000 by default) are created through the
+scene's own API (the path the editor, the loader and scripts use), get components, are iterated, put into a hierarchy,
+looked up, copied and deleted; for comparison a bare EnTT registry next to it (no names, UUID map, scene order or
+hierarchy). At the end, game frames of a scene of that size (`UpdateRuntime`, without a camera, i.e. updating only):
+empty, with N/10 scripts, and with 500 objects created and 500 deleted every frame. Every number is measured 3 times
+(a new scene each time) and the median is taken; **ns / each** - per object (or component).
 
-### Boshlang'ich natija (2026-11-08)
+### Baseline (2026-11-08)
 
-Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** build, 10 000 obyekt (`Tests/Baselines/ecs-release.json`).
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, a **Release** build, 10 000 objects (`Tests/Baselines/ecs-release.json`).
 
-| Amal | ms | ns / ta |
+| Operation | ms | ns / each |
 |---|---:|---:|
-| EnTT: `create` + `emplace<Transform>` (yarmiga Sprite) | 0.74 | 74 |
-| EnTT: `view<Transform>` har biriga yozish | 0.008 | 0.8 |
-| EnTT: `destroy` har biri alohida | 0.47 | 47 |
-| `CreateEntity(nom)` (ID, Transform, Tag, Relationship, UUID xaritasi) | 2.29 | 229 |
-| `CreateEntityWithUUID` (yuklovchi yo'li) | 1.50 | 150 |
+| EnTT: `create` + `emplace<Transform>` (Sprite on half) | 0.74 | 74 |
+| EnTT: `view<Transform>` writing to each | 0.008 | 0.8 |
+| EnTT: `destroy` each one separately | 0.47 | 47 |
+| `CreateEntity(name)` (ID, Transform, Tag, Relationship, the UUID map) | 2.29 | 229 |
+| `CreateEntityWithUUID` (the loader's path) | 1.50 | 150 |
 | `AddComponent<SpriteRenderer>` | 0.95 | 95 |
 | `RemoveComponent<SpriteRenderer>` | 0.44 | 44 |
 | `GetAllEntitiesWith<Transform>` / `<Transform, Sprite>` | 0.062 / 0.060 | 6.2 / 6.0 |
-| `Entity::GetComponent<Transform>` sahna tartibida / tasodifiy | 0.066 / 0.132 | 6.6 / 13 |
-| `GetEntityByUUID` tasodifiy | 0.23 | 23 |
-| `SetParent` (dunyo transformi saqlanadi) | 3.83 | 425 |
-| `GetWorldTransform` (chuqurlik 2) | 2.17 | 217 |
-| `DuplicateEntity` (100 guruh x 10 obyekt) | 1.62 | 1 622 |
-| `Scene::Copy` (editor Play nusxasi) | 6.93 | 693 |
-| `DestroyEntity` eng yangisidan | 4.40 | 440 |
-| `DestroyEntity` tasodifiy tartibda | 323 | 32 338 |
-| `DestroyEntity` eng eskisidan (1 000 ta, sahnada 10 000) | 99 | 99 351 |
-| `DestroyEntities(hammasi)` - bitta to'plam | 6.93 | 693 |
-| `DestroyEntityDeferred` hammasi + kadr oxiridagi bo'shatish | 6.63 | 663 |
-| Kadr: 10 000 sprite, ierarxiya (fizikasiz, skriptsiz) | 0.165 / kadr | 17 |
-| Kadr: 1 000 skript `OnUpdate` | 0.308 / kadr | 308 |
-| Kadr: 500 `Instantiate` + 500 Destroy (10 000 obyektli sahnada) | 1.60 / kadr | 1 597 |
+| `Entity::GetComponent<Transform>` in scene order / random | 0.066 / 0.132 | 6.6 / 13 |
+| `GetEntityByUUID` random | 0.23 | 23 |
+| `SetParent` (the world transform is kept) | 3.83 | 425 |
+| `GetWorldTransform` (depth 2) | 2.17 | 217 |
+| `DuplicateEntity` (100 groups x 10 objects) | 1.62 | 1 622 |
+| `Scene::Copy` (the editor's Play copy) | 6.93 | 693 |
+| `DestroyEntity` newest first | 4.40 | 440 |
+| `DestroyEntity` in random order | 323 | 32 338 |
+| `DestroyEntity` oldest first (1 000 of them, 10 000 in the scene) | 99 | 99 351 |
+| `DestroyEntities(all)` - one batch | 6.93 | 693 |
+| `DestroyEntityDeferred` all + the release at the end of the frame | 6.63 | 663 |
+| Frame: 10 000 sprites, hierarchy (no physics, no scripts) | 0.165 / frame | 17 |
+| Frame: 1 000 script `OnUpdate` | 0.308 / frame | 308 |
+| Frame: 500 `Instantiate` + 500 Destroy (in a scene of 10 000 objects) | 1.60 / frame | 1 597 |
 
-Debug build'da (o'sha kompyuter): `CreateEntity` 1 918 ns, `Scene::Copy` 3 343 ns, bo'sh kadr 0.72 ms, 1 000 skript
-2.75 ms, 500 + 500 kadr 25.7 ms (shundan `Instantiate` 39 µs / obyekt - Release'da 2 µs: har bir nusxa ~90 komponent
-turini tekshiradi, optimallashtirilmagan kodda har tekshiruv EnTT pool qidiruvi).
+In a Debug build (the same computer): `CreateEntity` 1 918 ns, `Scene::Copy` 3 343 ns, an empty frame 0.72 ms, 1 000
+scripts 2.75 ms, the 500 + 500 frame 25.7 ms (of which `Instantiate` 39 µs / object - 2 µs in Release: every copy
+checks ~90 component types, and in unoptimized code every check is an EnTT pool lookup).
 
-Qanday o'qish kerak:
+How to read it:
 
-- **Sahna API'sining narxi** yalang'och EnTT'dan 2-3 marta ko'p yaratishda (nom, UUID xaritasi, 4 ta majburiy
-  komponent) va aylanishda bir xil (`GetAllEntitiesWith` - o'sha EnTT view).
-- **Sahna tartibi saqlanadi** (fayl, ierarxiya va fizika determinizmi shu tartibga tayanadi): bitta eski obyektni
-  `DestroyEntity` bilan o'chirish undan keyingi hamma obyektlarni bir o'ringa suradi - O(N). 10 000 obyektli sahnada
-  eng eski obyekt ~0.1 ms. Ko'p obyekt o'chirganda **`DestroyEntities`** (editor) yoki skriptlarning **`Destroy`**
-  (`DestroyEntityDeferred`, kadr oxirida bitta to'plam) ishlating - ikkalasi ham bitta o'tish (0.7 µs / obyekt).
-- **Topilgan va tuzatilgan xato:** `DestroyEntityDeferred` takrorlanishni butun navbatdan qidirib tekshirardi - bir
-  kadrda minglab `Destroy` kvadratik edi (10 000 obyekt: Debug'da 525 ms, endi 87 ms; Release 6.6 ms). Endi
-  to'plam (`m_DestroyQueued`); `DeferredDestroyOnceEachAndLinear` testi buni (va har obyekt bir marta o'chishini)
-  tekshiradi - eski kod bilan test yiqiladi.
+- **The scene API costs** 2-3 times more than bare EnTT when creating (the name, the UUID map, 4 mandatory components)
+  and the same when iterating (`GetAllEntitiesWith` is the same EnTT view).
+- **The scene order is kept** (the file, the hierarchy and physics determinism rely on it): deleting one old object with
+  `DestroyEntity` shifts every later object by one place - O(N). In a scene of 10 000 objects the oldest object takes
+  ~0.1 ms. When deleting many objects use **`DestroyEntities`** (editor) or the scripts' **`Destroy`**
+  (`DestroyEntityDeferred`, one batch at the end of the frame) - both are a single pass (0.7 µs / object).
+- **A bug found and fixed:** `DestroyEntityDeferred` checked for repeats by searching the whole queue - thousands of
+  `Destroy` in one frame were quadratic (10 000 objects: 525 ms in Debug, now 87 ms; Release 6.6 ms). Now it is a set
+  (`m_DestroyQueued`); the `DeferredDestroyOnceEachAndLinear` test checks it (and that every object is deleted once) -
+  with the old code the test fails.
 
-## Serializatsiya: katta sahnalar, nusxalash, komponent narxi (`ZaminBench --serialize`)
+## Serialization: large scenes, copying, component cost (`ZaminBench --serialize`)
 
-`Tests/SerializeBench.cpp`: `ZaminBench --serialize [--entities N] [--content 2d|3d|all] [--json fayl]` yoki
-`Tests/bench.sh --only serialize`. Platformer2D loyihasida (yo'llar uning assetlariga) headless:
+`Tests/SerializeBench.cpp`: `ZaminBench --serialize [--entities N] [--content 2d|3d|all] [--json file]` or
+`Tests/bench.sh --only serialize`. Headless, in the Platformer2D project (the paths point to its assets):
 
-- **2D sahna** (N obyekt: spritelar, 2D jismlar, maydonli skriptlar, matnlar, teglar, ierarxiya) va **3D sahna**
-  (materialli meshlar, 3D jismlar, yorug'liklar, particle'lar, ovozlar, skriptlar, ierarxiya): JSON matn
-  (`SerializeToString`, faylga yozish, `Deserialize` bosqichlari bilan - `SceneLoadTiming`) va binar kesh
-  (`.zsceneb`, MessagePack), MB va MB/s. O'qilgan sahna qayta saqlanganda bir xil matn berishi tekshiriladi (farq
-  bo'lsa dastur 1 kodi bilan tugaydi);
-- **nusxalash / joylash**: 1 000 obyektli tanlov (`SerializeEntities`, yangi UUID'lar bilan `DeserializeEntities`);
-- **komponent narxi**: har komponent uchun 1 000 obyekt (faqat shu komponent bilan) saqlanadi va yuklanadi, bo'sh
-  obyekt narxi ayiriladi - bitta komponent qancha ns va bayt qo'shadi.
+- **A 2D scene** (N objects: sprites, 2D bodies, scripts with fields, texts, tags, hierarchy) and **a 3D scene**
+  (meshes with materials, 3D bodies, lights, particles, sounds, scripts, hierarchy): JSON text (`SerializeToString`,
+  writing the file, the `Deserialize` stages - `SceneLoadTiming`) and the binary cache (`.zsceneb`, MessagePack), MB and
+  MB/s. A loaded scene saved again must give the same text (on a difference the program ends with code 1);
+- **copy / paste**: a selection of 1 000 objects (`SerializeEntities`, `DeserializeEntities` with new UUIDs);
+- **component cost**: for every component 1 000 objects (with only that component) are saved and loaded and the cost
+  of an empty object is subtracted - how many ns and bytes one component adds.
 
-Bog'langan prefab nusxalari alohida: `ZaminBench --serialize --prefabs` (`Tests/PrefabBench.cpp`,
+Linked prefab instances separately: `ZaminBench --serialize --prefabs` (`Tests/PrefabBench.cpp`,
 [Prefabs.md](Prefabs.md#17-performance)).
 
-### Boshlang'ich natija (2026-11-08)
+### Baseline (2026-11-08)
 
-Muhit: yuqoridagidek, **Release**, 10 000 obyekt (`Tests/Baselines/serialize-release.json`). Eslatma:
-`SceneSerializer.cpp` Debug build'da ham `-O2` bilan kompilyatsiya qilinadi, shuning uchun Debug raqamlari yaqin.
+Environment: as above, **Release**, 10 000 objects (`Tests/Baselines/serialize-release.json`). Note:
+`SceneSerializer.cpp` is compiled with `-O2` even in a Debug build, so the Debug numbers are close.
 
-| Amal | 2D sahna | 3D sahna |
+| Operation | 2D scene | 3D scene |
 |---|---:|---:|
-| JSON hajmi / binar kesh hajmi | 8.8 MB / 3.2 MB | 12.7 MB / 4.9 MB |
-| Saqlash: JSON matn | 119 ms (74 MB/s) | 204 ms (62 MB/s) |
-| Saqlash: binar kesh | 96 ms | 172 ms |
-| Yuklash: JSON (tahlil + obyektlar) | 176 ms (107 + 67) | 257 ms (169 + 82) |
-| Yuklash: binar kesh (tahlil + obyektlar) | 99 ms (38 + 59) | 134 ms (62 + 70) |
-| Nusxalash / joylash, 1 000 obyekt (0.85 MB) | 8.3 ms / 13.3 ms | |
+| JSON size / binary cache size | 8.8 MB / 3.2 MB | 12.7 MB / 4.9 MB |
+| Save: JSON text | 119 ms (74 MB/s) | 204 ms (62 MB/s) |
+| Save: binary cache | 96 ms | 172 ms |
+| Load: JSON (parse + objects) | 176 ms (107 + 67) | 257 ms (169 + 82) |
+| Load: binary cache (parse + objects) | 99 ms (38 + 59) | 134 ms (62 + 70) |
+| Copy / paste, 1 000 objects (0.85 MB) | 8.3 ms / 13.3 ms | |
 
-Bitta komponent narxi (saqlash / yuklash ns, JSON bayt; bo'sh obyekt - butun obyekt):
+The cost of one component (save / load ns, JSON bytes; the empty object - the whole object):
 
-| Komponent | Saqlash ns | Yuklash ns | Bayt |
+| Component | Save ns | Load ns | Bytes |
 |---|---:|---:|---:|
-| bo'sh obyekt (ID, Tag, Transform, Relationship) | 2 931 | 6 100 | 364 |
+| empty object (ID, Tag, Transform, Relationship) | 2 931 | 6 100 | 364 |
 | SpriteRenderer | 3 463 | 4 231 | 331 |
 | CircleRenderer | 1 980 | 2 660 | 214 |
 | Text | 3 016 | 3 649 | 271 |
-| MeshRenderer (primitiv, ichki material) | 8 981 | 9 976 | 776 |
+| MeshRenderer (primitive, embedded material) | 8 981 | 9 976 | 776 |
 | Camera | 4 470 | 5 903 | 489 |
 | PointLight | 1 451 | 1 899 | 154 |
 | Rigidbody2D / BoxCollider2D | 2 365 / 2 967 | 2 667 / 3 876 | 226 / 292 |
-| PolygonCollider2D (5 nuqta) | 4 486 | 6 466 | 594 |
+| PolygonCollider2D (5 points) | 4 486 | 6 466 | 594 |
 | Rigidbody3D / BoxCollider3D | 2 493 / 2 411 | 2 964 / 3 311 | 237 / 268 |
-| NativeScript (3 maydon) | 3 652 | 5 393 | 356 |
+| NativeScript (3 fields) | 3 652 | 5 393 | 356 |
 | AudioSource | 3 402 | 5 132 | 270 |
-| ParticleSystem (standart modullar) | 13 188 | 18 644 | 1 168 |
+| ParticleSystem (default modules) | 13 188 | 18 644 | 1 168 |
 | Animator | 3 740 | 4 142 | 293 |
 | UITransform + UIButton | 6 906 | 10 664 | 839 |
 
-Qanday o'qish kerak: yuklash vaqtining ~60 % i JSON tahlili (binar kesh uni ~3 marta qisqartiradi, shuning uchun
-o'yin `.zsceneb` dan yuklaydi); qolgani obyektlarni yaratish. Eng qimmat komponentlar - ParticleSystem (barcha
-modullar sozlamalari) va MeshRenderer (material); obyektning o'zi (4 majburiy komponent) yuklashda eng katta ulush.
+How to read it: ~60 % of the load time is JSON parsing (the binary cache cuts it ~3 times, which is why the game loads
+from `.zsceneb`); the rest is creating the objects. The most expensive components are ParticleSystem (the settings of
+every module) and MeshRenderer (the material); the object itself (4 mandatory components) is the largest share when
+loading.
 
-## M25 optimallashtirish: oldin va keyin
+## M25 optimization: before and after
 
-Muhit: yuqoridagi kompyuter, **Release** (`build-m25rel`: `cmake -S . -B build-m25rel -G Ninja -DCMAKE_BUILD_TYPE=Release`;
-asosiy `build/` dan boshqa build papkalari o'yin modullarini endi o'zining `GameModules/` iga yozadi va o'z dasturlari
-ularni o'sha yerdan yuklaydi - `Projects/*/Binaries` dagi asosiy build modullari ustiga yozilmaydi), llvmpipe, xvfb. "Oldin" - M25 boshidagi commit (`37d2916`)
-build'i, "keyin" - 481-487 vazifalaridan keyingi build; ikkalasi bir xil benchmark kodi bilan (oldingi build'ning
-`ZaminBench` va `libZamin.so` nusxasi saqlab qo'yilgan edi). llvmpipe ostidagi og'ir 3D holatlar ±10 % tebranadi, shuning
-uchun vaqtlar juft-juft (oldin, keyin, oldin, keyin) o'lchandi. Yangi o'lchovlar:
+Environment: the computer above, **Release** (`build-m25rel`: `cmake -S . -B build-m25rel -G Ninja -DCMAKE_BUILD_TYPE=Release`;
+build folders other than the main `build/` now write the game modules into their own `GameModules/` and their programs
+load them from there - the main build's modules in `Projects/*/Binaries` are not overwritten), llvmpipe, xvfb. "Before" is
+the build of the commit at the start of M25 (`37d2916`), "after" is the build after tasks 481-487; both with the same
+benchmark code (a copy of the earlier build's `ZaminBench` and `libZamin.so` was kept). The heavy 3D cases under llvmpipe
+fluctuate by ±10 %, so the times were measured in pairs (before, after, before, after). The new measurements:
 
-- `ZaminBench --render`: har holat uchun **ajratma / kadr** (kadr yuborilguncha `operator new` chaqiruvlari,
-  `Tests/AllocCounter.h`; `ZAMIN_ALLOC_TRACE=<n>` ularning chaqiruv steklarini chiqaradi), 2D batch'lar nega erta
-  chizilgani (`Flush2DTextures` / `Flush2DKind` / `Flush2DState`) va `BatchOrder` ko'chirgan chizishlar; yangi
-  `mixed2d` holati (1 000 katak: 24 teksturali sprite, doira, matn navbatma-navbat, chuqurlik bo'yicha aralashgan) va
-  uning `BatchOrder` siz nusxasi `mixed2d-sorted`; `--case loading` - fon yuklash.
-- `ZaminBench --ecs`: UpdateRuntime kadrlarining ajratmalari, `GetWorldTransform` qayta so'ralganda va ildizlar
-  siljiganda, komponent pool'idan to'g'ridan-to'g'ri o'qish.
-- `ZaminBench --fonts` (`Tests/FontBench.cpp`): shrift atlasini rasterlash va diskdagi keshdan o'qish, glif qidirish,
-  kerning bilan va kerningsiz matn joylash.
+- `ZaminBench --render`: **allocations / frame** for every case (`operator new` calls until the frame is submitted,
+  `Tests/AllocCounter.h`; `ZAMIN_ALLOC_TRACE=<n>` prints their call stacks), why 2D batches were flushed early
+  (`Flush2DTextures` / `Flush2DKind` / `Flush2DState`) and the draws `BatchOrder` moved; the new `mixed2d` case (1 000
+  cells: sprites with 24 textures, circles and texts in turn, mixed by depth) and its copy without `BatchOrder`,
+  `mixed2d-sorted`; `--case loading` - background loading.
+- `ZaminBench --ecs`: the allocations of UpdateRuntime frames, `GetWorldTransform` when asked again and when the roots
+  moved, reading straight from the component pool.
+- `ZaminBench --fonts` (`Tests/FontBench.cpp`): rasterizing a font atlas and reading it from the disk cache, glyph
+  lookup, laying out text with and without kerning.
 
 ### 2D batching (481)
 
-`mixed2d`, bitta build, `BatchOrder` o'chiq / yoqiq:
+`mixed2d`, one build, `BatchOrder` off / on:
 
-| | Draw call | Batch bo'linishi (tur / tekstura / holat) | CPU ms (o'rtacha) | Kadr ms, GPU bilan |
+| | Draw calls | Batch breaks (kind / texture / state) | CPU ms (average) | Frame ms, with the GPU |
 |---|---:|---|---:|---:|
-| `BatchOrder` siz (saralangan tartib) | 670 | 667 / 0 / 0 | 15.98 | 22.95 |
-| `BatchOrder` bilan | **65** | 62 / 0 / 0 (431 chizish ko'chirildi) | **10.14** | **17.03** |
+| Without `BatchOrder` (sorted order) | 670 | 667 / 0 / 0 | 15.98 | 22.95 |
+| With `BatchOrder` | **65** | 62 / 0 / 0 (431 draws moved) | **10.14** | **17.03** |
 
-Rasm o'zgarmaydi: faqat ekranda ustma-ust tushmaydigan chizishlar suriladi (`ZaminRenderTests` 12/12, farq 0);
-24 teksturali sprite qatori bo'lganda (eski `mixed2d` varianti) 22 ta "17-tekstura" bo'linishi teksturaga guruhlash bilan
-yo'qoladi. `sprites` (10 000 sprite, 3 draw call) o'zgarmadi - u yerda batch allaqachon bitta edi.
+The image does not change: only draws that do not overlap on the screen are moved (`ZaminRenderTests` 12/12, difference
+0); with a row of sprites using 24 textures (the old `mixed2d` variant) the 22 "17th texture" breaks disappear with the
+grouping by texture. `sprites` (10 000 sprites, 3 draw calls) did not change - its batch was already a single one.
 
-### Kadrlararo ajratmalar (482)
+### Per-frame allocations (482)
 
-| Holat | Oldin (ajratma / kadr) | Keyin | Nima o'zgardi |
+| Case | Before (allocations / frame) | After | What changed |
 |---|---:|---:|---|
-| `sprites` (10 000) | 10 023 | **2** | dunyo transformlari kadr uchun `unordered_map` da emas, sahna keshida; 2D ro'yxati saqlanadi |
-| `meshes` (1 000, instancing) | 1 504 | **6** | instancing guruhlari tekis ro'yxatda (`FlatBatches`), `EndScene` ro'yxatlari saqlanadi |
-| `meshes-noinst` | 7 105 | **6** | + shader uniform nomlari `std::string_view` (16+ belgili nom har chaqiruvda `std::string` edi) |
-| `combined` | 11 522 | **7** | yuqoridagilarning hammasi |
-| `mixed2d` (eski variant) | 2 998 | **2** | + matn joylash keshi (`TextComponent::GetWorldLayout`), Renderer2D uniform nomlari |
-| ECS: bo'sh kadr / 1 000 skript / 500+500 obyekt | 0 / 11 / 1 518 | 0 / 11 / 1 518 | (UpdateRuntime: obyekt yaratish va o'chirish o'z tabiati bilan ajratadi) |
+| `sprites` (10 000) | 10 023 | **2** | the world transforms are in the scene cache, not in a per-frame `unordered_map`; the 2D list is kept |
+| `meshes` (1 000, instancing) | 1 504 | **6** | the instancing groups in a flat list (`FlatBatches`), the `EndScene` lists are kept |
+| `meshes-noinst` | 7 105 | **6** | + shader uniform names as `std::string_view` (a name of 16+ characters was a `std::string` on every call) |
+| `combined` | 11 522 | **7** | all of the above |
+| `mixed2d` (the old variant) | 2 998 | **2** | + the text layout cache (`TextComponent::GetWorldLayout`), the Renderer2D uniform names |
+| ECS: empty frame / 1 000 scripts / 500+500 objects | 0 / 11 / 1 518 | 0 / 11 / 1 518 | (UpdateRuntime: creating and deleting objects allocates by its nature) |
 
-Vaqt (juft o'lchov): `meshes-noinst` CPU 149.0 / 149.6 -> 141.4 / 142.7 ms (~5 %); `sprites` 25.0 / 25.2 -> 24.6 / 25.3 ms
-(shovqin ichida - u yerda vaqtni rasterizatsiya oladi). Qaytmasligi uchun `SteadyFramesMakeNoHeapAllocations` testi:
-qizdirilgan sahna kadri (300 obyekt, ierarxiya) `UpdateRuntime` + `GetWorldTransform` da birorta ham ajratma qilmaydi.
+Time (paired measurement): `meshes-noinst` CPU 149.0 / 149.6 -> 141.4 / 142.7 ms (~5 %); `sprites` 25.0 / 25.2 -> 24.6 / 25.3 ms
+(within the noise - there rasterization takes the time). To keep it from coming back, the
+`SteadyFramesMakeNoHeapAllocations` test: a warmed-up scene frame (300 objects, a hierarchy) makes not a single
+allocation in `UpdateRuntime` + `GetWorldTransform`.
 
-### Dunyo transformi keshi va pool'lar (483, 484)
+### The world transform cache and pools (483, 484)
 
-| Amal (10 000 obyekt, chuqurlik 2) | Oldin ns / ta | Keyin ns / ta |
+| Operation (10 000 objects, depth 2) | Before ns / each | After ns / each |
 |---|---:|---:|
-| `GetWorldTransform` birinchi marta | 221 | 125 |
-| `GetWorldTransform` yana, hech narsa qimirlamagan | 221 (har safar hisoblanardi) | **33** |
-| guruh ildizlari siljigandan keyin | 221 | 114 |
-| `Entity::GetComponent<Transform>` (har safar pool qidiruvi) / pool bir marta olinib | 6.6 | **1.7** |
+| `GetWorldTransform` the first time | 221 | 125 |
+| `GetWorldTransform` again, nothing moved | 221 (computed every time) | **33** |
+| after the group roots moved | 221 | 114 |
+| `Entity::GetComponent<Transform>` (a pool lookup every time) / with the pool taken once | 6.6 | **1.7** |
 
-Kesh obyektning Translation / Rotation / Scale qiymatini, ota-onasini va ota-onasining versiyasini solishtiradi - skript
-`Transform()` ga to'g'ridan-to'g'ri yozsa ham, ota-ona almashsa ham, obyekt o'chib uning o'rni qayta ishlatilsa ham to'g'ri
-(`WorldTransformCacheFollowsChanges`). Suyakka biriktirilganlar (animator pozasi) va ishchi oqimlar keshsiz hisoblaydi.
-Render tsikllari (`RenderScene` 2D qismi) komponent pool'larini bir marta oladi (`Scene::HotStorages`).
+The cache compares the object's Translation / Rotation / Scale, its parent and the parent's version - it is correct even
+when a script writes to `Transform()` directly, when the parent changes and when an object is deleted and its slot
+reused (`WorldTransformCacheFollowsChanges`). Objects attached to a bone (the animator pose) and worker threads compute
+without the cache. The render loops (the 2D part of `RenderScene`) take the component pools once
+(`Scene::HotStorages`).
 
-### Shriftlar (485)
+### Fonts (485)
 
-| | Oldin | Keyin |
+| | Before | After |
 |---|---:|---:|
-| Asosiy atlas (2048 px, 600+ glif, 2x2) | 45.0 ms rasterlash | **2.4 ms** keshdan o'qish (1.87 MB fayl) |
-| Glif qidirish | 4.46 ns (hash xarita) | 3.46 ns (to'g'ridan-to'g'ri jadval; Debug: 65.6 -> 13.0) |
-| Matn joylash, 24 px, so'z o'rash (kerning'siz) | 16.6 ns / belgi | 11.5 ns / belgi |
-| Matn joylash, 24 px, so'z o'rash, kerning bilan | - (kerning yo'q edi) | 15.7 ns / belgi (juftlik keshi) |
-| "AVATAR To'p Yer" kengligi, 24 px | 171.5 px | 161.2 px kerning yoqilganda (AV -0.062 em) |
+| The main atlas (2048 px, 600+ glyphs, 2x2) | 45.0 ms rasterizing | **2.4 ms** reading from the cache (a 1.87 MB file) |
+| Glyph lookup | 4.46 ns (a hash map) | 3.46 ns (a direct table; Debug: 65.6 -> 13.0) |
+| Text layout, 24 px, word wrap (without kerning) | 16.6 ns / character | 11.5 ns / character |
+| Text layout, 24 px, word wrap, with kerning | - (there was no kerning) | 15.7 ns / character (a pair cache) |
+| The width of "AVATAR To'p Yer", 24 px | 171.5 px | 161.2 px with kerning on (AV -0.062 em) |
 
-Ikki matn joylash qatori bir xil yangi Release build'da `ZaminBench --fonts` bilan qayta o'lchangan: kerning'ning
-o'zi belgiga ~37 % qo'shadi (11.5 -> 15.7 ns), kerning'siz yangi yo'l eskisidan ~30 % tez (avvalgi jadvaldagi
-"15.9 ns kerning bilan" eski build'ning kerning'siz 16.6 ns i bilan solishtirilgan edi - bu kerning narxini
-yashirardi). Kerning odatda o'chiq - render rasmlari o'zgarmadi; shrift `.zmeta` sida `"Import": { "Kerning": true }` yoqadi.
+The two text layout rows were measured again in the same new Release build with `ZaminBench --fonts`: kerning itself
+adds ~37 % per character (11.5 -> 15.7 ns), and the new path without kerning is ~30 % faster than the old one (the
+earlier table's "15.9 ns with kerning" was compared with the old build's 16.6 ns without kerning - which hid the cost of
+kerning). Kerning is off by default - the render images did not change; `"Import": { "Kerning": true }` in a font's
+`.zmeta` turns it on.
 
-### Fon yuklash (486, 487)
+### Background loading (486, 487)
 
-`ZaminBench --render --case loading`: Showcase3D'ning 27 rasmi va 4 modeli (bo'sh keshdan):
+`ZaminBench --render --case loading`: Showcase3D's 27 images and 4 models (from an empty cache):
 
-| | Asosiy oqim band | Eng uzun kadr | Hammasi tayyor |
+| | Main thread busy | Longest frame | Everything ready |
 |---|---:|---:|---:|
-| Darhol (`Load`) | 103.8 ms | 103.8 ms (bitta kadr) | 103.8 ms |
-| Fonda (`LoadAsync` + `AsyncLoader::Update(4 ms)`) | 39.1 ms (9 kadrga bo'lingan) | **6.9 ms** | **50.3 ms** |
+| At once (`Load`) | 103.8 ms | 103.8 ms (one frame) | 103.8 ms |
+| In the background (`LoadAsync` + `AsyncLoader::Update(4 ms)`) | 39.1 ms (spread over 9 frames) | **6.9 ms** | **50.3 ms** |
 
-Dekodlash va glTF tahlili 3 ishchi oqimda parallel ketadi; asosiy oqimda faqat GPU'ga yuklash qoladi.
+Decoding and glTF parsing run in parallel on 3 worker threads; only uploading to the GPU stays on the main thread.
 
-### Shader keshi (488)
+### Shader cache (488)
 
-488-494 uchun "oldin" - shu vazifalardan oldingi commit (`c253510`) ning Release build'i, "keyin" - ulardan keyingisi;
-ikkalasi ham `build-m25rel` sozlamalari bilan, bir kompyuterda ketma-ket.
+For 488-494 "before" is the Release build of the commit before these tasks (`c253510`), "after" the one after them;
+both with the `build-m25rel` settings, one after the other on one computer.
 
-Showcase3D player'i ishga tushganda dvigatelning 25 ta shader dasturi (`Renderer::Init` logidagi `Shader'lar: ...`
-qatori; ishga tushishning qolgan qismi - sahna, teksturalar - o'zgarmagan). "Oldin" - keshsiz (`ZAMIN_SHADER_CACHE=0`,
-eski yo'l bilan bir xil: har safar kompilyatsiya + link):
+The engine's 25 shader programs when the Showcase3D player starts (the `Shaders: ...` line in the `Renderer::Init` log;
+the rest of the startup - the scene, textures - did not change). "Before" is without the cache
+(`ZAMIN_SHADER_CACHE=0`, the same as the old path: compile + link every time):
 
-| Mesa'ning o'z disk keshi | Oldin (kompilyatsiya) | Keyin, birinchi ishga tushish (kompilyatsiya + saqlash) | Keyin, keyingilari (binary'dan) |
+| Mesa's own disk cache | Before (compiling) | After, first run (compile + store) | After, later runs (from the binary) |
 |---|---:|---:|---:|
-| o'chiq (`MESA_SHADER_CACHE_DISABLE=true`) | 253 ms | 263 ms | **74-91 ms** |
-| yoqiq (odatiy) | 72 ms | 69 ms | 64-66 ms |
+| off (`MESA_SHADER_CACHE_DISABLE=true`) | 253 ms | 263 ms | **74-91 ms** |
+| on (the usual) | 72 ms | 69 ms | 64-66 ms |
 
-llvmpipe binary formatini beradi (`GL_NUM_PROGRAM_BINARY_FORMATS` = 1), lekin dasturni binary'dan olganda ham LLVM
-kodini qayta yasaydi - shuning uchun 3 baravar, 10 baravar emas; Mesa o'z keshi yoqiq bo'lsa u allaqachon ko'p ishni
-tejaydi. Haqiqiy GPU drayverlarida (o'z keshi bo'lmasa yoki tozalanganda) foyda shu "o'chiq" qatoriga yaqin. 25 ta fayl
-548 KB. Formati yo'q drayver uchun mantiq `ShaderCacheStoresProgramBinaries` testida tekshiriladi.
+llvmpipe offers a binary format (`GL_NUM_PROGRAM_BINARY_FORMATS` = 1), but even when it takes a program from the binary
+it rebuilds the LLVM code - so 3 times, not 10 times; with Mesa's own cache on it already saves much of the work. On real
+GPU drivers (without their own cache or when it was cleared) the gain is close to the "off" row. 25 files, 548 KB. The
+logic for a driver without a format is checked in the `ShaderCacheStoresProgramBinaries` test.
 
-### Kadr uniform buferi (489)
+### Frame uniform buffer (489)
 
-Mesh shader'larining kadr qiymatlari: oldin har bir mesh dasturiga (oddiy, skinned, instanced) 49-66 ta `glUniform*`
-chaqiruvi (IBL bo'lsa 9 ta `u_SH[i]` nomi har kadr `std::string` bilan yasalardi) - kadrga 147-198 chaqiruv; keyin bitta
-`glBufferSubData` (ishlatilgan qismi: `meshes` holatida 1 904 bayt) + har dasturga bitta `u_DebugView`. Sampler
-uniformlari (`u_AlbedoMap` ...) `Init` da bir marta. Vaqt farqi llvmpipe shovqini ichida (bu chaqiruvlar kadrga bir
-marta, chizishga emas); rasm bir xil (`ZaminRenderTests` 12/12, farqlar avvalgidek).
+The mesh shaders' per-frame values: before, 49-66 `glUniform*` calls per mesh program (plain, skinned, instanced) (with
+IBL the 9 `u_SH[i]` names were built as a `std::string` every frame) - 147-198 calls per frame; after, a single
+`glBufferSubData` (the used part: 1 904 bytes in the `meshes` case) + one `u_DebugView` per program. The sampler uniforms
+(`u_AlbedoMap` ...) once in `Init`. The time difference is within the llvmpipe noise (these calls are once per frame, not
+per draw); the image is the same (`ZaminRenderTests` 12/12, the differences as before).
 
-### Soya o'tishida kesish (490)
+### Culling in the shadow pass (490)
 
-`ZaminBench --render --case meshes` (1 000 mesh, 4 kaskad, quyosh soyasi):
+`ZaminBench --render --case meshes` (1 000 meshes, 4 cascades, a sun shadow):
 
-| | Soya chizishlari | Kesilgan (shundan "ko'rinmas soya") | Draw call (instancing'siz holat) | CPU ms (`meshes`, o'rtacha) |
+| | Shadow draws | Culled (of which "invisible shadow") | Draw calls (the no-instancing case) | CPU ms (`meshes`, average) |
 |---|---:|---:|---:|---:|
-| Oldin (`c253510` build'i: faqat kaskad hajmi bo'yicha) | 1 024 | 1 979 (-) | 2 027 | 156.5 |
-| Keyin, `meshes-allshadow` (o'sha build, ko'rinish bo'yicha kesish o'chiq) | 1 024 | 1 979 (0) | - | 146.5 |
-| Keyin | **323** | 2 680 (**701**) | **1 326** | **126.0** |
+| Before (the `c253510` build: only by cascade volume) | 1 024 | 1 979 (-) | 2 027 | 156.5 |
+| After, `meshes-allshadow` (the same build, culling by view off) | 1 024 | 1 979 (0) | - | 146.5 |
+| After | **323** | 2 680 (**701**) | **1 326** | **126.0** |
 
-Kaskadlar bo'yicha (keyin): 1 / 1 / 321 / 0 tashlovchi (oldin 1 / 22 / 1001 / 0). Rasm o'zgarmaydi: test konservativ
-(normal siljishi va filtr uchun zaxira bilan) - render testlari 12/12, farq oldingidek.
+By cascade (after): 1 / 1 / 321 / 0 casters (before 1 / 22 / 1001 / 0). The image does not change: the test is
+conservative (with a margin for the normal offset and the filter) - render tests 12/12, the difference as before.
 
-### Parallel particle va animatsiya (491, 492)
+### Parallel particles and animation (491, 492)
 
-Ilgari (369) mustaqil **tizimlar** ishchi oqimlarga taqsimlanardi - bitta katta tizim baribir bitta oqimda edi. Endi
-tizim ichidagi particle'lar ham 2 048 talik bo'laklarda (4 096 dan boshlab; dunyo to'qnashuvi, to'qnashuv hodisalari
-va izlarsiz). Bitta tizim, ~49 000 particle, shovqin 2 oktava; `ZaminBench` standart holda bitta oqimda ishlaydi
-(`--jobs 0`), ishchi oqimlar soni `--jobs` bilan beriladi:
+Earlier (369) independent **systems** were spread over the worker threads - one large system still ran on one thread.
+Now the particles inside a system are also split into chunks of 2 048 (from 4 096 on; without world collision,
+collision events and trails). One system, ~49 000 particles, noise with 2 octaves; `ZaminBench` runs on one thread by
+default (`--jobs 0`), and the number of worker threads is given with `--jobs`:
 
 ```bash
-build-m25rel/bin/ZaminBench --case "Bitta katta tizim"            # 1 oqim ("bitta oqim")
-build-m25rel/bin/ZaminBench --case "Bitta katta tizim" --jobs 3   # 3 ishchi + asosiy oqim
+build-m25rel/bin/ZaminBench --case "One big system"            # 1 thread ("one thread")
+build-m25rel/bin/ZaminBench --case "One big system" --jobs 3   # 3 workers + the main thread
 ```
 
-| | 1 oqim (`--jobs 0`, oldingi xatti-harakat) | 3 ishchi + asosiy oqim (`--jobs 3`) |
+| | 1 thread (`--jobs 0`, the earlier behaviour) | 3 workers + the main thread (`--jobs 3`) |
 |---|---:|---:|
-| Kadr, o'rtacha (bo'sh kompyuter) | 12.2 ms | **4.0 ms** (3.1x) |
-| Qayta o'lchash (kompyuter yuklangan, reviewer) | 11.8-12.3 ms | eng tezi 3.50 ms, o'rtacha 7.64 ms |
+| Frame, average (an idle computer) | 12.2 ms | **4.0 ms** (3.1x) |
+| Measured again (a loaded computer, reviewer) | 11.8-12.3 ms | fastest 3.50 ms, average 7.64 ms |
 
-Parallel holat boshqa jarayonlar bilan yadrolarni bo'lishadi: kompyuter band bo'lsa o'rtacha vaqt eng tezidan
-ancha uzoqlashadi (bitta oqim deyarli o'zgarmaydi).
+The parallel case shares the cores with other processes: on a busy computer the average time moves well away from the
+fastest one (a single thread hardly changes).
 
-(Oldingi build'da bu holat yo'q edi; bitta tizim u yerda `parallelSystems.size() > 1` sharti bilan doim bitta oqimda
-ishlardi - "1 oqim" ustuni shu yo'l.) Ko'p tizimli holatlar o'zgarmadi (`Shovqin`: 3.46 -> 3.43 ms, `Oddiy` 0.17 ms).
+(The earlier build did not have this case; a single system there always ran on one thread because of the
+`parallelSystems.size() > 1` condition - the "1 thread" column is that path.) The many-system cases did not change
+(`Noise`: 3.46 -> 3.43 ms, `Plain` 0.17 ms).
 
-Animatsiya: pozalar (369) avvalgidek ishchi oqimlarda (`--animators 300`: 3.2 ms -> 1.0-1.2 ms, 3 ishchi bilan, oldin
-ham, keyin ham). Yangi - animatorlarning ko'rinishini belgilash (`MarkVisibleAnimators`: har skinned mesh qutisini
-har suyak bilan siljitish) ham parallel; 300 ta 40 suyakli skinned mesh, CullPose: **0.196 -> 0.114 ms**. Ish kichik
-bo'lsa (suyak qutilari < 2 048) bitta oqimda qoladi - aks holda parallel ishning o'zi qimmatroq (meshsiz rig'da
-0.031 ms bitta oqimda, 0.066 ms parallel bo'lardi). Natija bit-bitgacha bir xil: `LargeParticleSystemSteppedInPiecesMatchesSerial`,
-`AnimatorVisibilityMarkedInParallelMatchesSerial`.
+Animation: the poses (369) run on the worker threads as before (`--animators 300`: 3.2 ms -> 1.0-1.2 ms with 3 workers,
+before and after). New: marking the animators' visibility (`MarkVisibleAnimators`: moving every skinned mesh's box with
+every bone) is parallel too; 300 skinned meshes with 40 bones, CullPose: **0.196 -> 0.114 ms**. When the work is small
+(bone boxes < 2 048) it stays on one thread - otherwise the parallel work itself costs more (on a rig without meshes
+0.031 ms on one thread, it would be 0.066 ms in parallel). The result is identical to the bit:
+`LargeParticleSystemSteppedInPiecesMatchesSerial`, `AnimatorVisibilityMarkedInParallelMatchesSerial`.
 
-### Editor: katta ierarxiya va papka (493, 494)
+### Editor: a large hierarchy and folder (493, 494)
 
-10 000 obyektli sahna (1 000 guruh x 9 bola, hammasi ochiq) va 5 000 faylli papka, Release editor, 1600x900, xvfb:
+A scene of 10 000 objects (1 000 groups x 9 children, all expanded) and a folder of 5 000 files, the Release editor,
+1600x900, xvfb:
 
-| | Ierarxiya ro'yxati, ms / kadr | Kontent brauzer katakchalari, ms / kadr | Editor kadri (status satri) |
+| | Hierarchy list, ms / frame | Content browser cells, ms / frame | Editor frame (status bar) |
 |---|---:|---:|---:|
-| Oldin (`c253510` editori) | - | - | 42.7 ms (23 FPS) |
-| Clipper'siz (`ZAMIN_EDITOR_NO_CLIPPER=1`, hammasi chiziladi) | 10.8 (10 000 qator) | 7.8 (5 000 katak) | 44.0 ms |
-| Keyin (`ImGuiListClipper`) | **0.85** (27 qator chiziladi) | **0.06** (18 katak) | **24.7 ms (41 FPS)** |
+| Before (the `c253510` editor) | - | - | 42.7 ms (23 FPS) |
+| Without the clipper (`ZAMIN_EDITOR_NO_CLIPPER=1`, everything drawn) | 10.8 (10 000 rows) | 7.8 (5 000 cells) | 44.0 ms |
+| After (`ImGuiListClipper`) | **0.85** (27 rows drawn) | **0.06** (18 cells) | **24.7 ms (41 FPS)** |
 
-Ierarxiyaning qolgan 0.85 ms i - 10 000 qatorli tekis ro'yxatni yig'ish (ochiq / yopiq holat, Shift bilan oraliq
-tanlash uchun hamma qator); qolgan kadr vaqti llvmpipe'ning viewport chizishi. O'lchov: `ZAMIN_EDITOR_PANEL_TIMES=1`.
+The hierarchy's remaining 0.85 ms is gathering the flat list of 10 000 rows (expanded / collapsed state, every row for
+selecting a range with Shift); the rest of the frame time is llvmpipe drawing the viewport. Measurement:
+`ZAMIN_EDITOR_PANEL_TIMES=1`.
 
-### Ishga tushish vaqti (495)
+### Startup time (495)
 
-Yangi o'lchov: `StartupTimer` har dasturda dvigatel kutubxonasi yuklangandan birinchi kadr ekranga chiqquncha vaqtni
-logga yozadi (`Ishga tushish: birinchi kadr 670 ms (dvigatel 182, layer'lar 88, birinchi kadr 422 ms; jarayon boshidan
-~680 ms), RAM ...`), editorning Statistics panelda ham ko'rinadi; `ZAMIN_STARTUP_PROFILE=1` ishga tushish va birinchi
-kadrning profiler daraxtini chiqaradi. `Tests/startup_bench.py` editor va player'ni bir kadr bilan 5 marta ochadi
-(oldin bir marta isitadi: shader / shrift keshlari) va medianani beradi; "jarayon" - tashqaridan o'lchangan exec ->
-chiqish vaqti (yopilish ham ichida), uni har qanday build beradi, shuning uchun "oldin" (`14e8435`, 488-494 dan
-keyingi build, nusxasi saqlab qo'yilgan) bilan shu ustun solishtiriladi. Release, llvmpipe, `ZAMIN_MAX_FRAMES=1`
-(avtomatik rejim: fon yuklash o'chiq).
+A new measurement: in every program `StartupTimer` logs the time from loading the engine library until the first
+frame is on the screen (`Startup: first frame 670 ms (engine 182, layers 88, first frame 422 ms; ~680 ms since the
+process started), RAM ...`), and it also shows in the editor's Statistics panel; `ZAMIN_STARTUP_PROFILE=1` prints the
+profiler tree of the startup and the first frame. `Tests/startup_bench.py` opens the editor and the player 5 times with
+one frame (warming up once first: the shader / font caches) and gives the median; "process" is the exec -> exit time
+measured from outside (closing included), which any build gives, so that column is compared with "before" (`14e8435`,
+the build after 488-494, a copy was kept). Release, llvmpipe, `ZAMIN_MAX_FRAMES=1` (automatic mode: background loading
+off).
 
-| Dastur, loyiha | Jarayon, oldin (mediana) | Jarayon, keyin (mediana) | Birinchi kadr, keyin (dvigatel / layer'lar / 1-kadr) |
+| Program, project | Process, before (median) | Process, after (median) | First frame, after (engine / layers / frame 1) |
 |---|---:|---:|---|
 | Editor, Showcase3D | 1 094 ms | **750 ms** | 670 ms (182 / 88 / 422) |
 | Editor, Platformer2D | 783 ms | **540 ms** | 469 ms (189 / 66 / 208) |
@@ -350,160 +355,162 @@ keyingi build, nusxasi saqlab qo'yilgan) bilan shu ustun solishtiriladi. Release
 | Player, Adventure3D | 561 ms | 589 ms | 551 ms (225 / 66 / 243) |
 | Player, Platformer2D | 365 ms | 382 ms | 345 ms (220 / 60 / 60) |
 
-Editorni interaktiv holatdagidek (`ZAMIN_ASYNC_LOAD=1`, sahna rasmlari fonda) ochganda birinchi kadr: Showcase3D
-648 ms, Platformer2D 456 ms. Player qatorlari o'zgarmadi (farq shovqin ichida, ±30 ms) - ularning vaqti quyida
-"qolganlar"da.
+When the editor opens as in interactive use (`ZAMIN_ASYNC_LOAD=1`, the scene images in the background) the first frame
+is: Showcase3D 648 ms, Platformer2D 456 ms. The player rows did not change (the difference is within the noise, ±30 ms)
+- their time is in "the rest" below.
 
-Profil (Showcase3D editori, oldin) nimani ko'rsatdi va nima qilindi:
+What the profile (the Showcase3D editor, before) showed and what was done:
 
-| Joy | Oldin | Keyin | Nima qilindi |
+| Place | Before | After | What was done |
 |---|---:|---:|---|
-| ImGui shrift atlasi (birinchi kadr, "UI (ImGui)" o'zi) | 236 ms | 60-70 ms | atlasga faqat editor ishlatadigan 225 ta Font Awesome ikonkasi (Icons.h dan, `IconRanges.inl`, `Tools/gen_icon_ranges.py`) - oldin to'rt shriftning har biriga butun blok (~1 400 glif); faqat ikonka chiziladigan katta shriftga matndan faqat ASCII |
-| Sahnalar paneli, sahna fayllari | 27 ms | 6 ms | har `.zscene` ning JSON'i ishchi oqimlarda parallel o'qiladi (`JobSystem::ParallelFor`) |
-| Sahnalar paneli, kartalar (rasm) | 44 ms | 19 ms* | sahna rasmlari ishchi oqimda ochiladi, GPU'ga tayyor bo'lganda (fon yuklash yoqiq bo'lsa) |
-| Player: boshlang'ich sahna rasmlari | ketma-ket | parallel | `SceneManager::LoadNow` sahna nomlagan rasmlarni oldindan parallel o'qiydi (`TextureLibrary::Predecode`), keyin tartib bilan yuklaydi |
+| The ImGui font atlas (first frame, "UI (ImGui)" itself) | 236 ms | 60-70 ms | the atlas has only the 225 Font Awesome icons the editor uses (from Icons.h, `IconRanges.inl`, `Tools/gen_icon_ranges.py`) - before, the whole block (~1 400 glyphs) for each of the four fonts; only ASCII text for the large font that draws only icons |
+| The Scenes panel, scene files | 27 ms | 6 ms | every `.zscene`'s JSON is read in parallel on worker threads (`JobSystem::ParallelFor`) |
+| The Scenes panel, cards (images) | 44 ms | 19 ms* | the scene images are opened on a worker thread, uploaded to the GPU when ready (with background loading on) |
+| Player: the start scene's images | one after another | in parallel | `SceneManager::LoadNow` reads the images the scene names ahead, in parallel (`TextureLibrary::Predecode`), then uploads them in order |
 
-\* ishchi oqimlar bilan bitta 4 yadroli CPU'da raqobatlashgani uchun asosiy oqim vaqti to'liq yo'qolmaydi.
+\* the main thread time does not disappear completely because the worker threads compete with it on one 4-core CPU.
 
-Qolganlar (o'lchangan, tuzatilmagan): oyna va GL konteksti 52-68 ms, `Renderer3D::Init` 63-70 ms (25 ta shader
-dasturi binary keshdan - llvmpipe kodni baribir qayta yaratadi), birinchi kadrda SSAO ~80 ms (drayver shader
-variantlarini birinchi chizishda kompilyatsiya qiladi), shriftlar 17-43 ms (2048x2048 atlasni GPU'ga yuborish va
-mipmap'lari). Batafsil: [Performance.md](Performance.md).
+The rest (measured, not fixed): the window and GL context 52-68 ms, `Renderer3D::Init` 63-70 ms (25 shader programs
+from the binary cache - llvmpipe rebuilds the code anyway), SSAO ~80 ms on the first frame (the driver compiles shader
+variants on the first draw), fonts 17-43 ms (sending the 2048x2048 atlas to the GPU and its mipmaps). Details:
+[Performance.md](Performance.md).
 
-### Xotira (496)
+### Memory (496)
 
-RAM - jarayonning RSS (`/proc/self/statm`), "eng ko'pi" - VmHWM; "dvigatel" - modullar o'zi hisoblagan xotira
-(`MemoryStats`: teksturalar, render buferlari, mesh buferlari ...; llvmpipe'da GPU xotirasi ham RAM'da). Editor:
-`ZAMIN_EDITOR_STATS=1`, 30 kadr; player: `ZAMIN_PLAYER_STATS=1` (yangi: chiqishda "Xotira: ..." qatori), 60 kadr.
+RAM is the process's RSS (`/proc/self/statm`), "peak" is VmHWM; "engine" is the memory the modules count themselves
+(`MemoryStats`: textures, render buffers, mesh buffers ...; on llvmpipe the GPU memory is in RAM too). Editor:
+`ZAMIN_EDITOR_STATS=1`, 30 frames; player: `ZAMIN_PLAYER_STATS=1` (new: a "Memory: ..." line on exit), 60 frames.
 
-| Dastur, loyiha | RAM oldin (eng ko'pi) | RAM keyin (eng ko'pi) | Dvigatel hisoblagani |
+| Program, project | RAM before (peak) | RAM after (peak) | Counted by the engine |
 |---|---:|---:|---|
-| Editor, Showcase3D | 451 MB (467 MB) | **325 MB (341 MB)** | 40 MB (teksturalar 29, render buferlari 10.8) |
-| Editor, Platformer2D | 367 MB (447 MB) | **242 MB (322 MB)** | 30 MB (teksturalar 19, render buferlari 10.8) |
-| Player, Showcase3D | - | 262 MB (277 MB) | 32 MB (teksturalar 22, render buferlari 10.6) |
-| Player, Adventure3D | - | 183 MB (263 MB) | 18 MB (teksturalar 7.5, render buferlari 10.6) |
-| Player, Platformer2D | - | 159 MB (239 MB) | 20 MB (teksturalar 9.4, render buferlari 10.6) |
+| Editor, Showcase3D | 451 MB (467 MB) | **325 MB (341 MB)** | 40 MB (textures 29, render buffers 10.8) |
+| Editor, Platformer2D | 367 MB (447 MB) | **242 MB (322 MB)** | 30 MB (textures 19, render buffers 10.8) |
+| Player, Showcase3D | - | 262 MB (277 MB) | 32 MB (textures 22, render buffers 10.6) |
+| Player, Adventure3D | - | 183 MB (263 MB) | 18 MB (textures 7.5, render buffers 10.6) |
+| Player, Platformer2D | - | 159 MB (239 MB) | 20 MB (textures 9.4, render buffers 10.6) |
 
-Editor ~125 MB kam ishlatadi: ImGui atlasi endi 2048x2048 (ikonkalar va katta shrift qisqargani uchun; oldingisi
-ancha katta edi, uning alpha + RGBA nusxalari CPU'da va teksturasi llvmpipe'da RAM'da turardi) va atlasning CPU
-nusxalari teksturaga yuborilgach bo'shatiladi (`ImFontAtlas::ClearTexData`, logda "Editor shrift atlasi: 2048x2048
-(4 ta shrift); CPU nusxasi bo'shatildi"). Player'da ImGui yo'q: uning xotirasi o'zgarmadi; teksturalar CPU nusxasini
-saqlamaydi (yuborilgach bo'shatiladi), shriftlarda faqat TTF fayli qoladi (o'lchamli atlaslar va kerning uchun).
-Player'larda birinchi kadr paytida ~80 MB vaqtinchalik o'sish bor (eng ko'pi - hozirgisi; ikkinchi kadrdayoq
-qaytadi), manbai aniqlanmadi (kadr ichida, ehtimol drayver).
+The editor uses ~125 MB less: the ImGui atlas is now 2048x2048 (because the icons and the large font shrank; the earlier
+one was much larger, its alpha + RGBA copies stayed on the CPU and its texture in RAM on llvmpipe) and the atlas's CPU
+copies are freed once uploaded to the texture (`ImFontAtlas::ClearTexData`, "Editor font atlas: 2048x2048 (4 fonts);
+the CPU copy was freed" in the log). The player has no ImGui: its memory did not change; textures keep no CPU copy (it
+is freed once uploaded), and fonts keep only the TTF file (for the sized atlases and kerning). The players have a
+temporary ~80 MB growth during the first frame (peak - current; it is back by the second frame), its source was not
+found (inside the frame, probably the driver).
 
 ## Gameplay combat (`ZaminBench --combat`)
 
-`Tests/CombatBench.cpp` har kadrda faqat `Gameplay::TickCombat` ni o'lchaydi (60 Hz qadam; kadr byudjetlari
-`Scene::UpdateRuntime` dagidek oldin tiklanadi) va uning heap ajratmalarini `AllocCounter` bilan sanaydi. 120 (effektlarda
-60) qizdirish kadridan keyin 600 kadr o'lchanadi:
+`Tests/CombatBench.cpp` measures only `Gameplay::TickCombat` every frame (a 60 Hz step; the frame budgets are reset
+first, as in `Scene::UpdateRuntime`) and counts its heap allocations with `AllocCounter`. After 120 (60 for effects)
+warm-up frames, 600 frames are measured:
 
-- **Combat2D / Combat3D** — 128 snaryad (pool to'la), har kadrda 32 tagacha qayta otish (spawn byudjeti); 32 otuvchi
-  (1-jamoa) 32 yo'lak bo'ylab 32 nishonga (2-jamoa) otadi, 32 devor har ikkinchi yo'lakni to'sadi. Har 60 Hz qadamda
-  128 sweep: analitik aktor testi (8 192 / qadam) va 2D'da 3 tadan Box2D nuri, 3D'da Jolt sphere cast.
-- **CombatEffects** — 64 aktor × 16 effekt = 1 024 nusxa (sahna chegarasi; dizayndagi 512 × 16 = 8 192 bu chegaradan
-  oshadi), har biri 0.10–0.25 s davr bilan zarar tiki: ~105 tik / qadam, snaryadsiz.
+- **Combat2D / Combat3D** — 128 projectiles (the pool is full), up to 32 refires per frame (the spawn budget); 32 shooters
+  (team 1) shoot along 32 lanes at 32 targets (team 2), 32 walls block every second lane. 128 sweeps per 60 Hz step: the
+  analytic actor test (8 192 / step) and 3 Box2D rays each in 2D, a Jolt sphere cast in 3D.
+- **CombatEffects** — 64 actors × 16 effects = 1 024 instances (the scene limit; the design's 512 × 16 = 8 192 is over
+  this limit), each with a damage tick every 0.10–0.25 s: ~105 ticks / step, no projectiles.
 
-Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 2026-11-21. Beshta ishga tushirish
-(uchtasi qo'lda, `--update-baseline` va `--compare`):
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 2026-11-21. Five runs (three by
+hand, `--update-baseline` and `--compare`):
 
-| Ssenariy | O'rtacha `TickCombat` | p95 | Eng sekin kadr | Ajratma / kadr | Maqsad (o'rtacha) |
+| Scenario | Average `TickCombat` | p95 | Slowest frame | Allocations / frame | Target (average) |
 |---|---:|---:|---:|---:|---|
-| Combat2D (Box2D) | 0.069–0.106 ms | 0.092–0.150 ms | 0.19–0.99 ms | 9.26 | ≤ 0.5 ms — bajarildi |
-| Combat3D (Jolt) | 0.079–0.101 ms | 0.218–0.270 ms | 0.27–0.40 ms | 12.15 | ≤ 1.0 ms — bajarildi |
-| CombatEffects (1 024 nusxa) | 0.047–0.060 ms | 0.063–0.081 ms | 0.11–0.19 ms | 21.05 | ≤ 1.0 ms — bajarildi |
+| Combat2D (Box2D) | 0.069–0.106 ms | 0.092–0.150 ms | 0.19–0.99 ms | 9.26 | ≤ 0.5 ms — met |
+| Combat3D (Jolt) | 0.079–0.101 ms | 0.218–0.270 ms | 0.27–0.40 ms | 12.15 | ≤ 1.0 ms — met |
+| CombatEffects (1 024 instances) | 0.047–0.060 ms | 0.063–0.081 ms | 0.11–0.19 ms | 21.05 | ≤ 1.0 ms — met |
 
-Ajratmalar combat kodining o'zidan emas (`ZAMIN_ALLOC_TRACE` bilan tekshirildi): 2D/3D'da hammasi fizika
-so'rovlarining natija vektorlari (`Scene::Raycast2DAll` / `SphereCast3DAll` — nur biror narsaga tekkandagina ajratadi),
-effektlarda esa `RuleWorld` voqea navbatining `std::deque` bloklari. Debug buildda (taqqoslash uchun, 120 kadr)
-o'rtacha 0.72 / 0.95 / 0.39 ms. Boshlang'ich natija: `Tests/Baselines/combat-release.json`;
-`ZAMIN_BUILD_DIR=build-release Tests/bench.sh --only combat --compare` (kadr ms uchun shovqin chegarasi 0.2 ms —
-bu raqamlar undan kichik, shuning uchun faqat katta sekinlashish ushlanadi). `ctest -L bench` da `BenchCombatSmoke`
+The allocations are not from the combat code itself (checked with `ZAMIN_ALLOC_TRACE`): in 2D/3D they are all the
+result vectors of the physics queries (`Scene::Raycast2DAll` / `SphereCast3DAll` — a ray allocates only when it hits
+something), and in effects the `std::deque` blocks of the `RuleWorld` event queue. In a Debug build (for comparison,
+120 frames) the average is 0.72 / 0.95 / 0.39 ms. Baseline: `Tests/Baselines/combat-release.json`;
+`ZAMIN_BUILD_DIR=build-release Tests/bench.sh --only combat --compare` (the noise floor for frame ms is 0.2 ms — these
+numbers are below it, so only a large slowdown is caught). In `ctest -L bench`: `BenchCombatSmoke`
 (`--combat --frames 5`).
 
-## Vertical slice stress darvozalari: fizika, animatsiya, o'yin ichida (`--physics`, `--animation`, `--slice-stress`)
+## Vertical slice stress gates: physics, animation, in-game (`--physics`, `--animation`, `--slice-stress`)
 
-P5 vertical slice'larining (Lantern Keeper 2D, Beacon Pass 3D — [VerticalSlices.md](VerticalSlices.md#gates)) stress
-darvozalari. Uchala benchmark ham headless, natijasi JSON, va invariantlardan biri buzilsa 3 kodi bilan tugaydi (raqam
-qanchalik yaxshi bo'lmasin):
+The stress gates of the P5 vertical slices (Lantern Keeper 2D, Beacon Pass 3D — [VerticalSlices.md](VerticalSlices.md#gates)).
+All three benchmarks are headless with a JSON result, and end with code 3 when one of the invariants breaks (however
+good the numbers are):
 
-- **`ZaminBench --physics`** (`Tests/PhysicsBench.cpp`) — har ssenariy ikki marta simulyatsiya qilinadi va holat
-  hash'lari solishtiriladi. *Physics2D*: 60×40 m tilemap maydon, 2 048 dinamik doira/quti, `Gameplay::StepMotor` bilan
-  yuradigan 64 aktor (nuqtadan nuqtaga), ikki jamoa orasida doim uchib turgan 128 `CombatWorld` snaryadi (Box2D
-  nurlari). Invariantlar: maydondan chiqqan jism 0, NaN 0, tezlik ≤ 40 m/s. *Physics3D*: devorli chuqur, ikki rampa,
-  65×65 relyef, 0.25 m zinapoya va 35° qiyalik; 512 jism (quti, shar, kapsula), 64 `CharacterController3D` aylana
-  yo'llarda (zinapoya va qiyalik ustidan), har kadrda 128 sphere cast. Invariantlar: oyoq yerdan −0.05 m dan pastga
-  tushmaydi, y < −10 yo'q, yurish mumkin bo'lgan yerda buyurilgan masofaning ≥ 80 % i bosiladi, jismlar chuqurda qoladi.
-- **`ZaminBench --animation`** (`Tests/AnimationBench.cpp`; dizayndagi yozuv `--animators N --model ...` /
-  `--animators N --sprite-clips` ham ishlaydi). *AnimationHumanoids*: 256 odam (`BeaconPass` ning `Hero.glb` modeli,
-  21 suyak, Dovon sahnasidagi haqiqiy controller: Locomotion 1D blend + UpperBody/Hit qatlamlari + event'lar), tezlik
-  barcha chegaralardan o'tib turadi, har 1.7 s trigger, yarmi ekrandan tashqarida (`CullPose`). Bitta oqim va 3 ishchi
-  oqim (`JobSystem`). Invariantlar: blend og'irliklari yig'indisi 1 ± 1e-5, NaN/inf matritsa yo'q, culled animator
-  pozalanmaydi, 0 va 3 ishchidagi poza hash'i bir xil, event'lar 20/30/60/144 Hz da har animator uchun bir xil soni
-  (oynaning oxirida ±1), uch zarba = uch Hit event. *AnimationSprites*: 1 024 modelsiz animator (`DriveSpriteClips`,
-  2D blend tree: Idle + 4 yo'nalish, yo'nalish doim aylanadi). Invariantlar: kadr = StartFrame + floor(faza × soni)
-  aniq, yo'nalish almashganda faza uzilmaydi, klip event'lari to'rt tezlikda bir xil.
-- **`ZaminBench --slice-stress`** (`Tests/SliceStressBench.cpp`) — slice darajasi o'zining haqiqiy graflari (qahramon,
-  daraja boshqaruvchisi, dushmanlar), gameplay dunyolari va fizikasi bilan, chizishsiz; o'lchanadigani har kadrdagi
-  `Scene::UpdateRuntime` (skriptlar, AI, fizika, animatsiya, combat, qoidalar, UI bog'lanishlari). *SliceStress2D*
-  (Orchards): dushmanlar sahnaning 32 AI miyasi chegarasigacha ko'paytiriladi, 200 quti (Box2D), qahramonga 64 tagacha
-  uchayotgan snaryad, 256 qo'shimcha sprite Animator, 48 Light 2D. *SliceStress3D* (Dovon): 24 animatsiyali qorovul
-  (skinned, haqiqiy locomotion controller), qahramon, 64 snaryad, lager atrofida 200 jism (Jolt). Qahramon har kadrda
-  davolanadi (jang to'xtamaydi). Invariantlar: graf xatosi va "Visual graph" / instruksiya byudjeti xabari yo'q, har
-  miya sog'lig'iga mos tirik yoki o'lik, snaryadlar soni yetadi.
+- **`ZaminBench --physics`** (`Tests/PhysicsBench.cpp`) — every scenario is simulated twice and the state hashes are
+  compared. *Physics2D*: a 60×40 m tilemap field, 2 048 dynamic circles/boxes, 64 actors moving with
+  `Gameplay::StepMotor` (point to point), 128 `CombatWorld` projectiles always in flight between two teams (Box2D rays).
+  Invariants: 0 bodies leaving the field, 0 NaNs, speed ≤ 40 m/s. *Physics3D*: a walled pit, two ramps, a 65×65 relief,
+  0.25 m stairs and a 35° slope; 512 bodies (boxes, spheres, capsules), 64 `CharacterController3D`s on circular paths
+  (over the stairs and the slope), 128 sphere casts every frame. Invariants: the feet do not go below −0.05 m under the
+  ground, no y < −10, ≥ 80 % of the commanded distance is covered on walkable ground, the bodies stay in the pit.
+- **`ZaminBench --animation`** (`Tests/AnimationBench.cpp`; the design's notation `--animators N --model ...` /
+  `--animators N --sprite-clips` works too). *AnimationHumanoids*: 256 people (`BeaconPass`'s `Hero.glb` model, 21 bones,
+  the real controller of the Dovon scene: a Locomotion 1D blend + UpperBody/Hit layers + events), the speed sweeps through
+  every threshold, a trigger every 1.7 s, half off the screen (`CullPose`). One thread and 3 worker threads
+  (`JobSystem`). Invariants: the blend weights add up to 1 ± 1e-5, no NaN/inf matrices, a culled animator is not posed,
+  the pose hash is the same with 0 and 3 workers, the events come in the same count per animator at 20/30/60/144 Hz (±1
+  at the end of the window), three hits = three Hit events. *AnimationSprites*: 1 024 animators without models
+  (`DriveSpriteClips`, a 2D blend tree: Idle + 4 directions, the direction keeps turning). Invariants: frame =
+  StartFrame + floor(phase × count) exactly, the phase does not break when the direction changes, the clip events are the
+  same at four rates.
+- **`ZaminBench --slice-stress`** (`Tests/SliceStressBench.cpp`) — a slice level with its real graphs (the hero, the
+  level controller, the enemies), gameplay worlds and physics, without drawing; what is measured is every frame's
+  `Scene::UpdateRuntime` (scripts, AI, physics, animation, combat, rules, UI bindings). *SliceStress2D* (Orchards): the
+  enemies are multiplied up to the scene's limit of 32 AI brains, 200 crates (Box2D), up to 64 projectiles flying at the
+  hero, 256 extra sprite Animators, 48 Light 2Ds. *SliceStress3D* (Dovon): 24 animated guards (skinned, the real
+  locomotion controller), the hero, 64 projectiles, 200 bodies around the camp (Jolt). The hero is healed every frame
+  (the fight does not stop). Invariants: no graph errors and no "Visual graph" / instruction budget messages, every brain
+  alive or dead according to its health, the projectile count is reached.
 
-Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 2026-11-22. Beshta ishga tushirish
-(uchtasi qo'lda, `--update-baseline` va `--compare`), oraliq — eng kichik va eng katta natija:
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, **Release** (`build-release`), 2026-11-22. Five runs (three by
+hand, `--update-baseline` and `--compare`); a range is the smallest and the largest result:
 
-| Ssenariy | O'rtacha | p95 | Ajratma / kadr | Maqsad (dizayn) |
+| Scenario | Average | p95 | Allocations / frame | Target (design) |
 |---|---:|---:|---:|---|
-| Physics2D — fizika qadami ("Fizika" profiler bo'limi) | 1.56–2.15 ms | 2.3–3.1 ms | 128.5 | o'rtacha ≤ 4, p95 ≤ 6 ms — bajarildi |
-| Physics2D — butun kadr (`UpdateRuntime`) | 2.25–3.04 ms | 3.18–4.20 ms | | |
-| Physics3D — qadam + 64 Character Controller | 1.51–1.80 ms | 2.00–2.17 ms | 82.6 | o'rtacha ≤ 8, p95 ≤ 12 ms — bajarildi |
-| Physics3D — 128 sphere cast | 0.23–0.28 ms | | | |
-| AnimationHumanoids, 3 ishchi (butun kadr) | 0.57–0.82 ms | 0.66–1.10 ms | 15.2 | o'rtacha ≤ 1.5, p95 ≤ 2.0 ms — bajarildi |
-| AnimationHumanoids, bitta oqim (butun kadr) | 0.99–1.73 ms | 1.23–2.07 ms | **0.0** | o'rtacha ≤ 4.0 ms, ajratma 0 — bajarildi |
-| AnimationSprites, bitta oqim — Animator yangilash | 0.30–0.48 ms | 0.38–0.61 ms | **0.0** | o'rtacha ≤ 0.6 ms, ajratma 0 — bajarildi |
-| AnimationSprites, bitta oqim (butun kadr) | 0.39–0.66 ms | 0.51–0.85 ms | 0.0 | |
-| SliceStress2D (Orchards, o'yin kodi) | 2.80–3.42 ms | 3.00–4.71 ms | | o'rtacha ≤ 6, p95 ≤ 10 ms — bajarildi |
-| SliceStress3D (Dovon, o'yin kodi) | 3.89–5.45 ms | 5.41–6.37 ms | | o'rtacha ≤ 8, p95 ≤ 12 ms — bajarildi |
+| Physics2D — the physics step (the "Physics" profiler section) | 1.56–2.15 ms | 2.3–3.1 ms | 128.5 | average ≤ 4, p95 ≤ 6 ms — met |
+| Physics2D — the whole frame (`UpdateRuntime`) | 2.25–3.04 ms | 3.18–4.20 ms | | |
+| Physics3D — step + 64 Character Controllers | 1.51–1.80 ms | 2.00–2.17 ms | 82.6 | average ≤ 8, p95 ≤ 12 ms — met |
+| Physics3D — 128 sphere casts | 0.23–0.28 ms | | | |
+| AnimationHumanoids, 3 workers (the whole frame) | 0.57–0.82 ms | 0.66–1.10 ms | 15.2 | average ≤ 1.5, p95 ≤ 2.0 ms — met |
+| AnimationHumanoids, one thread (the whole frame) | 0.99–1.73 ms | 1.23–2.07 ms | **0.0** | average ≤ 4.0 ms, 0 allocations — met |
+| AnimationSprites, one thread — the Animator update | 0.30–0.48 ms | 0.38–0.61 ms | **0.0** | average ≤ 0.6 ms, 0 allocations — met |
+| AnimationSprites, one thread (the whole frame) | 0.39–0.66 ms | 0.51–0.85 ms | 0.0 | |
+| SliceStress2D (Orchards, game code) | 2.80–3.42 ms | 3.00–4.71 ms | | average ≤ 6, p95 ≤ 10 ms — met |
+| SliceStress3D (Dovon, game code) | 3.89–5.45 ms | 5.41–6.37 ms | | average ≤ 8, p95 ≤ 12 ms — met |
 
-Invariantlar har beshta ishga tushirishda o'tdi: 2D maydondan chiqqan 0, eng katta tezlik 6.88 m/s; 3D oyoq-yer
-orasi eng kami −0.0002 m, botgan 0, yurilgan masofa eng kami 90.7 % (o'rtacha 96.4 %), chuqurdan chiqqan jism 0; ikki
-simulyatsiya hash'i teng (2D `70e0fe7db44ee00b`, 3D `6f7e6ad276c04e79`). Animatsiya: blend og'irlik xatosi eng ko'pi
-2.98e-08, 0 / 3 ishchi poza hash'i `8eb468b84863e185` ikkalasida, event'lar 20/30/60/144 Hz da 440/432/440/440
-(odamlar) va 960 × 4 (sprite'lar) — animator bo'yicha mos kelmagan 0; sprite kadr/faza buzilishi 0 (600 kadrda 14 223
-klip almashishi). Slice stress: 2D 32 miya (32 tirik), o'rtacha 50 snaryad uchib turadi; 3D 27 miya, o'rtacha 58
-snaryad; graf xatosi 0.
+The invariants passed in all five runs: 0 left the 2D field, the highest speed 6.88 m/s; the smallest 3D foot-to-ground
+gap −0.0002 m, 0 sunk, the smallest distance covered 90.7 % (average 96.4 %), 0 bodies out of the pit; the two
+simulation hashes equal (2D `70e0fe7db44ee00b`, 3D `6f7e6ad276c04e79`). Animation: the largest blend weight error
+2.98e-08, the 0 / 3 worker pose hash `8eb468b84863e185` in both, the events at 20/30/60/144 Hz 440/432/440/440 (people)
+and 960 × 4 (sprites) — 0 mismatches per animator; 0 sprite frame/phase breaks (14 223 clip switches in 600 frames).
+Slice stress: 2D 32 brains (32 alive), on average 50 projectiles in flight; 3D 27 brains, on average 58 projectiles; 0
+graph errors.
 
-Ajratmalar: animator yangilash bitta oqimda endi ajratmasiz — oldin 24 odamga 223 / kadr va 64 sprite'ga 870 / kadr
-edi (har kadr yangidan yaratiladigan vazifa ro'yxatlari, poza signaturasi, event vektorlari, klip nomi satrlari;
-`thread_local` kadr xotirasiga o'tkazildi, `ZAMIN_ALLOC_TRACE` bilan tekshirildi). 3 ishchidagi 15.2 / kadr —
-`JobSystem::ParallelFor` ning o'zi (har chaqiruvda vazifa obyektlari). Fizikadagi ajratmalar Box2D/Jolt kontakt
-natijalari va nur so'rovlarining vektorlari; dizayn ularga byudjet qo'ymagan, raqam boshlang'ich natijada qayd etilgan.
+Allocations: the animator update on one thread is now allocation-free — before it was 223 / frame for 24 people and
+870 / frame for 64 sprites (task lists, the pose signature, event vectors and clip name strings created anew every
+frame; moved to `thread_local` frame memory, checked with `ZAMIN_ALLOC_TRACE`). The 15.2 / frame with 3 workers is
+`JobSystem::ParallelFor` itself (task objects on every call). The allocations in physics are the Box2D/Jolt contact
+results and the vectors of the ray queries; the design set no budget for them, the number is recorded in the baseline.
 
-Boshlang'ich natijalar: `Tests/Baselines/physics-release.json`, `animation-release.json`, `slicestress-release.json`;
-`ZAMIN_BUILD_DIR=build-release Tests/bench.sh --only physics,animation,slicestress --compare`. `ctest -L bench` da
+Baselines: `Tests/Baselines/physics-release.json`, `animation-release.json`, `slicestress-release.json`;
+`ZAMIN_BUILD_DIR=build-release Tests/bench.sh --only physics,animation,slicestress --compare`. In `ctest -L bench`:
 `BenchPhysicsSmoke` (`--physics --bodies 200 --actors 12 --frames 40`), `BenchAnimationSmoke` (`--animation --humanoids 24
---sprites 64 --frames 30 --jobs 2`) va `BenchSliceStressSmoke` (`--slice-stress --frames 20`) — invariantlar bilan. Dizayndan farq: o'yin ichidagi stress (A3, P3) Player
-`--benchmark` va alohida `Stress` sahnalari o'rniga headless `--slice-stress` da — haqiqiy darajalar nusxasi ustida
-(slice assetlari 6 MiB byudjetga yaqin, llvmpipe chizishi o'yin kodining vaqtini ko'mib yuboradi).
+--sprites 64 --frames 30 --jobs 2`) and `BenchSliceStressSmoke` (`--slice-stress --frames 20`) — with the invariants. A
+difference from the design: the in-game stress (A3, P3) is in the headless `--slice-stress` on copies of the real levels
+instead of the Player's `--benchmark` and separate `Stress` scenes (the slice assets are close to the 6 MiB budget, and
+llvmpipe drawing would bury the game code's time).
 
-## Vertical slice'lar Player'da: profiling va regressiya darvozasi (`Tests/slice_bench.py`)
+## The vertical slices in the Player: profiling and the regression gate (`Tests/slice_bench.py`)
 
-Ikkala slice'ning har sahnasi (Menu, Orchards, Yertola, Dovon) **Release** `ZaminPlayer --benchmark 300
---benchmark-warmup 90` da, qat'iy o'yin soati bilan (`ZAMIN_CAPTURE_FPS=30`), darajalarda demo pilot o'ynaydi
-(`ZAMIN_DEMO=1`), menyular o'yinchi ko'rgandek (demosiz). Ikki oyna: 284x160 `--quality Low` (darvoza: o'yin kodi) va
-1280x720 (faqat baseline bilan solishtiriladi — u llvmpipe rasterizatorining ishi). *O'yin kodi* — Player benchmark
-hisobotidagi yangi `GameCode`: har o'lchangan kadrda profilerning "Layer'lar (update)" bo'limi, undan chizish
-("Sahnalar (chizish)", "Post-processing") ayirilgan (skriptlar/graflar, gameplay, fizika, AI, animatsiya, particle'lar,
-audio). Har qator bitta HOME bilan 3 marta ishlaydi: birinchisi — birinchi sessiya (Mesa shader variantlarini shunda
-kompilyatsiya qiladi va `~/.cache` da saqlaydi; o'sha ishning eng sekin kadri "birinchi sessiya" ustunida), darvoza va
-baseline har raqamning eng yaxshisini oladi.
+Every scene of both slices (Menu, Orchards, Yertola, Dovon) in a **Release** `ZaminPlayer --benchmark 300
+--benchmark-warmup 90`, with a fixed game clock (`ZAMIN_CAPTURE_FPS=30`); in the levels the demo pilot plays
+(`ZAMIN_DEMO=1`), the menus as the player sees them (no demo). Two windows: 284x160 `--quality Low` (the gate: game
+code) and 1280x720 (compared only with the baseline — it is the llvmpipe rasterizer's work). *Game code* is the new
+`GameCode` in the Player benchmark report: in every measured frame the profiler's "Layers (update)" section minus the
+drawing ("Scenes (render)", "Post-processing") (scripts/graphs, gameplay, physics, AI, animation, particles, audio).
+Every row runs 3 times with one HOME: the first is the first session (Mesa compiles the shader variants then and stores
+them in `~/.cache`; that run's slowest frame is in the "first session" column), and the gate and the baseline take the
+best of every number.
 
-Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, Release (`build-release`), Mesa llvmpipe, 2026-11-22:
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, Release (`build-release`), Mesa llvmpipe, 2026-11-22:
 
-| Sahna | Oyna | Obyekt (faol) | Draw call | Uchburchak / quad | Kadr o'rtacha | p95 | Eng sekin (birinchi sessiya) | O'yin kodi | p95 | RSS |
+| Scene | Window | Objects (active) | Draw calls | Triangles / quads | Frame average | p95 | Slowest (first session) | Game code | p95 | RSS |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
 | Lantern Keeper / Menu | 284x160 Low | 57 (38) | 18 | 0 / 875 | 3.48 ms | 4.17 | 6 (7) | 0.32 ms | 0.40 | 197 MiB |
 | Lantern Keeper / Orchards | 284x160 Low | 211 (158) | 30 | 0 / 1 183 | 5.44 ms | 6.32 | 12 (117) | 2.02 ms | 2.41 | 205 MiB |
@@ -516,75 +523,75 @@ Muhit: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, Release (`build-release`), Mesa l
 | Beacon Pass / Menu | 1280x720 | 278 (259) | 191 | 34 286 / 265 | 208.88 ms | 250.81 | 305 (305) | 0.68 ms | 0.86 | 317 MiB |
 | Beacon Pass / Dovon | 1280x720 | 377 (330) | 295 | 74 560 / 342 | 227.13 ms | 266.12 | 328 (576) | 3.73 ms | 4.74 | 261 MiB |
 
-Darvozalar (kichik oyna): o'yin kodi o'rtacha ≤ 3 ms (2D) / ≤ 4 ms (3D) va p95 ≤ 6 ms — bajarildi (eng ko'pi 2.03 /
-3.50 ms, p95 4.40 ms); kadr o'rtacha ≤ 16.6 ms (2D) — bajarildi (≤ 5.67 ms); eng sekin kadr ≤ 1000 ms — bajarildi (≤ 51
-ms). Dizayndan farq: 3D uchun kadr chegarasi 33.3 ms (30 FPS) — llvmpipe Dovon'ning ~74 500 uchburchagini ikki marta
-(soya xaritasi va asosiy o'tish) protsessorda chizadi, bu 284x160 da ham ~17 ms ("Sahnalar (chizish)") + 7 ms
-post-processing; o'yin kodi esa 3.5 ms. Birinchi sessiyadagi 1.9 s lik kadr (Yertola, birinchi jangda) — llvmpipe'ning
-yangi zarra/2D blend holati uchun shader JIT'i: shu HOME bilan ikkinchi ishga tushirishda yo'q (eng sekini 11 ms).
-1280x720 qatorlari (va kichik oynaning hammasi) `Tests/Baselines/slices-release.json` ga yozilgan; `--compare` har
-raqamni `bench_compare.py --tolerance 15` bilan solishtiradi. Tekshiruv: 2 ishga tushirishli qayta o'lchash 40 raqamdan
-3 tasini (1280x720 da Lantern Keeper Menu p95 +15.3 %, Yertola p95 +19.7 % va o'yin kodi +17 %) sekinlashgan deb belgiladi —
-o'sha qatorlar 3 ishga tushirish bilan −8.1 … +3.4 % (16 raqam, 0 sekinlashish): 720p da llvmpipe oqimlari o'yin bilan 4
-yadroni bo'lishadi. Shuning uchun standart `--runs 3` va 720p dagi p95 lar `Noisy` (ro'yxatda, hisoblanmaydi). Ajratmalar (`ZAMIN_ALLOC_TRACE`) Player'da sanalmaydi —
-o'rniga RSS va engine hisoblagan xotira (`ZAMIN_SOAK_STATS`) qayd etiladi.
+The gates (small window): game code average ≤ 3 ms (2D) / ≤ 4 ms (3D) and p95 ≤ 6 ms — met (at most 2.03 / 3.50 ms,
+p95 4.40 ms); frame average ≤ 16.6 ms (2D) — met (≤ 5.67 ms); slowest frame ≤ 1000 ms — met (≤ 51 ms). A difference
+from the design: the frame limit for 3D is 33.3 ms (30 FPS) — llvmpipe draws Dovon's ~74 500 triangles twice (the shadow
+map and the main pass) on the CPU, which even at 284x160 is ~17 ms ("Scenes (render)") + 7 ms of post-processing, while
+the game code is 3.5 ms. The 1.9 s frame in the first session (Yertola, at the first fight) is llvmpipe's shader JIT for
+a new particle/2D blend state: it is gone on the second run with the same HOME (the slowest is 11 ms). The 1280x720 rows
+(and all of the small window) are written to `Tests/Baselines/slices-release.json`; `--compare` compares every number
+with `bench_compare.py --tolerance 15`. A check: a remeasurement with 2 runs marked 3 of 40 numbers as slower (at
+1280x720 Lantern Keeper Menu p95 +15.3 %, Yertola p95 +19.7 % and game code +17 %) — with 3 runs those rows were
+−8.1 … +3.4 % (16 numbers, 0 slowdowns): at 720p the llvmpipe threads share the 4 cores with the game. That is why the
+default is `--runs 3` and the p95 values at 720p are `Noisy` (listed, not counted). Allocations (`ZAMIN_ALLOC_TRACE`)
+are not counted in the Player — the RSS and the memory the engine counts (`ZAMIN_SOAK_STATS`) are recorded instead.
 
-Soak (`--no-bench --soak 18000`, attract loop, 284x160 Low, har 30 kadrda namuna): Lantern Keeper 3 g'alaba, menyuga 3
-qaytish — har safar 57 obyekt, RAM 302.9 MiB, engine 99.2 MiB (birinchi aylanadan keyingi o'sish 0.0 MiB); Dovon
-mash'ali 7 g'alaba — har qaytishda 278 obyekt, RAM 269.4 → 275.5 → 278.8 MiB va keyin tekis (o'sish 9.5 MiB ≤ 32),
-engine 39.0 MiB; logda xato yo'q.
+Soak (`--no-bench --soak 18000`, the attract loop, 284x160 Low, a sample every 30 frames): Lantern Keeper 3 wins, 3
+returns to the menu — 57 objects every time, RAM 302.9 MiB, engine 99.2 MiB (0.0 MiB growth after the first lap);
+Dovon's torch 7 wins — 278 objects on every return, RAM 269.4 → 275.5 → 278.8 MiB and then flat (9.5 MiB growth ≤ 32),
+engine 39.0 MiB; no errors in the log.
 
-## Natijalarni saqlash va solishtirish (`Tests/bench.sh`)
+## Saving and comparing results (`Tests/bench.sh`)
 
-`Tests/bench.sh` headless benchmarklarni (ECS, serializatsiya, prefablar, combat, fizika, animatsiya, slice stress) ishga tushiradi va natijalarni
-`<build>/Bench/*.json` (+ to'liq matn `*.txt`) ga yozadi; `bench` CMake target'i ham shu. `--compare` ularni
-`Tests/Baselines/<nom>-<build turi>.json` bilan `Tests/bench_compare.py` orqali solishtiradi: biror raqam
-`--tolerance` (standart 25 %) dan va birlikning shovqin chegarasidan (ms 0.5, kadr ms 0.2, ns 100, bayt 16, % 2)
-ko'proq yomonlashsa skript 1 kodi bilan tugaydi. Fayl I/O qatorlari (`Noisy`) ko'rsatiladi, lekin hisobga olinmaydi.
-Bitta o'lchov band kompyuterda (boshqa jarayon, disk keshi) bir nechta raqamni 25 % dan ko'proq sekinlashtirishi
-mumkin (bu kompyuterda bir ishga tushirishda 79 tadan 20 tasi, keyingisida 1 tasi - kod o'zgarmagan): shuning uchun
-sekinroq ko'ringan benchmark yana ishga tushiriladi (`--repeat`, standart jami 3 marta) va har raqamning eng yaxshi
-natijasi solishtiriladi - haqiqiy sekinlashish har ishga tushirishda ko'rinadi. `--repeat 1` - bitta o'lchov.
-`--update-baseline` natijalarni yangi boshlang'ich natija qiladi. Boshlang'ich natijalar shu sahifadagi kompyuterda
-olingan: boshqa kompyuterda avval `--update-baseline` bilan o'sha yerda yarating, keyin o'zgarishni solishtiring.
+`Tests/bench.sh` runs the headless benchmarks (ECS, serialization, prefabs, combat, physics, animation, slice stress)
+and writes the results to `<build>/Bench/*.json` (+ the full text in `*.txt`); the `bench` CMake target does the same.
+`--compare` compares them with `Tests/Baselines/<name>-<build type>.json` through `Tests/bench_compare.py`: when a number
+gets worse by more than `--tolerance` (25 % by default) and more than its unit's noise floor (ms 0.5, frame ms 0.2,
+ns 100, bytes 16, % 2) the script ends with code 1. File I/O rows (`Noisy`) are shown but not counted. A single
+measurement on a busy computer (another process, the disk cache) can make several numbers more than 25 % slower (on this
+computer 20 of 79 in one run, 1 in the next - with unchanged code): so a benchmark that looks slower is run again
+(`--repeat`, 3 times in all by default) and the best result of every number is compared - a real slowdown shows in every
+run. `--repeat 1` - a single measurement. `--update-baseline` makes the results the new baseline. The baselines were
+taken on the computer on this page: on another computer first create them there with `--update-baseline`, then compare
+the change.
 
 ```bash
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build-release --target ZaminBench
-ZAMIN_BUILD_DIR=build-release Tests/bench.sh --compare      # o'zgarish tezlikni yomonlashtirdimi? (shubhalisi 3 marta)
+ZAMIN_BUILD_DIR=build-release Tests/bench.sh --compare      # did the change make it slower? (a suspicious one 3 times)
 ZAMIN_BUILD_DIR=build-release Tests/bench.sh --update-baseline
 ```
 
-`ctest -L bench` benchmarklarni kichik o'lchamda (1 000 obyekt) ishga tushiradi - ular ishlashda davom etishini
-(va `--serialize` o'z tekshiruvini) CI'ning tezkor testlari ichida tekshiradi; raqamlar u yerda solishtirilmaydi.
+`ctest -L bench` runs the benchmarks at a small size (1 000 objects) - it checks within CI's quick tests that they keep
+working (and `--serialize` its own check); the numbers are not compared there.
 
-## Boshqa benchmarklar
+## Other benchmarks
 
-| Dastur | Nima o'lchaydi |
+| Program | What it measures |
 |---|---|
-| `ZaminBench` (`particle_bench` target) | particle tizimlari (~50 000 particle), `--jobs N`, `--profile` |
-| `ZaminBench --animators N` | skinned animator'lar pozasi, so'ng Animator culling bilan ko'rinishni belgilash (`MarkVisibleAnimators`) |
-| `ZaminBench --queries` | sahna qidiruvlari (nom, teg, komponent indekslari) |
-| `ZaminBench --serialize --prefabs` | bog'langan prefab nusxalari (saqlash, yuklash, sinxronlash, Apply; `Tests/Baselines/prefabs-release.json`) |
-| `ZaminBench --nav` | navigatsiya (bake, yo'l qidirish, Nav Agent'lar) |
-| `ZaminBench --fonts` | shrift atlasi: rasterlash va diskdagi kesh, glif qidirish, kerning bilan matn joylash |
-| `ZaminBench --combat` | gameplay snaryadlari (2D nurlar / 3D sphere cast) va effekt kitoblari, `TickCombat` ms / kadr va ajratmalar (yuqorida) |
-| `ZaminBench --physics` / `--animation` / `--slice-stress` | vertical slice stress darvozalari: Box2D/Jolt + motor/Character Controller, odam va sprite animator olomoni, slice darajalari to'lib-toshganda o'yin kodi (yuqorida) |
-| `Tests/startup_bench.py` | editor va player ishga tushish vaqti: birinchi kadrgacha (dvigatel / layer'lar / 1-kadr) va jarayon vaqti, ikki build solishtirish (`--bin`, `--module-dir`) |
-| `Tests/player_bench.sh` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da (ms / kadr, p95, p99) |
-| `Tests/samples_bench.py` | to'qqiz namuna o'yin bot o'ynayotganda: kadr vaqti, eng sekin kadr va uning profili, obyektlar soni, o'yin kodining CPU vaqti, byudjetlar (`--check`) — natija va topilgan muammolar: [Samples.md](Samples.md#performance) |
+| `ZaminBench` (the `particle_bench` target) | particle systems (~50 000 particles), `--jobs N`, `--profile` |
+| `ZaminBench --animators N` | posing skinned animators, then marking visibility with Animator culling (`MarkVisibleAnimators`) |
+| `ZaminBench --queries` | scene lookups (name, tag, component indexes) |
+| `ZaminBench --serialize --prefabs` | linked prefab instances (save, load, sync, Apply; `Tests/Baselines/prefabs-release.json`) |
+| `ZaminBench --nav` | navigation (bake, path finding, Nav Agents) |
+| `ZaminBench --fonts` | the font atlas: rasterizing and the disk cache, glyph lookup, text layout with kerning |
+| `ZaminBench --combat` | gameplay projectiles (2D rays / 3D sphere casts) and effect books, `TickCombat` ms / frame and allocations (above) |
+| `ZaminBench --physics` / `--animation` / `--slice-stress` | the vertical slice stress gates: Box2D/Jolt + motors/Character Controllers, crowds of human and sprite animators, game code with the slice levels packed full (above) |
+| `Tests/startup_bench.py` | editor and player startup time: up to the first frame (engine / layers / frame 1) and the process time, comparing two builds (`--bin`, `--module-dir`) |
+| `Tests/player_bench.sh` | the sample games' start scenes in ZaminPlayer (ms / frame, p95, p99) |
+| `Tests/samples_bench.py` | the nine sample games while a bot plays: frame time, the slowest frame and its profile, object count, the game code's CPU time, budgets (`--check`) — results and problems found: [Samples.md](Samples.md#performance) |
 
 
-## P1 xarita render workload'i (2026-11-10)
+## The P1 map render workload (2026-11-10)
 
-- Terrain: 257×257 nuqta, 256×256 m, 64 ta 32×32 katakli bo'lak; to'liq 131072, uzoq LOD 128 uchburchak.
-- 2D: 4096×4096 katak, 65536 render bo'lagi, 24×24 birlik ortografik ko'rinish; oldingi 65536 leaf test o'rniga
-  119 hierarchy/leaf bounds testi, 4 ko'ringan bo'lak. Yopiq xarita bir root testida chiqarildi.
-- To'g'rilik: 656 unit / 12 render / 265 editor qadam, transform/reference va manifold testlari, GL cache tekshiruvi.
+- Terrain: 257×257 points, 256×256 m, 64 chunks of 32×32 cells; the full 131072 triangles, 128 at the far LOD.
+- 2D: 4096×4096 cells, 65536 render chunks, a 24×24-unit orthographic view; 119 hierarchy/leaf bounds tests instead of
+  the earlier 65536 leaf tests, 4 visible chunks. A hidden map was dropped in a single root test.
+- Correctness: 656 unit / 12 render / 265 editor steps, the transform/reference and manifold tests, the GL cache check.
 
-Player o'lchovi: bir xil saqlangan terrain, kamera `(128,4096,128)`, far clip 10000, 1280×720, VSync o'chirilgan,
-10 warmup + 60 o'lchangan kadr, har variant 3 marta. Backend — Mesa llvmpipe, 2 worker, VPS software rendering.
-Uch run o'rtachalarining mediani: **LOD on 65.074 ms**, **LOD off 127.637 ms**. Off run'lari 100.319–132.567 ms
-oralig'ida o'zgargan; bu virtual muhitdagi cheklangan o'lchov. Haqiqiy GPU yoki barcha sahnalar uchun tezlik
-va'dasi emas. To'liq frame va percentile hisobotlari `build-review/Professional/lod-benchmark.json` va
-`lod-on-*.json` / `lod-off-*.json` da. Generic benchmark CLI — [Runtime](Runtime.md); CPU workload
-regressiyalari `TerrainLODTests` va `TilemapVisibilityTests` fayllarida.
+The Player measurement: the same saved terrain, the camera at `(128,4096,128)`, far clip 10000, 1280×720, VSync off,
+10 warm-up + 60 measured frames, every variant 3 times. Backend — Mesa llvmpipe, 2 workers, VPS software rendering.
+The median of the three runs' averages: **LOD on 65.074 ms**, **LOD off 127.637 ms**. The off runs varied between
+100.319–132.567 ms; this is a limited measurement in a virtual environment. It is not a speed promise for a real GPU or
+for every scene. The full frame and percentile reports are in `build-review/Professional/lod-benchmark.json` and
+`lod-on-*.json` / `lod-off-*.json`. The generic benchmark CLI — [Runtime](Runtime.md); the CPU workload regressions are
+in the `TerrainLODTests` and `TilemapVisibilityTests` files.

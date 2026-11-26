@@ -367,7 +367,7 @@ reaches the screen and logs it once - `Startup: first frame 670 ms (engine 182, 
 the first frame itself; the process start comes from `/proc/self/stat` (10 ms resolution). `StartupTimer::Get()` gives the result
 (the editor's Statistics panel shows it in the "Memory" section). `ZAMIN_STARTUP_PROFILE=1` prints the profiler tree of the
 startup (it is collected with `ZM_PROFILE_SCOPE`s too) and the first frame's tree;
-`Tests/startup_bench.py` measures it several times and compares two builds ([Benchmarks.md](Benchmarks.md#ishga-tushish-vaqti-495)).
+`Tests/startup_bench.py` measures it several times and compares two builds ([Benchmarks.md](Benchmarks.md#startup-time-495)).
 
 ## 14. String helpers (StringUtils)
 

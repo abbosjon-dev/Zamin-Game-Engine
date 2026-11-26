@@ -397,7 +397,7 @@ void OnParticlesFinished() override { Destroy(); }       // a non-looping system
 Samples: Showcase3D `Scenes/Particles.zscene`, `ParticlesII` (meshes, noise, collision, trails, fireworks),
 `ParticlesIII` (prewarm, burst tables, a galaxy of 9000 particles), `ParticlesIV` (presets, rain and snow).
 Performance: `build/bin/ZaminBench` in its default mode (the `particle_bench` target) simulates ~50 000 particles
-headless ([Benchmarks.md](Benchmarks.md#boshqa-benchmarklar)); the particle simulation is compiled with `-O2` even in
+headless ([Benchmarks.md](Benchmarks.md#other-benchmarks)); the particle simulation is compiled with `-O2` even in
 a Debug build (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`).
 
 ---
@@ -448,7 +448,7 @@ void OnMessage(const ScriptMessage& m) override
   kind (the order of draws that cover each other does not change — the image stays identical to the bit); runs of
   sprites using more than 15 textures are grouped by texture. Statistics: `Flush2DTextures`, `Flush2DKind`,
   `Flush2DState` (why a batch was flushed early) and `Reordered2DCount`; for comparison
-  `BatchOrder::SetEnabled(false)`. Measurement: [Benchmarks.md](Benchmarks.md#m25-optimallashtirish-oldin-va-keyin).
+  `BatchOrder::SetEnabled(false)`. Measurement: [Benchmarks.md](Benchmarks.md#m25-optimization-before-and-after).
 - **World transform cache** — the result of `Scene::GetWorldTransform` is kept and recomputed only when the object's
   Translation / Rotation / Scale, its parent or the parent's world transform changes (it notices a script writing to
   `Transform()` directly too); drawing and physics read from this cache every frame.

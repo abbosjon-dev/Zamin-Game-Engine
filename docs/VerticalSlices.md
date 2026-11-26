@@ -180,7 +180,7 @@ The stress and UI gates of both slices (P5 item 3). Every gate fails on a broken
 ### Animation and physics stress
 
 Headless, in `ZaminBench` (Release numbers, budgets and invariants in
-[Benchmarks.md](Benchmarks.md#vertical-slice-stress-darvozalari-fizika-animatsiya-oyin-ichida---physics---animation---slice-stress);
+[Benchmarks.md](Benchmarks.md#vertical-slice-stress-gates-physics-animation-in-game---physics---animation---slice-stress);
 baselines `Tests/Baselines/{physics,animation,slicestress}-release.json`, `Tests/bench.sh --only physics,animation,slicestress
 --compare`; `ctest -L bench` runs each small with its invariants):
 
@@ -311,7 +311,7 @@ each with 0 compile diagnostics and no log error. `Tests/editor_smoke.sh Project
 (every editor window, page and popup over the slices; CI step) passes 243/243 and 268/268 steps with 0 errors.
 
 **Profiling** (`python3 Tests/slice_bench.py --build build-release --check --compare Tests/Baselines/slices-release.json`;
-the table and its method in [Benchmarks.md](Benchmarks.md#vertical-slicelar-playerda-profiling-va-regressiya-darvozasi-testsslice_benchpy)):
+the table and its method in [Benchmarks.md](Benchmarks.md#the-vertical-slices-in-the-player-profiling-and-the-regression-gate-testsslice_benchpy)):
 every slice scene in the Release Player's `--benchmark` (the levels with the demo pilot), at 284x160 Low and 1280x720.
 The Player's benchmark report now carries `GameCode` - the update layer without its drawing, per measured frame - so
 the game's own CPU work is gated apart from llvmpipe's rasterizer. Small window (best of 3 runs): game code 0.32 /

@@ -318,7 +318,7 @@ Levels: `Trace`, `Info`, `Warn`, `Error`, `Critical`, `Off`. Every logger has it
 (`Log::SetLevel(LogSource::Engine, LogLevel::Warn)`), the log file's level is separate (`Log::SetFileLevel`).
 A message below the level is not formatted at all (cheap). The configuration order (the later one wins):
 Project settings > Player > Log, `ZAMIN_LOG_LEVEL`, `--log-level` (`warn` or `engine=warn,app=info,file=error`).
-In the editor: Preferences > Log and the console's cog menu. Log files: [Runtime.md](Runtime.md#6-log-fayllari).
+In the editor: Preferences > Log and the console's cog menu. Log files: [Runtime.md](Runtime.md#6-log-files).
 
 ## 12. Assert and Verify
 

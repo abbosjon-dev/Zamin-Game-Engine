@@ -335,7 +335,7 @@ Skriptdan: `GetScene().SetSelectedUI(button)` (bo'sh `{}` — tanlovni olib tash
 (maska ostida) vidjetga navigatsiya o'tmaydi; scroll view ichidagi tanlangan vidjet ko'rinadigan joyga o'zi aylanadi.
 
 Avtomatik sinov (player, headless): `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"` — kadr raqami va amal
-([Runtime.md](Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari)).
+([Runtime.md](Runtime.md#14-environment-variables-for-automation)).
 
 ---
 

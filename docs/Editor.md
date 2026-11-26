@@ -331,7 +331,7 @@ The table is taken from the list in `Zamin/src/Zamin/Editor/ShortcutRegistry.cpp
 `.zsceneb`). The editor recompiles the script module in Release, collects the assets in use, `ZaminPlayer`,
 `libZamin.so`, `Resources`, the `.sh` launcher and the `.desktop` file into the folder, checks the prefabs and opens the
 **Export report** window (`export-report.json` / `.txt`). The finished game starts with `<Game>.sh`.
-More: [Runtime.md](Runtime.md#11-eksport).
+More: [Runtime.md](Runtime.md#11-export).
 
 ## 15. Automation (screenshots, CI)
 
@@ -366,7 +366,7 @@ ZAMIN_EDITOR_SELECT=Player ZAMIN_EDITOR_INSPECTOR_BOTTOM=1 ZAMIN_MAX_FRAMES=60 Z
     xvfb-run -a -s "-screen 0 1600x900x24" ./build/bin/ZaminEditor <project>
 ```
 
-The variables for the player: [Runtime.md](Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari); the tests:
+The variables for the player: [Runtime.md](Runtime.md#14-environment-variables-for-automation); the tests:
 [Testing.md](Testing.md).
 
 ### World navigation route and portal authoring

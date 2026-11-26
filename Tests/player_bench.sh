@@ -89,7 +89,7 @@ for project in "${projects[@]}"; do
     seconds=$(( $(date +%s) - start ))
     if [[ ! -f "$report" ]]; then
         echo "   FAILED: no result was written (exit code $code, $seconds s) - log: $log"
-        summary+=("$(printf '%-14s %8s %8s %8s %8s %8s  %s' "$name" - - - - - "ishlamadi ($code)")")
+        summary+=("$(printf '%-14s %8s %8s %8s %8s %8s  %s' "$name" - - - - - "failed ($code)")")
         failed=1
         continue
     fi

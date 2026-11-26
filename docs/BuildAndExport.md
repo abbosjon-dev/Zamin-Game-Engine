@@ -171,7 +171,7 @@ Build types:
 - **Shipping** - not a build type but an option: `-DZAMIN_SHIPPING=ON` (usually with Release).
 
 The build info (commit, date, type, compiler) is updated on every build and shows up in `ZaminPlayer --version`, at the start
-of the log, in crash reports and in the editor's "About Zamin" window ([Runtime.md, section 8](Runtime.md#8-versiya-malumoti)).
+of the log, in crash reports and in the editor's "About Zamin" window ([Runtime.md, section 8](Runtime.md#8-version-information)).
 
 ## 5. Targets and helper commands
 
@@ -337,7 +337,7 @@ Platformer2D/
 
 The folder can be moved anywhere or archived: `<Game>.sh` and the `.desktop` work from where they are (when the game first
 starts from a new place it fixes the icon path in the `.desktop`). What each file is and the details of
-starting - [Runtime.md, section 11](Runtime.md#11-eksport).
+starting - [Runtime.md, section 11](Runtime.md#11-export).
 
 ## 10. Automatic export, testing and packaging
 
@@ -351,7 +351,7 @@ ZAMIN_EDITOR_EXPORT=/tmp/Platformer2D ZAMIN_MAX_FRAMES=8 xvfb-run -a ./build/bin
 
 - **`Tests/export_test.sh`** (`--project`, `--frames`, `--keep`, `--work`; target `export_test`) - the export, `--version`,
   running the exported game through its start script with `--benchmark`, with a screenshot, and running it after it was
-  moved to another folder. The result and the options: [Runtime.md, section 13](Runtime.md#13-eksport-testi-avtomatik).
+  moved to another folder. The result and the options: [Runtime.md, section 13](Runtime.md#13-the-export-test-automatic).
 - **`Tests/package_games.sh`** (target `package_games`) - exports the three sample games, checks them with `export_test.sh`
   and packs them as `<Name>-<version>-linux-x86_64.tar.gz` + `.sha256` (the archive is unpacked again and tried):
 
@@ -365,7 +365,7 @@ ZAMIN_EDITOR_EXPORT=/tmp/Platformer2D ZAMIN_MAX_FRAMES=8 xvfb-run -a ./build/bin
   `player-builds-clang`: `.tar.gz` + `.sha256`, 14 days). The other jobs: `sanitizers`, `format`, `coverage`
   ([Testing.md](Testing.md#ci-githubworkflowslinuxyml)).
 
-The performance test for checking an export (`--benchmark N`, `--benchmark-out`, the limits) - [Runtime.md, section 12](Runtime.md#12-ishlash-testi-headless).
+The performance test for checking an export (`--benchmark N`, `--benchmark-out`, the limits) - [Runtime.md, section 12](Runtime.md#12-the-performance-test-headless).
 
 ## 11. Distributing the game and on the player's computer
 
@@ -382,8 +382,8 @@ The performance test for checking an export (`--benchmark N`, `--benchmark-out`,
 The player's computer needs: Linux x86_64, a driver that supports OpenGL 4.1, an X11 or Wayland desktop.
 The engine and all the libraries are in the folder (or inside `libZamin.so`) - nothing to install separately. Useful options
 for the player (`--windowed`, `--resolution 1280x720`, `--quality Low`, `--no-splash`, `--gl 4.1`,
-`--log-level`, `--version`, `--help` ...) - [Runtime.md, section 4](Runtime.md#4-buyruq-qatori); the log and crash
-files are in `~/.local/share/<company>/<game>/logs/` ([Runtime.md, section 6](Runtime.md#6-log-fayllari)).
+`--log-level`, `--version`, `--help` ...) - [Runtime.md, section 4](Runtime.md#4-the-command-line); the log and crash
+files are in `~/.local/share/<company>/<game>/logs/` ([Runtime.md, section 6](Runtime.md#6-log-files)).
 
 The version, the company and product names, the icon, the splash, the window settings - Project settings > Player
 ([ProjectSettings.md, section 4](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka)).

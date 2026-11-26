@@ -678,7 +678,7 @@ Olib tashlangan jism ustida uxlab yotganlar uyg'onadi va tushadi; qayta paydo bo
 - *Gizmolar* (ko'z tugmasining menyusi yoki *Ko'rinish > Gizmolar*): *Joint'lar (2D / 3D)* — o'chiq, tanlanganda yoki hammasi.
 
 **Player'da:** loyiha sozlamalari *Debug* bo'limi yoki buyruq qatori: `--debug-raycasts`, `--debug-contacts`,
-`--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--no-debug-draw` ([Runtime.md](Runtime.md#4-buyruq-qatori)).
+`--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--no-debug-draw` ([Runtime.md](Runtime.md#4-the-command-line)).
 
 **Skriptdan** (`Zamin/Debug/DebugDraw.h`) — o'z shakllaringiz va sozlamalar:
 

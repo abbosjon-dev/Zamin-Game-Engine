@@ -2,13 +2,13 @@
 
 Frequently asked questions and common problems - with the **real messages** the engine writes. Where a message
 shows up: in the editor - the **Console** window (and the terminal that started the editor), in a game - the terminal and the log
-file (`~/.local/share/<company>/<game>/logs/`, [Runtime.md, section 6](Runtime.md#6-log-fayllari)). Below, the
+file (`~/.local/share/<company>/<game>/logs/`, [Runtime.md, section 6](Runtime.md#6-log-files)). Below, the
 messages are exactly as the program writes them; `<...>` marks a place where a concrete value (a file, a name, a number) goes. Type a part
 of a message into the Console's search field, or find it on this page.
 
 Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
 [Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar),
-[Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar), [Runtime.md, 15](Runtime.md#15-muammolar-va-yechimlar),
+[Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar), [Runtime.md, 15](Runtime.md#15-problems-and-solutions),
 [BuildAndExport.md, 13](BuildAndExport.md#13-problems-and-solutions).
 
 ## Contents
@@ -67,7 +67,7 @@ asset's UUID, and without it the references break). A new project is created wit
 
 ### Where are the data a game saves (SaveData) and the editor settings?
 
-The game's: `~/.local/share/<company>/<game>/savedata.json` ([Runtime.md, 3](Runtime.md#3-sozlamalar-va-ustunlik-tartibi)).
+The game's: `~/.local/share/<company>/<game>/savedata.json` ([Runtime.md, 3](Runtime.md#3-settings-and-their-precedence)).
 The editor's: `~/.config/zamin/preferences.json` (shared by all projects). When the file is broken the game moves it
 aside and starts from an empty one:
 
@@ -95,7 +95,7 @@ and update the driver. When the project asks for a higher version, it first retr
 > `Could not create an OpenGL <v> core context (MSAA <n>, sRGB <yes/no>) - retrying with OpenGL <v> (MSAA <n>, sRGB <yes/no>)`
 
 In the player the context can also be given on the command line: `--gl 4.1`, `--msaa 0`, `--no-srgb`
-([Runtime.md, 4](Runtime.md#4-buyruq-qatori)).
+([Runtime.md, 4](Runtime.md#4-the-command-line)).
 
 ### The open / save file dialog does not appear
 
@@ -391,7 +391,7 @@ A value that is not understood is written to the log and the game goes on with t
 
 > `No monitor <N> (<M> monitors found) - the primary monitor is used`
 
-All the options: `ZaminPlayer --help` and [Runtime.md, 4](Runtime.md#4-buyruq-qatori).
+All the options: `ZaminPlayer --help` and [Runtime.md, 4](Runtime.md#4-the-command-line).
 
 ### The log file is not written
 
@@ -405,7 +405,7 @@ There is no permission to write to the log folder (or the disk is full): give an
 
 The player writes `crash-<date_time>.txt` to the log folder: the reason (a signal or an exception), the backtrace, the last log
 lines, the engine commit. Ask the player for this file. To work with a debugger use `--no-crash-handler`
-([Runtime.md, 7](Runtime.md#7-crash-hisobotlari)).
+([Runtime.md, 7](Runtime.md#7-crash-reports)).
 
 ### An assert failed
 
@@ -415,7 +415,7 @@ In a Debug build (or with `-DZAMIN_ASSERTS=ON`), when a `ZM_ASSERT` condition is
 
 ### How do I find a bug myself?
 
-- Raise the log level: `--log-level trace` or `ZAMIN_LOG_LEVEL=trace` ([Runtime.md, 6](Runtime.md#6-log-fayllari)).
+- Raise the log level: `--log-level trace` or `ZAMIN_LOG_LEVEL=trace` ([Runtime.md, 6](Runtime.md#6-log-files)).
 - OpenGL errors: `--gl-debug` (player) or `ZAMIN_GL_DEBUG=1`.
 - Memory errors: an AddressSanitizer build - `Tests/sanitize.sh address --smoke` ([Testing.md, 6](Testing.md#6-sanitizers)).
 - Physics: `--debug-contacts`, `--debug-raycasts`; navigation: `--debug-nav`.

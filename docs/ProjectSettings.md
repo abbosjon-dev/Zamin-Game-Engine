@@ -252,7 +252,7 @@ hodisalarni kutadi (protsessor band bo'lmaydi), o'yin vaqti o'tmaydi; oyna qaytg
 ### Log
 
 Player logi (`"Log": { ... }`, o'zgartirilmagan bo'lsa faylga yozilmaydi). Darajadan pastdagi xabarlar
-yozilmaydi; `ZAMIN_LOG_LEVEL` va `--log-level` bulardan ustun ([Runtime.md, 6-bo'lim](Runtime.md#6-log-fayllari)).
+yozilmaydi; `ZAMIN_LOG_LEVEL` va `--log-level` bulardan ustun ([Runtime.md, 6-bo'lim](Runtime.md#6-log-files)).
 
 | Maydon | Kalit | Ma'nosi |
 |---|---|---|
@@ -817,7 +817,7 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug chizish | Loyihaning debug sozlamalari |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
 | `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q | - |
-| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([Runtime.md](Runtime.md#12-ishlash-testi-headless)) | Splash, FPS cheklovi, VSync |
+| `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([Runtime.md](Runtime.md#12-the-performance-test-headless)) | Splash, FPS cheklovi, VSync |
 | `-v`, `--version` | O'yin va dvigatel versiyasi (kommit, build sanasi) - oynasiz | - |
 | `-h`, `--help` | Hamma variantlar va ustunlik tartibi | - |
 
@@ -900,7 +900,7 @@ aylantirganda kursorni bloklaydi.
 | `PauseInBackgroundAudioOutput` | Audio chiqishi pauzasi: tovush joyida turadi, keyin davom etadi |
 | `DisplayGammaAndBrightness` | Gamma / yorqinlik formulasi, diapazonlar, saqlash, `--gamma` / `--brightness` |
 | `DisplayResolutionSettings` | Ekran o'lchamlari ro'yxati, saqlash, ustunlik (buyruq qatori > saqlangan > loyiha) |
-| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | Ishlash testi, eksport tekshiruvi, versiya, o'yin menyusi ([Runtime.md](Runtime.md#16-testlar)) |
+| `PlayerBenchmarkStatsAndLimits`, `ExportFolderSelfCheck`, `BuildInfoAndVersionText`, `GameMenuSampleScene` | Ishlash testi, eksport tekshiruvi, versiya, o'yin menyusi ([Runtime.md](Runtime.md#16-tests)) |
 
 ---
 

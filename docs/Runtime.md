@@ -1,382 +1,382 @@
-# Zamin Engine: runtime player va eksport
+# Zamin Engine: the runtime player and export
 
-Bu qo'llanma o'yinni editordan tashqarida ishga tushiradigan **Zamin Player** (`ZaminPlayer`) haqida: uni qanday
-ishga tushirish, buyruq qatori, sozlamalar qayerdan olinishi, log va crash hisobotlari, versiya ma'lumoti, kursor
-va ekran API'lari, o'yin menyusi namunasi, eksport qilingan o'yin papkasi, hamda playerni avtomatik sinash
-(ishlash testi va eksport testi). Loyiha sozlamalarining o'zi (oyna, splash, sifat, til ...) batafsil
-[ProjectSettings.md](ProjectSettings.md) da, sahnalar oqimi [Scenes.md](Scenes.md) da.
+This guide is about **Zamin Player** (`ZaminPlayer`), which runs a game outside the editor: how to
+start it, the command line, where the settings come from, the log and crash reports, the version information, the cursor
+and display APIs, the game menu sample, the exported game folder, and testing the player automatically
+(the performance test and the export test). The project settings themselves (window, splash, quality, language ...) are covered in detail
+in [ProjectSettings.md](ProjectSettings.md), the scene flow in [Scenes.md](Scenes.md).
 
-## Mundarija
+## Contents
 
-1. [Player nima va qanday ishga tushadi](#1-player-nima-va-qanday-ishga-tushadi)
-2. [Ishga tushish ketma-ketligi](#2-ishga-tushish-ketma-ketligi)
-3. [Sozlamalar va ustunlik tartibi](#3-sozlamalar-va-ustunlik-tartibi)
-4. [Buyruq qatori](#4-buyruq-qatori)
-5. [O'yin ichidagi tugmalar va oyna](#5-oyin-ichidagi-tugmalar-va-oyna)
-6. [Log fayllari](#6-log-fayllari)
-7. [Crash hisobotlari](#7-crash-hisobotlari)
-8. [Versiya ma'lumoti](#8-versiya-malumoti)
-9. [Skriptlar uchun: ekran va kursor API](#9-skriptlar-uchun-ekran-va-kursor-api)
-10. [O'yin menyusi namunasi](#10-oyin-menyusi-namunasi)
-11. [Eksport](#11-eksport)
-12. [Ishlash testi (headless)](#12-ishlash-testi-headless)
-13. [Eksport testi (avtomatik)](#13-eksport-testi-avtomatik)
-14. [Avtomatlashtirish uchun muhit o'zgaruvchilari](#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari)
-15. [Muammolar va yechimlar](#15-muammolar-va-yechimlar)
-16. [Testlar](#16-testlar)
-17. [Qisqa API ma'lumotnomasi](#17-qisqa-api-malumotnomasi)
+1. [What the player is and how it starts](#1-what-the-player-is-and-how-it-starts)
+2. [The startup sequence](#2-the-startup-sequence)
+3. [Settings and their precedence](#3-settings-and-their-precedence)
+4. [The command line](#4-the-command-line)
+5. [In-game keys and the window](#5-in-game-keys-and-the-window)
+6. [Log files](#6-log-files)
+7. [Crash reports](#7-crash-reports)
+8. [Version information](#8-version-information)
+9. [For scripts: the display and cursor APIs](#9-for-scripts-the-display-and-cursor-apis)
+10. [The game menu sample](#10-the-game-menu-sample)
+11. [Export](#11-export)
+12. [The performance test (headless)](#12-the-performance-test-headless)
+13. [The export test (automatic)](#13-the-export-test-automatic)
+14. [Environment variables for automation](#14-environment-variables-for-automation)
+15. [Problems and solutions](#15-problems-and-solutions)
+16. [Tests](#16-tests)
+17. [A short API reference](#17-a-short-api-reference)
 
 ---
 
-## 1. Player nima va qanday ishga tushadi
+## 1. What the player is and how it starts
 
-`ZaminPlayer` - o'yinning o'zi: editorsiz, ImGui'siz, faqat o'yin oynasi. U `.zproject` faylini ochadi, skript
-modulini (`lib<O'yin>.so`) yuklaydi va boshlang'ich sahnani `SceneManager` orqali ishga tushiradi (qo'shimcha
-sahnalar, `DontDestroyOnLoad`, fonda yuklash, o'tishlar - [Scenes.md](Scenes.md)).
+`ZaminPlayer` is the game itself: no editor, no ImGui, only the game window. It opens a `.zproject` file, loads the script
+module (`lib<Game>.so`) and starts the start scene through the `SceneManager` (additional
+scenes, `DontDestroyOnLoad`, background loading, transitions - [Scenes.md](Scenes.md)).
 
 ```bash
-# Ishlab chiqish paytida: loyiha fayli yoki papkasi
+# During development: a project file or folder
 ./build/bin/ZaminPlayer Projects/Platformer2D
 ./build/bin/ZaminPlayer Projects/Platformer2D/Platformer2D.zproject --scene Menu --windowed
 
-# Eksport qilingan o'yin: ishga tushirish skripti (player yonidagi Game/*.zproject ni ochadi)
+# An exported game: the start script (opens the Game/*.zproject next to the player)
 ./Platformer2D.sh
 ./Platformer2D.sh --fullscreen --lang en
 ```
 
-Loyiha ko'rsatilmasa player o'z yonidagi `Game/` papkasidagi (keyin o'z papkasidagi) birinchi `.zproject` ni
-qidiradi - eksport qilingan o'yin shunday ishlaydi. Loyiha topilmasa xabar bilan chiqadi (chiqish kodi 1).
+When no project is given, the player looks for the first `.zproject` in the `Game/` folder next to it (then in its own folder) -
+this is how an exported game works. When no project is found it exits with a message (exit code 1).
 
-Boshlang'ich sahna: `--scene`, bo'lmasa loyihaning `StartScene`, u topilmasa build ro'yxatidagi birinchi yoqilgan
-sahna. Birinchi sahna yuklanmasa oyna yopilmaydi: **xato ekrani** nima buzilganini ko'rsatadi (Esc - chiqish),
-o'yin davomida boshqa sahnaga o'tib bo'lmasa yuqorida qizil polosa bir necha soniya turadi.
+The start scene: `--scene`, otherwise the project's `StartScene`, and when that is not found the first enabled scene of the
+build list. When the first scene does not load, the window does not close: an **error screen** shows what is broken (Esc - exit),
+and when switching to another scene fails during the game, a red bar stays at the top for a few seconds.
 
-## 2. Ishga tushish ketma-ketligi
+## 2. The startup sequence
 
-1. **Buyruq qatori** o'qiladi (`PlayerCommandLine::Parse`). `--help` yoki `--version` bo'lsa matn chiqariladi va
-   player oynasiz tugaydi.
-2. **Loyiha fayli** o'qiladi (oyna sozlamalari uchun) va o'yin saqlagan **ekran sozlamalari** (SaveData) - oyna
-   yaratilishidan oldin, shuning uchun to'liq ekranda yopilgan o'yin darhol to'liq ekranda ochiladi.
-3. **Log fayli** ochiladi (6-bo'lim) va **crash handler** o'rnatiladi (7-bo'lim).
-4. Oyna har bir qiymat uchun eng kuchli manbadan yaratiladi (`PlayerLaunchSettings::Resolve`, 3-bo'lim); log'da har
-   qiymat qayerdan kelgani yoziladi.
-5. Loyiha ochiladi: ikonka, sifat darajasi, til, ovoz, gamma / yorqinlik, debug chizish, skript moduli.
-6. **Splash ekran** (Zamin logotipi yoki o'yinning rasmi, ~2 s) - shu payt birinchi sahna fonda yuklanadi. Tugma
-   bosilsa (sahna tayyor bo'lsa) o'tkazib yuboriladi. `--no-splash` yoki loyiha sozlamasi o'chiradi.
-7. O'yin boshlanadi; birinchi kadrlari splash rangidan ochiladi.
+1. The **command line** is read (`PlayerCommandLine::Parse`). With `--help` or `--version` the text is printed and the
+   player ends without a window.
+2. The **project file** is read (for the window settings), and so are the **display settings** the game saved (SaveData) - before the
+   window is created, so a game that was closed in fullscreen opens in fullscreen right away.
+3. The **log file** is opened (section 6) and the **crash handler** is installed (section 7).
+4. The window is created with each value taken from its strongest source (`PlayerLaunchSettings::Resolve`, section 3); the log
+   says where each value came from.
+5. The project opens: the icon, the quality level, the language, the sound, gamma / brightness, debug drawing, the script module.
+6. The **splash screen** (the Zamin logo or the game's picture, ~2 s) - meanwhile the first scene loads in the background. A key
+   press skips it (when the scene is ready). `--no-splash` or the project setting turns it off.
+7. The game starts; its first frames fade in from the splash color.
 
-Log boshida doim:
+The log always starts with:
 
 ```
-Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) is starting (Zamin Player)
-Log fayli: /home/ali/.local/share/Zamin Studio/Zamin Platformer/logs/player-2026-11-07_14-03-12.log
+Zamin Engine 0.1.0 (commit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0) is starting (Zamin Player)
+Log file: /home/ali/.local/share/Zamin Studio/Zamin Platformer/logs/player-2026-11-07_14-03-12.log
 Window settings: 1600x900 (saved), windowed (project), VSync: yes (project), FPS: unlimited (project), monitor: primary (project), splash: yes (project)
 Zamin Platformer 0.4.0 (Zamin Studio)
 Script module loaded: libPlatformer2D.so (25 script classes)
 ```
 
-## 3. Sozlamalar va ustunlik tartibi
+## 3. Settings and their precedence
 
-Har bir sozlama alohida, eng kuchli manbadan olinadi:
+Each setting is taken separately from its strongest source:
 
-1. **buyruq qatori** (`--resolution`, `--fullscreen`, `--fps`, `--quality`, `--lang`, `--gamma` ... - 4-bo'lim);
-2. **o'yinchi saqlagan tanlov** - o'yinning sozlamalar menyusi saqlagani (SaveData);
-3. **loyiha sozlamalari** (Project settings > Player, Graphics, Quality, Localization).
+1. **the command line** (`--resolution`, `--fullscreen`, `--fps`, `--quality`, `--lang`, `--gamma` ... - section 4);
+2. **the player's saved choice** - what the game's settings menu saved (SaveData);
+3. **the project settings** (Project settings > Player, Graphics, Quality, Localization).
 
-| Sozlama | Saqlaydigan API | SaveData kalitlari |
+| Setting | The API that saves it | SaveData keys |
 |---|---|---|
-| Ekran o'lchami | `Display::SetResolution` + `Display::SaveSettings` | `Zamin.Display.Width`, `.Height` |
-| To'liq ekran, VSync | `Display::SetFullscreen` / `SetVSync` + `SaveSettings` (F11 ham saqlaydi) | `Zamin.Display.Fullscreen`, `.VSync` |
-| Gamma, yorqinlik | `Display::SetGamma` / `SetBrightness` + `SaveSettings` | `Zamin.Display.Gamma`, `.Brightness` |
-| Sifat darajasi | `Quality::SetLevel` + `Quality::SaveSettings` | `Zamin.Quality` |
-| Ovoz guruhlari | `Audio::SetGroupVolume` + `Audio::SaveSettings` | `Zamin.Audio` |
-| Til | `Localization::SetLanguage` + `Localization::SaveSettings` | `Zamin.Localization` |
+| Screen size | `Display::SetResolution` + `Display::SaveSettings` | `Zamin.Display.Width`, `.Height` |
+| Fullscreen, VSync | `Display::SetFullscreen` / `SetVSync` + `SaveSettings` (F11 saves too) | `Zamin.Display.Fullscreen`, `.VSync` |
+| Gamma, brightness | `Display::SetGamma` / `SetBrightness` + `SaveSettings` | `Zamin.Display.Gamma`, `.Brightness` |
+| Quality level | `Quality::SetLevel` + `Quality::SaveSettings` | `Zamin.Quality` |
+| Sound groups | `Audio::SetGroupVolume` + `Audio::SaveSettings` | `Zamin.Audio` |
+| Language | `Localization::SetLanguage` + `Localization::SaveSettings` | `Zamin.Localization` |
 
-SaveData fayli: `~/.local/share/<kompaniya>/<o'yin>/savedata.json` (kompaniya bo'sh bo'lsa
-`~/.local/share/zamin/<o'yin>/`; `$XDG_DATA_HOME` hisobga olinadi). Uni o'chirish - hamma tanlovni unutish.
-Ekran o'lchami faqat o'yin uni tanlaganda (`SetResolution`) saqlanadi: o'yinchi oynani sichqoncha bilan
-cho'zgani keyingi safar o'lcham bo'lib qolmaydi. Sozlamalar menyusisiz o'yinlar avvalgidek ishlaydi - saqlangan
-narsa yo'q, loyiha sozlamalari ishlatiladi.
+The SaveData file: `~/.local/share/<company>/<game>/savedata.json` (`~/.local/share/zamin/<game>/` when the company is
+empty; `$XDG_DATA_HOME` is taken into account). Deleting it forgets every choice.
+The screen size is saved only when the game chooses it (`SetResolution`): a window the player stretched with the mouse
+does not become the size next time. Games without a settings menu work as before - nothing is saved,
+the project settings are used.
 
-## 4. Buyruq qatori
+## 4. The command line
 
 ```
-ZaminPlayer [O'yin.zproject | loyiha papkasi] [variantlar]
+ZaminPlayer [Game.zproject | project folder] [options]
 ```
 
-Qiymatli variantlar `--fps 60` yoki `--fps=60` ko'rinishida yoziladi. Tushunilmagan variant yoki noto'g'ri qiymat
-log'ga ogohlantirish bo'lib yoziladi, qolganlari ishlatiladi. `ZaminPlayer --help` - hammasi o'zbekcha.
+Options with a value are written as `--fps 60` or `--fps=60`. An option that is not understood, or a wrong value, is written
+to the log as a warning, and the rest are used. `ZaminPlayer --help` - all of them.
 
-| Variant | Ma'nosi |
+| Option | Meaning |
 |---|---|
-| `--windowed`, `--fullscreen`, `--borderless` | Oyna rejimi (oxirgisi yutadi) |
-| `--resolution KxB`, `--width K`, `--height B` | Oyna o'lchami (`--fullscreen` bilan monitor video rejimi ham) |
-| `--monitor N` | Qaysi monitorda ochiladi (0 - asosiy) |
-| `--vsync`, `--no-vsync` | Vertikal sinxronizatsiya |
-| `--fps N` | Kadr chastotasi cheklovi (0 - cheklovsiz) |
-| `--jobs N` | Vazifalar tizimining ishchi oqimlari (standart: protsessor oqimlari - 1; 0 - o'chiq, hamma ish asosiy oqimda). Mustaqil particle tizimlari va animator pozalari parallel hisoblanadi |
-| `--scene <yo'l / indeks / nom>` | Boshlang'ich sahna: `Scenes/Level2.zscene`, `2` (build indeksi) yoki `Level2` |
-| `--quality <nom / indeks>` | Sifat darajasi (`Low`, `High` ...) |
-| `--lang <kod>`, `--language <kod>` | Til (`uz`, `ru`, `en` ...) |
-| `--no-splash` | Splash ekransiz |
-| `--gamma G`, `--brightness B` | Tasvir gammasi (0.5 ... 2.0) va yorqinligi (0.5 ... 1.5) |
-| `--gl 4.1/4.3/4.5/4.6`, `--msaa N`, `--gl-debug`, `--no-gl-debug`, `--srgb`, `--no-srgb` | OpenGL konteksti |
-| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug chizish (Shipping build'da yo'q; `--debug-nav` - navigatsiya va AI) |
-| `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz |
-| `--log-level <daraja>` | Log darajalari: `warn` (ikkala logger), `engine=warn,app=info,file=error` (6-bo'lim) |
-| `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q |
-| `--benchmark N` (+ `--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi (12-bo'lim) |
-| `-v`, `--version` | O'yin va dvigatel versiyasi (8-bo'lim) |
-| `-h`, `--help` | Yordam |
+| `--windowed`, `--fullscreen`, `--borderless` | The window mode (the last one wins) |
+| `--resolution WxH`, `--width W`, `--height H` | The window size (with `--fullscreen` the monitor's video mode too) |
+| `--monitor N` | Which monitor it opens on (0 - the primary) |
+| `--vsync`, `--no-vsync` | Vertical sync |
+| `--fps N` | A frame rate limit (0 - unlimited) |
+| `--jobs N` | The job system's worker threads (default: processor threads - 1; 0 - off, all work on the main thread). Independent particle systems and animator poses are computed in parallel |
+| `--scene <path / index / name>` | The start scene: `Scenes/Level2.zscene`, `2` (the build index) or `Level2` |
+| `--quality <name / index>` | The quality level (`Low`, `High` ...) |
+| `--lang <code>`, `--language <code>` | The language (`uz`, `ru`, `en` ...) |
+| `--no-splash` | Without the splash screen |
+| `--gamma G`, `--brightness B` | The picture's gamma (0.5 ... 2.0) and brightness (0.5 ... 1.5) |
+| `--gl 4.1/4.3/4.5/4.6`, `--msaa N`, `--gl-debug`, `--no-gl-debug`, `--srgb`, `--no-srgb` | The OpenGL context |
+| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug drawing (not in a Shipping build; `--debug-nav` - navigation and AI) |
+| `--log-file <file>`, `--no-log-file` | The log only to this file / without a log file |
+| `--log-level <level>` | The log levels: `warn` (both loggers), `engine=warn,app=info,file=error` (section 6) |
+| `--no-crash-handler`, `--no-crash-dialog` | Without a crash report (debugger, core dump) / a report but no window |
+| `--benchmark N` (+ `--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | The performance test (section 12) |
+| `-v`, `--version` | The game and engine versions (section 8) |
+| `-h`, `--help` | Help |
 
-## 5. O'yin ichidagi tugmalar va oyna
+## 5. In-game keys and the window
 
-| Tugma | Nima qiladi |
+| Key | What it does |
 |---|---|
-| **F11**, **Alt+Enter** | To'liq ekran <-> oyna (avvalgi o'lcham va joyiga qaytadi; tanlov saqlanadi). Input xaritasidagi `ToggleFullscreen` harakati ham. Loyihada o'chirsa bo'ladi (`FullscreenToggle`) |
-| **F10** | FPS va audio profili log'ga |
-| **Esc** | Xato ekranida - chiqish; o'yinlarda odatda pauza menyusi |
+| **F11**, **Alt+Enter** | Fullscreen <-> window (back to the previous size and place; the choice is saved). The `ToggleFullscreen` action of the input map too. It can be turned off in the project (`FullscreenToggle`) |
+| **F10** | The FPS and the audio profile to the log |
+| **Esc** | On the error screen - exit; in games usually the pause menu |
 
-- **Oyna o'lchami o'zgarsa** kamera, UI masshtabi (canvas scaler) va render nishonlari har kadr yangi o'lchamga
-  moslashadi. Loyihada **qat'iy ekran nisbati** yoqilgan bo'lsa o'yin tasviri shu nisbatda, chetlarida polosalar
-  bilan (sichqoncha tasvir ichida hisoblanadi).
-- **Kichraytirilgan oyna** - o'yin yangilanmaydi va chizilmaydi, CPU band emas; qaytganda vaqt sakramaydi.
-- **Fonda ishlash o'chiq** (`RunInBackground: false`) bo'lsa oyna fokusni yo'qotganda o'yin to'xtaydi (vaqt,
-  fizika, skriptlar, ovoz) va oxirgi kadr xira, "Paused" yozuvi bilan ko'rsatiladi.
-- **FPS cheklovi** (`TargetFrameRate` / `--fps`) VSync bilan birga ishlaydi: monitor chastotasini bo'ladigan
-  cheklovni VSync o'zi ushlaydi, boshqalarini aniq jadvalli kutish (uyqu + qisqa aylanish).
+- **When the window size changes**, the camera, the UI scale (canvas scaler) and the render targets adapt to the new size every
+  frame. When the project has a **fixed aspect ratio** on, the game picture keeps that ratio, with bars at its
+  edges (the mouse is counted inside the picture).
+- **A minimized window** - the game is not updated and not drawn, the CPU is not busy; time does not jump when it comes back.
+- When **running in the background is off** (`RunInBackground: false`), the game stops when the window loses the focus (time,
+  physics, scripts, sound) and the last frame is shown dimmed with a "Paused" label.
+- **The FPS limit** (`TargetFrameRate` / `--fps`) works together with VSync: VSync itself holds a limit that divides the monitor's
+  refresh rate, the others use precisely scheduled waiting (sleep + a short spin).
 
-Batafsil: [ProjectSettings.md, 4-bo'lim](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka).
+More: [ProjectSettings.md, section 4](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka).
 
-## 6. Log fayllari
+## 6. Log files
 
-Har ishga tushish o'z log faylini yozadi:
+Every run writes its own log file:
 
 ```
-~/.local/share/<kompaniya>/<o'yin>/logs/player-<sana_vaqt>.log    (eng oxirgi 5 tasi saqlanadi)
-~/.local/share/<kompaniya>/<o'yin>/logs/latest.log                 (doim oxirgi ishga tushish)
+~/.local/share/<company>/<game>/logs/player-<date_time>.log    (the latest 5 are kept)
+~/.local/share/<company>/<game>/logs/latest.log                (always the last run)
 ```
 
-Fayl boshida o'yin nomi va versiyasi, dvigatel build'i (kommit, sana), boshlanish vaqti, loyiha va buyruq qatori
-yoziladi; fayl ochilishidan oldingi xabarlar ham kiradi. Har satr darhol diskka yoziladi - crash bo'lsa ham log
-to'liq qoladi. Satr ko'rinishi: `[14:03:12] ERROR APP: ...` (darajalar: `TRACE`, `INFO`, `WARN`, `ERROR`,
-`CRITICAL`; `ZAMIN` - dvigatel, `APP` - o'yin skriptlari). `--log-file <yo'l>` faqat shu faylga yozadi,
-`--no-log-file` log faylsiz (faqat terminal).
+The file starts with the game's name and version, the engine build (commit, date), the start time, the project and the command
+line; the messages from before the file was opened are included too. Every line goes to disk at once - the log stays complete
+even on a crash. A line looks like `[14:03:12] ERROR APP: ...` (levels: `TRACE`, `INFO`, `WARN`, `ERROR`,
+`CRITICAL`; `ZAMIN` - the engine, `APP` - the game scripts). `--log-file <path>` writes only to that file,
+`--no-log-file` works without a log file (the terminal only).
 
-### Log darajalari
+### Log levels
 
-Ikki logger bor - dvigatelniki (`ZAMIN`, `ZM_CORE_INFO` ...) va o'yinniki (`APP`, `ZM_INFO` ...) - har birining
-o'z eng past darajasi: undan pastdagi xabar hech qayerga yozilmaydi (makros matnni formatlamaydi ham, ya'ni
-o'chirilgan `ZM_CORE_TRACE` deyarli tekin). Log faylining ham o'z darajasi bor: masalan terminalda hammasi,
-faylga faqat ogohlantirish va xatolar. Darajalar: `trace`, `info`, `warn`, `error`, `critical`, `off`.
+There are two loggers - the engine's (`ZAMIN`, `ZM_CORE_INFO` ...) and the game's (`APP`, `ZM_INFO` ...) - each with its
+own minimum level: a message below it is not written anywhere (the macro does not even format the text, so a
+disabled `ZM_CORE_TRACE` is almost free). The log file has its own level too: for example everything in the terminal,
+only warnings and errors in the file. Levels: `trace`, `info`, `warn`, `error`, `critical`, `off`.
 
-Qayerdan (har keyingisi oldingisidan ustun):
+Where from (each later one wins over the earlier ones):
 
-1. **Project settings > Player > Log**: dvigatel, o'yin skriptlari va faylga yoziladigan daraja, log fayli
-   yoziladimi va nechta eski fayl saqlanadi (standart: hammasi, fayl bor, 5 ta). `.zproject`da
+1. **Project settings > Player > Log**: the levels of the engine, the game scripts and the file, whether a log file is
+   written and how many old files are kept (default: everything, a file, 5). In the `.zproject`
    `"Player": { "Log": { "Engine": "info", "App": "trace", "File": "warn", "WriteFile": true, "Keep": 5 } }`
-   (o'zgartirilmagan bo'lsa yozilmaydi).
-2. **`ZAMIN_LOG_LEVEL`** muhit o'zgaruvchisi.
-3. **`--log-level`**: `warn` - ikkala logger; `engine=error,app=info,file=warn` - alohida (kalitlar: `engine` /
-   `zamin` / `core`, `app` / `game`, `file`, `all` / `*`; ajratuvchi `,` `;` yoki bo'sh joy).
+   (not written when unchanged).
+2. The **`ZAMIN_LOG_LEVEL`** environment variable.
+3. **`--log-level`**: `warn` - both loggers; `engine=error,app=info,file=warn` - separately (keys: `engine` /
+   `zamin` / `core`, `app` / `game`, `file`, `all` / `*`; separated by `,` `;` or a space).
 
 ```
-ZaminPlayer Game.zproject --log-level warn                    # faqat ogohlantirish va xatolar
-ZaminPlayer Game.zproject --log-level engine=warn,file=error  # dvigatel jimroq, faylga faqat xatolar
+ZaminPlayer Game.zproject --log-level warn                    # only warnings and errors
+ZaminPlayer Game.zproject --log-level engine=warn,file=error  # a quieter engine, only errors in the file
 ZAMIN_LOG_LEVEL=app=trace ZaminPlayer Game.zproject
 ```
 
-Editor: **Sozlamalar > Log > Log darajalari / Log fayli** (editorning o'z log fayli:
-`~/.local/share/zamin/editor/logs/editor-<sana>.log` va `latest.log`), konsolning ⚙ menyusida ham darajalar;
-`ZaminEditor <loyiha> --log-level ...` va `ZAMIN_LOG_LEVEL` ishga tushishda sozlamalardan ustun. Kodda:
+The editor: **Preferences > Log > Log levels / Log file** (the editor's own log file:
+`~/.local/share/zamin/editor/logs/editor-<date>.log` and `latest.log`), the levels in the console's ⚙ menu too;
+`ZaminEditor <project> --log-level ...` and `ZAMIN_LOG_LEVEL` win over the preferences at startup. In code:
 `Log::SetLevel(LogSource::Engine, LogLevel::Warn)`, `Log::SetFileLevel(...)`, `LogLevelSettings`,
 `LogLevelOverride::Parse("engine=warn")`.
 
-## 7. Crash hisobotlari
+## 7. Crash reports
 
-O'yin qulasa (SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS yoki ushlanmagan C++ istisnosi) log papkasiga
-`crash-<sana_vaqt>.txt` yoziladi:
+When the game crashes (SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS or an uncaught C++ exception), `crash-<date_time>.txt` is
+written to the log folder:
 
 ```
 === Zamin crash report ===
-Dastur: Zamin Player
-O'yin: Zamin Platformer 0.4.0
-Dvigatel: Zamin Engine 0.1.0 (kommit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0)
-Sabab: SIGSEGV (segmentation fault) - manzil 0x8
+Program: Zamin Player
+Game: Zamin Platformer 0.4.0
+Engine: Zamin Engine 0.1.0 (commit 40a7394f2c, build 2026-11-07, Release, GCC 13.3.0)
+Reason: SIGSEGV (segmentation fault) - address 0x8
 Backtrace: ...
 Last log lines: ...
-Yuklangan modullar: ...
+Loaded modules: ...
 ```
 
-Keyin alohida jarayonda xabar oynasi ochiladi: `zenity`, `kdialog`, bo'lmasa playerning o'z oynasi
-(`ZaminPlayer --crash-dialog <hisobot>`: sabab, hisobot yo'li, "Open folder", "Copy path", "Close"),
-oxiri `xmessage`. O'yinchidan shu faylni yuborishni so'rang - unda kommit bor, xato aynan qaysi koddan ekanini
-bilasiz. Signal handler faqat xavfsiz (async-signal-safe) chaqiruvlardan foydalanadi; dastur odatdagi signal
-chiqish kodi bilan tugaydi. `--no-crash-handler` - debugger / core dump uchun, `--no-crash-dialog` - oynasiz.
-Avtomatik ishga tushishlarda (`ZAMIN_MAX_FRAMES`, `--benchmark`) oyna ko'rsatilmaydi.
+Then a message window opens in a separate process: `zenity`, `kdialog`, otherwise the player's own window
+(`ZaminPlayer --crash-dialog <report>`: the reason, the report path, "Open folder", "Copy path", "Close"),
+finally `xmessage`. Ask the player to send this file - it has the commit, so you know exactly which code the error
+comes from. The signal handler uses only safe (async-signal-safe) calls; the program ends with the usual signal
+exit code. `--no-crash-handler` - for a debugger / core dump, `--no-crash-dialog` - without the window.
+In automatic runs (`ZAMIN_MAX_FRAMES`, `--benchmark`) the window is not shown.
 
-**Assert'lar.** `ZM_ASSERT(shart, "xabar {}", qiymat)` / `ZM_CORE_ASSERT` Debug build'larda (va
-`-DZAMIN_ASSERTS=ON` bilan yig'ilgan Release'da) tekshiriladi. Bajarilmasa log'ga `CRITICAL` (ifoda, xabar,
-`fayl:qator`, funksiya), keyin: debugger ulangan bo'lsa shu joyda to'xtaydi, aks holda dastur `abort` qiladi va
-crash hisobotining sababi `Sabab: assert bajarilmadi - <ifoda> - <xabar> (Fayl.cpp:123, Funksiya)` bo'ladi.
-`ZM_VERIFY(shart, ...)` har build'da tekshiriladi va natijasini qaytaradi (`if (!ZM_VERIFY(p)) return;`),
-hech qachon dasturni to'xtatmaydi. `ZAMIN_ASSERT=auto|break|abort|continue` xatti-harakatni o'zgartiradi.
-Editorda o'yin skriptidagi `ZM_ASSERT` faqat log'ga yoziladi (editor yopilmaydi).
+**Asserts.** `ZM_ASSERT(condition, "message {}", value)` / `ZM_CORE_ASSERT` are checked in Debug builds (and in a
+Release built with `-DZAMIN_ASSERTS=ON`). On a failure a `CRITICAL` line goes to the log (the expression, the message,
+`file:line`, the function), then: with a debugger attached it stops at that place, otherwise the program `abort`s and
+the reason in the crash report is `Reason: assert failed - <expression> - <message> (File.cpp:123, Function)`.
+`ZM_VERIFY(condition, ...)` is checked in every build and returns its result (`if (!ZM_VERIFY(p)) return;`);
+it never stops the program. `ZAMIN_ASSERT=auto|break|abort|continue` changes the behavior.
+In the editor a `ZM_ASSERT` in a game script is only written to the log (the editor does not close).
 
-## 8. Versiya ma'lumoti
+## 8. Version information
 
 ```
 $ ./Platformer2D.sh --version
 Zamin Platformer 0.4.0 - Zamin Studio
 Zamin Engine 0.1.0
-  Kommit:  40a7394f2c (2026-11-07)
+  Commit:  40a7394f2c (2026-11-07)
   Build:   2026-11-07, Release, GCC 13.3.0
 ```
 
-- **O'yin versiyasi** - Project settings > Player > Versiya (`1.4.2`, semver), nomi - Mahsulot nomi.
-- **Dvigatel build'i** (`BuildInfo`) build paytida yoziladi (`cmake/GenerateBuildInfo.cmake`): git kommiti (10 ta
-  belgi), kommitdagi o'zgarishlar (`-dirty`, "[o'zgarishlar bilan]"), kommit sanasi, build sanasi (UTC, kun;
-  `SOURCE_DATE_EPOCH` bo'lsa o'sha), build turi va kompilyator. Git'siz build'da kommit "noma'lum". Fayl faqat
-  biror narsa o'zgarganda qayta yoziladi - dvigatel har build'da qayta kompilyatsiya qilinmaydi.
-- Qayerda ko'rinadi: `--version`, har log faylining boshi, crash hisoboti, editorning Yordam > "Zamin haqida"
-  oynasi ("Versiyani nusxalash" tugmasi bilan), Platformer2D sozlamalar menyusining burchagi va pauza menyusi
-  burchagi (`VersionInfo::FormatShort()`: `Zamin Platformer v0.4.0  |  Zamin Engine 0.1.0 (40a7394)`).
+- **The game version** - Project settings > Player > Version (`1.4.2`, semver), the name - Product name.
+- **The engine build** (`BuildInfo`) is written at build time (`cmake/GenerateBuildInfo.cmake`): the git commit (10
+  characters), changes on top of the commit (`-dirty`, "[with changes]"), the commit date, the build date (UTC, the day;
+  `SOURCE_DATE_EPOCH` when it is set), the build type and the compiler. In a build without git the commit is "unknown". The file is
+  rewritten only when something changed - the engine is not recompiled on every build.
+- Where it shows up: `--version`, the start of every log file, the crash report, the editor's Help > "About Zamin"
+  window (with a "Copy version" button), the corner of the Platformer2D settings menu and the corner of the pause
+  menu (`VersionInfo::FormatShort()`: `Zamin Platformer v0.4.0  |  Zamin Engine 0.1.0 (40a7394)`).
 
-Skriptdan:
+From a script:
 
 ```cpp
 VersionInfo v = VersionInfo::ForActiveProject();
-SetText(VersionLabel, v.FormatShort());                    // menyu burchagi uchun bir qator
-ZM_INFO("{}", BuildInfo::Get().Describe());                // "Zamin Engine 0.1.0 (kommit ..., build ...)"
-Application::GetVersion(); Application::GetProductName();  // o'yin versiyasi va nomi
+SetText(VersionLabel, v.FormatShort());                    // one line for the menu corner
+ZM_INFO("{}", BuildInfo::Get().Describe());                // "Zamin Engine 0.1.0 (commit ..., build ...)"
+Application::GetVersion(); Application::GetProductName();  // the game's version and name
 ```
 
-## 9. Skriptlar uchun: ekran va kursor API
+## 9. For scripts: the display and cursor APIs
 
-### Ekran (`Display`)
+### The display (`Display`)
 
-Player o'z oynasini `Display` ga bog'laydi; o'yinning sozlamalar menyusi shu orqali oynani o'zgartiradi. Editorning
-Play rejimida oyna bog'lanmagan: qiymatlar faqat saqlanadi (editor oynasi o'zgarmaydi), gamma / yorqinlik esa
-o'yin ko'rinishida ishlaydi. Har Play player kabi boshlanadi (`Display::ResetOptions`: loyihaning oyna rejimi va
-VSync'i, tanlangan o'lcham yo'q, gamma 1; keyin saqlanganlar yuklanadi) va Stop'da shu holatga qaytadi - bir
-yurgizishda o'zgartirilgan narsa keyingisiga o'tmaydi. Play'dagi o'lchamlar ro'yxati editor monitoriniki (ekrandan
-katta o'lcham taklif qilinmaydi). Player oynasi ochilganda saqlangan / so'ralgan oyna o'lchami monitordan katta
-bo'lsa, nisbati saqlangan holda monitorga sig'diriladi.
+The player binds its window to `Display`; the game's settings menu changes the window through it. In the editor's
+Play mode no window is bound: the values are only saved (the editor window does not change), while gamma / brightness
+work in the game view. Every Play starts like the player (`Display::ResetOptions`: the project's window mode and
+VSync, no chosen size, gamma 1; then the saved ones are loaded) and returns to that state on Stop - something changed in one
+run does not carry over to the next. The size list in Play is the editor monitor's (no size larger than the screen
+is offered). When the player window opens and the saved / requested window size is larger than the monitor,
+it is fitted to the monitor keeping its ratio.
 
 ```cpp
-// Ekran o'lchami: monitorning video rejimlari (oynasiz - editor monitori yoki 1280x720 ... 2560x1440), joriy
-// o'lcham doim ro'yxatda.
+// Screen size: the monitor's video modes (without a window - the editor monitor or 1280x720 ... 2560x1440), the current
+// size is always in the list.
 std::vector<ScreenResolution> sizes = Display::GetResolutions();
-Display::SetResolution(1920, 1080);     // oynali rejimda oyna o'lchami, eksklyuziv to'liq ekranda video rejim
+Display::SetResolution(1920, 1080);     // the window size in windowed mode, the video mode in exclusive fullscreen
 ScreenResolution r = Display::GetResolution();
 
-Display::SetFullscreen(true);           // loyihaning to'liq ekran turi (eksklyuziv yoki chegarasiz)
+Display::SetFullscreen(true);           // the project's fullscreen kind (exclusive or borderless)
 Display::SetVSync(false);
 Display::SetGamma(1.2f);                // 0.5 ... 2.0
 Display::SetBrightness(0.9f);           // 0.5 ... 1.5
-Display::SaveSettings();                // keyingi ishga tushishda shular bilan ochiladi
-// "Standart" tugmasi: keyingi ishga tushish qanday ochilsa (loyihaning oyna rejimi, VSync), saqlanganlar o'chadi.
+Display::SaveSettings();                // the next run opens with these
+// The "Defaults" button: the way the next run would open (the project's window mode, VSync), the saved ones are deleted.
 Display::ResetOptions(Project::GetPlayerSettings());
 Display::ClearSavedSettings();
 ```
 
-### Kursor (`Cursor`)
+### The cursor (`Cursor`)
 
 ```cpp
-Cursor::SetLockMode(CursorLockMode::Locked);    // yashirin, joyida: Input::GetMouseDelta() bilan sichqoncha-qarash
-Cursor::SetLockMode(CursorLockMode::Confined);  // oyna ichida qoladi
+Cursor::SetLockMode(CursorLockMode::Locked);    // hidden, in place: mouse look with Input::GetMouseDelta()
+Cursor::SetLockMode(CursorLockMode::Confined);  // stays inside the window
 Cursor::SetVisible(false);
-Cursor::SetImage("Textures/crosshair.png", { 16, 16 });   // o'z rasmi (hotspot); Cursor::ClearImage()
-Cursor::SetShape(CursorShape::Hand);                      // tizim shakllari
-Cursor::SetReleaseWhenPaused(true);                       // pauzada bo'sh va ko'rinadigan (standart)
+Cursor::SetImage("Textures/crosshair.png", { 16, 16 });   // your own picture (hotspot); Cursor::ClearImage()
+Cursor::SetShape(CursorShape::Hand);                      // the system shapes
+Cursor::SetReleaseWhenPaused(true);                       // free and visible during a pause (the default)
 Cursor::Reset();
 ```
 
-Istaklar har kadr oynaga qo'llanadi; oyna fokusni yo'qotsa, o'yin pauzada bo'lsa (`Time::SetPaused`) yoki Play
-to'xtasa tizim kursori qaytadi. Editorda o'yin ko'rinishi fokusda bo'lganda ishlaydi, **Esc** kursorni editorga
-qaytaradi.
+The requests are applied to the window every frame; when the window loses the focus, when the game is paused (`Time::SetPaused`) or
+when Play stops, the system cursor comes back. In the editor it works while the game view has the focus, and **Esc** gives the cursor
+back to the editor.
 
-## 10. O'yin menyusi namunasi
+## 10. The game menu sample
 
-Platformer2D'da qayta ishlatiladigan menyu bor: **`Prefabs/GameMenu.zprefab`** va uning skripti
-**`GameMenu`** (`Projects/Platformer2D/Source/GameMenu.cpp`). `Menu.zscene` (bosh menyu) shu prefabning nusxasi.
+Platformer2D has a reusable menu: **`Prefabs/GameMenu.zprefab`** and its script
+**`GameMenu`** (`Projects/Platformer2D/Source/GameMenu.cpp`). `Menu.zscene` (the main menu) is an instance of this prefab.
 
-![O'yin menyusi](images/runtime-game-menu.jpg)
+![The game menu](images/runtime-game-menu.jpg)
 
-*`ZaminPlayer Projects/Platformer2D --scene Scenes/Menu.zscene`: `GameMenu` prefabining bosh menyusi — O'ynash,
-Sozlamalar, Chiqish; pastki burchakda o'yin versiyasi.*
+*`ZaminPlayer Projects/Platformer2D --scene Scenes/Menu.zscene`: the main menu of the `GameMenu` prefab — Play,
+Settings, Quit; the game version in the bottom corner.*
 
-- **Asosiy panel**: o'yin nomi, "O'ynash" (`PlayScene` ga so'nib o'tadi), "Sozlamalar", "Chiqish"; ekran burchagida
-  o'yin versiyasi.
-- **Sozlamalar paneli**: ekran o'lchami, to'liq ekran, VSync, grafika sifati, gamma, ovoz (umumiy, musiqa,
-  effektlar), til; "Orqaga" (saqlaydi), "Standart" (saqlanganlarni o'chiradi). Panel burchagida o'yin va dvigatel
-  versiyasi.
-- **Boshqaruv**: strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. O'lcham, sifat va til
-  tugmalari bosilganda keyingisiga o'tadi, tanlangan bo'lsa chap / o'ng oldingi / keyingisini tanlaydi.
-- **Saqlash**: "Orqaga" yoki menyu yopilganda `Display` / `Audio` / `Quality::SaveSettings`, til tanlanganda
-  `Localization::SaveSettings` - player keyingi safar shu sozlamalar bilan ochiladi (3-bo'lim).
+- **The main panel**: the game's name, "Play" (fades over to `PlayScene`), "Settings", "Quit"; the game version in the
+  screen's corner.
+- **The settings panel**: the screen size, fullscreen, VSync, graphics quality, gamma, sound (master, music,
+  effects), language; "Back" (saves), "Defaults" (deletes the saved ones). In the panel's corner are the game and engine
+  versions.
+- **Controls**: the arrows / D-pad - select, Enter / A - press, Esc / B - back. Pressing the size, quality and language
+  buttons moves to the next one; when one is selected, left / right picks the previous / next.
+- **Saving**: "Back", or closing the menu, calls `Display` / `Audio` / `Quality::SaveSettings`, and choosing a language
+  `Localization::SaveSettings` - the player opens with these settings next time (section 3).
 
-**O'z o'yiningizga qo'shish**: prefabni Kontent panelidan sahnaga sudrang (yoki skriptdan
-`Instantiate("Prefabs/GameMenu.zprefab", glm::vec3(0.0f))`), inspektorda `GameMenu` maydonlarini sozlang:
+**Adding it to your own game**: drag the prefab from the Content panel into the scene (or from a script
+`Instantiate("Prefabs/GameMenu.zprefab", glm::vec3(0.0f))`) and set up the `GameMenu` fields in the inspector:
 
-| Maydon | Ma'nosi |
+| Field | Meaning |
 |---|---|
-| `PauseMenu` | O'chiq: bosh menyu (doim ko'rinadi). Yoqiq: pauza menyusi - Esc / Start o'yinni to'xtatib ochadi, "O'ynash" o'rnida "Davom etish" |
-| `PlayScene` | "O'ynash" ochadigan sahna (yo'l yoki build sahna nomi) |
-| `FadeOut`, `FadeIn` | O'tishdagi qorayish / ochilish (sekund) |
-| Panellar, tugmalar, slayderlar | Prefab ichidagi obyektlar (o'zgartirmasangiz bo'ladi) |
+| `PauseMenu` | Off: the main menu (always visible). On: the pause menu - Esc / Start pauses the game and opens it, with "Resume" in place of "Play" |
+| `PlayScene` | The scene "Play" opens (a path or a build scene name) |
+| `FadeOut`, `FadeIn` | The fade out / in of the transition (seconds) |
+| Panels, buttons, sliders | The entities inside the prefab (they can stay as they are) |
 
-Menyu matnlari lokalizatsiya kalitlari bilan (`menu.play`, `menu.main_title`, `menu.nav_hint`, `pause.*`,
-`settings.*` - jumladan `settings.resolution` = `"Ekran o'lchami: {0}"`, `settings.quality` =
-`"Grafika sifati: {0}"`); boshqa o'yinga ko'chirganda shu kalitlarni til fayllaringizga qo'shing
-(`Projects/Platformer2D/Assets/Localization/*.json` dan nusxa oling). 1-3 darajalardagi pauza menyusi
-(`PauseMenu`, M12) ham saqlanib qolgan - ular ovoz, ekran, gamma, til sozlamalari va burchakda versiyani ko'rsatadi.
+The menu texts use localization keys (`menu.play`, `menu.main_title`, `menu.nav_hint`, `pause.*`,
+`settings.*` - including `settings.resolution` = `"Resolution: {0}"`, `settings.quality` =
+`"Graphics quality: {0}"`); when moving it to another game, add these keys to your language files
+(copy them from `Projects/Platformer2D/Assets/Localization/*.json`). The pause menu of levels 1-3
+(`PauseMenu`, M12) is kept too - it shows the sound, display, gamma and language settings and the version in the corner.
 
-## 11. Eksport
+## 11. Export
 
-Editorda **Fayl > O'yinni build qilish...** o'yinni papkaga eksport qiladi:
+In the editor **File > Build game...** exports the game to a folder:
 
 ```
-<papka>/
-  Platformer2D.sh              ishga tushirish skripti (o'z papkasiga o'tadi, ZaminPlayer Game/Platformer2D.zproject)
-  ZaminPlayer, libZamin.so     player va dvigatel (strip qilingan)
-  Resources/                   dvigatel resurslari (shriftlar)
-  Game/Platformer2D.zproject   loyiha fayli
-  Game/Assets/                 faqat ishlatiladigan assetlar (+ .zmeta, sahnalarning binar keshi .zsceneb)
-  Game/AssetRegistry.zreg      asset registri (faqat eksport qilinganlar)
-  Game/Binaries/libPlatformer2D.so  skript moduli (Release, -O2, strip)
-  Platformer2D.desktop         ko'chiriladigan menyu yozuvi (o'z yonidagi skriptni ishga tushiradi)
-  Platformer2D.png, icons/hicolor/<o'lcham>/apps/zamin-platformer2d.png   ikonka (16 ... 256 px)
-  install-desktop-entry.sh     o'yinni ilovalar menyusiga o'rnatadi (--uninstall - olib tashlaydi)
-  export-report.json, export-report.txt   eksport hisoboti
-  excluded-assets.txt          chiqarib tashlangan assetlar (bo'lsa)
+<folder>/
+  Platformer2D.sh              the start script (changes to its own folder, ZaminPlayer Game/Platformer2D.zproject)
+  ZaminPlayer, libZamin.so     the player and the engine (stripped)
+  Resources/                   the engine resources (fonts)
+  Game/Platformer2D.zproject   the project file
+  Game/Assets/                 only the assets in use (+ .zmeta, the binary cache of the scenes .zsceneb)
+  Game/AssetRegistry.zreg      the asset registry (only the exported ones)
+  Game/Binaries/libPlatformer2D.so  the script module (Release, -O2, strip)
+  Platformer2D.desktop         a relocatable menu entry (it runs the script next to it)
+  Platformer2D.png, icons/hicolor/<size>/apps/zamin-platformer2d.png   the icon (16 ... 256 px)
+  install-desktop-entry.sh     installs the game into the applications menu (--uninstall - removes it)
+  export-report.json, export-report.txt   the export report
+  excluded-assets.txt          the excluded assets (when there are any)
 ```
 
-- **Ishlatilmagan assetlar chiqarib tashlanadi**: build sahnalari va ular orqali kerak bo'lgan hamma narsa
-  (prefablar, materiallar, modellar, kliplar), loyiha fayli va C++ kodidagi `"..."` satrlarida tilga olingan fayllar,
-  `Resources/`, til fayllari va "Doim kiritish" ro'yxati. Batafsil: [ProjectSettings.md, 12-bo'lim](ProjectSettings.md#12-build-sahnalar).
-- **Skript moduli Release'da** alohida build papkasida (`<loyiha>/Build/ExportRelease`) qayta kompilyatsiya
-  qilinadi; binarlar `strip` qilinadi (~218 MB -> ~37 MB). Ikkalasini o'chirsa bo'ladi.
-- **Eksport o'zini tekshiradi** (`ExportFiles::CheckExportFolder`): ishga tushirish skripti (bajarish huquqi bilan),
-  player, dvigatel, `Resources/`, loyiha fayli, uning boshlang'ich va build sahnalari, asset registri, skript moduli,
-  `.desktop` va o'rnatish skripti joyida bo'lishi kerak - yo'qlari hisobotga xato bo'lib yoziladi. Skript moduli
-  topilmasa (kompilyatsiya qilinmagan) o'yin skriptlarsiz eksport qilinadi - bu xato emas, ogohlantirish.
-- **Hisobot oynasi** eksport tugaganda ochiladi: jami hajm, turlar bo'yicha hajm, eng katta fayllar, chiqarib
-  tashlangan assetlar, ogohlantirish va xatolar (Fayl > "Eksport hisoboti" - qayta ochish).
-- Eksport qilingan papkani istalgan joyga ko'chirish, arxivlash mumkin: skript va `.desktop` o'z joyidan ishlaydi.
-  `.desktop` ikonkani faqat to'liq yo'l bilan ko'rsata oladi (standart nisbiy yo'lni qabul qilmaydi): o'yin yangi
-  joydan birinchi marta ishga tushganda launcher (`<O'yin>.sh`) yonidagi `.desktop`ning `Icon=` qatorini shu papkaga
-  to'g'rilaydi. Ilovalar menyusiga qo'shish uchun yangi joyda `./install-desktop-entry.sh` ni ishga tushiring.
+- **Unused assets are left out**: the build scenes and everything needed through them
+  (prefabs, materials, models, clips), the files named in the project file and in the `"..."` strings of the C++ code,
+  `Resources/`, the language files and the "Always include" list. More: [ProjectSettings.md, section 12](ProjectSettings.md#12-build-sahnalar).
+- **The script module in Release** is recompiled in a separate build folder (`<project>/Build/ExportRelease`);
+  the binaries are `strip`ped (~218 MB -> ~37 MB). Both can be turned off.
+- **The export checks itself** (`ExportFiles::CheckExportFolder`): the start script (with execute permission),
+  the player, the engine, `Resources/`, the project file, its start and build scenes, the asset registry, the script module,
+  the `.desktop` and the install script must be in place - the missing ones go into the report as errors. When the script module
+  is not found (not compiled) the game is exported without scripts - this is not an error but a warning.
+- **The report window** opens when the export finishes: the total size, the size by type, the largest files, the
+  excluded assets, the warnings and errors (File > "Export report" - reopens it).
+- The exported folder can be moved anywhere or archived: the script and the `.desktop` work from where they are.
+  A `.desktop` can only point to the icon with a full path (the standard does not accept a relative one): when the game first
+  starts from a new place, the launcher (`<Game>.sh`) fixes the `Icon=` line of the `.desktop` next to it to point to this folder.
+  To add it to the applications menu, run `./install-desktop-entry.sh` in the new place.
 
-## 12. Ishlash testi (headless)
+## 12. The performance test (headless)
 
-`--benchmark N` - o'yin o'rniga uning boshlang'ich sahnasini (yoki `--scene`) **N kadr o'lchash**: splash, FPS
-cheklovi va VSync o'chiriladi (buyruq qatorida `--vsync` / `--fps` berilmasa), fonda ham ishlaydi; avval
-`--benchmark-warmup` (standart 60) kadr isitiladi (shaderlar, keshlar, sahnaning birinchi kadrlari), keyin har kadr
-vaqti yoziladi. Natija log'da va `--benchmark-out` JSON faylida, chiqish kodi: **0** - o'tdi, **3** - chegaradan
-oshdi (`--benchmark-max-avg MS`, `--benchmark-max-p95 MS`), **2** - ishlamadi (sahna yuklanmadi, player N kadr
-o'lchanmasdan yopildi - oyna yopildi, o'yin `QuitGame` qildi, `ZAMIN_MAX_FRAMES` - yoki `--benchmark-out` fayli
-yozilmadi). Test oxirigacha bormasa ham natija (o'lchangan kadrlar bilan, "o'tmadi") log'ga va faylga yoziladi.
+`--benchmark N` - instead of the game, **measuring N frames** of its start scene (or `--scene`): the splash, the FPS
+limit and VSync are turned off (unless `--vsync` / `--fps` are given on the command line), and it runs in the background too; first
+`--benchmark-warmup` (default 60) frames warm up (shaders, caches, the scene's first frames), then the time of each frame
+is recorded. The result is in the log and in the `--benchmark-out` JSON file, and the exit code is **0** - passed, **3** - over a limit
+(`--benchmark-max-avg MS`, `--benchmark-max-p95 MS`), **2** - it did not run (the scene did not load, the player closed before N frames
+were measured - the window was closed, the game called `QuitGame`, `ZAMIN_MAX_FRAMES` - or the `--benchmark-out` file was not
+written). Even when the test does not get to the end, the result (with the frames measured, "not passed") is written to the log and the file.
 
 ```bash
 xvfb-run -a ./build/bin/ZaminPlayer Projects/Showcase3D --benchmark 300 --benchmark-out bench.json --resolution 1280x720
@@ -389,142 +389,142 @@ Benchmark: Zamin Showcase 3D 1.2.0 - Scenes/Showcase.zscene (1280x720, llvmpipe 
   Update:    average 65.82 ms (15.2 FPS), ... (game update and draw calls, without swap)
 ```
 
-- **Frame** - bir kadr boshidan keyingisining boshigacha (yangilash, chizish, swap); **Update** - playerning o'z
-  yangilash va chizish chaqiruvlari (swap'siz). Persentillar "eng yaqin rang" bo'yicha: p95 - kadrlarning 95% i
-  undan sekin bo'lmagan eng kichik vaqt (`FrameTimeStats`).
-- JSON: `Game`, `GameVersion`, `Scene`, `Engine` (build), `Renderer` (GPU), `Width`, `Height`, `Warmup`, `Seconds`,
+- **Frame** - from the start of one frame to the start of the next (update, draw, swap); **Update** - the player's own
+  update and draw calls (without the swap). The percentiles use the "nearest rank" method: p95 is the smallest time that 95% of
+  the frames were not slower than (`FrameTimeStats`).
+- JSON: `Game`, `GameVersion`, `Scene`, `Engine` (the build), `Renderer` (the GPU), `Width`, `Height`, `Warmup`, `Seconds`,
   `LoadSeconds`, `Frame` / `Update` (`Count`, `Average`, `Median`, `P95`, `P99`, `Min`, `Max`, `StdDev`,
-  `AverageFPS`, `Low1PercentFPS`), `Limits`, `Passed`, `Failures`, `Frames` (har bir kadr, ms).
-- **Namuna o'yinlar uchun skript**: `Tests/player_bench.sh` (yoki `cmake --build build --target player_bench`) uchala
-  namunani displeysiz (xvfb) o'lchab jadval chiqaradi, hisobotlar `build/PlayerBench/` da:
+  `AverageFPS`, `Low1PercentFPS`), `Limits`, `Passed`, `Failures`, `Frames` (every frame, ms).
+- **A script for the sample games**: `Tests/player_bench.sh` (or `cmake --build build --target player_bench`) measures the three
+  samples without a display (xvfb) and prints a table; the reports are in `build/PlayerBench/`:
 
 ```
-Loyiha          o'rt.ms   med.ms   p95 ms   p99 ms      FPS  natija
-Platformer2D      8.962    8.925    9.383    9.492  111.582  o'tdi
-Showcase3D       79.034   77.437    89.79  104.076   12.653  o'tdi
-Adventure3D     107.708  107.109  112.551   123.94    9.284  o'tdi
+Project          avg ms   med.ms   p95 ms   p99 ms      FPS  result
+Platformer2D      8.962    8.925    9.383    9.492  111.582  passed
+Showcase3D       79.034   77.437    89.79  104.076   12.653  passed
+Adventure3D     107.708  107.109  112.551   123.94    9.284  passed
 ```
 
-  Variantlar: `--frames N`, `--warmup N`, `--project <papka>` (bir necha marta), `--scene`, `--resolution`,
-  `--max-avg MS`, `--max-p95 MS`, `--out <papka>`; qolganlari playerga (`--quality Low` ...). Har ishga tushish toza
-  HOME bilan (saqlangan sozlamalar ta'sir qilmaydi). Xvfb'da GPU yo'q (llvmpipe - protsessorda chizish): raqamlarni
-  bir mashinadagi o'zgarishlarni solishtirish uchun ishlating, haqiqiy GPU'dagi FPS bilan emas.
+  Options: `--frames N`, `--warmup N`, `--project <folder>` (several times), `--scene`, `--resolution`,
+  `--max-avg MS`, `--max-p95 MS`, `--out <folder>`; the rest go to the player (`--quality Low` ...). Every run uses a clean
+  HOME (the saved settings have no effect). There is no GPU under Xvfb (llvmpipe - drawing on the processor): use the numbers
+  to compare changes on one machine, not against the FPS on a real GPU.
 
-## 13. Eksport testi (avtomatik)
+## 13. The export test (automatic)
 
-`Tests/export_test.sh` (yoki `cmake --build build --target export_test`) eksportni boshidan oxirigacha tekshiradi:
+`Tests/export_test.sh` (or `cmake --build build --target export_test`) checks the export from start to finish:
 
-1. editor Platformer2D'ni vaqtinchalik papkaga eksport qiladi (`ZAMIN_EDITOR_EXPORT`, xvfb) - chiqish kodi 0,
-   `export-report.json` da `"Succeeded": true`, eksportning o'z tekshiruvi xatosiz;
-2. `<O'yin>.sh --version` o'yin nomi va dvigatel versiyasini aytadi;
-3. eksport qilingan o'yin ishga tushirish skripti orqali boshlang'ich sahnasini `--benchmark` bilan ishlatadi -
-   chiqish kodi 0, logida `ERROR` / `CRITICAL` yo'q, skript moduli yuklangan, natija fayli bor;
-4. papka boshqa joyga ko'chirilgandan keyin ham ishga tushadi.
+1. the editor exports Platformer2D to a temporary folder (`ZAMIN_EDITOR_EXPORT`, xvfb) - exit code 0,
+   `"Succeeded": true` in `export-report.json`, the export's own check without errors;
+2. `<Game>.sh --version` gives the game name and the engine version;
+3. the exported game runs its start scene with `--benchmark` through its start script -
+   exit code 0, no `ERROR` / `CRITICAL` in its log, the script module loaded, the result file present;
+4. it still starts after the folder was moved elsewhere.
 
 ```
-Eksport testi: Platformer2D (Zamin Platformer) -> /tmp/zamin-export-test.XXXX/export
-  [OK]   editor eksportni tugatdi (chiqish kodi 0)
-  [OK]   export-report.json: muvaffaqiyatli (34 qatorli hisobot)
+Export test: Platformer2D (Zamin Platformer) -> /tmp/zamin-export-test.XXXX/export
+  [OK]   the editor finished the export (exit code 0)
+  [OK]   export-report.json: success (a report of 34 lines)
   [OK]   --version: Zamin Platformer 0.4.0 - Zamin Studio Zamin Engine 0.1.0
-  [OK]   eksport qilingan o'yin 120 kadr ishladi (chiqish kodi 0)
-  [OK]   o'yin logida xato yo'q (30 qator)
+  [OK]   the exported game ran 120 frames (exit code 0)
+  [OK]   no errors in the game log (30 lines)
   [OK]   Script module loaded: libPlatformer2D.so (25 script classes)
-  [OK]   boshqa papkaga ko'chirilgandan keyin ham ishga tushadi
-Eksport testi: hammasi o'tdi
+  [OK]   starts after being moved to another folder too
+Export test: all passed
 ```
 
-Variantlar: `--project Projects/Adventure3D`, `--frames N`, `--keep` (vaqtinchalik papka qoladi), `--work <papka>`.
-Chiqish kodi: 0 - hammasi o'tdi, 1 - xato bor (papka saqlanadi), 2 - editor / player topilmadi. Loyihaning o'zi
-o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday qiladi).
+Options: `--project Projects/Adventure3D`, `--frames N`, `--keep` (the temporary folder stays), `--work <folder>`.
+The exit code: 0 - all passed, 1 - there is an error (the folder is kept), 2 - the editor / player was not found. The project
+itself does not change (the Release module is in `<project>/Build/ExportRelease`, as the editor does it).
 
-## 14. Avtomatlashtirish uchun muhit o'zgaruvchilari
+## 14. Environment variables for automation
 
-| O'zgaruvchi | Kim | Ma'nosi |
+| Variable | Who | Meaning |
 |---|---|---|
-| `ZAMIN_MAX_FRAMES=N` | hammasi | N kadrdan keyin yopiladi; FPS cheklanmaydi, splash va crash oynasi yo'q |
-| `ZAMIN_SCREENSHOT=fayl.png` | hammasi | Oxirgi kadr rasmi |
-| `ZAMIN_PLAYER_INPUT="<kadr>:<amal>;..."` | player | Tugmalar (`Down`, `Enter` ... - bir kadr bosiladi), `hold=W` / `release=W` (tugma qo'yib yuborilguncha bosib turiladi), `mouse=x,y`, `click`, `down` / `up`, `scroll=dy`; simulyatsiya qilingan gamepad (0-gamepad, birinchi amali ulaydi): `pad=A` (bir kadr), `padhold=A` / `padrelease=A`, `stick=LeftX,0.8` (o'q shu qiymatda qoladi; triggerlar 0..1) |
-| `ZAMIN_UI_AUDIT=top,120,300` | player | UI audit ([UI.md](UI.md#4-ui-canvas-ekranga-moslashish)): `top` — faol sahna yoki ochiq gameplay UI paneli almashgandan 12 kadr keyin, raqamlar — o'sha kadrlarda `UI_AUDIT scene=… frame=… {json}` qatori (qoidalar buzilishi `Issues` da); `ZAMIN_UI_AUDIT_SIZES=800x600,1920x1080` — shu o'lchamlarda (chizmasdan), aks holda o'yin ko'rinishida; `ZAMIN_UI_AUDIT_ELEMENTS=1` — har element ham |
-| `ZAMIN_SOAK_STATS=N` | player | Har N kadrda `SOAK frame=… scene=… rss=<MiB> entities=… engine=<MiB>` qatori: jarayon RAM'i, faol sahna obyektlari, engine hisoblagan xotira (`Tests/slice_bench.py --soak`, uzoq o'yinda xotira o'sishi) |
-| `ZAMIN_SCREENSHOT_ON="<matn>\|<kadr>\|<fayl.png>[\|quit]"` | player | Logda `<matn>` li birinchi qatordan `<kadr>` (0..600) keyin o'sha kadr rasmi; `\|quit` bilan keyin player yopiladi (masalan g'alaba ekrani: `SLICE_VICTORY\|120\|victory.png\|quit`) |
-| `ZAMIN_DEMO=1`, `ZAMIN_DEMO_RECORDS=1`, `ZAMIN_START_LEVEL=N` | namuna o'yinlar | Bot o'ynaydi; botning natijasi ham rekord bo'ladi (testlar); shu darajadan ([Samples.md](Samples.md#demo-mode)) |
-| `ZAMIN_CAPTURE_FPS=N` | hammasi | O'yin vaqti qat'iy: har kadr aniq 1/N s (`Time::SetCaptureFrameRate`) - N kadr har kompyuterda bir xil o'yin vaqti (testlar, kadrma-kadr yozib olish) |
-| `ZAMIN_PLAYER_STATS=1` | player | Chiqishda render statistikasi, oxirgi kadr sahnasi (obyektlar, eng ko'p komponentlar), kadr vaqtlari, profiler, audio, sahna yuklash vaqtlari |
-| `ZAMIN_PLAYER_SPLASH=1` | player | Avtomatik ishga tushishda ham splash |
-| `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<soni>]` | hammasi | Fokus yo'qolishini taqlid qiladi (fonda pauza) |
-| `ZAMIN_JOBS=N` | hammasi | Vazifalar tizimining ishchi oqimlari (`--jobs`dan ustun; 0 yoki `off` - o'chiq) |
-| `ZAMIN_LOG_LEVEL=<daraja>` | hammasi | Log darajalari (`--log-level` kabi; loyiha / editor sozlamalaridan ustun, `--log-level`dan past) |
-| `ZAMIN_ASSERT=auto/break/abort/continue` | hammasi | Bajarilmagan assert nima qiladi (7-bo'lim) |
-| `ZAMIN_EDITOR_CONSOLE=...;options` | editor | Konsolning sozlamalar menyusi (log darajalari bilan) ochiq |
-| `ZAMIN_EDITOR_STATS=memory` / `jobs` | editor | Statistika panelida Xotira / Vazifalar tizimi bo'limlari ochiq; chiqishda xotira va vazifalar log'ga |
-| `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv / abort / fpe / exception / assert>` | player | Ataylab crash (`assert` - bajarilmagan `ZM_ASSERT`) |
-| `ZAMIN_CRASH_DIALOG=1` | player | Avtomatik ishga tushishda ham crash oynasi |
-| `ZAMIN_PLAYER_NO_CULLING=1`, `ZAMIN_PLAYER_NO_INSTANCING=1` | player | Frustum culling / instancing o'chiq (solishtirish) |
-| `ZAMIN_EDITOR_EXPORT=<papka>` | editor | 5-kadrda o'yinni eksport qiladi va tugashini kutadi |
-| `ZAMIN_EDITOR_EXPORT_REPORT=<papka>` | editor | Avvalgi eksport hisobotini oynada ochadi |
-| `ZAMIN_EDITOR_ABOUT=1` | editor | "Zamin haqida" oynasi (versiya, kommit, build) |
+| `ZAMIN_MAX_FRAMES=N` | all | Closes after N frames; the FPS is not limited, no splash and no crash window |
+| `ZAMIN_SCREENSHOT=file.png` | all | A picture of the last frame |
+| `ZAMIN_PLAYER_INPUT="<frame>:<action>;..."` | player | Keys (`Down`, `Enter` ... - pressed for one frame), `hold=W` / `release=W` (the key is held until it is released), `mouse=x,y`, `click`, `down` / `up`, `scroll=dy`; a simulated gamepad (gamepad 0, connected by its first action): `pad=A` (one frame), `padhold=A` / `padrelease=A`, `stick=LeftX,0.8` (the axis stays at that value; triggers 0..1) |
+| `ZAMIN_UI_AUDIT=top,120,300` | player | The UI audit ([UI.md](UI.md#4-ui-canvas-ekranga-moslashish)): `top` — 12 frames after the active scene or the open gameplay UI panel changed, numbers — in those frames, a `UI_AUDIT scene=… frame=… {json}` line (rule violations in `Issues`); `ZAMIN_UI_AUDIT_SIZES=800x600,1920x1080` — at those sizes (without drawing), otherwise in the game view; `ZAMIN_UI_AUDIT_ELEMENTS=1` — every element too |
+| `ZAMIN_SOAK_STATS=N` | player | Every N frames a `SOAK frame=… scene=… rss=<MiB> entities=… engine=<MiB>` line: the process RAM, the active scene's entities, the memory the engine counts (`Tests/slice_bench.py --soak`, memory growth in a long game) |
+| `ZAMIN_SCREENSHOT_ON="<text>\|<frames>\|<file.png>[\|quit]"` | player | A picture `<frames>` (0..600) frames after the first log line with `<text>`; with `\|quit` the player closes afterwards (for example the victory screen: `SLICE_VICTORY\|120\|victory.png\|quit`) |
+| `ZAMIN_DEMO=1`, `ZAMIN_DEMO_RECORDS=1`, `ZAMIN_START_LEVEL=N` | sample games | A bot plays; the bot's result becomes a record too (tests); from that level ([Samples.md](Samples.md#demo-mode)) |
+| `ZAMIN_CAPTURE_FPS=N` | all | A fixed game time: every frame exactly 1/N s (`Time::SetCaptureFrameRate`) - N frames are the same game time on every computer (tests, frame-by-frame recording) |
+| `ZAMIN_PLAYER_STATS=1` | player | On exit: render statistics, the last frame's scene (entities, the most common components), frame times, the profiler, audio, scene load times |
+| `ZAMIN_PLAYER_SPLASH=1` | player | The splash in automatic runs too |
+| `ZAMIN_FOCUS_LOSS_TEST=<frame>[:<count>]` | all | Simulates losing the focus (the background pause) |
+| `ZAMIN_JOBS=N` | all | The job system's worker threads (wins over `--jobs`; 0 or `off` - off) |
+| `ZAMIN_LOG_LEVEL=<level>` | all | Log levels (like `--log-level`; wins over the project / editor settings, below `--log-level`) |
+| `ZAMIN_ASSERT=auto/break/abort/continue` | all | What a failed assert does (section 7) |
+| `ZAMIN_EDITOR_CONSOLE=...;options` | editor | The console's settings menu (with the log levels) is open |
+| `ZAMIN_EDITOR_STATS=memory` / `jobs` | editor | The Memory / Job system sections of the Statistics panel are open; memory and jobs to the log on exit |
+| `ZAMIN_PLAYER_CRASH_TEST=<frame>:<segv / abort / fpe / exception / assert>` | player | A deliberate crash (`assert` - a failed `ZM_ASSERT`) |
+| `ZAMIN_CRASH_DIALOG=1` | player | The crash window in automatic runs too |
+| `ZAMIN_PLAYER_NO_CULLING=1`, `ZAMIN_PLAYER_NO_INSTANCING=1` | player | Frustum culling / instancing off (for a comparison) |
+| `ZAMIN_EDITOR_EXPORT=<folder>` | editor | Exports the game in frame 5 and waits for it to finish |
+| `ZAMIN_EDITOR_EXPORT_REPORT=<folder>` | editor | Opens an earlier export report in its window |
+| `ZAMIN_EDITOR_ABOUT=1` | editor | The "About Zamin" window (version, commit, build) |
 
-## 15. Muammolar va yechimlar
+## 15. Problems and solutions
 
-| Muammo | Yechim |
+| Problem | Solution |
 |---|---|
-| O'yin juda kichik / katta oynada ochiladi | Saqlangan o'lcham: sozlamalar menyusidan tanlang, `--resolution` bering yoki `savedata.json` dagi `Zamin.Display.*` ni o'chiring |
-| Qora ekran yoki "Sahna yuklanmadi" | Xato ekrani va log nima buzilganini aytadi; `--scene` bilan boshqa sahnani sinab ko'ring |
-| Skriptlar ishlamaydi | Log'da "Skript moduli yuklandi" bormi? Modul eksportda bo'lmasa eksport tekshiruvi xato beradi; loyihaning `ScriptModulePath` ini tekshiring |
-| O'yin qulaydi | `crash-*.txt` (log papkasida): sabab, backtrace, kommit; debugger uchun `--no-crash-handler` |
-| Kadrlar notekis | `--benchmark` yoki `ZAMIN_PLAYER_STATS=1`; VSync va `--fps` birga (5-bo'lim) |
-| Ilovalar menyusida ikonka yo'q / eski joyni ko'rsatadi | Papkani ko'chirgandan keyin `./install-desktop-entry.sh` (papkadagi `.desktop` ikonkasini o'yinning birinchi ishga tushishi o'zi to'g'rilaydi) |
-| Qaysi versiya ishlayapti? | `./O'yin.sh --version`, log faylining boshi yoki sozlamalar menyusining burchagi |
+| The game opens in a very small / large window | A saved size: choose one in the settings menu, give `--resolution`, or delete `Zamin.Display.*` in `savedata.json` |
+| A black screen or "Scene failed to load" | The error screen and the log say what is broken; try another scene with `--scene` |
+| The scripts do not work | Is "Script module loaded" in the log? When the module is not in the export, the export check gives an error; check the project's `ScriptModulePath` |
+| The game crashes | `crash-*.txt` (in the log folder): the reason, the backtrace, the commit; `--no-crash-handler` for a debugger |
+| Uneven frames | `--benchmark` or `ZAMIN_PLAYER_STATS=1`; VSync and `--fps` together (section 5) |
+| No icon in the applications menu / it points to the old place | After moving the folder, `./install-desktop-entry.sh` (the game's first run fixes the icon of the `.desktop` in the folder by itself) |
+| Which version is running? | `./Game.sh --version`, the start of the log file or the corner of the settings menu |
 
-## 16. Testlar
+## 16. Tests
 
-`./build/bin/ZaminTests` (headless) M18 bo'yicha:
+`./build/bin/ZaminTests` (headless) for M18:
 
-| Test | Nimani |
+| Test | What |
 |---|---|
-| `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence` | Buyruq qatori, `--help`, ustunlik tartibi |
-| `PlayerSettingsFullscreenToggleAndSplash`, `SplashTimelineAndLogo`, `FramePacingPlanAndPacer` | F11, splash, FPS cheklovi |
-| `PlayerLogFileRotation`, `CrashHandlerReports`, `CursorApiForScripts`, `PlayerViewportFixedAspect` | Log, crash, kursor, ekran nisbati |
-| `ExportExcludesUnusedAssets`, `ExportReleaseModuleAndStrip`, `ExportDesktopEntryRelocatableAndIcons`, `ExportReportSizesAndFiles` | Eksport |
-| `PauseInBackgroundAudioOutput`, `DisplayGammaAndBrightness` | Fonda pauza, gamma / yorqinlik |
-| `PlayerBenchmarkStatsAndLimits` | Persentillar, isitish, chegaralar, JSON, `--benchmark` variantlari |
-| `ExportFolderSelfCheck` | Eksport papkasining o'z tekshiruvi |
-| `BuildInfoAndVersionText` | `BuildInfo`, `VersionInfo` matnlari, `--version` |
-| `DisplayResolutionSettings` | O'lchamlar ro'yxati, saqlash, ustunlik (buyruq qatori > saqlangan > loyiha) |
-| `GameMenuSampleScene` | Platformer2D bosh menyusi va prefab: navigatsiya, o'lcham / sifat / gamma / ovoz / til, saqlash, "O'ynash", pauza rejimi |
+| `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence` | The command line, `--help`, the precedence |
+| `PlayerSettingsFullscreenToggleAndSplash`, `SplashTimelineAndLogo`, `FramePacingPlanAndPacer` | F11, the splash, the FPS limit |
+| `PlayerLogFileRotation`, `CrashHandlerReports`, `CursorApiForScripts`, `PlayerViewportFixedAspect` | The log, crashes, the cursor, the aspect ratio |
+| `ExportExcludesUnusedAssets`, `ExportReleaseModuleAndStrip`, `ExportDesktopEntryRelocatableAndIcons`, `ExportReportSizesAndFiles` | Export |
+| `PauseInBackgroundAudioOutput`, `DisplayGammaAndBrightness` | The background pause, gamma / brightness |
+| `PlayerBenchmarkStatsAndLimits` | Percentiles, the warm-up, the limits, JSON, the `--benchmark` options |
+| `ExportFolderSelfCheck` | The export folder's own check |
+| `BuildInfoAndVersionText` | The `BuildInfo`, `VersionInfo` texts, `--version` |
+| `DisplayResolutionSettings` | The size list, saving, the precedence (command line > saved > project) |
+| `GameMenuSampleScene` | The Platformer2D main menu and prefab: navigation, size / quality / gamma / sound / language, saving, "Play", the pause mode |
 
-Displey kerak bo'lganlari (ctest'da emas): `Tests/render_tests.sh` (rendering regressiyasi),
-`Tests/player_bench.sh` (ishlash testi), `Tests/export_test.sh` (eksport testi).
+The ones that need a display (not in ctest): `Tests/render_tests.sh` (the rendering regression),
+`Tests/player_bench.sh` (the performance test), `Tests/export_test.sh` (the export test).
 
-## 17. Qisqa API ma'lumotnomasi
+## 17. A short API reference
 
 ```cpp
-// Versiya
+// Version
 BuildInfo::Get();                       // EngineVersion, Commit, Dirty, CommitDate, BuildDate, BuildType, Compiler, Shipping
-BuildInfo::Get().Describe();            // "Zamin Engine 0.1.0 (kommit ..., build ..., Release, GCC ...)"
-VersionInfo::ForActiveProject().Format();       // --version matni
-VersionInfo::ForActiveProject().FormatShort();  // menyu burchagi uchun bir qator
+BuildInfo::Get().Describe();            // "Zamin Engine 0.1.0 (commit ..., build ..., Release, GCC ...)"
+VersionInfo::ForActiveProject().Format();       // the --version text
+VersionInfo::ForActiveProject().FormatShort();  // one line for the menu corner
 Application::GetVersion(); Application::GetProductName(); Application::GetCompanyName(); Application::GetEngineVersion();
 
-// Ekran
+// Display
 Display::GetResolutions(); Display::SetResolution(w, h); Display::GetResolution();
 Display::SetFullscreen(bool); Display::SetVSync(bool); Display::SetGamma(f); Display::SetBrightness(f);
 Display::SaveSettings(); Display::LoadSettings(); Display::GetSavedSettings(); Display::ClearSavedSettings();
 
-// Kursor
+// Cursor
 Cursor::SetVisible(bool); Cursor::SetLockMode(CursorLockMode); Cursor::SetImage(path, hotspot); Cursor::ClearImage();
 Cursor::SetShape(CursorShape); Cursor::SetReleaseWhenPaused(bool); Cursor::Reset();
 
-// Player (dvigatel tomoni)
+// The player (the engine side)
 PlayerCommandLine::Parse(argc, argv); PlayerCommandLine::GetHelpText();
 PlayerLaunchSettings::Resolve(config, Display::GetSavedSettings(), commandLine);
 PlayerBenchmark bench(settings); bench.AddFrame(frameMs, updateMs); PlayerBenchmark::WriteJson(bench.GetResult(), path);
 FrameTimeStats::Compute(ms); FrameTimeStats::Percentile(sorted, 95.0);
 Application::Get().SetExitCode(code);
 
-// Log va crash
+// Log and crashes
 LogFile::OpenRotating(...); LogFile::GetPath(); CrashHandler::Install(settings);
 
-// Eksport
-ExportFiles::CheckExportFolder(papka, "O'yin"); ExportReport::Read(papka, report); ExportAssets::PlanForActiveProject();
+// Export
+ExportFiles::CheckExportFolder(folder, "Game"); ExportReport::Read(folder, report); ExportAssets::PlanForActiveProject();
 ```

@@ -567,7 +567,7 @@ bo'limi ochiq).
 
 `Projects/Platformer2D` (`Source/SceneFlow.cpp`):
 
-- **Menu.zscene** — `GameMenu` (`Prefabs/GameMenu.zprefab` nusxasi): "O'ynash" tugmasi yuklanish ekraniga so'nib o'tadi, "Sozlamalar" (ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til), "Chiqish" ([Runtime.md](Runtime.md#10-oyin-menyusi-namunasi)).
+- **Menu.zscene** — `GameMenu` (`Prefabs/GameMenu.zprefab` nusxasi): "O'ynash" tugmasi yuklanish ekraniga so'nib o'tadi, "Sozlamalar" (ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til), "Chiqish" ([Runtime.md](Runtime.md#10-the-game-menu-sample)).
   `GameSession` shu yerda yaratiladi va `DontDestroyOnLoad` bilan butun o'yin davomida yashaydi: musiqani uzmaydi,
   tangalar va darajalarni `GameState` da, darajalar bo'yicha statistikani `SessionStats` servisida yig'adi,
   rekordni `SaveData` ga saqlaydi; HUD faqat darajalarda ko'rinadi (`OnActiveSceneChanged`).

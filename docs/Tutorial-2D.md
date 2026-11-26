@@ -278,7 +278,7 @@ If something does not work:
 3. The finished game: `~/Coins2D-build/Coins2D.sh`. To test without the editor you can also run:
    `./build/bin/ZaminPlayer <project folder>`.
 
-More: [Runtime.md](Runtime.md#11-eksport).
+More: [Runtime.md](Runtime.md#11-export).
 
 ## 13. Next steps
 

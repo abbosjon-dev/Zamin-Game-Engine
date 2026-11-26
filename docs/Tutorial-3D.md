@@ -278,7 +278,7 @@ a crystal it disappears and the score goes up; after the fifth one `Victory!` ap
 ## 9. Export
 
 **File → Build game...** → a folder → build. The result: `<folder>/Crystals3D.sh`. To test without the editor:
-`./build/bin/ZaminPlayer <project folder>`. More: [Runtime.md](Runtime.md#11-eksport).
+`./build/bin/ZaminPlayer <project folder>`. More: [Runtime.md](Runtime.md#11-export).
 
 ## 10. Next steps
 

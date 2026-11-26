@@ -899,577 +899,577 @@ Zamin P1 render bo'laklari disk streaming'i emas; u P3 da alohida bajariladi.
 
 ---
 
-## M01 Skript va gameplay API
+## M01 Scripting and gameplay API
 
-- [x] 001. EntityRef maydoni uchun inspektor (ierarxiyadan sudrab qo'yish, tozalash)
-- [x] 002. EntityRef serializatsiya testi
-- [x] 003. Invoke/InvokeRepeating/CancelInvokes testi
-- [x] 004. Tween va easing funksiyalari testi
-- [x] 005. Input action xaritasi (loyiha sozlamalarida: tugma/gamepad/sichqoncha bog'lash)
+- [x] 001. An inspector for the EntityRef field (drag in from the hierarchy, clear)
+- [x] 002. An EntityRef serialization test
+- [x] 003. An Invoke/InvokeRepeating/CancelInvokes test
+- [x] 004. A test of Tween and the easing functions
+- [x] 005. An input action map (in the project settings: binding keys/gamepad/mouse)
 - [x] 006. Input::IsActionPressed / IsActionJustPressed / IsActionJustReleased
-- [x] 007. Input::GetAxis (manfiy/musbat tugma + gamepad o'qi, deadzone)
-- [x] 008. Klaviatura va sichqoncha uchun JustPressed/JustReleased (kadrlar orasidagi holat)
-- [x] 009. SaveData (PlayerPrefs): Int/Float/String/Bool saqlash, fayl ~/.local/share/zamin/<loyiha>
-- [x] 010. SaveData testi
-- [x] 011. Random API (seed, Range, Float, Int, Bool, InsideCircle, OnSphere)
-- [x] 012. Teglar (Tag) tizimi: FindEntitiesWithTag, HasTag
-- [x] 013. Xabarlar/hodisalar: SendMessage(name), Broadcast, skriptlararo event bus
+- [x] 007. Input::GetAxis (negative/positive key + gamepad axis, deadzone)
+- [x] 008. JustPressed/JustReleased for the keyboard and mouse (the state between frames)
+- [x] 009. SaveData (PlayerPrefs): saving Int/Float/String/Bool, the file ~/.local/share/zamin/<project>
+- [x] 010. A SaveData test
+- [x] 011. A Random API (seed, Range, Float, Int, Bool, InsideCircle, OnSphere)
+- [x] 012. A tag (Tag) system: FindEntitiesWithTag, HasTag
+- [x] 013. Messages/events: SendMessage(name), Broadcast, an event bus between scripts
 - [x] 014. GetComponentInChildren / GetComponentInParent / GetChildren
-- [x] 015. FindEntity bo'yicha keshlash (nom->entity tez qidirish)
-- [x] 016. Script lifecycle: OnEnable/OnDisable/OnStart (birinchi Update'dan oldin)
-- [x] 017. OnTriggerBegin/OnTriggerEnd (sensorlar uchun alohida callback)
-- [x] 018. Skript maydonlari: enum va ranglar (glm::vec4 rang sifatida) uchun ZM_FIELD_COLOR
-- [x] 019. Skript maydonlari uchun tooltip/diapazon atributlari (ZM_FIELD_RANGE)
-- [x] 020. Yangi skript shabloni: hamma callback va misollar bilan
+- [x] 015. Caching for FindEntity (a fast name->entity lookup)
+- [x] 016. Script lifecycle: OnEnable/OnDisable/OnStart (before the first Update)
+- [x] 017. OnTriggerBegin/OnTriggerEnd (a separate callback for sensors)
+- [x] 018. Script fields: enums, and ZM_FIELD_COLOR for colors (glm::vec4 as a color)
+- [x] 019. Tooltip/range attributes for script fields (ZM_FIELD_RANGE)
+- [x] 020. A new script template: with every callback and examples
 
 ## M02 Editor UX I
 
-- [x] 021. Ko'p obyekt tanlash (Ctrl/Shift bilan) ierarxiyada
-- [x] 022. Ko'p tanlangan obyektlarni birga o'chirish/nusxalash
-- [x] 023. Ko'p tanlanganlarni gizmo bilan birga ko'chirish
-- [x] 024. Ierarxiyada drag-drop bilan tartibni o'zgartirish (siblings orasiga qo'yish)
-- [x] 025. Transform kontekst menyusi: reset, copy, paste
-- [x] 026. Snapping sozlamalari (qadam: ko'chirish/aylantirish/masshtab) toolbar'da
-- [x] 027. Grid sozlamalari (o'lcham, rang, ko'rinish)
-- [x] 028. Kamera xatcho'plari (Ctrl+1..5 saqlash, 1..5 qaytish)
-- [x] 029. Hammasini ko'rsatish (Frame All) - butun sahnaga fokus
-- [x] 030. Viewport'da obyektni nusxalash (Ctrl+D bilan sudrash Alt+drag)
-- [x] 031. Inspektorda komponentlarni tartiblash (yuqori/past)
-- [x] 032. Komponentni nusxalash va boshqa obyektga joylash
-- [x] 033. Inspektorda komponent yig'ib qo'yish holatini eslab qolish
-- [x] 034. Ierarxiyada ko'rinish (ko'z) va qulf tugmalari
-- [x] 035. Qulflangan obyektlar viewport'da tanlanmaydi
-- [x] 036. Kontent brauzerda fayllarni sudrab papkaga ko'chirish
-- [x] 037. Kontent brauzerda ro'yxat ko'rinishi (list view)
-- [x] 038. Kontent brauzerda fayl turlari bo'yicha filtr
-- [x] 039. Tashqaridan faylni oynaga tashlab Assets'ga import qilish
-- [x] 040. Status bar'da tanlangan obyekt ma'lumoti
+- [x] 021. Selecting several entities (with Ctrl/Shift) in the hierarchy
+- [x] 022. Deleting/duplicating several selected entities together
+- [x] 023. Moving several selected entities together with the gizmo
+- [x] 024. Reordering by drag-drop in the hierarchy (dropping between siblings)
+- [x] 025. A Transform context menu: reset, copy, paste
+- [x] 026. Snapping settings (step: move/rotate/scale) in the toolbar
+- [x] 027. Grid settings (size, color, visibility)
+- [x] 028. Camera bookmarks (Ctrl+1..5 to save, 1..5 to return)
+- [x] 029. Frame All - focus on the whole scene
+- [x] 030. Duplicating an entity in the viewport (dragging with Ctrl+D, Alt+drag)
+- [x] 031. Reordering components in the inspector (up/down)
+- [x] 032. Copying a component and pasting it onto another entity
+- [x] 033. Remembering the collapsed state of components in the inspector
+- [x] 034. Visibility (eye) and lock buttons in the hierarchy
+- [x] 035. Locked entities are not selected in the viewport
+- [x] 036. Moving files into a folder by dragging in the content browser
+- [x] 037. A list view in the content browser
+- [x] 038. A filter by file type in the content browser
+- [x] 039. Importing a file into Assets by dropping it onto the window from outside
+- [x] 040. The selected entity's information in the status bar
 
-## M03 Faol/nofaol obyektlar
+## M03 Active/inactive entities
 
-- [x] 041. TagComponent'ga Active bayrog'i
-- [x] 042. Ierarxiya bo'yicha faollik (ota nofaol -> bolalar ham)
-- [x] 043. Nofaol obyektlar chizilmaydi
-- [x] 044. Nofaol obyektlar fizikada ishtirok etmaydi (body o'chiriladi)
-- [x] 045. Nofaol obyektlarning skriptlari Update olmaydi
-- [x] 046. SetActive() skript API
-- [x] 047. OnEnable/OnDisable chaqiruvlari
-- [x] 048. Inspektorda Active checkbox
-- [x] 049. Ierarxiyada nofaol obyektlar xira ko'rinadi
-- [x] 050. Serializatsiya va testlar
-- [x] 051. Particle tizimi nofaol bo'lsa to'xtaydi
-- [x] 052. Audio manbalar nofaol bo'lsa to'xtaydi
-- [x] 053. Animator nofaol bo'lsa yangilanmaydi
-- [x] 054. UI elementlar nofaol bo'lsa ko'rinmaydi va bosilmaydi
-- [x] 055. Kameralar nofaol bo'lsa asosiy kamera hisoblanmaydi
-- [x] 056. Yorug'liklar nofaol bo'lsa hisobga olinmaydi
-- [x] 057. Tilemap collision nofaol bo'lsa o'chadi
-- [x] 058. Character controller nofaol bo'lsa o'chadi
-- [x] 059. Prefab instansiyalar faollik holatini saqlaydi
-- [x] 060. Faollik testlari (ierarxiya, fizika, skript)
+- [x] 041. An Active flag on TagComponent
+- [x] 042. Activity through the hierarchy (inactive parent -> the children too)
+- [x] 043. Inactive entities are not drawn
+- [x] 044. Inactive entities take no part in physics (the body is removed)
+- [x] 045. The scripts of inactive entities get no Update
+- [x] 046. A SetActive() script API
+- [x] 047. The OnEnable/OnDisable calls
+- [x] 048. An Active checkbox in the inspector
+- [x] 049. Inactive entities look dimmed in the hierarchy
+- [x] 050. Serialization and tests
+- [x] 051. The particle system stops when inactive
+- [x] 052. Audio sources stop when inactive
+- [x] 053. The Animator is not updated when inactive
+- [x] 054. UI elements are not shown and cannot be pressed when inactive
+- [x] 055. Inactive cameras do not count as the primary camera
+- [x] 056. Inactive lights are not taken into account
+- [x] 057. Tilemap collision turns off when inactive
+- [x] 058. The character controller turns off when inactive
+- [x] 059. Prefab instances keep their active state
+- [x] 060. Activity tests (hierarchy, physics, scripts)
 
-## M04 Asset tizimi
+## M04 Asset system
 
-- [x] 061. AssetHandle (UUID) va AssetRegistry
-- [x] 062. .zmeta fayllar (har bir asset uchun UUID va import sozlamalari)
-- [x] 063. Asset turlarini aniqlash (texture, model, audio, scene, prefab, font, hdr, material)
-- [x] 064. Fayl kuzatuvchi (file watcher) - o'zgargan assetlarni qayta yuklash
-- [x] 065. Teksturalarni qayta yuklash (hot reload) editor'da
-- [x] 066. Modellarni qayta yuklash
-- [x] 067. Tekstura import sozlamalari: filtr, wrap, mipmap, sRGB
-- [x] 068. Tekstura import sozlamalari inspektori
-- [x] 069. Model import sozlamalari: masshtab, yuqori o'q
-- [x] 070. Asset nomi o'zgarganda havolalarni yangilash (UUID orqali)
-- [x] 071. Kontent brauzerda asset tanlanganda inspektorda ko'rsatish
-- [x] 072. Tekstura preview inspektorda (o'lcham, format)
-- [x] 073. Model preview (submesh, uchburchak, animatsiyalar ro'yxati)
-- [x] 074. Audio asset preview (davomiylik, ijro tugmasi)
-- [x] 075. Ishlatilmagan assetlarni topish
-- [x] 076. Assetni o'chirishdan oldin ishlatilayotganini ogohlantirish
-- [x] 077. Assetlarni papkalar bo'yicha qidirish (to'liq yo'l)
-- [x] 078. Asset registry serializatsiyasi va testlari
-- [x] 079. Kontent brauzerda thumbnail keshlash
-- [x] 080. Asset import xatolarini konsolga chiqarish
+- [x] 061. AssetHandle (UUID) and AssetRegistry
+- [x] 062. .zmeta files (a UUID and import settings for every asset)
+- [x] 063. Detecting asset types (texture, model, audio, scene, prefab, font, hdr, material)
+- [x] 064. A file watcher - reloading changed assets
+- [x] 065. Reloading textures (hot reload) in the editor
+- [x] 066. Reloading models
+- [x] 067. Texture import settings: filter, wrap, mipmap, sRGB
+- [x] 068. An inspector for texture import settings
+- [x] 069. Model import settings: scale, up axis
+- [x] 070. Updating references when an asset is renamed (through the UUID)
+- [x] 071. Showing an asset in the inspector when it is selected in the content browser
+- [x] 072. A texture preview in the inspector (size, format)
+- [x] 073. A model preview (submeshes, triangles, the list of animations)
+- [x] 074. An audio asset preview (duration, a play button)
+- [x] 075. Finding unused assets
+- [x] 076. A warning that an asset is in use before it is deleted
+- [x] 077. Searching assets by folder (the full path)
+- [x] 078. Asset registry serialization and its tests
+- [x] 079. Thumbnail caching in the content browser
+- [x] 080. Printing asset import errors to the console
 
-## M05 Materiallar (asset)
+## M05 Materials (asset)
 
-- [x] 081. .zmat material asset formati
-- [x] 082. Material asset yuklash/saqlash
-- [x] 083. MeshRenderer'da material asset havolasi
-- [x] 084. Material muharriri inspektorda
-- [x] 085. Material preview sharchasi (render-to-texture)
-- [x] 086. Shaffof (alpha blend) rejim
-- [x] 087. Alpha cutout rejimi (threshold)
-- [x] 088. Ikki tomonlama (double-sided) bayroq
-- [x] 089. Unlit shader rejimi
-- [x] 090. Tekstura tiling va offset (vec2)
-- [x] 091. Materialni kontent brauzerdan mesh'ga sudrab qo'yish
-- [x] 092. Yangi material yaratish (kontent brauzer menyusi)
-- [x] 093. Material o'zgarishlari hot reload
-- [x] 094. glTF materiallarini .zmat ga eksport qilish
-- [x] 095. Material instansiyalari (skriptdan rangni o'zgartirish, umumiy assetni buzmasdan)
-- [x] 096. Shaffof obyektlarni orqadan oldinga saralash
-- [x] 097. Emissive intensivlik va rang materialda
-- [x] 098. Material serializatsiya testlari
-- [x] 099. Standart materiallar kutubxonasi (metall, plastik, yog'och, shisha)
-- [x] 100. Material asset uchun thumbnail
+- [x] 081. The .zmat material asset format
+- [x] 082. Loading/saving material assets
+- [x] 083. A material asset reference in MeshRenderer
+- [x] 084. A material editor in the inspector
+- [x] 085. A material preview sphere (render-to-texture)
+- [x] 086. A transparent (alpha blend) mode
+- [x] 087. An alpha cutout mode (threshold)
+- [x] 088. A double-sided flag
+- [x] 089. An unlit shader mode
+- [x] 090. Texture tiling and offset (vec2)
+- [x] 091. Dragging a material from the content browser onto a mesh
+- [x] 092. Creating a new material (the content browser menu)
+- [x] 093. Hot reload of material changes
+- [x] 094. Exporting glTF materials to .zmat
+- [x] 095. Material instances (changing a color from a script without spoiling the shared asset)
+- [x] 096. Sorting transparent objects back to front
+- [x] 097. Emissive intensity and color in the material
+- [x] 098. Material serialization tests
+- [x] 099. A library of standard materials (metal, plastic, wood, glass)
+- [x] 100. A thumbnail for material assets
 
 ## M06 Rendering I
 
-- [x] 101. Spot yorug'lik (konus, ichki/tashqi burchak)
-- [x] 102. Spot yorug'lik inspektori va wireframe ko'rinishi
-- [x] 103. Point light wireframe radius ko'rinishi editorda
-- [x] 104. Yorug'liklar sonini oshirish (32) va eng yaqinlarini tanlash (ataylab: masofaning o'zi emas, kameraga ta'siri bo'yicha — kuchi x (radius/masofa)^2, teng ta'sirda eng yaqini; README'da)
+- [x] 101. Spot lights (cone, inner/outer angle)
+- [x] 102. A spot light inspector and wireframe view
+- [x] 103. A wireframe radius view of point lights in the editor
+- [x] 104. Raising the number of lights (32) and choosing the nearest ones (on purpose: not by distance alone but by the effect on the camera — intensity x (radius/distance)^2, the nearest one on an equal effect; in the README)
 - [x] 105. FXAA anti-aliasing
-- [x] 106. Render scale (ichki o'lcham koeffitsienti)
-- [x] 107. Gamma/eksposure avtomatik (auto exposure, oddiy)
-- [x] 108. Wireframe rejimi (editor)
-- [x] 109. Faqat yorug'lik/normal/albedo debug ko'rinishlari
-- [x] 110. Frustum culling (meshlar uchun)
-- [x] 111. Frustum culling (2D sprite'lar uchun)
-- [x] 112. Mesh instancing (bir xil mesh + material)
-- [x] 113. Render statistikasi: culled soni
-- [x] 114. Soyalar sifati sozlamalari (atlas o'lchami, PCF)
-- [x] 115. Shadow bias sozlamalari sahna sozlamalarida
-- [x] 116. Directional light soyasi bilan bir nechta quyosh (faqat biri soya)
-- [x] 117. Sky gradient + quyosh diskini sozlash
-- [x] 118. Chromatic aberration va film grain effekti
-- [x] 119. Bloom'ni yorug'lik bo'yicha tint qilish
-- [x] 120. Rendering regressiya testi (headless skrinshot solishtirish)
+- [x] 106. Render scale (an internal size factor)
+- [x] 107. Automatic gamma/exposure (auto exposure, simple)
+- [x] 108. A wireframe mode (editor)
+- [x] 109. Lighting-only/normal/albedo debug views
+- [x] 110. Frustum culling (for meshes)
+- [x] 111. Frustum culling (for 2D sprites)
+- [x] 112. Mesh instancing (the same mesh + material)
+- [x] 113. Render statistics: the culled count
+- [x] 114. Shadow quality settings (atlas size, PCF)
+- [x] 115. Shadow bias settings in the scene settings
+- [x] 116. Several suns with a directional light shadow (only one casts shadows)
+- [x] 117. Setting up the sky gradient + the sun disc
+- [x] 118. A chromatic aberration and film grain effect
+- [x] 119. Tinting bloom by the light
+- [x] 120. A rendering regression test (comparing headless screenshots)
 
-## M07 Debug draw va vizualizatsiya
+## M07 Debug draw and visualization
 
-- [x] 121. DebugDraw API: Line, Box, Sphere, Arrow, Text (skriptlardan)
-- [x] 122. DebugDraw davomiyligi (duration) bilan
-- [x] 123. DebugDraw faqat editor/Development rejimda
-- [x] 124. Raycast natijasini vizualizatsiya qilish
-- [x] 125. Fizika kontakt nuqtalarini ko'rsatish
-- [x] 126. Kamera frustumini editorda chizish
-- [x] 127. Yorug'lik yo'nalishini o'q bilan ko'rsatish
-- [x] 128. Audio manba radiusini ko'rsatish
-- [x] 129. Character controller tezlik vektori
-- [x] 130. Navigatsiya yo'llarini chizish (keyingi milestone bilan)
-- [x] 131. Gizmo o'lchami sozlamasi
-- [x] 132. Selection outline (shader asosida, sillik kontur)
-- [x] 133. Hover qilingan obyekt kontur bilan ajratiladi
-- [x] 134. Bounding box ko'rsatish rejimi
-- [x] 135. Skelet suyaklarini chizish (animatsiya debug)
-- [x] 136. Normal vektorlarini ko'rsatish (debug)
-- [x] 137. FPS grafigi overlay viewport'da
-- [x] 138. Draw call va uchburchaklar overlay
-- [x] 139. Profiler'da ichki bo'limlar (ierarxik)
-- [x] 140. Debug draw testlari
+- [x] 121. A DebugDraw API: Line, Box, Sphere, Arrow, Text (from scripts)
+- [x] 122. DebugDraw with a duration
+- [x] 123. DebugDraw only in the editor/Development mode
+- [x] 124. Visualizing a raycast result
+- [x] 125. Showing physics contact points
+- [x] 126. Drawing the camera frustum in the editor
+- [x] 127. Showing the light direction with an arrow
+- [x] 128. Showing the audio source radius
+- [x] 129. The character controller velocity vector
+- [x] 130. Drawing navigation paths (with the next milestone)
+- [x] 131. A gizmo size setting
+- [x] 132. A selection outline (shader based, a smooth contour)
+- [x] 133. The hovered entity is highlighted with an outline
+- [x] 134. A bounding box display mode
+- [x] 135. Drawing skeleton bones (animation debug)
+- [x] 136. Showing normal vectors (debug)
+- [x] 137. An FPS graph overlay in the viewport
+- [x] 138. A draw call and triangle overlay
+- [x] 139. Nested sections in the profiler (hierarchical)
+- [x] 140. Debug draw tests
 
-## M08 2D yaxshilanishlar
+## M08 2D improvements
 
-- [x] 141. Sprite sheet slicer (grid bo'yicha kesish, editor oynasi)
-- [x] 142. Sprite atlas asset (nomlangan kadrlar)
+- [x] 141. A sprite sheet slicer (cutting by a grid, an editor window)
+- [x] 142. A sprite atlas asset (named frames)
 - [x] 143. 9-slice sprite rendering
-- [x] 144. Sorting layer'lar (nomlangan qatlamlar)
-- [x] 145. Parallax qatlamlar komponenti
-- [x] 146. 2D kamera chegaralari (bounds) va silliq kuzatish komponenti
-- [x] 147. Kamera silkinishi (camera shake) API
-- [x] 148. Tilemap: bir nechta qatlam
-- [x] 149. Tilemap: auto-tile qoidalari (4/8 qo'shni)
-- [x] 150. Tilemap: to'rtburchak va to'ldirish (flood fill) asboblari
-- [x] 151. Tilemap: plitka bo'yicha collision bayroqlari
-- [x] 152. Tilemap: one-way platformalar
-- [x] 153. Tilemap: animatsiyali plitkalar
-- [x] 154. Tilemap: kattalashtirish/kichraytirishda palitra
-- [x] 155. Sprite outline/flash effekti (hit flash)
-- [x] 156. Sprite rang tint animatsiyasi
-- [x] 157. 2D yorug'lik (oddiy point light 2D, additive)
-- [x] 158. Pixel-perfect kamera rejimi
-- [x] 159. Sprite'larni Y bo'yicha saralash (top-down o'yinlar)
-- [x] 160. 2D testlari
+- [x] 144. Sorting layers (named layers)
+- [x] 145. A parallax layers component
+- [x] 146. A 2D camera bounds and smooth follow component
+- [x] 147. A camera shake API
+- [x] 148. Tilemap: several layers
+- [x] 149. Tilemap: auto-tile rules (4/8 neighbours)
+- [x] 150. Tilemap: rectangle and flood fill tools
+- [x] 151. Tilemap: per-tile collision flags
+- [x] 152. Tilemap: one-way platforms
+- [x] 153. Tilemap: animated tiles
+- [x] 154. Tilemap: the palette when zooming in/out
+- [x] 155. A sprite outline/flash effect (hit flash)
+- [x] 156. Sprite color tint animation
+- [x] 157. 2D lights (a simple 2D point light, additive)
+- [x] 158. A pixel-perfect camera mode
+- [x] 159. Sorting sprites by Y (top-down games)
+- [x] 160. 2D tests
 
-## M09 2D fizika II
+## M09 2D physics II
 
 - [x] 161. Distance joint 2D
 - [x] 162. Revolute (hinge) joint 2D (motor, limit)
 - [x] 163. Prismatic joint 2D
 - [x] 164. Weld joint 2D
 - [x] 165. Wheel joint 2D
-- [x] 166. Polygon collider 2D (vertex muharriri)
+- [x] 166. Polygon collider 2D (a vertex editor)
 - [x] 167. Edge/Chain collider 2D
-- [x] 168. Physics material (ishqalanish/sakrash) asset
-- [x] 169. Collision qatlamlari va maskalar (2D)
-- [x] 170. One-way platform effektori
-- [x] 171. Area effector (shamol/suv)
-- [x] 172. Collision filtrlash testi
-- [x] 173. OverlapCircle/OverlapBox so'rovlari 2D
+- [x] 168. A physics material (friction/bounce) asset
+- [x] 169. Collision layers and masks (2D)
+- [x] 170. A one-way platform effector
+- [x] 171. An area effector (wind/water)
+- [x] 172. A collision filtering test
+- [x] 173. OverlapCircle/OverlapBox queries 2D
 - [x] 174. RaycastAll 2D
-- [x] 175. Joint'lar uchun inspektor va wireframe
-- [x] 176. Joint'lar serializatsiyasi
-- [x] 177. Fizik ragdoll namunasi (2D)
-- [x] 178. Box2D sub-step sozlamalari
-- [x] 179. 2D fizika uchun sleeping sozlamasi
-- [x] 180. 2D fizika testlari
+- [x] 175. An inspector and wireframe for joints
+- [x] 176. Joint serialization
+- [x] 177. A physical ragdoll sample (2D)
+- [x] 178. Box2D sub-step settings
+- [x] 179. A sleeping setting for 2D physics
+- [x] 180. 2D physics tests
 
-## M10 3D fizika II
+## M10 3D physics II
 
 - [x] 181. Fixed joint 3D
 - [x] 182. Hinge joint 3D (motor, limit)
 - [x] 183. Distance joint 3D
 - [x] 184. Slider joint 3D
-- [x] 185. Convex hull collider (modeldan)
-- [x] 186. Statik triangle mesh collider (modeldan)
-- [x] 187. Collision qatlamlari va maskalar (3D)
-- [x] 188. OverlapSphere/OverlapBox so'rovlari 3D
+- [x] 185. A convex hull collider (from a model)
+- [x] 186. A static triangle mesh collider (from a model)
+- [x] 187. Collision layers and masks (3D)
+- [x] 188. OverlapSphere/OverlapBox queries 3D
 - [x] 189. SphereCast/ShapeCast 3D
 - [x] 190. RaycastAll 3D
-- [x] 191. Continuous collision detection (CCD) bayrog'i
-- [x] 192. Sleeping/uyg'otish API
+- [x] 191. A continuous collision detection (CCD) flag
+- [x] 192. A sleeping/wake-up API
 - [x] 193. Physics material 3D
-- [x] 194. Trigger callback'lari 3D (OnTriggerBegin)
-- [x] 195. Character controller dinamik jismlarni itarishi (kuch sozlamasi)
-- [x] 196. Joint'lar inspektori va wireframe
-- [x] 197. Joint'lar serializatsiyasi
-- [x] 198. 3D ragdoll (oddiy) namunasi
-- [x] 199. Fizika debug: contact nuqtalari
-- [x] 200. 3D fizika testlari
+- [x] 194. Trigger callbacks 3D (OnTriggerBegin)
+- [x] 195. The character controller pushes dynamic bodies (a force setting)
+- [x] 196. A joint inspector and wireframe
+- [x] 197. Joint serialization
+- [x] 198. A 3D ragdoll (simple) sample
+- [x] 199. Physics debug: contact points
+- [x] 200. 3D physics tests
 
 ## M11 Audio
 
-- [x] 201. Audio mixer guruhlari (Master, Music, SFX, UI)
-- [x] 202. Guruh balandligi va mute
-- [x] 203. AudioListener komponenti (kamera o'rniga)
-- [x] 204. Musiqa crossfade API
-- [x] 205. Musiqani streaming (katta fayllar uchun)
-- [x] 206. Ovoz pitch tasodifiyligi (random range)
-- [x] 207. Bir vaqtda o'ynaydigan ovozlar limiti
-- [x] 208. AudioSource: Play/Stop/Pause skript API
-- [x] 209. AudioSource holatini inspektorda ko'rsatish
-- [x] 210. Doppler effekti (oddiy)
-- [x] 211. Audio clip asset (davomiylik, format)
-- [x] 212. Ovoz so'nishi (fade in/out)
-- [x] 213. Ovoz effektlari: low-pass filter
-- [x] 214. Ovoz sozlamalari SaveData bilan saqlanadi
-- [x] 215. Audio testlari (ovoz qurilmasisiz)
-- [x] 216. Audio profiler (faol ovozlar soni)
-- [x] 217. Editorda audio preview to'lqin shakli
-- [x] 218. 3D ovoz uchun yo'nalishli konus
-- [x] 219. Ambient zona (hajm ichida ovoz)
-- [x] 220. Audio hodisalar (OnSoundFinished)
+- [x] 201. Audio mixer groups (Master, Music, SFX, UI)
+- [x] 202. Group volume and mute
+- [x] 203. An AudioListener component (instead of the camera)
+- [x] 204. A music crossfade API
+- [x] 205. Music streaming (for large files)
+- [x] 206. Sound pitch randomness (random range)
+- [x] 207. A limit on sounds playing at the same time
+- [x] 208. AudioSource: a Play/Stop/Pause script API
+- [x] 209. Showing the AudioSource state in the inspector
+- [x] 210. A Doppler effect (simple)
+- [x] 211. An audio clip asset (duration, format)
+- [x] 212. Sound fading (fade in/out)
+- [x] 213. Sound effects: a low-pass filter
+- [x] 214. Sound settings are saved with SaveData
+- [x] 215. Audio tests (without a sound device)
+- [x] 216. An audio profiler (the number of active sounds)
+- [x] 217. An audio preview waveform in the editor
+- [x] 218. A directional cone for 3D sound
+- [x] 219. An ambient zone (sound inside a volume)
+- [x] 220. Audio events (OnSoundFinished)
 
-## M12 UI tizimi
+## M12 UI system
 
-- [x] 221. UI Image komponenti (sprite, 9-slice)
+- [x] 221. A UI Image component (sprite, 9-slice)
 - [x] 222. UI Slider
 - [x] 223. UI Toggle (checkbox)
 - [x] 224. UI Progress bar
-- [x] 225. UI matn kiritish (input field)
-- [x] 226. Vertikal/gorizontal layout guruhlari
-- [x] 227. Stretch anchor'lar (chapdan-o'ngga cho'zilish)
-- [x] 228. Ekran o'lchamiga moslashuvchi masshtab (reference resolution)
-- [x] 229. UI hodisalari: OnHover/OnPress/OnRelease
-- [x] 230. UI uchun klaviatura/gamepad navigatsiyasi
-- [x] 231. UI animatsiyalari (tween bilan)
-- [x] 232. Bir nechta shrift o'lchamlari (atlas sifati)
-- [x] 233. Matnni tekislash (chap/markaz/o'ng, yuqori/o'rta/past)
-- [x] 234. Matn o'rash (word wrap) kenglik bo'yicha
-- [x] 235. UI editorda tanlash va ko'chirish (2D gizmo)
-- [x] 236. UI ierarxiyasi (ota UITransform'ga nisbatan)
+- [x] 225. UI text input (input field)
+- [x] 226. Vertical/horizontal layout groups
+- [x] 227. Stretch anchors (stretching left to right)
+- [x] 228. A scale that adapts to the screen size (reference resolution)
+- [x] 229. UI events: OnHover/OnPress/OnRelease
+- [x] 230. Keyboard/gamepad navigation for the UI
+- [x] 231. UI animations (with tweens)
+- [x] 232. Several font sizes (atlas quality)
+- [x] 233. Text alignment (left/center/right, top/middle/bottom)
+- [x] 234. Text wrapping (word wrap) by width
+- [x] 235. Selecting and moving UI in the editor (a 2D gizmo)
+- [x] 236. The UI hierarchy (relative to the parent UITransform)
 - [x] 237. UI mask/clip (scroll view)
 - [x] 238. Scroll view
-- [x] 239. Dialog/menyu namunasi (pause menu)
-- [x] 240. UI testlari
+- [x] 239. A dialog/menu sample (pause menu)
+- [x] 240. UI tests
 
-## M13 Animatsiya II
+## M13 Animation II
 
-- [x] 241. Property animatsiya kliplari (.zanim): transform/rang kalit kadrlari
-- [x] 242. Animatsiya timeline muharriri (editor oynasi)
-- [x] 243. Kalit kadrlar interpolyatsiyasi (linear, step, bezier)
-- [x] 244. Animatsiya event'lari (vaqtda skript callback)
+- [x] 241. Property animation clips (.zanim): transform/color keyframes
+- [x] 242. An animation timeline editor (an editor window)
+- [x] 243. Keyframe interpolation (linear, step, bezier)
+- [x] 244. Animation events (a script callback at a time)
 - [x] 245. Root motion (glTF)
-- [x] 246. Blend tree 1D (tezlik bo'yicha walk/run aralashtirish)
-- [x] 247. Animatsiya qatlamlari (ustki tana) - oddiy
-- [x] 248. Sprite animatsiya kliplari asset sifatida
-- [x] 249. Animator parametrlarini inspektorda runtime ko'rsatish
-- [x] 250. Holat mashinasi uchun vizual graf (node'lar)
-- [x] 251. Animatsiya preview editorda (scrub)
-- [x] 252. Skelet: suyakka obyekt biriktirish (attachment socket)
-- [x] 253. Animatsiya tezligi bo'yicha qadam tovushlari event bilan
-- [x] 254. Animatsiya kliplarini qisqartirish (start/end)
-- [x] 255. glTF morph target'lar (blend shapes) - oddiy
-- [x] 256. Animatsiya keshlash (performance)
-- [x] 257. Bir nechta skin qo'llab-quvvatlash
-- [x] 258. Animatsiya testlari (property clip, event)
-- [x] 259. Animatsiya namunasi (eshik ochilishi)
-- [x] 260. Animatsiya hujjatlari
+- [x] 246. Blend tree 1D (blending walk/run by speed)
+- [x] 247. Animation layers (upper body) - simple
+- [x] 248. Sprite animation clips as assets
+- [x] 249. Showing the Animator parameters in the inspector at runtime
+- [x] 250. A visual graph for the state machine (nodes)
+- [x] 251. An animation preview in the editor (scrub)
+- [x] 252. Skeleton: attaching an entity to a bone (attachment socket)
+- [x] 253. Footstep sounds by animation speed, with an event
+- [x] 254. Trimming animation clips (start/end)
+- [x] 255. glTF morph targets (blend shapes) - simple
+- [x] 256. Animation caching (performance)
+- [x] 257. Support for several skins
+- [x] 258. Animation tests (property clip, event)
+- [x] 259. An animation sample (a door opening)
+- [x] 260. Animation documentation
 
-## M14 Particle II
+## M14 Particles II
 
-- [x] 261. Rang gradienti (ko'p nuqtali)
-- [x] 262. O'lcham egri chizig'i (curve)
-- [x] 263. Tezlik umr bo'yi o'zgarishi
-- [x] 264. Tekstura sheet animatsiyasi (flipbook)
-- [x] 265. Konus emitter shakli
-- [x] 266. Mesh sirtidan emitter
-- [x] 267. Sub-emitter (o'lganda portlash)
-- [x] 268. Yer tekisligi bilan to'qnashuv (bounce)
-- [x] 269. Shovqin (noise) turbulentlik
-- [x] 270. Trail (iz) rendering
-- [x] 271. Particle'larni GPU'ga ko'proq batch qilish
-- [x] 272. Particle sorting (kameraga masofa)
-- [x] 273. Prewarm (boshidan to'ldirilgan holat)
-- [x] 274. Emissiya portlashlari jadvali (bursts list)
-- [x] 275. Simulyatsiya tezligi va local/world
-- [x] 276. Particle preset'lari kutubxonasi (olov, tutun, uchqun, yomg'ir, qor)
-- [x] 277. Yomg'ir va qor effektlari (kamera atrofida)
-- [x] 278. Particle inspektorida bo'limlar
-- [x] 279. Particle serializatsiya testlari
-- [x] 280. Particle performance testi
+- [x] 261. A color gradient (many points)
+- [x] 262. A size curve
+- [x] 263. Velocity over lifetime
+- [x] 264. Texture sheet animation (flipbook)
+- [x] 265. A cone emitter shape
+- [x] 266. An emitter from a mesh surface
+- [x] 267. Sub-emitters (an explosion on death)
+- [x] 268. Collision with the ground plane (bounce)
+- [x] 269. Noise turbulence
+- [x] 270. Trail rendering
+- [x] 271. More batching of particles on the GPU
+- [x] 272. Particle sorting (distance to the camera)
+- [x] 273. Prewarm (a state filled from the start)
+- [x] 274. A table of emission bursts (bursts list)
+- [x] 275. Simulation speed and local/world
+- [x] 276. A library of particle presets (fire, smoke, sparks, rain, snow)
+- [x] 277. Rain and snow effects (around the camera)
+- [x] 278. Sections in the particle inspector
+- [x] 279. Particle serialization tests
+- [x] 280. A particle performance test
 
-## M15 Sahna boshqaruvi
+## M15 Scene management
 
-- [x] 281. Additive sahnalar (bir vaqtda bir nechta)
-- [x] 282. DontDestroyOnLoad (persistent obyektlar)
-- [x] 283. Asinxron sahna yuklash (loading screen)
-- [x] 284. Sahna o'tishlari (fade in/out)
-- [x] 285. Build sahnalar ro'yxati (loyiha sozlamalarida)
-- [x] 286. LoadScene indeks bo'yicha
-- [x] 287. Sahna yuklanganda/yopilganda hodisalar
-- [x] 288. Sahna ichida qidirish API'lari tezlashtirish
-- [x] 289. Sahnani yuklashda xatolarni ko'rsatish
-- [x] 290. Sahnalarni solishtirish (diff) uchun barqaror UUID tartibi
-- [x] 291. Sahna metadata (ta'rif, thumbnail)
-- [x] 292. Editor: sahnalar ro'yxati paneli
-- [x] 293. Editor: o'yin rejimida sahna almashganda editor holatini tiklash
-- [x] 294. Global o'yin holati (singleton servislar)
-- [x] 295. Sahna versiya migratsiyasi
-- [x] 296. Sahna yuklash vaqtini profiler'da ko'rsatish
-- [x] 297. Katta sahnalar uchun tezroq serializatsiya
-- [x] 298. Sahnani bo'laklarga bo'lish (sub-scenes) - oddiy
-- [x] 299. Sahna boshqaruvi testlari
-- [x] 300. Sahna boshqaruvi hujjatlari
+- [x] 281. Additive scenes (several at the same time)
+- [x] 282. DontDestroyOnLoad (persistent entities)
+- [x] 283. Asynchronous scene loading (loading screen)
+- [x] 284. Scene transitions (fade in/out)
+- [x] 285. The list of build scenes (in the project settings)
+- [x] 286. LoadScene by index
+- [x] 287. Events when a scene is loaded/closed
+- [x] 288. Speeding up the lookup APIs inside a scene
+- [x] 289. Showing errors when a scene is loaded
+- [x] 290. A stable UUID order for comparing scenes (diff)
+- [x] 291. Scene metadata (description, thumbnail)
+- [x] 292. Editor: a panel with the list of scenes
+- [x] 293. Editor: restoring the editor state when the scene changes in play mode
+- [x] 294. Global game state (singleton services)
+- [x] 295. Scene version migration
+- [x] 296. Showing the scene load time in the profiler
+- [x] 297. Faster serialization for large scenes
+- [x] 298. Splitting a scene into pieces (sub-scenes) - simple
+- [x] 299. Scene management tests
+- [x] 300. Scene management documentation
 
 ## M16 Editor II
 
-- [x] 301. O'yin rejimida editor rang tusi (tint)
-- [x] 302. Game view rezolyutsiya preset'lari (16:9, 4:3, 1080p)
-- [x] 303. Konsolda matn bo'yicha filtr
-- [x] 304. Konsolda bir xil xabarlarni guruhlash (collapse)
-- [x] 305. Sozlamalar oynasi (Preferences): tema rangi, shrift o'lchami
-- [x] 306. Klaviatura yorliqlari ro'yxati oynasi
-- [x] 307. Avtomatik saqlash (autosave) va tiklash
-- [x] 308. So'nggi sahnalar ro'yxati
-- [x] 309. Undo tarixi paneli
-- [x] 310. Selection uchun undo
-- [x] 311. Editor layout'larini saqlash/yuklash
-- [x] 312. Bir nechta viewport (yon tomondan/yuqoridan ko'rinish)
-- [x] 313. Ortografik ko'rinishlar (Top/Front/Right) tugmalari
-- [x] 314. Editor kamerasi tezligi sozlamasi va FOV
-- [x] 315. Viewport'da obyekt nomlarini ko'rsatish
-- [x] 316. Sahna statistikasi paneli (komponentlar soni)
-- [x] 317. Editor ichida skript fayllarni ochish (tashqi muharrir)
-- [x] 318. Kompilyatsiya xatolarini fayl/qator bilan ko'rsatish
-- [x] 319. Editor yangilanishini kamaytirish (idle bo'lganda FPS cheklash)
-- [x] 320. Editor II testlari (headless)
+- [x] 301. An editor color tint in play mode
+- [x] 302. Game view resolution presets (16:9, 4:3, 1080p)
+- [x] 303. A text filter in the console
+- [x] 304. Grouping identical messages in the console (collapse)
+- [x] 305. A settings window (Preferences): theme color, font size
+- [x] 306. A window with the list of keyboard shortcuts
+- [x] 307. Autosave and recovery
+- [x] 308. A list of recent scenes
+- [x] 309. An undo history panel
+- [x] 310. Undo for the selection
+- [x] 311. Saving/loading editor layouts
+- [x] 312. Several viewports (side/top views)
+- [x] 313. Buttons for the orthographic views (Top/Front/Right)
+- [x] 314. An editor camera speed setting and FOV
+- [x] 315. Showing entity names in the viewport
+- [x] 316. A scene statistics panel (the number of components)
+- [x] 317. Opening script files from the editor (an external editor)
+- [x] 318. Showing compile errors with the file/line
+- [x] 319. Fewer editor updates (an FPS limit when idle)
+- [x] 320. Editor II tests (headless)
 
-## M17 Loyiha sozlamalari
+## M17 Project settings
 
-- [x] 321. Loyiha sozlamalari oynasi
-- [x] 322. Input xaritasi muharriri
-- [x] 323. Teglar va qatlamlar muharriri
-- [x] 324. Fizika qatlamlari matritsasi
-- [x] 325. Sifat sozlamalari (soya, SSAO, bloom default)
-- [x] 326. Player oyna sozlamalari (o'lcham, fullscreen, vsync, sarlavha)
-- [x] 327. O'yin ikonkasi
-- [x] 328. Boshlang'ich sahna va build sahnalari
-- [x] 329. Kompaniya/o'yin nomi va versiya
-- [x] 330. Loyiha sozlamalari serializatsiyasi
-- [x] 331. Loyiha sozlamalari testlari
-- [x] 332. Grafik API va kontekst sozlamalari
-- [x] 333. Vaqt sozlamalari (fixed timestep, time scale)
-- [x] 334. Time.timeScale skript API (sekinlashtirish)
-- [x] 335. Gravitatsiya standart qiymatlari loyiha bo'yicha
-- [x] 336. Audio standart sozlamalari
-- [x] 337. Lokalizatsiya: til fayllari (uz, ru, en)
-- [x] 338. Lokalizatsiya skript API (Localize("key"))
-- [x] 339. Editor tilini tanlash (o'zbek/ingliz)
-- [x] 340. Loyiha sozlamalari hujjatlari
+- [x] 321. A project settings window
+- [x] 322. An input map editor
+- [x] 323. A tags and layers editor
+- [x] 324. A physics layers matrix
+- [x] 325. Quality settings (shadows, SSAO, bloom default)
+- [x] 326. Player window settings (size, fullscreen, vsync, title)
+- [x] 327. A game icon
+- [x] 328. The start scene and the build scenes
+- [x] 329. The company/game name and version
+- [x] 330. Project settings serialization
+- [x] 331. Project settings tests
+- [x] 332. Graphics API and context settings
+- [x] 333. Time settings (fixed timestep, time scale)
+- [x] 334. A Time.timeScale script API (slow motion)
+- [x] 335. Default gravity values per project
+- [x] 336. Default audio settings
+- [x] 337. Localization: language files (uz, ru, en)
+- [x] 338. A localization script API (Localize("key"))
+- [x] 339. Choosing the editor language (Uzbek/English)
+- [x] 340. Project settings documentation
 
 ## M18 Runtime player
 
-- [x] 341. Player oyna sozlamalarini loyihadan o'qish
-- [x] 342. F11 bilan fullscreen almashtirish
-- [x] 343. FPS cheklovi
-- [x] 344. Splash ekran (Zamin logotipi)
-- [x] 345. Player command line: --windowed, --resolution
-- [x] 346. Player log faylga yozish
-- [x] 347. Crash bo'lganda xabar oynasi
-- [x] 348. Player'da kursorni yashirish/bloklash API
-- [x] 349. Ekran o'lchami o'zgarishiga moslashish
-- [x] 350. Eksportda ishlatilmagan assetlarni chiqarib tashlash
-- [x] 351. Eksportda skript modulini optimizatsiya (Release)
-- [x] 352. Eksport: .desktop fayli va ikonka
-- [x] 353. Eksport hisobotini ko'rsatish (hajm, fayllar)
-- [x] 354. Player'da pauza (fokus yo'qolganda)
-- [x] 355. Gamma va yorqinlik sozlamasi player'da
-- [x] 356. Player ishlash testi (headless)
-- [x] 357. Eksport testi (avtomatik)
-- [x] 358. Player uchun minimal o'yin menyusi namunasi
-- [x] 359. Player versiya ma'lumoti
-- [x] 360. Runtime hujjatlari
+- [x] 341. Reading the player window settings from the project
+- [x] 342. Toggling fullscreen with F11
+- [x] 343. An FPS limit
+- [x] 344. A splash screen (the Zamin logo)
+- [x] 345. The player command line: --windowed, --resolution
+- [x] 346. The player writes a log file
+- [x] 347. A message window on a crash
+- [x] 348. An API to hide/lock the cursor in the player
+- [x] 349. Adapting to a change of the screen size
+- [x] 350. Leaving unused assets out of the export
+- [x] 351. Optimizing the script module in the export (Release)
+- [x] 352. Export: a .desktop file and an icon
+- [x] 353. Showing an export report (size, files)
+- [x] 354. Pausing in the player (when the focus is lost)
+- [x] 355. A gamma and brightness setting in the player
+- [x] 356. A player run test (headless)
+- [x] 357. An export test (automatic)
+- [x] 358. A sample of a minimal game menu for the player
+- [x] 359. Player version information
+- [x] 360. Runtime documentation
 
-## M19 Matematika va core
+## M19 Math and core
 
-- [x] 361. Perlin/Simplex shovqin funksiyalari
-- [x] 362. AnimationCurve turi (kalit nuqtalar, baholash)
-- [x] 363. Spline yo'llar (Catmull-Rom) va komponent
-- [x] 364. Spline bo'ylab harakat skripti
-- [x] 365. Rang utilitalari (HSV, lerp, hex)
-- [x] 366. Math utilitalari (Remap, SmoothDamp, MoveTowards, Approximately)
-- [x] 367. Quaternion yordamchilari (LookRotation, Slerp)
+- [x] 361. Perlin/Simplex noise functions
+- [x] 362. An AnimationCurve type (keys, evaluation)
+- [x] 363. Spline paths (Catmull-Rom) and a component
+- [x] 364. A script for moving along a spline
+- [x] 365. Color utilities (HSV, lerp, hex)
+- [x] 366. Math utilities (Remap, SmoothDamp, MoveTowards, Approximately)
+- [x] 367. Quaternion helpers (LookRotation, Slerp)
 - [x] 368. Job system / thread pool
-- [x] 369. Parallel for (particle va animatsiya uchun)
-- [x] 370. Xotira statistikasi profiler'da
-- [x] 371. Log fayl va log darajasi sozlamasi
-- [x] 372. Assert'larni yaxshilash (xabar bilan)
-- [x] 373. Timer va Stopwatch utilitalari
-- [x] 374. String utilitalari (split, trim, format)
-- [x] 375. UUID generatsiya testi kuchaytirish
-- [x] 376. Fayl tizimi yordamchilari (yo'l normalizatsiya)
-- [x] 377. Bounding volume yordamchilari (AABB, sfera, ray kesishuvi)
-- [x] 378. Geometriya testlari (ray-AABB, ray-sfera)
-- [x] 379. Math testlari
-- [x] 380. Core hujjatlari
+- [x] 369. Parallel for (for particles and animation)
+- [x] 370. Memory statistics in the profiler
+- [x] 371. A log file and a log level setting
+- [x] 372. Better asserts (with a message)
+- [x] 373. Timer and Stopwatch utilities
+- [x] 374. String utilities (split, trim, format)
+- [x] 375. A stronger UUID generation test
+- [x] 376. File system helpers (path normalization)
+- [x] 377. Bounding volume helpers (AABB, sphere, ray intersection)
+- [x] 378. Geometry tests (ray-AABB, ray-sphere)
+- [x] 379. Math tests
+- [x] 380. Core documentation
 
-## M20 Navigatsiya va AI
+## M20 Navigation and AI
 
-- [x] 381. Grid asosidagi A* pathfinding (2D)
-- [x] 382. Pathfinding uchun grid'ni tilemap'dan yaratish
-- [x] 383. NavGrid 3D (yer tekisligi bo'yicha, to'siqlarni aniqlash)
-- [x] 384. NavAgent komponenti (yo'l bo'ylab yurish)
-- [x] 385. Yo'lni silliqlash (string pulling)
-- [x] 386. Dinamik to'siqlar (grid yangilash)
+- [x] 381. Grid based A* pathfinding (2D)
+- [x] 382. Building the pathfinding grid from a tilemap
+- [x] 383. NavGrid 3D (along the ground plane, detecting obstacles)
+- [x] 384. A NavAgent component (walking along a path)
+- [x] 385. Path smoothing (string pulling)
+- [x] 386. Dynamic obstacles (updating the grid)
 - [x] 387. Steering: seek, flee, arrive, wander
-- [x] 388. Obstacle avoidance (raycast bilan)
-- [x] 389. AI holat mashinasi yordamchi klassi
-- [x] 390. Ko'rish maydoni (line of sight) tekshiruvi
-- [x] 391. Patrol yo'llari (waypoints) komponenti
-- [x] 392. Navigatsiya debug chizish
-- [x] 393. Navigatsiya testlari
-- [x] 394. AI namunasi: dushman ta'qib qiladi (2D)
-- [x] 395. AI namunasi: 3D NPC patrul
-- [x] 396. Formation/guruh harakati (oddiy)
-- [x] 397. Behavior tree (minimal) yordamchisi
-- [x] 398. Navigatsiya performance testi
-- [x] 399. Navigatsiya serializatsiyasi
-- [x] 400. AI hujjatlari
+- [x] 388. Obstacle avoidance (with raycasts)
+- [x] 389. An AI state machine helper class
+- [x] 390. A line of sight check
+- [x] 391. A patrol path (waypoints) component
+- [x] 392. Navigation debug drawing
+- [x] 393. Navigation tests
+- [x] 394. An AI sample: an enemy chases (2D)
+- [x] 395. An AI sample: a 3D NPC on patrol
+- [x] 396. Formation/group movement (simple)
+- [x] 397. A behavior tree (minimal) helper
+- [x] 398. A navigation performance test
+- [x] 399. Navigation serialization
+- [x] 400. AI documentation
 
-## M21 Prefab va serializatsiya II
+## M21 Prefabs and serialization II
 
-- [x] 401. Prefab instansiyalari asl prefabga bog'lanishi (link)
-- [x] 402. Prefab o'zgarishlarini instansiyalarga qo'llash (Apply)
-- [x] 403. Instansiyani asl holatiga qaytarish (Revert)
-- [x] 404. Prefab override'larini ko'rsatish inspektorda
-- [x] 405. Ichma-ich prefab'lar (nested)
-- [x] 406. Prefab muharriri rejimi (alohida ochish)
-- [x] 407. Prefab instansiyalarda EntityRef'larni qayta xaritalash
-- [x] 408. Dublikat qilishda EntityRef'larni ichki xaritalash
-- [x] 409. Sahna fayli versiyasi va migratsiya
-- [x] 410. Buzilgan sahna faylini tiklash (qisman yuklash)
-- [x] 411. Serializatsiya fuzz testi (tasodifiy JSON)
-- [x] 412. Katta sahnalar serializatsiya benchmark
-- [x] 413. Prefab variantlari (asosiy prefabdan meros)
-- [x] 414. Prefab thumbnail
-- [x] 415. Prefab'ni kontent brauzerdan sahnaga ko'p marta sudrash
-- [x] 416. Prefab o'zgarishi hot reload
-- [x] 417. Prefab serializatsiya testlari
-- [x] 418. Clipboard formatini prefab bilan birlashtirish
-- [x] 419. Sahna eksportida prefab'larni tekshirish
-- [x] 420. Prefab hujjatlari
+- [x] 401. Prefab instances are linked to the original prefab (link)
+- [x] 402. Applying prefab changes to the instances (Apply)
+- [x] 403. Returning an instance to its original state (Revert)
+- [x] 404. Showing prefab overrides in the inspector
+- [x] 405. Nested prefabs
+- [x] 406. A prefab editing mode (opening it on its own)
+- [x] 407. Remapping EntityRefs in prefab instances
+- [x] 408. Remapping EntityRefs internally on duplication
+- [x] 409. Scene file version and migration
+- [x] 410. Recovering a broken scene file (partial loading)
+- [x] 411. A serialization fuzz test (random JSON)
+- [x] 412. A serialization benchmark of large scenes
+- [x] 413. Prefab variants (inheriting from a base prefab)
+- [x] 414. Prefab thumbnails
+- [x] 415. Dragging a prefab from the content browser into the scene many times
+- [x] 416. Hot reload of prefab changes
+- [x] 417. Prefab serialization tests
+- [x] 418. Merging the clipboard format with the prefab one
+- [x] 419. Checking prefabs in the scene export
+- [x] 420. Prefab documentation
 
-## M22 Sifat va testlar
+## M22 Quality and tests
 
-- [x] 421. AddressSanitizer bilan build va testlar
-- [x] 422. UndefinedBehaviorSanitizer bilan testlar
-- [x] 423. Xotira oqishini tekshirish (LeakSanitizer)
-- [x] 424. Ogohlantirishlarni tozalash (-Wall -Wextra -Wpedantic)
-- [x] 425. Renderer uchun headless skrinshot testlari CI'da
-- [x] 426. Editor smoke test (barcha panellar ochiladi)
-- [x] 427. Skript hot reload avtomatik testi
-- [x] 428. Eksport avtomatik testi
-- [x] 429. Fizika determinizm testi
-- [x] 430. Performance benchmark (10k sprite, 1k mesh)
-- [x] 431. ECS benchmark
-- [x] 432. Serializatsiya benchmark
-- [x] 433. Test framework: test nomlari bo'yicha filtr
-- [x] 434. Test framework: vaqt hisoboti
-- [x] 435. Code coverage hisoboti (gcov)
-- [x] 436. clang-format konfiguratsiyasi
-- [x] 437. CI: sanitizer job
-- [x] 438. CI: artefaktlar (player build)
-- [x] 439. Regressiya testlari ro'yxati hujjati
-- [x] 440. Sifat hisoboti
+- [x] 421. A build and tests with AddressSanitizer
+- [x] 422. Tests with UndefinedBehaviorSanitizer
+- [x] 423. Checking for memory leaks (LeakSanitizer)
+- [x] 424. Cleaning up warnings (-Wall -Wextra -Wpedantic)
+- [x] 425. Headless screenshot tests for the renderer in CI
+- [x] 426. An editor smoke test (every panel opens)
+- [x] 427. An automatic test of script hot reload
+- [x] 428. An automatic export test
+- [x] 429. A physics determinism test
+- [x] 430. A performance benchmark (10k sprites, 1k meshes)
+- [x] 431. An ECS benchmark
+- [x] 432. A serialization benchmark
+- [x] 433. Test framework: a filter by test names
+- [x] 434. Test framework: a timing report
+- [x] 435. A code coverage report (gcov)
+- [x] 436. A clang-format configuration
+- [x] 437. CI: a sanitizer job
+- [x] 438. CI: artifacts (the player build)
+- [x] 439. A document with the list of regression tests
+- [x] 440. A quality report
 
-## M23 Hujjatlar
+## M23 Documentation
 
-- [x] 441. docs/Scripting.md - C++ skriptlar qo'llanmasi
-- [x] 442. docs/Components.md - barcha komponentlar ma'lumotnomasi
-- [x] 443. docs/Editor.md - editor qo'llanmasi
-- [x] 444. docs/Tutorial-2D.md - birinchi 2D o'yin
-- [x] 445. docs/Tutorial-3D.md - birinchi 3D o'yin
+- [x] 441. docs/Scripting.md - a guide to C++ scripts
+- [x] 442. docs/Components.md - a reference of every component
+- [x] 443. docs/Editor.md - an editor guide
+- [x] 444. docs/Tutorial-2D.md - a first 2D game
+- [x] 445. docs/Tutorial-3D.md - a first 3D game
 - [x] 446. docs/Physics.md
 - [x] 447. docs/Rendering.md
 - [x] 448. docs/Animation.md
 - [x] 449. docs/UI.md
 - [x] 450. docs/Audio.md
-- [x] 451. docs/Architecture.md - ichki arxitektura
+- [x] 451. docs/Architecture.md - the internal architecture
 - [x] 452. docs/BuildAndExport.md
-- [x] 453. Doxygen konfiguratsiyasi
-- [x] 454. API izohlarini header'larda to'ldirish
-- [x] 455. FAQ va muammolarni hal qilish
-- [x] 456. Hissa qo'shish qo'llanmasi (CONTRIBUTING)
+- [x] 453. A Doxygen configuration
+- [x] 454. Filling in the API comments in the headers
+- [x] 455. FAQ and troubleshooting
+- [x] 456. A contribution guide (CONTRIBUTING)
 - [x] 457. CHANGELOG
-- [x] 458. Rasmli qo'llanmalar (skrinshotlar)
-- [x] 459. README yangilash
-- [x] 460. Hujjatlar indeksi
+- [x] 458. Illustrated guides (screenshots)
+- [x] 459. Updating the README
+- [x] 460. A documentation index
 
-## M24 Namuna o'yinlar
+## M24 Sample games
 
-- [x] 461. Top-down shooter (2D): o'yinchi, o'q otish, dushmanlar
-- [x] 462. Top-down shooter: to'lqinlar va hisob
-- [x] 463. Breakout (2D): raketka, to'p, g'ishtlar
-- [x] 464. Breakout: bonuslar va darajalar
-- [x] 465. 3D FPS controller namunasi (sichqoncha bilan qarash)
-- [x] 466. FPS: nishonlar va otish (raycast)
-- [x] 467. Puzzle o'yin (match-3 yoki sokoban)
+- [x] 461. Top-down shooter (2D): the player, shooting, enemies
+- [x] 462. Top-down shooter: waves and the score
+- [x] 463. Breakout (2D): the paddle, the ball, the bricks
+- [x] 464. Breakout: bonuses and levels
+- [x] 465. A 3D FPS controller sample (mouse look)
+- [x] 466. FPS: targets and shooting (raycast)
+- [x] 467. A puzzle game (match-3 or sokoban)
 - [x] 468. Endless runner (3D)
-- [x] 469. Racing (oddiy mashina fizikasi)
-- [x] 470. Namunalarni launcher'da ko'rsatish (rasm bilan)
-- [x] 471. Har bir namuna uchun README
-- [x] 472. Namunalar uchun headless testlar
-- [x] 473. Namuna assetlari (procedural)
-- [x] 474. Namunalarda ovozlar (procedural wav)
-- [x] 475. Namunalarda UI menyular
-- [x] 476. Namunalarda SaveData (rekord)
-- [x] 477. Namunalarda input action'lar
-- [x] 478. Namunalarni eksport qilib tekshirish
-- [x] 479. Namunalar galereyasi (docs)
-- [x] 480. Namunalar performance tekshiruvi
+- [x] 469. Racing (simple car physics)
+- [x] 470. Showing the samples in the launcher (with a picture)
+- [x] 471. A README for every sample
+- [x] 472. Headless tests for the samples
+- [x] 473. Sample assets (procedural)
+- [x] 474. Sounds in the samples (procedural wav)
+- [x] 475. UI menus in the samples
+- [x] 476. SaveData in the samples (the record)
+- [x] 477. Input actions in the samples
+- [x] 478. Exporting and checking the samples
+- [x] 479. A gallery of the samples (docs)
+- [x] 480. A performance check of the samples
 
-## M25 Optimallashtirish va sayqal
+## M25 Optimization and polish
 
-- [x] 481. Renderer2D batching optimallashtirish (kamroq flush)
-- [x] 482. Kadrlararo ajratmalarni kamaytirish (per-frame allocations)
-- [x] 483. World transform keshlash (dirty flag)
-- [x] 484. ECS view'larni keshlash
-- [x] 485. Font atlas keshlash va kerning
-- [x] 486. Tekstura yuklashni fon oqimida (async)
-- [x] 487. Model yuklashni fon oqimida
-- [x] 488. Shader'larni keshlash (program binary)
-- [x] 489. Uniform'larni UBO'ga ko'chirish
-- [x] 490. Shadow pass'da culling
-- [x] 491. Particle simulyatsiyasini parallellashtirish
-- [x] 492. Animatsiya baholashni parallellashtirish
-- [x] 493. Editor UI performance (katta ierarxiyalar - clipper)
-- [x] 494. Kontent brauzer katta papkalar (clipper)
-- [x] 495. Start vaqtini qisqartirish
-- [x] 496. Xotira ishlatilishini kamaytirish
-- [x] 497. Barcha namunalar 60 FPS tekshiruvi
-- [x] 498. Profiler orqali bottleneck hisobot
-- [x] 499. Oxirgi sayqal: UI matnlari va tarjimalar
-- [x] 500. Yakuniy regressiya va barcha testlar
+- [x] 481. Renderer2D batching optimization (fewer flushes)
+- [x] 482. Fewer per-frame allocations
+- [x] 483. World transform caching (dirty flag)
+- [x] 484. Caching ECS views
+- [x] 485. Font atlas caching and kerning
+- [x] 486. Texture loading on a background thread (async)
+- [x] 487. Model loading on a background thread
+- [x] 488. Shader caching (program binary)
+- [x] 489. Moving uniforms to UBOs
+- [x] 490. Culling in the shadow pass
+- [x] 491. Parallelizing the particle simulation
+- [x] 492. Parallelizing the animation evaluation
+- [x] 493. Editor UI performance (large hierarchies - clipper)
+- [x] 494. Large folders in the content browser (clipper)
+- [x] 495. A shorter startup time
+- [x] 496. Less memory use
+- [x] 497. A 60 FPS check of every sample
+- [x] 498. A bottleneck report from the profiler
+- [x] 499. The final polish: UI texts and translations
+- [x] 500. The final regression and all the tests

@@ -41,7 +41,7 @@ def git_log():
 
 
 def milestone_names():
-    """{"M01": "Skript va gameplay API", ...} from docs/TASKS.md, and the milestones with a finished task."""
+    """{"M01": "Scripting and gameplay API", ...} from docs/TASKS.md, and the milestones with a finished task."""
     names, done = {}, set()
     current = None
     with open(os.path.join(ROOT, "docs", "TASKS.md"), encoding="utf-8") as fh:
@@ -89,10 +89,10 @@ def summary_line(key, items, newest):
     """The line CHANGELOG.md has under the milestone's heading."""
     dates = items[0][1] if items[0][1] == items[-1][1] else f"{items[0][1]} – {items[-1][1]}"
     tasks = task_range(key)
-    head = f"{dates} · vazifalar {tasks[0]}–{tasks[1]} · " if tasks else f"{dates} · "
+    head = f"{dates} · tasks {tasks[0]}–{tasks[1]} · " if tasks else f"{dates} · "
     if newest:
-        return head + f"`{items[0][0]}` dan boshlab (so'nggi milestone)"
-    return head + f"{len(items)} ta commit (`{items[0][0]}` … `{items[-1][0]}`)"
+        return head + f"from `{items[0][0]}` on (the newest milestone)"
+    return head + f"{len(items)} commits (`{items[0][0]}` … `{items[-1][0]}`)"
 
 
 def check(path, out):
@@ -168,7 +168,7 @@ def main():
         return 1
     names, _ = milestone_names()
     for key, items in groups:
-        title = names.get(key, "Dastlabki versiya" if key == "M00" else "")
+        title = names.get(key, "The first version" if key == "M00" else "")
         print(f"## {key} {title}\n{summary_line(key, items, key == groups[-1][0])}\n")
     return 0
 

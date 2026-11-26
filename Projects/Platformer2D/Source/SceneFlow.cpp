@@ -69,7 +69,7 @@ private:
         const char* d = dots[(int)(m_Time * 3.0f) % 4];
         switch (m_Load->GetStage())
         {
-            // The stage in the player's language (Assets/Localization/<til>.json, "loading.*").
+            // The stage in the player's language (Assets/Localization/<language>.json, "loading.*").
             case AsyncOperation::Stage::Reading:   return Localize("loading.reading", d);
             case AsyncOperation::Stage::Decoding:  return Localize("loading.decoding", m_Load->GetDecodedImageCount(), m_Load->GetImageCount(), d);
             case AsyncOperation::Stage::Building:  return Localize("loading.building", d);

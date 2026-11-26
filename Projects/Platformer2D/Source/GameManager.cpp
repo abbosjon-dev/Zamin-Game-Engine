@@ -66,7 +66,7 @@ void GameManager::OnLanguageChanged(const std::string&)
 
 void GameManager::RefreshText()
 {
-    // The texts come from the language files (Assets/Localization/<til>.json): "{0}: {1} / {2}" ...
+    // The texts come from the language files (Assets/Localization/<language>.json): "{0}: {1} / {2}" ...
     if (auto* text = TryGetComponent<TextComponent>())
     {
         const std::string title = Localization::Has(TitleKey) ? Localize(TitleKey) : Title;

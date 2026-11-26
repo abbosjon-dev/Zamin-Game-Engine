@@ -82,7 +82,7 @@ public:
                 GetScene().PunchUIScale(coins, 0.25f, 0.4f); // the counter jumps
             SetLast(std::format("{} taken: +5 coins", m.Sender.GetName()));
         });
-        // A widget selected before this script started (UI Navigation > Faollashganda tanlash).
+        // A widget selected before this script started (UI Navigation > Select when enabled).
         if (Entity selected = GetScene().GetSelectedUI())
             m_Selected = selected.GetName();
         Refresh();

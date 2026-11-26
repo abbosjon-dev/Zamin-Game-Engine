@@ -645,7 +645,7 @@ _In the inspector: **Edge Collider 2D**; add with: **+ Component → Physics 2D 
 Turns the entity's colliders (or a tilemap's tiles) into a platform: `OneWay` — passed through from below / the
 sides, landed on from above (it collides within `SurfaceArc` degrees; 180 is the classic one-way platform),
 `RotationOffset`, friction / bounce on the sides (`UseSideFriction`, `UseSideBounce`, `SideArc`). Sample:
-`Projects/Platformer2D/Assets/Scenes/Shapes2D.zscene`. Details: [Physics.md](Physics.md#4-2d-effektorlar-platforma-shamol-suv).
+`Projects/Platformer2D/Assets/Scenes/Shapes2D.zscene`. Details: [Physics.md](Physics.md#4-2d-effectors-platforms-wind-water).
 
 <!-- gen:PlatformEffector2DComponent -->
 _In the inspector: **Platform Effector 2D**; add with: **+ Component → Physics 2D → Platform Effector 2D (one-way)**; in the scene file: `"PlatformEffector2D"`._
@@ -880,7 +880,7 @@ _The fields at the top of the table are inherited from `Joint2DComponentBase`._
 (triggers too: for example a Static body + a sensor collider). The fields the colliders share: `Offset`, `Friction`,
 `Restitution`, `IsSensor` (**Trigger (sensor)**), `MaterialPath` (`.zphysmat`). Sizes are multiplied by the
 transform's scale. For a character use `CharacterController3DComponent` instead of a body.
-Guide: [Physics.md](Physics.md#6-3d-jismlar-va-colliderlar).
+Guide: [Physics.md](Physics.md#6-3d-bodies-and-colliders).
 
 ### Rigidbody3DComponent
 

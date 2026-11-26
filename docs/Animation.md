@@ -147,7 +147,7 @@ bosish ham shu).
    `PlayAnimation("Platforma")` (4-bo'lim).
 
 Kinematik jismni (Rigidbody 2D / 3D `Kinematic`) shunday animatsiya qilsangiz ustida turgan qahramon birga ko'tariladi
-([Physics.md](Physics.md#1-asosiy-tushunchalar)).
+([Physics.md](Physics.md#1-core-concepts)).
 
 - **Treklar ro'yxati**: `+ Trek qo'shish` — obyekt (yo'l avtomatik) va uning xususiyatlari ro'yxatidan.
 - **Dope sheet**: kalitlar romblar; sudrab ko'chirish, ikki marta bosish — yangi kalit, `Delete` — o'chirish, o'ng tugma —

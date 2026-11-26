@@ -1,152 +1,152 @@
-# Zamin Engine: fizika (2D va 3D)
+# Zamin Engine: physics (2D and 3D)
 
-Bu qo'llanma Zamin'ning ikki fizika dunyosini tushuntiradi: **2D** (Box2D) va **3D** (Jolt Physics). Jismlar va
-collider'lar, joint'lar, effektorlar, Character Controller 3D, fizik materiallar, to'qnashuv qatlamlari, skriptdan
-boshqarish, to'qnashuv va trigger callback'lari, raycast / overlap / shape cast so'rovlari, uxlash, debug ko'rinishlari
-va determinizm — editorda qanday sozlanishi va C++ skriptda qanday ishlatilishi bilan.
+This guide explains Zamin's two physics worlds: **2D** (Box2D) and **3D** (Jolt Physics). Bodies and colliders,
+joints, effectors, Character Controller 3D, physics materials, collision layers, control from scripts, collision and
+trigger callbacks, raycast / overlap / shape cast queries, sleeping, debug views and determinism — how to set them up
+in the editor and how to use them in C++ scripts.
 
-Komponentlarning to'liq maydonlari (turi, standart qiymati) [Components.md](Components.md) da: [Fizika 2D](Components.md#4-physics-2d)
-va [Fizika 3D](Components.md#5-physics-3d). Skript API'ning umumiy qo'llanmasi — [Scripting.md](Scripting.md). Bu yerdagi
-misollar `#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan yozilgan.
+The components' full fields (type, default value) are in [Components.md](Components.md): [Physics 2D](Components.md#4-physics-2d)
+and [Physics 3D](Components.md#5-physics-3d). The general guide to the script API — [Scripting.md](Scripting.md). The
+examples here assume `#include <Zamin/Zamin.h>` and `using namespace Zamin;`.
 
-![Fizika debug ko'rinishi: kontakt nuqtalari, joint yuklari, uxlayotgan jismlar](images/physics-debug-editor.jpg)
+![The physics debug view: contact points, joint loads, sleeping bodies](images/physics-debug-editor.jpg)
 
-*Showcase3D `Scenes/PhysicsDebug3D.zscene` editorda (Play): Debug chizish — kontaktlar va ularning qiymatlari, joint'lar yuki,
-uxlayotgan jismlar xira.*
+*Showcase3D `Scenes/PhysicsDebug3D.zscene` in the editor (Play): Debug drawing — the contacts and their values, the
+joints' loads, sleeping bodies dimmed.*
 
-Mundarija:
+Contents:
 
-1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)
-2. [Qadam, gravitatsiya va simulyatsiya sozlamalari](#2-qadam-gravitatsiya-va-simulyatsiya-sozlamalari)
-3. [2D jismlar va collider'lar](#3-2d-jismlar-va-colliderlar)
-4. [2D effektorlar: platforma, shamol, suv](#4-2d-effektorlar-platforma-shamol-suv)
-5. [2D joint'lar](#5-2d-jointlar)
-6. [3D jismlar va collider'lar](#6-3d-jismlar-va-colliderlar)
-7. [3D joint'lar va ragdoll](#7-3d-jointlar-va-ragdoll)
+1. [Core concepts](#1-core-concepts)
+2. [Step, gravity and simulation settings](#2-step-gravity-and-simulation-settings)
+3. [2D bodies and colliders](#3-2d-bodies-and-colliders)
+4. [2D effectors: platforms, wind, water](#4-2d-effectors-platforms-wind-water)
+5. [2D joints](#5-2d-joints)
+6. [3D bodies and colliders](#6-3d-bodies-and-colliders)
+7. [3D joints and ragdolls](#7-3d-joints-and-ragdolls)
 8. [Character Controller 3D](#8-character-controller-3d)
-9. [Fizik materiallar (.zphysmat)](#9-fizik-materiallar-zphysmat)
-10. [To'qnashuv qatlamlari](#10-toqnashuv-qatlamlari)
-11. [Skriptdan boshqarish: tezlik, kuch, teleport](#11-skriptdan-boshqarish-tezlik-kuch-teleport)
-12. [To'qnashuv, trigger va joint uzilishi callback'lari](#12-toqnashuv-trigger-va-joint-uzilishi-callbacklari)
-13. [So'rovlar: raycast, overlap, shape cast](#13-sorovlar-raycast-overlap-shape-cast)
-14. [Uxlash](#14-uxlash)
-15. [Debug ko'rinishlari](#15-debug-korinishlari)
-16. [Determinizm](#16-determinizm)
-17. [Namuna sahnalar](#17-namuna-sahnalar)
-18. [Ko'p uchraydigan muammolar](#18-kop-uchraydigan-muammolar)
-19. [Testlar](#19-testlar)
-20. [Qisqa API ma'lumotnomasi](#20-qisqa-api-malumotnomasi)
+9. [Physics materials (.zphysmat)](#9-physics-materials-zphysmat)
+10. [Collision layers](#10-collision-layers)
+11. [Control from scripts: velocity, force, teleport](#11-control-from-scripts-velocity-force-teleport)
+12. [Collision, trigger and joint break callbacks](#12-collision-trigger-and-joint-break-callbacks)
+13. [Queries: raycast, overlap, shape cast](#13-queries-raycast-overlap-shape-cast)
+14. [Sleeping](#14-sleeping)
+15. [Debug views](#15-debug-views)
+16. [Determinism](#16-determinism)
+17. [Sample scenes](#17-sample-scenes)
+18. [Common problems](#18-common-problems)
+19. [Tests](#19-tests)
+20. [Short API reference](#20-short-api-reference)
 
 ---
 
-## 1. Asosiy tushunchalar
+## 1. Core concepts
 
-**Ikki dunyo.** Har sahnada o'yin (Play) yoki simulyatsiya paytida ikkita mustaqil dunyo bo'lishi mumkin: 2D (Box2D,
-`PhysicsWorld2D`) va 3D (Jolt, `PhysicsWorld3D`). 2D jism faqat 2D collider'lar bilan, 3D jism faqat 3D collider'lar bilan
-to'qnashadi. Dunyo kerak bo'lganda yaratiladi: sahnada 3D jism bo'lmasa Jolt ishga tushmaydi (o'yin davomida 3D prefab
-paydo bo'lsa — o'sha paytda ishga tushadi).
+**Two worlds.** During play (Play) or simulation every scene can have two independent worlds: 2D (Box2D,
+`PhysicsWorld2D`) and 3D (Jolt, `PhysicsWorld3D`). A 2D body collides only with 2D colliders, a 3D body only with 3D
+colliders. A world is created when needed: with no 3D body in the scene Jolt does not start (when a 3D prefab appears
+during the game — it starts then).
 
-**Jism + collider.** Fizik obyekt — bitta obyektda jism (`Rigidbody2DComponent` yoki `Rigidbody3DComponent`) va bir yoki
-bir nechta collider. Jismsiz collider dunyoga qo'shilmaydi; 3D jism collider'siz bo'lsa ogohlantirish chiqadi. Bitta
-obyektda bir nechta collider (masalan quti + uning ustidagi trigger shar) — bitta jismning shakllari.
+**Body + collider.** A physics object is a body (`Rigidbody2DComponent` or `Rigidbody3DComponent`) and one or more
+colliders on one object. A collider without a body is not added to the world; a 3D body without a collider gives a
+warning. Several colliders on one object (for example a box + a trigger sphere above it) are the shapes of one body.
 
-**Jism turlari** (inspektorda **Turi**):
+**Body types** (**Type** in the inspector):
 
-| Tur | Nima qiladi | Misol |
+| Type | What it does | Example |
 |---|---|---|
-| `Static` | Qimirlamaydi, massasi cheksiz | yer, devor, tilemap |
-| `Dynamic` | Gravitatsiya, kuch, to'qnashuv ta'sir qiladi; transformini fizika yozadi | quti, to'p, qahramon (2D) |
-| `Kinematic` | Faqat skript / animatsiya bilan harakatlanadi, uni hech narsa itarmaydi; ustidagilarni olib yuradi | lift, harakatlanuvchi platforma |
+| `Static` | Does not move, infinite mass | ground, walls, tilemaps |
+| `Dynamic` | Gravity, forces and collisions act on it; physics writes its transform | a crate, a ball, the hero (2D) |
+| `Kinematic` | Moves only by script / animation, nothing pushes it; carries what stands on it | a lift, a moving platform |
 
-**Transformni kim boshqaradi.** Static va Kinematic jismlar obyektning Transform'iga ergashadi — skript yoki Animation
-Player ularni `Transform().Translation` bilan surishi mumkin (kinematik 3D jismga tezlik ham hisoblab beriladi, ustidagilar
-birga yuradi). **Dynamic** jismning transformini har qadamdan keyin fizika qayta yozadi: uni joyidan ko'chirish uchun
-`SetPosition2D` / `SetPosition3D` ishlating (jism ham ko'chadi va uyg'onadi), harakat uchun — tezlik, kuch yoki impuls
-([11-bo'lim](#11-skriptdan-boshqarish-tezlik-kuch-teleport)).
+**Who controls the transform.** Static and Kinematic bodies follow the object's Transform — a script or an Animation
+Player can move them with `Transform().Translation` (a kinematic 3D body also gets its velocity computed, so what stands
+on it moves along). Physics rewrites a **Dynamic** body's transform after every step: to move it elsewhere use
+`SetPosition2D` / `SetPosition3D` (the body moves too and wakes up), and for movement — velocity, force or an impulse
+([section 11](#11-control-from-scripts-velocity-force-teleport)).
 
-**Birliklar.** Masofa — metr (sahna birligi), massa — kg, vaqt — soniya, kuch — N, burchak tezligi — radian/s.
-`TransformComponent::Rotation` radianda; joint burchaklari va inspektordagi burchaklar — gradusda. 2D collider o'lchamlari
-transform masshtabiga ko'paytiriladi (Box Collider 2D `Size` — **yarim** o'lcham), joint langarlari esa jismning o'z
-koordinatalarida, masshtabsiz.
+**Units.** Distance — meters (the scene unit), mass — kg, time — seconds, force — N, angular velocity — radians/s.
+`TransformComponent::Rotation` is in radians; joint angles and the angles in the inspector — in degrees. 2D collider
+sizes are multiplied by the transform scale (the Box Collider 2D `Size` is the **half** size), while joint anchors are in
+the body's own coordinates, unscaled.
 
-**Kadr tartibi** (`Scene::OnUpdateRuntime`): UI → skriptlarning `OnUpdate` → taymerlar va tween'lar → Nav Agent va
-Spline Follower → **fizika qadamlari** → to'qnashuv / trigger / joint uzilishi callback'lari → Animation Player →
-`OnLateUpdate` → kamera kuzatish → sprite / tint animatsiyalari, Animator, audio. Demak `OnUpdate`'da berilgan tezlik
-shu kadrning o'zida qo'llanadi, `OnLateUpdate` esa jismlarning yangi joyini ko'radi.
+**Frame order** (`Scene::OnUpdateRuntime`): UI → the scripts' `OnUpdate` → timers and tweens → Nav Agents and Spline
+Followers → **the physics steps** → collision / trigger / joint break callbacks → Animation Player → `OnLateUpdate` →
+camera follow → sprite / tint animations, Animator, audio. So a velocity given in `OnUpdate` applies in the same frame,
+and `OnLateUpdate` sees the bodies' new positions.
 
-**Qachon ishlaydi.** Fizika faqat **Play** (`Ctrl+P`) va **Fizikani simulyatsiya qilish** rejimlarida yuradi (viewport
-toolbar'idagi tugma: skriptlarsiz, editor kamerasi bilan). Tahrir rejimida jismlar yo'q — collider'lar faqat chiziladi
-(**Ko'rinish > Fizik colliderlar**). Nofaol obyekt (`SetActive(false)`) fizikadan chiqariladi va qayta yoqilganda joriy
-transformida yaratiladi ([Scripting.md](Scripting.md#5-hayot-sikli)).
+**When it runs.** Physics runs only in **Play** (`Ctrl+P`) and **Simulate physics** (a button on the viewport toolbar:
+without scripts, with the editor camera). In edit mode there are no bodies — colliders are only drawn
+(**View > Physics colliders**). An inactive object (`SetActive(false)`) is removed from physics and created at its current
+transform when enabled again ([Scripting.md](Scripting.md#5-hayot-sikli)).
 
 ---
 
-## 2. Qadam, gravitatsiya va simulyatsiya sozlamalari
+## 2. Step, gravity and simulation settings
 
-**Qat'iy qadam.** Ikkala dunyo ham `1 / StepRate` soniyalik teng qadamlar bilan yuradi: kadr vaqti qancha qadamni
-sig'dirsa, shuncha qadam (ko'pi bilan `MaxStepsPerFrame`, qolgani tashlanadi — o'yin sekinlashadi, lekin orqada qolib
-ketmaydi). Natija kadr tezligiga bog'liq emas.
+**Fixed step.** Both worlds advance in equal steps of `1 / StepRate` seconds: as many steps as the frame time fits (at
+most `MaxStepsPerFrame`, the rest is dropped — the game slows down but does not fall behind). The result does not depend
+on the frame rate.
 
-| Sozlama | Qayerda | Standart |
+| Setting | Where | Default |
 |---|---|---|
-| Qadam chastotasi (`PhysicsStep.StepRate`, 20 ... 240 Hz) | Loyiha sozlamalari > **Vaqt** (`FixedStepRate`); sahna o'zinikini *Sahna sozlamalari > Fizika* da qo'yishi mumkin | 60 |
-| Kadrda ko'pi bilan qadam (`MaxStepsPerFrame`, 1 ... 20) | shu yerda | 5 |
-| Gravitatsiya 2D / 3D | Loyiha sozlamalari > **Fizika** (presetlar: Earth, Moon, Mars, Jupiter, Platformer, Zero gravity); sahnada — **Loyihadan** belgisini o'chirib | (0, -9.8) / (0, -9.81, 0) |
+| Step rate (`PhysicsStep.StepRate`, 20 ... 240 Hz) | Project settings > **Time** (`FixedStepRate`); a scene can set its own in *Scene settings > Physics* | 60 |
+| At most steps per frame (`MaxStepsPerFrame`, 1 ... 20) | the same place | 5 |
+| Gravity 2D / 3D | Project settings > **Physics** (presets: Earth, Moon, Mars, Jupiter, Platformer, Zero gravity); in a scene — by turning off **From the project** | (0, -9.8) / (0, -9.81, 0) |
 
-Sahna sozlamalari (**Oyna > Sahna sozlamalari**, *Fizika* bo'limi) — `SceneSettings` ning `Gravity`, `Gravity3D`,
-`PhysicsStep`, `Physics2D`, `Physics3D` qiymatlari, sahna fayliga yoziladi:
+The scene settings (**Window > Scene settings**, the *Physics* section) — the `Gravity`, `Gravity3D`, `PhysicsStep`,
+`Physics2D` and `Physics3D` values of `SceneSettings`, written to the scene file:
 
-| Bo'lim | Sozlama | Ma'nosi |
+| Section | Setting | Meaning |
 |---|---|---|
-| Box2D (2D) | **Sub-qadamlar** (`SubSteps`, 1 ... 16) | Har qat'iy qadam shuncha kichik Box2D qadamiga bo'linadi: uzun zanjirlar, og'ir yuk osilgan joint'lar va ragdoll'lar cho'zilmaydi. Effektorlar va skriptning `ApplyForce` kuchi har sub-qadamda qo'llanadi, joint uzilishi har sub-qadamdan keyin tekshiriladi |
-| | **Tezlik / pozitsiya iteratsiyalari** (6 / 2) | Solver o'tishlari: ko'proq — qattiqroq minoralar va joint'lar, ko'proq vaqt |
-| | **Uxlash**, **Uxlashgacha** | [14-bo'lim](#14-uxlash) |
-| Jolt (3D) | **Uxlash**, **Uxlashgacha** | [14-bo'lim](#14-uxlash) |
+| Box2D (2D) | **Sub-steps** (`SubSteps`, 1 ... 16) | Every fixed step is split into this many smaller Box2D steps: long chains, joints carrying heavy loads and ragdolls do not stretch. Effectors and the script's `ApplyForce` are applied on every sub-step, and joint breaking is checked after every sub-step |
+| | **Velocity / position iterations** (6 / 2) | Solver passes: more — stiffer towers and joints, more time |
+| | **Sleeping**, **Until sleep** | [section 14](#14-sleeping) |
+| Jolt (3D) | **Sleeping**, **Until sleep** | [section 14](#14-sleeping) |
 
-O'yin davomida shu bo'limda jonli statistika: jismlar, uyg'oq / uxlayotganlar, joint va kontaktlar soni, kadrdagi Box2D
-qadamlari. Skriptdan: `GetScene().GetPhysics2DStats()` / `GetPhysics3DStats()` (`PhysicsStats2D` / `PhysicsStats3D`:
-`Bodies`, `Moving`, `Awake`, `Sleeping`, `Joints`, `Contacts`, `Steps`; 3D'da `Characters` ham).
+During the game the same section shows live statistics: bodies, awake / sleeping ones, joint and contact counts, the
+Box2D steps in the frame. From a script: `GetScene().GetPhysics2DStats()` / `GetPhysics3DStats()` (`PhysicsStats2D` /
+`PhysicsStats3D`: `Bodies`, `Moving`, `Awake`, `Sleeping`, `Joints`, `Contacts`, `Steps`; `Characters` too in 3D).
 
-Loyiha sozlamalari haqida batafsil: [ProjectSettings.md](ProjectSettings.md#8-fizika-gravitatsiya-va-toqnashuv-qatlamlari),
-vaqt: [ProjectSettings.md](ProjectSettings.md#7-vaqt-va-time-api) (`Time::GetFixedDeltaTime()` — qadam uzunligi).
+More about the project settings: [ProjectSettings.md](ProjectSettings.md#8-fizika-gravitatsiya-va-toqnashuv-qatlamlari),
+time: [ProjectSettings.md](ProjectSettings.md#7-vaqt-va-time-api) (`Time::GetFixedDeltaTime()` — the step length).
 
 ---
 
-## 3. 2D jismlar va collider'lar
+## 3. 2D bodies and colliders
 
-**Tez boshlash.** *Obyekt > 2D > Fizik quti* (yoki *Fizik shar*; shu menyu ierarxiyadagi **+** tugmasida va bo'sh
-joyda o'ng tugma bilan ham ochiladi): Sprite / Circle Renderer + Rigidbody 2D (Dynamic) + Box / Circle Collider 2D tayyor
-obyekt. Yer uchun shu obyektning **Turi**ni `Static` qiling va masshtabini cho'zing. ▶ bosing — quti tushib yerda
-to'xtaydi.
+**Quick start.** *Object > 2D > Physics box* (or *Physics ball*; the same menu opens from the **+** button in the
+hierarchy and with a right-click on empty space): a ready object with a Sprite / Circle Renderer + Rigidbody 2D
+(Dynamic) + Box / Circle Collider 2D. For the ground make that object's **Type** `Static` and stretch its scale. Press ▶
+— the box falls and stops on the ground.
 
-**Rigidbody 2D** (`Rigidbody2DComponent`): `Type`, `FixedRotation` (**Aylanmasin** — platformer qahramoni ag'darilmasin),
-`GravityScale` (0 — uchadi, 2 — og'irroq tushadi), `LinearDamping` / `AngularDamping` (havo qarshiligi), `Bullet` (tez kichik
-jism devordan o'tib ketmasin), `Layer` (to'qnashuv qatlami), `Sleeping` (uxlash rejimi).
+**Rigidbody 2D** (`Rigidbody2DComponent`): `Type`, `FixedRotation` (**Freeze rotation** — so a platformer hero does not
+tip over), `GravityScale` (0 — floats, 2 — falls heavier), `LinearDamping` / `AngularDamping` (air resistance),
+`Bullet` (so a small fast body does not pass through walls), `Layer` (the collision layer), `Sleeping` (the sleep mode).
 
-**Collider'lar** — umumiy maydonlar: `Offset`, `Density` (massa = zichlik x yuza), `Friction`, `Restitution`
-(sakrovchanlik 0..1), `RestitutionThreshold` (shundan sekin urilish sakramaydi), `IsSensor` (**Trigger (sensor)** —
-to'qnashmaydi, faqat `OnTriggerBegin` / `OnTriggerEnd` beradi), `MaterialPath` (`.zphysmat` — bo'lsa yuqoridagi qiymatlar
-o'rniga, [9-bo'lim](#9-fizik-materiallar-zphysmat)), `Layer` (-1 — jismning qatlami).
+**Colliders** — the shared fields: `Offset`, `Density` (mass = density x area), `Friction`, `Restitution`
+(bounciness 0..1), `RestitutionThreshold` (a hit slower than this does not bounce), `IsSensor` (**Trigger (sensor)** —
+does not collide, only gives `OnTriggerBegin` / `OnTriggerEnd`), `MaterialPath` (a `.zphysmat` — when set, it is used
+instead of the values above, [section 9](#9-physics-materials-zphysmat)), `Layer` (-1 — the body's layer).
 
-| Collider | Shakl | Eslatma |
+| Collider | Shape | Note |
 |---|---|---|
-| **Box Collider 2D** | to'rtburchak, `Size` — yarim o'lcham | `OneWay` — bir tomonlama platforma (pastdan o'tiladi) |
-| **Circle Collider 2D** | doira, `Radius` | masshtabning kattasiga ko'paytiriladi |
-| **Polygon Collider 2D** | istalgan ko'pburchak (`Points`) | botiq yoki 8 tadan ko'p burchakli shakl quloq kesish (ear clipping) bilan bo'linib, ko'pi bilan 8 burchakli qavariq bo'laklarga birlashtiriladi (`Polygon2D::Decompose`); o'zini kesgan kontur qavariq qobiq bo'ladi; inspektorda bo'laklar soni |
-| **Edge Collider 2D** | nuqtalar orqali chiziq, `Loop` — yopiq halqa | yuzasi (massasi) yo'q — yer, qiyalik, devor uchun; `OneSided` — Box2D chain: bo'g'inlarga ilinmaydigan bir tomonlama silliq zanjir (qattiq tomoni — nuqtalar yo'nalishining chap tomoni) |
-| **Tilemap** | qattiq plitkalardan birlashtirilgan to'rtburchaklar | `TilemapComponent::Collision`, `CollisionLayer`, `Friction` / `MaterialPath`; qatlamning `Collision` belgisi va plitka xususiyatlari (qattiq / yo'q / bir tomonlama) |
+| **Box Collider 2D** | a rectangle, `Size` — the half size | `OneWay` — a one-way platform (passable from below) |
+| **Circle Collider 2D** | a circle, `Radius` | multiplied by the larger scale |
+| **Polygon Collider 2D** | any polygon (`Points`) | a concave shape or one with more than 8 corners is split by ear clipping and merged into convex pieces of at most 8 corners (`Polygon2D::Decompose`); a self-intersecting outline becomes its convex hull; the inspector shows the piece count |
+| **Edge Collider 2D** | a line through points, `Loop` — a closed ring | has no area (mass) — for ground, slopes, walls; `OneSided` — a Box2D chain: a smooth one-sided chain that does not snag on its joints (the solid side is to the left of the points' direction) |
+| **Tilemap** | rectangles merged from the solid tiles | `TilemapComponent::Collision`, `CollisionLayer`, `Friction` / `MaterialPath`; the layer's `Collision` flag and the tile properties (solid / none / one-way) |
 
-**Nuqtalarni viewport'da tahrirlash** (Polygon va Edge): inspektordagi **Nuqtalarni tahrirlash** — nuqtani sudrash,
-chiziqqa bosish — yangi nuqta, `Ctrl` + bosish yoki `Delete` — o'chirish, `Shift` — 0.1 qadam, `Esc` — tugatish; har
-harakat bitta `Ctrl+Z`. Polygon'da **Spraytga moslash** — sprayt kadrining shaffof bo'lmagan qismi chetidan (ko'pi bilan
-12 nuqtali) kontur.
+**Editing points in the viewport** (Polygon and Edge): **Edit points** in the inspector — drag a point, click a line —
+a new point, `Ctrl` + click or `Delete` — remove, `Shift` — 0.1 steps, `Esc` — finish; every action is one `Ctrl+Z`. On
+a Polygon, **Fit to the sprite** — an outline (at most 12 points) along the edge of the sprite frame's non-transparent
+part.
 
-**Bir tomonlama platformalar.** Box Collider 2D'ning **Bir tomonlama** belgisi yoki tilemap plitkasi: yuqoriga
-harakatlanayotgan yoki sirtdan pastdagi jism o'tib ketadi, ustiga qo'nadi (tez tushayotgani ham). Skriptga to'qnashuv
-faqat platforma ushlab turganda keladi. Pastga tushib ketish — `DropThroughPlatforms(soniya)` (standart 0.35 s):
+**One-way platforms.** The Box Collider 2D's **One-way** checkbox or a tilemap tile: a body moving up or below the
+surface passes through and lands on top (even a fast-falling one). The collision reaches the script only while the
+platform holds the body. Dropping down through it — `DropThroughPlatforms(seconds)` (0.35 s by default):
 
 ```cpp
-// Platformer2D PlayerController: pastga (S) + sakrash - bir tomonlama platformadan tushib ketadi.
+// Platformer2D PlayerController: down (S) + jump - drops through a one-way platform.
 if (Input::IsActionJustPressed("Jump") && m_GroundContacts > 0)
 {
     if (DropThrough && Input::GetAxis("Vertical") < -0.5f)
@@ -158,77 +158,78 @@ if (Input::IsActionJustPressed("Jump") && m_GroundContacts > 0)
 
 ---
 
-## 4. 2D effektorlar: platforma, shamol, suv
+## 4. 2D effectors: platforms, wind, water
 
-Effektor obyektning o'z collider'lariga (odatda Static jism) qo'shiladi.
+An effector is added to the object's own colliders (usually a Static body).
 
-**Platform Effector 2D** — obyektning barcha collider'larini (yoki tilemap plitkalarini) platformaga aylantiradi:
-`OneWay`, `SurfaceArc` (180 — klassik bir tomonlama; kichigi burchaklardan ham o'tkazadi, kattasi yondan ham ushlaydi),
-`RotationOffset`, yon tomonda ishqalanish / sakrashni o'chirish (`UseSideFriction`, `UseSideBounce`, `SideArc`) — qahramon
-devorga yopishib qolmaydi. Box Collider 2D'ning eski "Bir tomonlama" belgisi inspektorda bir bosishda effektorga
-o'tkaziladi. Namuna: Platformer2D `Scenes/Shapes2D.zscene`.
+**Platform Effector 2D** — turns every collider of the object (or the tilemap tiles) into a platform: `OneWay`,
+`SurfaceArc` (180 — the classic one-way; smaller lets bodies through at the corners too, larger also holds from the
+sides), `RotationOffset`, turning off friction / bounce on the sides (`UseSideFriction`, `UseSideBounce`, `SideArc`) —
+the hero does not stick to walls. The Box Collider 2D's old "One-way" flag is converted to an effector with one click in
+the inspector. Sample: Platformer2D `Scenes/Shapes2D.zscene`.
 
-**Area Effector 2D** (shamol, oqim) — collider'lari (odatda trigger) ichidagi dinamik jismlarni har qadamda itaradi:
+**Area Effector 2D** (wind, current) — pushes the dynamic bodies inside its colliders (usually triggers) every step:
 
-| Maydon | Ma'nosi |
+| Field | Meaning |
 |---|---|
-| `ForceAngle`, `UseGlobalAngle` | yo'nalish gradusda (0 — +X, 90 — yuqoriga); obyekt bilan buriladi yoki dunyoda |
-| `ForceMagnitude`, `ScaleWithMass` | kuch, N; **Massaga ko'paytirish** — N/kg: yengil va og'ir jism bir xil tezlanadi |
-| `ForceVariation` | har qadamda tasodifiy qo'shimcha (shiddat) |
-| `Drag`, `AngularDrag` | ichkarida sekinlatish (1/s) |
-| `ColliderMask` | qaysi to'qnashuv qatlamlariga ta'sir qiladi |
+| `ForceAngle`, `UseGlobalAngle` | the direction in degrees (0 — +X, 90 — up); turns with the object or stays in world space |
+| `ForceMagnitude`, `ScaleWithMass` | the force, N; **Scale with mass** — N/kg: light and heavy bodies accelerate the same |
+| `ForceVariation` | a random addition every step (gusts) |
+| `Drag`, `AngularDrag` | slowing down inside (1/s) |
+| `ColliderMask` | which collision layers it affects |
 
-Trigger bo'lmagan collider'li effektor unga tegib turganlarni itaradi (konveyer). `AffectedBodies` — o'yin paytida
-nechta jism itarildi (inspektorda ham ko'rinadi).
+An effector with a non-trigger collider pushes what touches it (a conveyor). `AffectedBodies` — how many bodies were
+pushed during the game (shown in the inspector too).
 
-**Buoyancy Effector 2D** (suv) — collider ichida `SurfaceLevel` gacha suyuqlik. Jism siqib chiqargan suyuqlik og'irligi
-(`Density` x sirt ostidagi yuza x gravitatsiya) botgan qismining markaziga yuqoriga qo'yiladi: zichligi suyuqlikdan kichik
-collider suzadi va to'g'rilanadi, kattasi cho'kadi. `LinearDrag` / `AngularDrag` botgan qismiga qarab, `FlowAngle` /
-`FlowMagnitude` / `FlowVariation` — oqim (daryo), `ColliderMask`. Collider **trigger** bo'lishi kerak (inspektor
-ogohlantiradi). Viewport'da shamol o'qlari, suv sathi va oqim yo'nalishi chiziladi.
+**Buoyancy Effector 2D** (water) — liquid inside the collider up to `SurfaceLevel`. The weight of the liquid a body
+displaces (`Density` x the area below the surface x gravity) is applied upward at the center of its submerged part: a
+collider less dense than the liquid floats and rights itself, a denser one sinks. `LinearDrag` / `AngularDrag` by the
+submerged part, `FlowAngle` / `FlowMagnitude` / `FlowVariation` — a current (a river), `ColliderMask`. The collider must
+be a **trigger** (the inspector warns). The viewport draws the wind arrows, the water level and the flow direction.
 
-Namuna: Platformer2D `Scenes/Effectors2D.zscene` — hovuzda suzayotgan qutilar va cho'kkan toshlar, shamol ustuni, yon
-shamol, `LaserScanner` (Raycast2DAll) va `BlastOnClick` (OverlapCircle2D) skriptlari
+Sample: Platformer2D `Scenes/Effectors2D.zscene` — crates floating in a pool and sunken stones, a wind column, a side
+wind, the `LaserScanner` (Raycast2DAll) and `BlastOnClick` (OverlapCircle2D) scripts
 (`Projects/Platformer2D/Source/Effectors.cpp`).
 
 ---
 
-## 5. 2D joint'lar
+## 5. 2D joints
 
-Joint obyektning Rigidbody 2D'sini **ulangan jismga** (boshqa obyektning Rigidbody 2D yoki Tilemap'i) yoki — u bo'sh
-bo'lsa — dunyodagi qo'zg'almas nuqtaga bog'laydi. *+ Komponent > Fizika 2D* menyusida:
+A joint connects the object's Rigidbody 2D to a **connected body** (another object's Rigidbody 2D or a Tilemap) or —
+when that is empty — to a fixed point in the world. In the *+ Component > Physics 2D* menu:
 
-| Joint | Nima | Asosiy maydonlar |
+| Joint | What | Main fields |
 |---|---|---|
-| **Distance Joint 2D** | qattiq tayoq, arqon yoki prujina | `Distance` / `AutoConfigureDistance`, `MaxDistanceOnly` (arqon), `Frequency` + `DampingRatio` (prujina) |
-| **Revolute Joint 2D** | sharnir (g'ildirak, eshik, mayatnik) | `EnableLimit`, `LowerAngle` / `UpperAngle`, `EnableMotor`, `MotorSpeed`, `MaxMotorTorque`; o'yinda `JointAngle`, `JointSpeed` |
-| **Prismatic Joint 2D** | o'q bo'ylab sirpanish (lift, porshen) | `Axis`, chegara, motor |
-| **Weld Joint 2D** | payvand — qattiq yoki yumshoq | `Frequency` bilan prujinali |
-| **Wheel Joint 2D** | g'ildirak: aylanish + osma prujinasi | `Axis`, prujina, chegara, motor |
+| **Distance Joint 2D** | a rigid rod, a rope or a spring | `Distance` / `AutoConfigureDistance`, `MaxDistanceOnly` (a rope), `Frequency` + `DampingRatio` (a spring) |
+| **Revolute Joint 2D** | a hinge (a wheel, a door, a pendulum) | `EnableLimit`, `LowerAngle` / `UpperAngle`, `EnableMotor`, `MotorSpeed`, `MaxMotorTorque`; in play `JointAngle`, `JointSpeed` |
+| **Prismatic Joint 2D** | sliding along an axis (a lift, a piston) | `Axis`, limits, motor |
+| **Weld Joint 2D** | a weld — rigid or soft | springy with `Frequency` |
+| **Wheel Joint 2D** | a wheel: rotation + a suspension spring | `Axis`, spring, limits, motor |
 
-**Umumiy maydonlar** (`Joint2DComponentBase`): `ConnectedBody` (`EntityRef`), `Anchor` / `ConnectedAnchor` (jismlarning o'z
-koordinatalarida), `AutoConfigureConnectedAnchor` (ulangan langar joint yaratilganda langar turgan joyga qo'yiladi),
-`CollideConnected` (**Bir-biri bilan to'qnashsin**), `BreakForce` / `BreakTorque` (**Uzilish** bo'limi: 0 — uzilmaydi).
-O'yin paytida o'qiladi: `ReactionForce`, `ReactionTorque`, `Broken`.
+**Shared fields** (`Joint2DComponentBase`): `ConnectedBody` (`EntityRef`), `Anchor` / `ConnectedAnchor` (in the
+bodies' own coordinates), `AutoConfigureConnectedAnchor` (the connected anchor is placed where the anchor stands when
+the joint is created), `CollideConnected` (**Collide connected**), `BreakForce` / `BreakTorque` (the **Break** section:
+0 — never breaks). Read during play: `ReactionForce`, `ReactionTorque`, `Broken`.
 
-**Hayoti.** Joint ikkala jism dunyoda bo'lganda yaratiladi, ulardan biri nofaol bo'lsa yoki o'chirilsa yo'qoladi va
-qaytganda qayta yaratiladi. Motor, chegara va prujina o'yin davomida o'zgarsa darhol qo'llanadi, `ConnectedBody`
-almashsa joint qayta quriladi. Uzilgan joint (`OnJointBreak`, [12-bo'lim](#12-toqnashuv-trigger-va-joint-uzilishi-callbacklari))
-butunlay yo'qoladi; `Broken = false` uni qayta yaratadi. Duplikat va prefab nusxalarida ulangan jism nusxaning o'z
-jismiga qayta bog'lanadi; sahnada yo'q jismga ulangan joint uchun bir marta ogohlantirish chiqadi.
+**Lifetime.** A joint is created when both bodies are in the world, disappears when one of them is inactive or
+deleted, and is created again when it comes back. Changes to the motor, limits and spring during the game apply at once,
+and a changed `ConnectedBody` rebuilds the joint. A broken joint (`OnJointBreak`, [section 12](#12-collision-trigger-and-joint-break-callbacks))
+is gone completely; `Broken = false` creates it again. In duplicates and prefab instances the connected body is relinked
+to the copy's own body; a joint connected to a body that is not in the scene gives a warning once.
 
-**Viewport'da tahrirlash.** Inspektordagi **Langarlarni tahrirlash**: langar (doira), ulangan langar (romb), sirpanish /
-osma o'qi (kvadrat) va chegaralar sudraladi, `Shift` — 0.1 birlik / 5° qadam, `Esc` — tugatish; **Langar turgan joyga** —
-ulangan langarni bir bosishda langar ustiga qo'yadi. Joint'lar viewport'da *Gizmolar > Joint'lar (2D / 3D)* bilan chiziladi (tanlanganda yoki hammasi).
+**Editing in the viewport.** **Edit anchors** in the inspector: the anchor (a circle), the connected anchor (a
+diamond), the slide / suspension axis (a square) and the limits can be dragged, `Shift` — 0.1-unit / 5° steps, `Esc` —
+finish; **To the anchor** puts the connected anchor onto the anchor with one click. Joints are drawn in the viewport with
+*Gizmos > Joints (2D / 3D)* (when selected or all of them).
 
-Motorni skriptdan boshqarish (Platformer2D `CarController`, `Projects/Platformer2D/Source/Joints.cpp`):
+Controlling the motor from a script (Platformer2D `CarController`, `Projects/Platformer2D/Source/Joints.cpp`):
 
 ```cpp
 class CarController : public ScriptableEntity
 {
 public:
     EntityRef RearWheel, FrontWheel;
-    float MaxSpeed = 720.0f; // gradus / s
+    float MaxSpeed = 720.0f; // degrees / s
     float Torque = 60.0f;
 
     void OnUpdate(Timestep) override
@@ -241,7 +242,7 @@ public:
                 continue;
             auto& joint = wheel.GetComponent<WheelJoint2DComponent>();
             joint.EnableMotor = true;
-            joint.MotorSpeed = -input * MaxSpeed;   // soat mili bo'yicha - o'ngga
+            joint.MotorSpeed = -input * MaxSpeed;   // clockwise - to the right
             joint.MaxMotorTorque = Torque;
         }
     }
@@ -250,44 +251,44 @@ ZM_REGISTER_SCRIPT(CarController, ZM_FIELD(CarController, RearWheel), ZM_FIELD(C
                    ZM_FIELD(CarController, MaxSpeed), ZM_FIELD(CarController, Torque))
 ```
 
-Namunalar: Platformer2D `Scenes/Joints2D.zscene` (ko'prik, lift, mayatnik, arqon, prujina, uziladigan chiroq, motorli
-mashina — A / D) va `Scenes/Ragdoll2D.zscene` (`Prefabs/Ragdoll.zprefab`: 11 bo'lak, chegarali sharnirlar, 2 sub-qadam;
-sichqoncha yoki R — yangi ragdoll).
+Samples: Platformer2D `Scenes/Joints2D.zscene` (a bridge, a lift, a pendulum, a rope, a spring, a breakable lamp, a
+motorized car — A / D) and `Scenes/Ragdoll2D.zscene` (`Prefabs/Ragdoll.zprefab`: 11 pieces, limited hinges, 2 sub-steps;
+the mouse or R — a new ragdoll).
 
 ---
 
-## 6. 3D jismlar va collider'lar
+## 6. 3D bodies and colliders
 
-**Tez boshlash.** *Obyekt > 3D > Fizik kub* (yoki *Fizik shar*, *Fizik yer (statik)*): mesh + Rigidbody 3D +
-mos collider.
+**Quick start.** *Object > 3D > Physics cube* (or *Physics ball*, *Physics ground (static)*): a mesh + Rigidbody 3D +
+the matching collider.
 
 **Rigidbody 3D** (`Rigidbody3DComponent`): `Type`, `Mass` (kg), `LinearDamping` / `AngularDamping`, `GravityFactor`,
-`LockRotation` (tik turadi), `Layer`, `ContinuousCollision` (**Uzluksiz (CCD)**), `Sleeping`.
+`LockRotation` (stays upright), `Layer`, `ContinuousCollision` (**Continuous (CCD)**), `Sleeping`.
 
-**Collider'lar** — umumiy: `Offset`, `Friction`, `Restitution`, `IsSensor`, `MaterialPath`. O'lchamlar transform
-masshtabiga ko'paytiriladi.
+**Colliders** — shared: `Offset`, `Friction`, `Restitution`, `IsSensor`, `MaterialPath`. Sizes are multiplied by the
+transform scale.
 
-| Collider | Shakl | Qaysi jism uchun |
+| Collider | Shape | For which bodies |
 |---|---|---|
-| **Box Collider 3D** | quti, `HalfExtents` — yarim o'lchamlar | hammasi |
-| **Sphere Collider 3D** | shar, `Radius` | hammasi |
-| **Capsule Collider 3D** | Y o'qi bo'ylab kapsula: `Radius`, `HalfHeight` | hammasi |
-| **Convex Hull Collider 3D** | Mesh Renderer'dagi model / primitiv (yoki `ModelPath` modeli) vertekslarining qavariq qobig'i, ko'pi bilan `MaxVertices` (**Maks. burchaklar**, 4 ... 256) — ko'p bo'lsa eng chetdagi nuqtalar | dinamik jismlar (botiqlar to'lib qoladi: kosa — yaxlit blok) |
-| **Mesh Collider 3D** | modelning o'z uchburchaklari (Jolt MeshShape): zinapoya, ark, tunnel, yarim quvur, notekis yer | **faqat Static va Kinematic** — dinamik jism uni hisobga olmaydi (ogohlantirish); uchburchaklar old tomonidan qattiq |
+| **Box Collider 3D** | a box, `HalfExtents` — the half sizes | all |
+| **Sphere Collider 3D** | a sphere, `Radius` | all |
+| **Capsule Collider 3D** | a capsule along the Y axis: `Radius`, `HalfHeight` | all |
+| **Convex Hull Collider 3D** | the convex hull of the vertices of the model / primitive on the Mesh Renderer (or the `ModelPath` model), at most `MaxVertices` (**Max corners**, 4 ... 256) — with more, the outermost points | dynamic bodies (concave parts get filled: a bowl becomes a solid block) |
+| **Mesh Collider 3D** | the model's own triangles (a Jolt MeshShape): stairs, arches, tunnels, half-pipes, uneven ground | **Static and Kinematic only** — a dynamic body ignores it (a warning); the triangles are solid from their front side |
 
-Qobiq va uchburchaklar har model uchun bir marta quriladi (`CollisionShapes3D`, GPU'siz) va fayl yoki uning `.zmeta`
-import sozlamalari o'zgarsa qayta quriladi; inspektorda burchak / uchburchak soni, viewport'da (*Fizik colliderlar*)
-qirralari ko'rinadi.
+The hull and the triangles are built once per model (`CollisionShapes3D`, without a GPU) and rebuilt when the file or
+its `.zmeta` import settings change; the inspector shows the corner / triangle count, and the viewport (*Physics
+colliders*) shows the edges.
 
-**Bir jismda trigger va qattiq collider** birga bo'lishi mumkin (quti + uning atrofidagi "radar" sferasi): trigger qismi
-urilmaydi, qahramonni to'xtatmaydi, so'rovlar uni faqat `includeTriggers` bilan ko'radi.
+**A trigger and a solid collider on one body** can go together (a box + a "radar" sphere around it): the trigger part is
+not hit, does not stop the hero, and queries see it only with `includeTriggers`.
 
-**Uzluksiz to'qnashuv (CCD).** Tez jism (o'q, otilgan to'p) qadamlar orasida yupqa devordan o'tib ketishi mumkin.
-`ContinuousCollision` yoqilsa jism har qadamda yo'li bo'ylab tekshiriladi (Jolt LinearCast) — qimmatroq, faqat tez va
-kichiklar uchun. O'yin davomida ham yoqiladi. Namuna: Showcase3D `Scenes/Physics3D.zscene` — CCD yoqiq / o'chiq ikki
-shar yupqa oynaga otiladi (`Launcher3D` skripti hisoblaydi: "O'tib ketdi" / "To'xtadi").
+**Continuous collision (CCD).** A fast body (a bullet, a thrown ball) can pass through a thin wall between steps. With
+`ContinuousCollision` on, the body is checked along its path every step (Jolt LinearCast) — more expensive, only for fast
+and small bodies. It can be turned on during the game too. Sample: Showcase3D `Scenes/Physics3D.zscene` — two balls, CCD
+on / off, are shot at a thin pane (the `Launcher3D` script counts: "Passed through" / "Stopped").
 
-To'p otish (Showcase3D `BallShooter`): prefabdan nusxa va boshlang'ich tezlik:
+Shooting a ball (Showcase3D `BallShooter`): a copy from a prefab and a starting velocity:
 
 ```cpp
 glm::vec3 forward = Transform().GetForward();
@@ -297,52 +298,53 @@ SetVelocity3D(ball, forward * Speed);
 
 ---
 
-## 7. 3D joint'lar va ragdoll
+## 7. 3D joints and ragdolls
 
-Jolt constraint'lari, 2D joint'lar bilan bir xil mantiq (ulangan jism yoki dunyo nuqtasi, langarlar, avto langar,
-**Bir-biri bilan to'qnashsin**, uzilish, nofaol bo'lganda yo'qolib qaytish, duplikat / prefab'da qayta bog'lanish):
+Jolt constraints, with the same logic as the 2D joints (a connected body or a world point, anchors, an automatic anchor,
+**Collide connected**, breaking, disappearing and coming back when inactive, relinking in duplicates / prefabs):
 
-| Joint | Nima | Asosiy maydonlar |
+| Joint | What | Main fields |
 |---|---|---|
-| **Fixed Joint 3D** | mahkam (birga harakatlanadi) | — |
-| **Hinge Joint 3D** | sharnir: eshik, g'ildirak, tirsak | `Axis`, chegaralar (-180..0 / 0..180), motor (`MotorSpeed`, `MaxMotorTorque`), prujina (`EnableSpring`, `SpringTargetAngle`, `SpringFrequency`, `SpringDamping`); o'yinda `JointAngle`, `JointSpeed` |
-| **Distance Joint 3D** | tayoq / arqon / oraliq | `MinDistance` .. `MaxDistance`, `MaxDistanceOnly`, `Frequency` |
-| **Slider Joint 3D** | o'q bo'ylab sirpanish | `Axis`, chegaralar, motor; o'yinda `JointTranslation` |
-| **Cone Joint 3D** | shar-sharnir (yelka, son): Jolt SwingTwist | `SwingLimit` (konus burchagi), `TwistLower` / `TwistUpper`, `FrictionTorque` |
+| **Fixed Joint 3D** | rigid (moves together) | — |
+| **Hinge Joint 3D** | a hinge: a door, a wheel, an elbow | `Axis`, limits (-180..0 / 0..180), motor (`MotorSpeed`, `MaxMotorTorque`), spring (`EnableSpring`, `SpringTargetAngle`, `SpringFrequency`, `SpringDamping`); in play `JointAngle`, `JointSpeed` |
+| **Distance Joint 3D** | a rod / a rope / a range | `MinDistance` .. `MaxDistance`, `MaxDistanceOnly`, `Frequency` |
+| **Slider Joint 3D** | sliding along an axis | `Axis`, limits, motor; in play `JointTranslation` |
+| **Cone Joint 3D** | a ball joint (a shoulder, a hip): Jolt SwingTwist | `SwingLimit` (the cone angle), `TwistLower` / `TwistUpper`, `FrictionTorque` |
 
-Uzilganda skript `OnJointBreak3D(const JointBreak3D&)` oladi. Inspektorda holat (kuch, moment, burchak, siljish,
-masofa, og'ish / buralish), viewport'da langarlar, o'q va burchak yoyi, sirpanish chegaralari, konus (*Gizmolar >
-Joint'lar (2D / 3D)*); **Langarlarni tahrirlash** — langarlar, o'q va chegaralar tanlangan nuqtadagi ko'chirish gizmosi bilan.
+When one breaks the script gets `OnJointBreak3D(const JointBreak3D&)`. The inspector shows the state (force, torque,
+angle, offset, distance, swing / twist), the viewport the anchors, the axis and the angle arc, the slide limits and the
+cone (*Gizmos > Joints (2D / 3D)*); **Edit anchors** — the anchors, the axis and the limits with a move gizmo at the
+chosen point.
 
-**Ragdoll.** Showcase3D `Scenes/Ragdoll3D.zscene` — `Prefabs/Ragdoll3D.zprefab`: 11 bo'lak, yelka / son / bel / bo'yinda
-Cone Joint 3D, tirsak va tizzada chegarali Hinge Joint 3D, bo'g'imlar o'zaro to'qnashmaydi. `RagdollSpawner3D` skripti:
-R — yana 3 ta, sichqoncha / F — kameradan otish. Ragdoll yasashda: har bo'lak Dynamic Rigidbody 3D + Capsule / Box
-collider, ota-ona bo'lak `ConnectedBody`, **Bir-biri bilan to'qnashsin** o'chiq, joint'larga `FrictionTorque` — a'zolar
-silkinib ketmaydi.
+**Ragdolls.** Showcase3D `Scenes/Ragdoll3D.zscene` — `Prefabs/Ragdoll3D.zprefab`: 11 pieces, Cone Joint 3Ds at the
+shoulders / hips / waist / neck, limited Hinge Joint 3Ds at the elbows and knees, the limbs do not collide with each
+other. The `RagdollSpawner3D` script: R — 3 more, the mouse / F — throw from the camera. To build a ragdoll: every piece
+a Dynamic Rigidbody 3D + a Capsule / Box collider, the parent piece as `ConnectedBody`, **Collide connected** off, and a
+`FrictionTorque` on the joints — the limbs do not flail.
 
-Boshqa namuna: Showcase3D `Scenes/Joints3D.zscene` (prujinali eshik, sharlar zanjiri, lift — `SliderShuttle`, motorli
-tegirmon, payvandlangan L, qiyalikdan dumalaydigan qavariq qobiqlar).
+Another sample: Showcase3D `Scenes/Joints3D.zscene` (a spring door, a chain of balls, a lift — `SliderShuttle`, a
+motorized mill, a welded L, convex hulls rolling down a slope).
 
 ---
 
 ## 8. Character Controller 3D
 
-Qahramon uchun Rigidbody 3D o'rniga **Character Controller 3D** (`CharacterController3DComponent`, Jolt CharacterVirtual):
-kapsula qiyaliklar (`MaxSlope`, gradus) va zinapoyalar (`StepHeight`) bo'ylab yuradi, devorlarga sirpanadi, harakatlanuvchi
-platformada turadi, gravitatsiyani o'zi qo'llaydi (`GravityScale`). Obyekt pozitsiyasi — **oyoq** nuqtasi. Yaratish:
-*Obyekt > 3D > Qahramon (Character Controller)*.
+For a hero, a **Character Controller 3D** (`CharacterController3DComponent`, Jolt CharacterVirtual) instead of a
+Rigidbody 3D: a capsule that walks up slopes (`MaxSlope`, degrees) and stairs (`StepHeight`), slides along walls, stands
+on moving platforms and applies gravity itself (`GravityScale`). The object's position is the **feet** point. To create
+one: *Object > 3D > Hero (Character Controller)*.
 
-| Maydon | Ma'nosi |
+| Field | Meaning |
 |---|---|
-| `Radius`, `Height`, `Mass` | kapsula va massa (itarishda) |
-| `MaxSlope`, `StepHeight`, `StickToFloor` | qiyalik chegarasi, zinapoya balandligi, pastga tushishda yerga yopishish |
-| `Layer` | to'qnashuv qatlami (jismlar bilan bir xil matritsa) |
-| `PushBodies`, `PushForce` | **Jismlarni itaradi**: yurib borib tekkan dinamik jismlarni ko'pi bilan `PushForce` N bilan (standart 100 N; og'irlar uchun ko'proq) |
-| `MoveVelocity`, `VerticalVelocity` | skript beradi: gorizontal tezlik (`Move()`), vertikal (`Jump()` yoki to'g'ridan-to'g'ri) |
-| `Grounded`, `Velocity` | o'qiladi: yerda turibdimi, oxirgi qadamdagi haqiqiy tezlik (to'qnashuvlardan keyin) |
+| `Radius`, `Height`, `Mass` | the capsule and the mass (for pushing) |
+| `MaxSlope`, `StepHeight`, `StickToFloor` | the slope limit, the step height, sticking to the ground when going down |
+| `Layer` | the collision layer (the same matrix as bodies) |
+| `PushBodies`, `PushForce` | **Pushes bodies**: dynamic bodies it walks into are pushed with at most `PushForce` N (100 N by default; more for heavy ones) |
+| `MoveVelocity`, `VerticalVelocity` | given by the script: the horizontal velocity (`Move()`), the vertical one (`Jump()` or directly) |
+| `Grounded`, `Velocity` | read: whether it stands on the ground, the real velocity of the last step (after collisions) |
 
-Skript har kadr gorizontal tezlikni beradi; `Jump(speed)` faqat yerda bo'lsa ishlaydi (`true` qaytaradi). Adventure3D
-qahramoni (`Projects/Adventure3D/Source/Player.cpp`, qisqartirilgan):
+The script gives the horizontal velocity every frame; `Jump(speed)` works only on the ground (returns `true`). The
+Adventure3D hero (`Projects/Adventure3D/Source/Player.cpp`, shortened):
 
 ```cpp
 void OnUpdate(Timestep ts) override
@@ -350,10 +352,10 @@ void OnUpdate(Timestep ts) override
     auto* cc = TryGetComponent<CharacterController3DComponent>();
     if (!cc) return;
 
-    glm::vec2 input = Input::GetVector("Move");          // WASD / strelkalar / chap stik
+    glm::vec2 input = Input::GetVector("Move");          // WASD / arrows / left stick
     bool run = Input::IsActionPressed("Sprint");
 
-    // Kameraga nisbatan yo'nalish
+    // The direction relative to the camera
     glm::vec3 forward(0, 0, -1), right(1, 0, 0);
     if (Entity cam = FindEntity(Camera))
     {
@@ -365,13 +367,13 @@ void OnUpdate(Timestep ts) override
     glm::vec3 wish = forward * input.y + right * input.x;
     float targetSpeed = glm::length(input) * (run ? RunSpeed : WalkSpeed);
     glm::vec3 target = glm::length(wish) > 0.001f ? glm::normalize(wish) * targetSpeed : glm::vec3(0.0f);
-    m_Velocity = Math::Damp(m_Velocity, target, Acceleration, ts);   // kadr tezligiga bog'liq emas
+    m_Velocity = Math::Damp(m_Velocity, target, Acceleration, ts);   // independent of the frame rate
     cc->Move(m_Velocity);
 
     if (Input::IsActionJustPressed("Jump"))
         cc->Jump(JumpSpeed);
 
-    if (Transform().Translation.y < -25.0f)     // dunyodan tushib ketdi
+    if (Transform().Translation.y < -25.0f)     // fell out of the world
     {
         SetPosition3D(m_Spawn);
         cc->VerticalVelocity = 0.0f;
@@ -379,19 +381,19 @@ void OnUpdate(Timestep ts) override
 }
 ```
 
-- Teleport — `SetPosition3D` (personaj ham ko'chadi). Personaj sensor collider'ga kirsa ikkala tomon ham
-  `OnTriggerBegin` oladi (kristallar, tanga, zona) — [Tutorial-3D.md](Tutorial-3D.md).
-- Nofaol qilingan personaj dunyodan chiqariladi (gravitatsiya yo'q, `Grounded` false, `Jump` ishlamaydi) va qayta
-  yoqilganda joriy joyida tinch holatda yaratiladi.
-- Animator root motion yoqilgan bo'lsa personajni klipning o'zi yurgizadi ([Animation.md](Animation.md#10-root-motion)).
-- Nav Agent ham Character Controller 3D bilan ishlaydi ([AI.md](AI.md)).
+- Teleport — `SetPosition3D` (the character moves too). When the character enters a sensor collider both sides get
+  `OnTriggerBegin` (crystals, coins, zones) — [Tutorial-3D.md](Tutorial-3D.md).
+- A deactivated character is removed from the world (no gravity, `Grounded` false, `Jump` does nothing) and is created at
+  rest at its current place when enabled again.
+- With Animator root motion on, the clip itself moves the character ([Animation.md](Animation.md#10-root-motion)).
+- Nav Agents work with a Character Controller 3D too ([AI.md](AI.md)).
 
 ---
 
-## 9. Fizik materiallar (.zphysmat)
+## 9. Physics materials (.zphysmat)
 
-Bir xil sirtni ko'p collider'da ishlatish uchun — **fizik material** asset. *Kontent brauzer > o'ng tugma > Yangi fizik
-material (2D)* menyusida tayyorlari: Standart, Muz, Rezina to'p, Yopishqoq, Metall, Yog'och. Fayl — JSON
+To use the same surface on many colliders — a **physics material** asset. Ready-made ones in *Content browser >
+right-click > New physics material (2D)*: Default, Ice, Rubber ball, Sticky, Metal, Wood. The file is JSON
 (`PhysicsMaterial::ToJson`):
 
 ```json
@@ -405,81 +407,82 @@ material (2D)* menyusida tayyorlari: Standart, Muz, Rezina to'p, Yopishqoq, Meta
 }
 ```
 
-(`Projects/Platformer2D/Assets/Physics/Bouncy.zphysmat`). Collider'ning **Fizik material** maydoniga sudrab qo'ying — uning
-o'z qiymatlari o'rniga material qiymatlari ishlatiladi; maydon bo'sh bo'lsa — collider'niki.
+(`Projects/Platformer2D/Assets/Physics/Bouncy.zphysmat`). Drag it onto a collider's **Physics material** field — the
+material's values are used instead of the collider's own; with the field empty — the collider's.
 
-**Qo'shilish usullari** (`PhysicsCombine`): ikki collider tekkanda ishqalanish / sakrash qanday aralashadi —
-`Default` (Box2D qoidasi: ishqalanish √(a·b), sakrash max(a, b)), `Average`, `Minimum`, `Multiply`, `Maximum`. Ikki
-collider turli usul so'rasa ro'yxatda pastrog'i yutadi (Maximum > Multiply > Minimum > Average > Default). Muz uchun
-`Minimum` — ustida hamma narsa sirpanadi; rezina uchun `Maximum` — nimaga tegsa ham sakraydi.
+**Combine modes** (`PhysicsCombine`): how friction / bounce mix when two colliders touch — `Default` (the Box2D rule:
+friction √(a·b), bounce max(a, b)), `Average`, `Minimum`, `Multiply`, `Maximum`. When two colliders ask for different
+modes, the one lower in the list wins (Maximum > Multiply > Minimum > Average > Default). `Minimum` for ice — everything
+slides on it; `Maximum` for rubber — it bounces off whatever it touches.
 
-- 3D collider'lar ham shu fayllarni oladi (ishqalanish, sakrash, chegarasi, usullar); **zichlik 3D'da ishlatilmaydi** —
-  3D massa Rigidbody 3D'ning `Mass` maydonida.
-- Material inspektorda tahrirlanadi; fayl o'zgarsa (tashqi muharrirda ham) o'yin davomida darhol qo'llanadi (hot reload).
-- Tilemap ham material oladi (`TilemapComponent::MaterialPath`).
+- 3D colliders take the same files (friction, bounce, its threshold, the modes); **density is not used in 3D** — the 3D
+  mass is the Rigidbody 3D's `Mass` field.
+- The material is edited in the inspector; when the file changes (in an outside editor too) it applies at once during
+  the game (hot reload).
+- A Tilemap takes a material too (`TilemapComponent::MaterialPath`).
 
-Namunalar: Platformer2D `Physics/Ice.zphysmat`, `Physics/Bouncy.zphysmat` (`Scenes/Shapes2D.zscene`: muz qiyalik, rezina
-to'shak); Showcase3D `Physics/Ice.zphysmat`, `Physics/Rubber.zphysmat`, `Physics/Bouncy.zphysmat`
+Samples: Platformer2D `Physics/Ice.zphysmat`, `Physics/Bouncy.zphysmat` (`Scenes/Shapes2D.zscene`: an ice slope, a
+rubber mattress); Showcase3D `Physics/Ice.zphysmat`, `Physics/Rubber.zphysmat`, `Physics/Bouncy.zphysmat`
 (`Scenes/Physics3D.zscene`).
 
 ---
 
-## 10. To'qnashuv qatlamlari
+## 10. Collision layers
 
-Loyihada **16 ta nomli qatlam** va qaysi juftliklar to'qnashishini ko'rsatuvchi **matritsa** — 2D va 3D uchun bir xil
-(`CollisionLayers2D`, `CollisionLayers` taxallusi; `.zproject` dagi `"CollisionLayers2D"` bo'limi). *Loyiha sozlamalari >
-Fizika*: qatlamlar nomi, burchakli sarlavhali matritsa, tayyor presetlar (hammasi to'qnashadi, har qatlam faqat o'zi bilan,
-"Platformer 2D", "3D aksiya" ...), qatorni nusxalash / qo'yish.
+The project has **16 named layers** and a **matrix** of which pairs collide — the same for 2D and 3D
+(`CollisionLayers2D`, alias `CollisionLayers`; the `"CollisionLayers2D"` section in the `.zproject`). *Project settings >
+Physics*: the layer names, the matrix with angled headers, ready-made presets (everything collides, every layer only
+with itself, "Platformer 2D", "3D action" ...), copying / pasting a row.
 
-Qatlamni kim tanlaydi:
+Who chooses the layer:
 
-- Rigidbody 2D va Rigidbody 3D — `Layer` (jismning hamma collider'lari);
-- 2D collider — o'z `Layer` i (-1 — jismniki);
-- Tilemap — `CollisionLayer`; Character Controller 3D — `Layer`.
+- Rigidbody 2D and Rigidbody 3D — `Layer` (all of the body's colliders);
+- a 2D collider — its own `Layer` (-1 — the body's);
+- a Tilemap — `CollisionLayer`; a Character Controller 3D — `Layer`.
 
-Ikki collider faqat matritsa ularning qatlamlariga ruxsat bersa tegadi (Box2D filtri: category — qatlam biti, mask —
-to'qnashadigan qatlamlar; Jolt ObjectLayer). O'yin davomida qatlam ham, matritsa ham darhol qo'llanadi.
+Two colliders touch only when the matrix allows their layers (the Box2D filter: category — the layer bit, mask — the
+layers it collides with; a Jolt ObjectLayer). Both the layer and the matrix apply at once during the game.
 
-So'rovlarda qatlam niqobi (`uint16_t`, standart `0xFFFF` — hammasi):
+Queries take a layer mask (`uint16_t`, by default `0xFFFF` — all):
 
 ```cpp
-uint16_t ground = LayerMask({ "Ground" });                    // nom bo'yicha bitlar (noma'lum nom tashlab ketiladi)
+uint16_t ground = LayerMask({ "Ground" });                    // bits by name (an unknown name is skipped)
 RaycastHit hit = Raycast2D(GetWorldPosition(), { 0, -1 }, 1.2f, ground);
-uint16_t notGhosts = (uint16_t)~LayerMask({ "Arvoh" });       // "Arvoh" qatlamidan boshqa hammasi
-int index = LayerIndex("Ragdoll");                             // -1 - bunday qatlam yo'q
+uint16_t notGhosts = (uint16_t)~LayerMask({ "Arvoh" });       // everything except the "Arvoh" layer
+int index = LayerIndex("Ragdoll");                             // -1 - no such layer
 ```
 
-Namunalar: Platformer2D (`Ground`, `Ghost` — faqat yerga tegadigan sharlar, `Ragdoll` / `RagdollLimb` — ragdoll a'zolari
-o'zaro to'qnashmaydi); Showcase3D (`Arvoh` — panjaradan o'tib ketadigan sharlar, `Panjara`).
+Samples: Platformer2D (`Ground`, `Ghost` — balls that touch only the ground, `Ragdoll` / `RagdollLimb` — the ragdoll's
+limbs do not collide with each other); Showcase3D (`Arvoh` — "ghost" balls that pass through the grille, `Panjara` — the
+grille).
 
 ---
 
-## 11. Skriptdan boshqarish: tezlik, kuch, teleport
+## 11. Control from scripts: velocity, force, teleport
 
-`ScriptableEntity` funksiyalari shu obyektning jismiga ta'sir qiladi; `Entity other` qabul qiladiganlari — boshqa
-obyektnikiga.
+The `ScriptableEntity` functions act on this object's body; the ones taking an `Entity other` — on another object's.
 
-| Nima | 2D | 3D |
+| What | 2D | 3D |
 |---|---|---|
-| Tezlikni o'qish | `GetVelocity()` | `GetVelocity3D()`, `GetAngularVelocity3D()` |
-| Tezlik berish | `SetVelocity(v)`, `SetVelocity(other, v)` | `SetVelocity3D(v)`, `SetVelocity3D(other, v)`, `SetAngularVelocity3D(w)` |
-| Impuls (bir zarba) | `ApplyImpulse(i)`, `ApplyImpulse(other, i)` | `ApplyImpulse3D(i)`, `ApplyImpulse3D(other, i)` |
-| Doimiy kuch (har kadr) | `ApplyForce(f)` | `ApplyForce3D(f)`, `ApplyTorque3D(t)` |
-| Teleport (jism bilan) | `SetPosition2D(p)` | `SetPosition3D(p)` |
-| Uxlash | `IsSleeping()`, `WakeUp()`, `PutToSleep()` | `IsSleeping3D()`, `WakeUp3D()`, `PutToSleep3D()` |
+| Read the velocity | `GetVelocity()` | `GetVelocity3D()`, `GetAngularVelocity3D()` |
+| Set the velocity | `SetVelocity(v)`, `SetVelocity(other, v)` | `SetVelocity3D(v)`, `SetVelocity3D(other, v)`, `SetAngularVelocity3D(w)` |
+| Impulse (one hit) | `ApplyImpulse(i)`, `ApplyImpulse(other, i)` | `ApplyImpulse3D(i)`, `ApplyImpulse3D(other, i)` |
+| Continuous force (every frame) | `ApplyForce(f)` | `ApplyForce3D(f)`, `ApplyTorque3D(t)` |
+| Teleport (with the body) | `SetPosition2D(p)` | `SetPosition3D(p)` |
+| Sleeping | `IsSleeping()`, `WakeUp()`, `PutToSleep()` | `IsSleeping3D()`, `WakeUp3D()`, `PutToSleep3D()` |
 
-- **Impuls** — tezlikni bir zumda o'zgartiradi (sakrash, portlash, o'q). **Kuch** — har kadr berilsa uzluksiz ta'sir
-  (dvigatel, shamol). 2D'da skriptning `ApplyForce` kuchi har qadam va sub-qadamda o'rtacha qo'llanadi: bir xil kuch istalgan
-  FPS, qadam chastotasi va sub-qadamlar sonida bir xil natija beradi.
-- **Teleport** jismni uyg'otadi; 3D'da `SetPosition3D` tezlikni ham to'xtatadi (Showcase3D `Respawn3D`: qayta joylash +
+- An **impulse** changes the velocity instantly (a jump, an explosion, a bullet). A **force** given every frame acts
+  continuously (an engine, wind). In 2D the script's `ApplyForce` is applied averaged over every step and sub-step: the
+  same force gives the same result at any FPS, step rate and sub-step count.
+- A **teleport** wakes the body; in 3D `SetPosition3D` also stops its velocity (Showcase3D `Respawn3D`: reposition +
   `SetAngularVelocity3D(glm::vec3(0.0f))`).
-- Kinematik jismni transform orqali yurgizish (Showcase3D `Sweeper3D`): `Transform().Translation = ...` — jism tezlik bilan
-  yetib boradi va ustidagilarni itaradi / olib yuradi.
-- Komponentning o'zi orqali ham: `GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;` — o'yin davomida
-  qo'llanadi (qatlam, CCD, uxlash rejimi ham).
+- Moving a kinematic body through its transform (Showcase3D `Sweeper3D`): `Transform().Translation = ...` — the body gets
+  there with a velocity and pushes / carries what is on it.
+- Through the component itself too: `GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;` — applies during the
+  game (the layer, CCD and the sleep mode too).
 
-2D platformer qahramoni (Platformer2D `PlayerController`, qisqartirilgan) — tezlikni silliq o'zgartirish va impuls bilan
-sakrash; yerda turishni to'qnashuvlar soni bilan bilish:
+A 2D platformer hero (Platformer2D `PlayerController`, shortened) — smooth velocity changes and a jump with an impulse;
+knowing it stands on the ground by counting collisions:
 
 ```cpp
 class PlayerController : public ScriptableEntity
@@ -501,7 +504,7 @@ public:
             ApplyImpulse({ 0.0f, JumpImpulse });
         }
     }
-    // Yer va platformalar - qattiq to'qnashuv; tangalar sensor bo'lgani uchun bu yerga kelmaydi.
+    // The ground and platforms - solid collisions; the coins are sensors, so they do not come here.
     void OnCollisionBegin(Entity) override { m_GroundContacts++; }
     void OnCollisionEnd(Entity) override { m_GroundContacts = std::max(0, m_GroundContacts - 1); }
 
@@ -511,33 +514,33 @@ private:
 ZM_REGISTER_SCRIPT(PlayerController, ZM_FIELD(PlayerController, MoveSpeed), ZM_FIELD(PlayerController, JumpImpulse))
 ```
 
-Rigidbody 2D'da **Aylanmasin** (`FixedRotation`) yoqilgan bo'lsin — aks holda qahramon ag'dariladi. Yerda turishni aniqroq
-bilish kerak bo'lsa oyoq ostiga qisqa `Raycast2D` yoki `OverlapBox2D` ([13-bo'lim](#13-sorovlar-raycast-overlap-shape-cast)).
+Keep **Freeze rotation** (`FixedRotation`) on on the Rigidbody 2D — otherwise the hero tips over. To know more precisely
+that it stands on the ground, a short `Raycast2D` or `OverlapBox2D` under the feet
+([section 13](#13-queries-raycast-overlap-shape-cast)).
 
 ---
 
-## 12. To'qnashuv, trigger va joint uzilishi callback'lari
+## 12. Collision, trigger and joint break callbacks
 
-| Callback | Qachon |
+| Callback | When |
 |---|---|
-| `OnCollisionBegin(Entity other)` / `OnCollisionEnd(other)` | ikkala collider ham sensor emas: qattiq tegish boshlandi / tugadi |
-| `OnTriggerBegin(Entity other)` / `OnTriggerEnd(other)` | kamida bittasi sensor (`IsSensor`): kirdi / chiqdi; 2D, 3D va Character Controller 3D |
-| `OnJointBreak(const JointBreak2D&)` | shu obyektning 2D joint'i uzildi: `Type` (`Joint2DType`), `ConnectedBody`, `Force`, `Torque` |
-| `OnJointBreak3D(const JointBreak3D&)` | shu obyektning 3D joint'i uzildi: `Type` (`Joint3DType`), ... |
+| `OnCollisionBegin(Entity other)` / `OnCollisionEnd(other)` | neither collider is a sensor: solid contact began / ended |
+| `OnTriggerBegin(Entity other)` / `OnTriggerEnd(other)` | at least one is a sensor (`IsSensor`): entered / left; 2D, 3D and Character Controller 3D |
+| `OnJointBreak(const JointBreak2D&)` | a 2D joint of this object broke: `Type` (`Joint2DType`), `ConnectedBody`, `Force`, `Torque` |
+| `OnJointBreak3D(const JointBreak3D&)` | a 3D joint of this object broke: `Type` (`Joint3DType`), ... |
 
-Qoidalar:
+Rules:
 
-- Callback **ikkala** obyektning skriptlariga keladi va **har obyekt jufti uchun bir marta** (bir jismda bir nechta
-  collider bo'lsa ham). Qaysi collider tekkanini emas, qaysi obyekt tekkanini bilasiz — kerak bo'lsa tegini tekshiring
-  (`other.HasTag("Player")`).
-- Callback'lar fizika qadamlaridan keyin, dunyo qulfdan chiqqanda chaqiriladi — ichida `Destroy`, `Instantiate`,
-  `SetActive`, `SetPosition2D` bemalol ishlaydi.
-- Ichida turgan obyekt o'chirilsa yoki nofaol qilinsa ham `OnTriggerEnd` / `OnCollisionEnd` keladi.
-- Uxlab qolgan jismning kontaktlari saqlanadi: uxlagan quti trigger plitasidan "chiqib ketmaydi"; kinematik trigger
-  uxlab yotgan jismni ham sezadi (3D).
-- Callback'lar o'chirilgan skriptga ham keladi (u o'zini yoqishi mumkin).
+- A callback reaches the scripts of **both** objects and comes **once per pair of objects** (even with several colliders
+  on a body). You learn which object touched, not which collider — check its tag if needed (`other.HasTag("Player")`).
+- The callbacks are called after the physics steps, once the world is unlocked — `Destroy`, `Instantiate`, `SetActive`
+  and `SetPosition2D` work freely inside them.
+- `OnTriggerEnd` / `OnCollisionEnd` come even when the object inside is deleted or deactivated.
+- A sleeping body's contacts are kept: a crate that fell asleep does not "leave" a trigger plate; a kinematic trigger
+  senses a sleeping body too (3D).
+- The callbacks reach a disabled script too (it can enable itself).
 
-Tanga (Platformer2D `Coin`, `Projects/Platformer2D/Source/Gameplay.cpp`) — collider sensor, shuning uchun
+A coin (Platformer2D `Coin`, `Projects/Platformer2D/Source/Gameplay.cpp`) — its collider is a sensor, so
 `OnTriggerBegin`:
 
 ```cpp
@@ -546,64 +549,65 @@ void OnTriggerBegin(Entity other) override
     if (m_Collected || !other.HasTag("Player"))
         return;
     m_Collected = true;
-    Emit("CoinCollected");                       // GameManager obuna bo'lgan
+    Emit("CoinCollected");                       // the GameManager is subscribed
     Instantiate(Effect, GetWorldPosition());
     Destroy();
 }
 ```
 
-Ichidagilarni sanash (Showcase3D `TriggerGlow3D`): `OnTriggerBegin` da `m_Inside[(uint64_t)other.GetUUID()] = ...`,
-`OnTriggerEnd` da `m_Inside.erase(...)` — plita bosilganda yonadi.
+Counting what is inside (Showcase3D `TriggerGlow3D`): `m_Inside[(uint64_t)other.GetUUID()] = ...` in `OnTriggerBegin`,
+`m_Inside.erase(...)` in `OnTriggerEnd` — the plate lights up when pressed.
 
-Joint uzilishi (Platformer2D `BreakableJoint`):
+A joint break (Platformer2D `BreakableJoint`):
 
 ```cpp
 void OnJointBreak(const JointBreak2D& joint) override
 {
-    ZM_INFO("{} joint'i uzildi: {:.0f} N", GetEntity().GetName(), joint.Force);
+    ZM_INFO("The {} joint broke: {:.0f} N", GetEntity().GetName(), joint.Force);
     Flash({ 1.0f, 0.3f, 0.2f, 1.0f }, 0.4f);
 }
 ```
 
 ---
 
-## 13. So'rovlar: raycast, overlap, shape cast
+## 13. Queries: raycast, overlap, shape cast
 
-Hamma so'rovlar o'yin / simulyatsiya paytida ishlaydi (tahrir rejimida natija bo'sh), qatlam niqobi (`layerMask`) va
-`includeTriggers` (standart — trigger'lar hisobga olinmaydi) oladi.
+Every query works during play / simulation (in edit mode the result is empty) and takes a layer mask (`layerMask`) and
+`includeTriggers` (by default triggers are ignored).
 
-**Natija** — `RaycastHit`: `Hit` (`if (hit)` ham ishlaydi), `EntityID` (UUID — obyekt: `GetScene().GetEntityByUUID(hit.EntityID)`),
-`Point`, `Normal`, `Distance`.
+**The result** — `RaycastHit`: `Hit` (`if (hit)` works too), `EntityID` (the UUID — the object:
+`GetScene().GetEntityByUUID(hit.EntityID)`), `Point`, `Normal`, `Distance`.
 
 **2D:**
 
-| Funksiya | Nima qaytaradi |
+| Function | What it returns |
 |---|---|
-| `Raycast2D(origin, direction, maxDistance = 100, layerMask)` | eng yaqin tegish |
-| `Raycast2DAll(origin, direction, maxDistance, layerMask, includeTriggers)` | nur yo'lidagi har obyekt (bir marta), eng yaqini birinchi |
-| `OverlapCircle2D(center, radius, layerMask, includeTriggers)` | doira ichidagi obyektlar, markazga yaqini birinchi |
-| `OverlapBox2D(center, halfExtents, angleDegrees, layerMask, includeTriggers)` | burilgan to'rtburchak ichidagilar |
-| `OverlapPoint2D(point, layerMask, includeTriggers)` | nuqtani o'z ichiga olgan collider'lar |
+| `Raycast2D(origin, direction, maxDistance = 100, layerMask)` | the nearest hit |
+| `Raycast2DAll(origin, direction, maxDistance, layerMask, includeTriggers)` | every object on the ray's path (once each), nearest first |
+| `OverlapCircle2D(center, radius, layerMask, includeTriggers)` | the objects inside a circle, nearest to the center first |
+| `OverlapBox2D(center, halfExtents, angleDegrees, layerMask, includeTriggers)` | the objects inside a rotated rectangle |
+| `OverlapPoint2D(point, layerMask, includeTriggers)` | the colliders containing the point |
 
 **3D:**
 
-| Funksiya | Nima qaytaradi |
+| Function | What it returns |
 |---|---|
-| `Raycast3D(origin, direction, maxDistance = 100, layerMask)` | eng yaqin tegish |
-| `Raycast3DAll(...)` | yo'ldagi har obyekt, yaqinidan |
-| `OverlapSphere3D(center, radius, ...)`, `OverlapBox3D(center, halfExtents, rotation, ...)`, `OverlapCapsule3D(point0, point1, radius, ...)` | shakl ichidagi obyektlar (personaj kapsulalari ham), markazga yaqini birinchi |
-| `SphereCast3D(origin, radius, direction, maxDistance, ...)`, `BoxCast3D(center, halfExtents, direction, rotation, maxDistance, ...)`, `CapsuleCast3D(point0, point1, radius, direction, maxDistance, ...)` | "qalin nur": shakl yo'nalish bo'ylab suriladi — `Distance` shakl qancha yurgani, `Point` tegish nuqtasi, `Normal` sirt |
-| `SphereCast3DAll`, `BoxCast3DAll`, `CapsuleCast3DAll` | yo'ldagi hammasi |
+| `Raycast3D(origin, direction, maxDistance = 100, layerMask)` | the nearest hit |
+| `Raycast3DAll(...)` | every object on the path, nearest first |
+| `OverlapSphere3D(center, radius, ...)`, `OverlapBox3D(center, halfExtents, rotation, ...)`, `OverlapCapsule3D(point0, point1, radius, ...)` | the objects inside the shape (character capsules too), nearest to the center first |
+| `SphereCast3D(origin, radius, direction, maxDistance, ...)`, `BoxCast3D(center, halfExtents, direction, rotation, maxDistance, ...)`, `CapsuleCast3D(point0, point1, radius, direction, maxDistance, ...)` | a "thick ray": the shape is swept along the direction — `Distance` is how far the shape went, `Point` the hit point, `Normal` the surface |
+| `SphereCast3DAll`, `BoxCast3DAll`, `CapsuleCast3DAll` | everything on the path |
 
-Muhim tafsilotlar:
+Important details:
 
-- Overlap so'rovlari obyektning **o'zini ham** topadi (ichida bo'lsa) — kerak bo'lmasa tashlab keting.
-- 3D nur yoki shakl collider ichidan boshlansa uni urmaydi: o'z tanasi ichidan otilgan nur uni o'tkazib yuboradi.
-  Mesh Collider 3D faqat old tomonidan uriladi.
-- Bir xil funksiyalar `Scene` da ham bor (`GetScene().Raycast2D(...)`, `GetScene().OverlapSphere3D(...)`) — skriptdan
-  tashqaridagi kod uchun.
+- Overlap queries find the object **itself** too (when it is inside) — skip it if you do not need it.
+- A 3D ray or shape starting inside a collider does not hit it: a ray shot from inside its own body passes through it.
+  A Mesh Collider 3D is hit only from its front side.
+- The same functions exist on `Scene` too (`GetScene().Raycast2D(...)`, `GetScene().OverlapSphere3D(...)`) — for code
+  outside scripts.
 
-Portlash (Platformer2D `BlastOnClick`): sichqoncha bosilgan joydagi jismlarni topib, markazdan uzoqqa itaradi:
+An explosion (Platformer2D `BlastOnClick`): finds the bodies where the mouse was clicked and pushes them away from the
+center:
 
 ```cpp
 void Blast(const glm::vec2& center)
@@ -613,15 +617,15 @@ void Blast(const glm::vec2& center)
         glm::vec2 d = glm::vec2(e.GetComponent<TransformComponent>().Translation) - center;
         const float distance = glm::length(d);
         d = distance > 1e-3f ? d / distance : glm::vec2(0.0f, 1.0f);
-        const float falloff = std::clamp(1.0f - distance / Radius, 0.2f, 1.0f);   // yaqinroq - kuchliroq
+        const float falloff = std::clamp(1.0f - distance / Radius, 0.2f, 1.0f);   // closer - stronger
         ApplyImpulse(e, (d + glm::vec2(0.0f, 0.35f)) * Strength * falloff);
     }
     DebugDraw::Circle({ center, 0.5f }, Radius, glm::vec4(1.0f, 0.6f, 0.25f, 0.9f), 0.9f, false);
 }
-// Chaqiriq: if (Input::IsActionJustPressed("Fire")) Blast(GetMouseWorldPosition());
+// The call: if (Input::IsActionJustPressed("Fire")) Blast(GetMouseWorldPosition());
 ```
 
-3D yerni tekshirish (`ScriptableEntity.h` dagi misol) va dushmanni nishonga olish:
+Checking the 3D ground (the example in `ScriptableEntity.h`) and aiming at an enemy:
 
 ```cpp
 RaycastHit ground = SphereCast3D(GetWorldPosition() + glm::vec3(0, 0.5f, 0), 0.3f, { 0, -1, 0 }, 1.0f);
@@ -629,30 +633,30 @@ if (RaycastHit hit = Raycast3D(GetWorldPosition(), Transform().GetForward(), 20.
     SendMessage(GetScene().GetEntityByUUID(hit.EntityID), "Damage", 25.0f);
 ```
 
-Namunalar: Showcase3D `Scenes/Queries3D.zscene` — `SphereSweep3D` (SphereCast3DAll, "Arvoh" qatlami niqobdan chiqarilgan),
-`OverlapGlow3D` (OverlapSphere3D ichidagilar yorishadi), `LaserAll3D` (Raycast3DAll); Platformer2D `Scenes/Effectors2D.zscene`
-— `LaserScanner` (Raycast2DAll), `BlastOnClick`. Sichqoncha ostidagi nuqta uchun 3D'da `GetMouseRay()` + `Raycast3D`,
-2D'da `GetMouseWorldPosition()` + `OverlapPoint2D`.
+Samples: Showcase3D `Scenes/Queries3D.zscene` — `SphereSweep3D` (SphereCast3DAll, the "Arvoh" layer left out of the
+mask), `OverlapGlow3D` (what is inside OverlapSphere3D lights up), `LaserAll3D` (Raycast3DAll); Platformer2D
+`Scenes/Effectors2D.zscene` — `LaserScanner` (Raycast2DAll), `BlastOnClick`. For the point under the mouse:
+`GetMouseRay()` + `Raycast3D` in 3D, `GetMouseWorldPosition()` + `OverlapPoint2D` in 2D.
 
 ---
 
-## 14. Uxlash
+## 14. Sleeping
 
-Bir muddat qimirlamay turgan jism — unga tegib yoki ulanib turganlar bilan birga (Box2D / Jolt orollari) — hisoblanmaydi,
-toki biror narsa uni uyg'otmaguncha: urilish, joint tortishi, skript (`WakeUp`, `SetPosition2D`, kuch, impuls). Katta
-sahnalarda bu juda ko'p vaqt tejaydi.
+A body that has not moved for a while — together with those touching or joined to it (Box2D / Jolt islands) — is not
+simulated until something wakes it: a hit, a joint pulling, a script (`WakeUp`, `SetPosition2D`, a force, an impulse).
+In large scenes this saves a lot of time.
 
-- Sahna: *Sahna sozlamalari > Fizika > Box2D / Jolt* — **Uxlash** (o'chirilsa hamma jism doim hisoblanadi) va
-  **Uxlashgacha** (soniya, standart 0.5).
-- Har jism (`Sleeping`, `SleepMode`): **Uyg'oq boshlanadi** (`StartAwake`), **Uxlab boshlanadi** (`StartAsleep` — urilguncha
-  kutib turadigan minora), **Hech uxlamaydi** (`NeverSleep`).
-- Inspektorda o'yin paytida holat va **Uyg'otish** / **Uxlatish** tugmalari; *Fizik colliderlar* ko'rinishida uxlayotgan
-  jismlar ko'kish-kulrang.
-- Skript: 2D `IsSleeping()`, `WakeUp()`, `PutToSleep()`, `IsSleeping(other)`, `WakeUp(other)`; 3D `IsSleeping3D()`,
-  `WakeUp3D()`, `PutToSleep3D()` va `(other)` turlari. `Scene` da: `IsSleeping2D(entity)`, `IsSleeping3D(entity)`.
+- Scene: *Scene settings > Physics > Box2D / Jolt* — **Sleeping** (when off, every body is always simulated) and
+  **Until sleep** (seconds, 0.5 by default).
+- Every body (`Sleeping`, `SleepMode`): **Starts awake** (`StartAwake`), **Starts asleep** (`StartAsleep` — a tower that
+  waits until it is hit), **Never sleeps** (`NeverSleep`).
+- During play the inspector shows the state and the **Wake up** / **Put to sleep** buttons; in the *Physics colliders*
+  view sleeping bodies are bluish grey.
+- Scripts: 2D `IsSleeping()`, `WakeUp()`, `PutToSleep()`, `IsSleeping(other)`, `WakeUp(other)`; 3D `IsSleeping3D()`,
+  `WakeUp3D()`, `PutToSleep3D()` and the `(other)` variants. On `Scene`: `IsSleeping2D(entity)`, `IsSleeping3D(entity)`.
 
 ```cpp
-// Showcase3D SleepTint3D: uxlayotgan jism ko'k bo'ladi.
+// Showcase3D SleepTint3D: a sleeping body turns blue.
 void OnUpdate(Timestep) override
 {
     if (auto* mr = TryGetComponent<MeshRendererComponent>())
@@ -660,132 +664,135 @@ void OnUpdate(Timestep) override
 }
 ```
 
-Olib tashlangan jism ustida uxlab yotganlar uyg'onadi va tushadi; qayta paydo bo'lgan jism ichidagilar ham uyg'onadi.
+Bodies sleeping on a removed body wake up and fall; bodies inside a body that appears again wake up too.
 
 ---
 
-## 15. Debug ko'rinishlari
+## 15. Debug views
 
-**Editorda:**
+**In the editor:**
 
-- **Fizik colliderlar** (viewport toolbar'i yoki *Ko'rinish* menyusi): barcha 2D / 3D collider'lar, Convex Hull va Mesh
-  collider qirralari, tilemap qutilari (bir tomonlamalari pushti, strelka bilan), uxlayotgan jismlar ko'kish-kulrang.
-- **Debug chizish** menyusi (toolbar'dagi hasharot tugmasi): *Raycastlar* (har so'rov: nur, tegish nuqtasi, normal,
-  tartib raqami; tegmasa — qizil; ko'rsatish vaqti), *Kontakt nuqtalari* (yashil nuqta, sariq normal, kirish chuqurligi
-  qizil chiziq; **Qiymatlar** — chuqurlik mm, 3D zarba tezligi va impulsi, joint kuchi va uzilish chegarasidan foizi),
-  *Joint'lar* (ikkala langar, o'q; rangi uzilishga yaqinligiga qarab yashil → sariq → qizil, uzilmaydigani ko'k, uzilgani
-  qizil X), *Personaj tezligi* va *Jismlar tezligi* (o'q va m/s).
-- *Gizmolar* (ko'z tugmasining menyusi yoki *Ko'rinish > Gizmolar*): *Joint'lar (2D / 3D)* — o'chiq, tanlanganda yoki hammasi.
+- **Physics colliders** (the viewport toolbar or the *View* menu): every 2D / 3D collider, the Convex Hull and Mesh
+  collider edges, the tilemap boxes (one-way ones in pink, with an arrow), sleeping bodies in bluish grey.
+- The **Debug drawing** menu (the bug button on the toolbar): *Raycasts* (every query: the ray, the hit point, the
+  normal, its order number; red on a miss; how long it shows), *Contact points* (a green point, a yellow normal, the
+  penetration depth as a red line; **Values** — the depth in mm, the 3D impact speed and impulse, the joint force and its
+  percentage of the break limit), *Joints* (both anchors, the axis; the color shows how close it is to breaking: green →
+  yellow → red, blue when it never breaks, a red X when broken), *Character velocity* and *Body velocities* (an arrow and
+  m/s).
+- *Gizmos* (the eye button's menu or *View > Gizmos*): *Joints (2D / 3D)* — off, when selected or all of them.
 
-**Player'da:** loyiha sozlamalari *Debug* bo'limi yoki buyruq qatori: `--debug-raycasts`, `--debug-contacts`,
+**In the Player:** the project settings' *Debug* section or the command line: `--debug-raycasts`, `--debug-contacts`,
 `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--no-debug-draw` ([Runtime.md](Runtime.md#4-the-command-line)).
 
-**Skriptdan** (`Zamin/Debug/DebugDraw.h`) — o'z shakllaringiz va sozlamalar:
+**From a script** (`Zamin/Debug/DebugDraw.h`) — your own shapes and the settings:
 
 ```cpp
-DebugDraw::Line(from, to, DebugColor::Red);                       // bir kadr
-DebugDraw::WireSphere(GetWorldPosition(), 2.0f, DebugColor::Cyan, 0.5f);   // 0.5 s ko'rinadi
+DebugDraw::Line(from, to, DebugColor::Red);                       // one frame
+DebugDraw::WireSphere(GetWorldPosition(), 2.0f, DebugColor::Cyan, 0.5f);   // shown for 0.5 s
 DebugDraw::WireCapsule(p0, p1, 0.4f, DebugColor::Yellow);
-DebugDraw::Text(GetWorldPosition() + glm::vec3(0, 2, 0), "Salom", DebugColor::White);
-DebugDraw::GetSettings().ShowRaycasts = true;                     // o'yin to'xtaguncha
-if (!DebugDraw::IsShowingRaycasts()) { /* o'zimiz chizamiz */ }
+DebugDraw::Text(GetWorldPosition() + glm::vec3(0, 2, 0), "Hello", DebugColor::White);
+DebugDraw::GetSettings().ShowRaycasts = true;                     // until the game stops
+if (!DebugDraw::IsShowingRaycasts()) { /* we draw it ourselves */ }
 ```
 
-Shipping build'da (`-DZAMIN_SHIPPING=ON` yoki `-DZAMIN_DEBUG_DRAW=OFF`) hamma `DebugDraw` chaqiruvlari bo'sh inline
-funksiyalar — skriptda qoldirish mumkin. Kontakt ma'lumoti vositalar va testlar uchun:
-`PhysicsWorld3D::GetDebugContacts` (`PhysicsContactPoint`: normal, chuqurlik, zarba tezligi, impuls, yoshi, uxlash).
-Namunalar: Showcase3D `Scenes/PhysicsDebug3D.zscene` (`PhysicsDebugView3D` — C / J / V tugmalari), `Scenes/DebugDraw.zscene`.
+In a shipping build (`-DZAMIN_SHIPPING=ON` or `-DZAMIN_DEBUG_DRAW=OFF`) every `DebugDraw` call is an empty inline
+function — they can stay in scripts. Contact information for tools and tests:
+`PhysicsWorld3D::GetDebugContacts` (`PhysicsContactPoint`: normal, depth, impact speed, impulse, age, sleeping).
+Samples: Showcase3D `Scenes/PhysicsDebug3D.zscene` (`PhysicsDebugView3D` — the C / J / V keys), `Scenes/DebugDraw.zscene`.
 
 ---
 
-## 16. Determinizm
+## 16. Determinism
 
-Bir xil sahna har safar **bit-bit bir xil** simulyatsiya beradi (2D va 3D): ikki marta ishga tushirilganda, faylga
-saqlab o'qilgandan keyin va obyektlar boshqa tartibda yaratilgan bo'lsa ham. Jismlar, joint'lar va personajlar sahna
-tartibida yaratiladi; editorning Play nusxasi (`Scene::Copy`) ierarxiya tartibida — fayldan o'qilgan sahna kabi, shuning
-uchun editorda o'ynalgan va eksport qilingan o'yin bir xil harakat qiladi. Tekshiruv: `PhysicsDeterminism2D` va
-`PhysicsDeterminism3D` testlari.
+The same scene gives a **bit-for-bit identical** simulation every time (2D and 3D): when run twice, after saving to a
+file and reading it back, and even when the objects were created in another order. Bodies, joints and characters are
+created in scene order; the editor's Play copy (`Scene::Copy`) in hierarchy order — like a scene read from its file, so
+a game played in the editor and the exported game behave the same. The check: the `PhysicsDeterminism2D` and
+`PhysicsDeterminism3D` tests.
 
-Determinizmni o'zingiz buzmaslik uchun: tasodifiy sonlar uchun `Random` ni seed bilan ishlating ([Core.md](Core.md#8-random-numbers-random)),
-fizik qiymatlarni `OnUpdate` da o'zgaruvchan `ts` emas, qat'iy qadamga mos tarzda bering (kuch / tezlik), bitta funksiya
-argumentlarida bir nechta tasodifiy son olmang (hisoblash tartibi kompilyatorga bog'liq — `BlastOnClick` dagi izohga qarang).
+To avoid breaking determinism yourself: use `Random` with a seed for random numbers ([Core.md](Core.md#8-random-numbers-random)),
+give physics values in step with the fixed step rather than with the varying `ts` of `OnUpdate` (force / velocity), and
+do not take several random numbers in the arguments of one function call (the evaluation order depends on the compiler —
+see the comment in `BlastOnClick`).
 
 ---
 
-## 17. Namuna sahnalar
+## 17. Sample scenes
 
-| Loyiha / sahna | Nima ko'rsatadi | Skriptlar |
+| Project / scene | What it shows | Scripts |
 |---|---|---|
-| Platformer2D `Scenes/Level1.zscene` ... `Level3` | platformer: qahramon, tangalar (sensor), harakatlanuvchi platformalar | `PlayerController`, `Coin`, `MovingPlatform` |
-| Platformer2D `Scenes/Shapes2D.zscene` | Edge yer, botiq Polygon ko'prik, polygon toshlar, muz va rezina materiallar, Platform Effector, "Ghost" qatlami | `ShapeSpawner`, `ShapeLauncher` |
-| Platformer2D `Scenes/Effectors2D.zscene` | suv (Buoyancy), shamol (Area), Raycast2DAll, OverlapCircle2D | `LaserScanner`, `BlastOnClick` |
-| Platformer2D `Scenes/Joints2D.zscene` | 5 xil 2D joint, uziladigan chiroq, motorli mashina | `CarController`, `JointMotorPingPong`, `BreakableJoint` |
-| Platformer2D `Scenes/Ragdoll2D.zscene` | 2D ragdoll prefabi, uxlab turgan minora, sub-qadamlar | `RagdollSpawner` |
-| Platformer2D `Scenes/Tilemap2D.zscene` | tilemap collision, bir tomonlama plitkalar | — |
-| Showcase3D `Scenes/Physics3D.zscene` | 3D materiallar, trigger plita, uxlab turgan piramida, CCD, jismlarni itaradigan qahramon | `Launcher3D`, `SleepTint3D`, `Sweeper3D`, `Respawn3D`, `TriggerGlow3D`, `PatrolWalker` |
-| Showcase3D `Scenes/Joints3D.zscene` | 5 xil 3D joint, qavariq qobiqlar | `SliderShuttle` |
-| Showcase3D `Scenes/Ragdoll3D.zscene` | 3D ragdoll prefabi | `RagdollSpawner3D` |
-| Showcase3D `Scenes/Queries3D.zscene` | 3D so'rovlar, Mesh Collider (yarim quvur), "Arvoh" qatlami | `SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` |
-| Showcase3D `Scenes/PhysicsDebug3D.zscene` | kontakt / joint / tezlik ko'rinishlari | `PhysicsDebugView3D` |
-| Adventure3D `Scenes/Island.zscene` | Character Controller, kinematik platforma, kinematik darvoza tabaqalari, sensor kristallar | `ThirdPersonController`, `MovingPlatform3D`, `Crystal` |
+| Platformer2D `Scenes/Level1.zscene` ... `Level3` | a platformer: the hero, coins (sensors), moving platforms | `PlayerController`, `Coin`, `MovingPlatform` |
+| Platformer2D `Scenes/Shapes2D.zscene` | Edge ground, a concave Polygon bridge, polygon stones, ice and rubber materials, a Platform Effector, the "Ghost" layer | `ShapeSpawner`, `ShapeLauncher` |
+| Platformer2D `Scenes/Effectors2D.zscene` | water (Buoyancy), wind (Area), Raycast2DAll, OverlapCircle2D | `LaserScanner`, `BlastOnClick` |
+| Platformer2D `Scenes/Joints2D.zscene` | 5 kinds of 2D joints, a breakable lamp, a motorized car | `CarController`, `JointMotorPingPong`, `BreakableJoint` |
+| Platformer2D `Scenes/Ragdoll2D.zscene` | a 2D ragdoll prefab, a sleeping tower, sub-steps | `RagdollSpawner` |
+| Platformer2D `Scenes/Tilemap2D.zscene` | tilemap collision, one-way tiles | — |
+| Showcase3D `Scenes/Physics3D.zscene` | 3D materials, a trigger plate, a sleeping pyramid, CCD, a hero that pushes bodies | `Launcher3D`, `SleepTint3D`, `Sweeper3D`, `Respawn3D`, `TriggerGlow3D`, `PatrolWalker` |
+| Showcase3D `Scenes/Joints3D.zscene` | 5 kinds of 3D joints, convex hulls | `SliderShuttle` |
+| Showcase3D `Scenes/Ragdoll3D.zscene` | a 3D ragdoll prefab | `RagdollSpawner3D` |
+| Showcase3D `Scenes/Queries3D.zscene` | 3D queries, a Mesh Collider (a half-pipe), the "Arvoh" layer | `SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` |
+| Showcase3D `Scenes/PhysicsDebug3D.zscene` | the contact / joint / velocity views | `PhysicsDebugView3D` |
+| Adventure3D `Scenes/Island.zscene` | Character Controller, a kinematic platform, kinematic gate leaves, sensor crystals | `ThirdPersonController`, `MovingPlatform3D`, `Crystal` |
 
 ---
 
-## 18. Ko'p uchraydigan muammolar
+## 18. Common problems
 
-| Belgi | Sabab va yechim |
+| Symptom | Cause and fix |
 |---|---|
-| Obyekt tushmaydi, to'qnashmaydi | Faqat collider bor — jism yo'q (2D: Rigidbody 2D qo'shing), jism `Static`, yoki `GravityScale` / `GravityFactor` 0. Fizika faqat Play / Simulate'da ishlaydi |
-| Konsolda `'X': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)` | 3D jismga shakl kerak |
-| `'X': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi` | Dinamik jismga Convex Hull Collider 3D yoki oddiy shakllar qo'ying |
-| `The connected body (...) of the ... on the object 'X' is not in the scene - no joint is created` | Joint'ning `ConnectedBody` si o'chirilgan yoki boshqa sahnada; inspektorda qayta tanlang |
-| `the Convex Hull Collider 3D was not built` / `the Mesh Collider 3D was not built` | Mesh Renderer'da model / primitiv yo'q yoki model fayli o'qilmadi (sabab xabarda) |
-| Qahramon ag'dariladi | Rigidbody 2D **Aylanmasin** yoki Rigidbody 3D `LockRotation`; 3D'da Character Controller 3D yaxshiroq |
-| Tez jism devordan o'tib ketadi | 2D `Bullet`, 3D **Uzluksiz (CCD)**; yupqa devorni qalinroq qiling yoki qadam chastotasini oshiring |
-| Uzun zanjir / ragdoll cho'ziladi | *Sahna sozlamalari > Fizika > Sub-qadamlar* 2 ... 4, iteratsiyalarni oshiring; ulangan jismlar massasi juda farq qilmasin |
-| `OnCollisionBegin` kelmaydi | Collider sensor — `OnTriggerBegin` keladi; yoki to'qnashuv qatlamlari matritsasi bu juftlikni o'chirgan; yoki jism Static + Static |
-| Raycast hech narsani topmaydi | `maxDistance` kichik, niqobda kerakli qatlam yo'q, nur collider ichidan boshlangan (3D), maqsad trigger (`includeTriggers` bering), yoki tahrir rejimi |
-| Dinamik jismni `Transform` bilan surish ishlamaydi | Fizika transformni qayta yozadi — `SetPosition2D` / `SetPosition3D`, tezlik yoki kinematik tur ishlating |
-| Qahramon devorga yopishib qoladi (2D) | Platform Effector 2D'da yon tomon ishqalanishini o'chiring yoki ishqalanishi 0 bo'lgan material |
+| The object does not fall or collide | Only a collider — no body (2D: add a Rigidbody 2D), the body is `Static`, or `GravityScale` / `GravityFactor` is 0. Physics runs only in Play / Simulate |
+| `'X': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)` in the console | A 3D body needs a shape |
+| `'X': a Mesh Collider 3D only works on a static or kinematic body - a dynamic body ignores it (use a Convex Hull Collider 3D)` | Give the dynamic body a Convex Hull Collider 3D or simple shapes |
+| `The connected body (...) of the ... on the object 'X' is not in the scene - no joint is created` | The joint's `ConnectedBody` was deleted or is in another scene; choose it again in the inspector |
+| `the Convex Hull Collider 3D was not built` / `the Mesh Collider 3D was not built` | The Mesh Renderer has no model / primitive or the model file could not be read (the reason is in the message) |
+| The hero tips over | Rigidbody 2D **Freeze rotation** or Rigidbody 3D `LockRotation`; in 3D a Character Controller 3D is better |
+| A fast body passes through a wall | 2D `Bullet`, 3D **Continuous (CCD)**; make the thin wall thicker or raise the step rate |
+| A long chain / ragdoll stretches | *Scene settings > Physics > Sub-steps* 2 ... 4, more iterations; the connected bodies' masses should not differ too much |
+| `OnCollisionBegin` does not arrive | The collider is a sensor — `OnTriggerBegin` arrives; or the collision layer matrix turned this pair off; or the bodies are Static + Static |
+| A raycast finds nothing | `maxDistance` is small, the mask lacks the needed layer, the ray starts inside a collider (3D), the target is a trigger (give `includeTriggers`), or edit mode |
+| Moving a dynamic body with `Transform` does not work | Physics rewrites the transform — use `SetPosition2D` / `SetPosition3D`, a velocity or a kinematic type |
+| The hero sticks to walls (2D) | Turn off side friction on a Platform Effector 2D or use a material with 0 friction |
 
 ---
 
-## 19. Testlar
+## 19. Tests
 
-Fizika unit testlari `Tests/ZaminTests.cpp` da (headless, GPU'siz). Faqat ularni ishga tushirish:
+The physics unit tests are in `Tests/ZaminTests.cpp` (headless, without a GPU). Running only them:
 
 ```bash
 ./build/bin/ZaminTests "*Physics*:*Joint*:*Collider*:*Trigger*:*Overlap*:*Raycast*:*Character*"
 ```
 
-Asosiylari: `PhysicsGravityAndCollision`, `Physics3D`, `TriggerCallbacks2D`, `TriggerCallbacks3D`, `TriggerEndWhenDestroyed`,
-`Overlap2DQueries`, `Raycast2DAllOrdering`, `Overlap3DQueries`, `Raycast3DAllOrdering`, `Physics2DStepSettingsAndSubSteps`,
-`Physics2DSleeping`, `Physics3DSleepingAndWakeUp`, `Physics2DScriptForcesAcrossSteps`, `PhysicsMaterialCombineAndJson`,
-`CollisionLayers2DMatrixAndFiltering`, `CollisionLayers3DMatrixAndFiltering`, `Polygon2DDecomposition`,
-`AreaEffector2DPushesBodies`, `BuoyancyEffector2DFloats`, `Joint2DBreakForceAndScriptCallback`,
-`Joint3DBreakForceAndScriptCallback`, `ConeJoint3DSwingTwistAndFriction`, `MeshCollider3DStaticAndCached`,
-`CharacterController3D`, `CharacterController3DPushesBodies`, `PhysicsDeterminism2D`, `PhysicsDeterminism3D`. Barcha testlar
-katalogi: [Testing.md](Testing.md).
+The main ones: `PhysicsGravityAndCollision`, `Physics3D`, `TriggerCallbacks2D`, `TriggerCallbacks3D`,
+`TriggerEndWhenDestroyed`, `Overlap2DQueries`, `Raycast2DAllOrdering`, `Overlap3DQueries`, `Raycast3DAllOrdering`,
+`Physics2DStepSettingsAndSubSteps`, `Physics2DSleeping`, `Physics3DSleepingAndWakeUp`,
+`Physics2DScriptForcesAcrossSteps`, `PhysicsMaterialCombineAndJson`, `CollisionLayers2DMatrixAndFiltering`,
+`CollisionLayers3DMatrixAndFiltering`, `Polygon2DDecomposition`, `AreaEffector2DPushesBodies`,
+`BuoyancyEffector2DFloats`, `Joint2DBreakForceAndScriptCallback`, `Joint3DBreakForceAndScriptCallback`,
+`ConeJoint3DSwingTwistAndFriction`, `MeshCollider3DStaticAndCached`, `CharacterController3D`,
+`CharacterController3DPushesBodies`, `PhysicsDeterminism2D`, `PhysicsDeterminism3D`. The catalog of all tests:
+[Testing.md](Testing.md).
 
 ---
 
-## 20. Qisqa API ma'lumotnomasi
+## 20. Short API reference
 
-| Nima | API |
+| What | API |
 |---|---|
-| Jismlar | `Rigidbody2DComponent` (`Type`, `FixedRotation`, `GravityScale`, `Bullet`, `Layer`, `Sleeping`), `Rigidbody3DComponent` (`Type`, `Mass`, `GravityFactor`, `LockRotation`, `ContinuousCollision`, `Layer`, `Sleeping`) |
-| 2D collider'lar | `BoxCollider2DComponent`, `CircleCollider2DComponent`, `PolygonCollider2DComponent`, `EdgeCollider2DComponent`; `Polygon2D::Decompose` |
-| 3D collider'lar | `BoxCollider3DComponent`, `SphereCollider3DComponent`, `CapsuleCollider3DComponent`, `ConvexHullCollider3DComponent`, `MeshCollider3DComponent` |
-| Effektorlar | `PlatformEffector2DComponent`, `AreaEffector2DComponent`, `BuoyancyEffector2DComponent` |
-| Joint'lar | `DistanceJoint2DComponent`, `RevoluteJoint2DComponent`, `PrismaticJoint2DComponent`, `WeldJoint2DComponent`, `WheelJoint2DComponent`; `FixedJoint3DComponent`, `HingeJoint3DComponent`, `DistanceJoint3DComponent`, `SliderJoint3DComponent`, `ConeJoint3DComponent` |
-| Personaj | `CharacterController3DComponent::Move`, `Jump`, `Grounded`, `Velocity`, `VerticalVelocity`, `PushBodies`, `PushForce` |
-| Harakat (skript) | `GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `DropThroughPlatforms`; `GetVelocity3D`, `SetVelocity3D`, `GetAngularVelocity3D`, `SetAngularVelocity3D`, `ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D` |
-| Uxlash | `IsSleeping`, `WakeUp`, `PutToSleep`, `IsSleeping3D`, `WakeUp3D`, `PutToSleep3D`; `Scene::IsSleeping2D`, `Scene::IsSleeping3D` |
-| Callback'lar | `OnCollisionBegin`, `OnCollisionEnd`, `OnTriggerBegin`, `OnTriggerEnd`, `OnJointBreak` (`JointBreak2D`), `OnJointBreak3D` (`JointBreak3D`) |
-| So'rovlar 2D | `Raycast2D`, `Raycast2DAll`, `OverlapCircle2D`, `OverlapBox2D`, `OverlapPoint2D` |
-| So'rovlar 3D | `Raycast3D`, `Raycast3DAll`, `OverlapSphere3D`, `OverlapBox3D`, `OverlapCapsule3D`, `SphereCast3D`, `BoxCast3D`, `CapsuleCast3D` (+ `...All`); `RaycastHit` (`Hit`, `EntityID`, `Point`, `Normal`, `Distance`) |
-| Qatlamlar | `LayerMask({ ... })`, `LayerIndex(name)`; `CollisionLayers2D` (`Names`, `Masks`, `CanCollide`, `SetCollision`, `MakeMask`, `ApplyPreset`) |
-| Materiallar | `PhysicsMaterialData`, `PhysicsCombine`, `PhysicsMaterial::ToJson` / `FromJson` / `Save` / `Load`, `PhysicsMaterialLibrary::Load` / `Resolve` |
-| Sozlamalar | `SceneSettings::Gravity`, `Gravity3D`, `PhysicsStep` (`StepRate`, `MaxStepsPerFrame`), `Physics2D` (`SubSteps`, `VelocityIterations`, `PositionIterations`, `AllowSleep`, `TimeToSleep`), `Physics3D`; `PhysicsDefaults` (loyiha gravitatsiyasi) |
-| Statistika | `Scene::GetPhysics2DStats()`, `GetPhysics3DStats()`, `GetPhysics2DStepsLastFrame()` |
+| Bodies | `Rigidbody2DComponent` (`Type`, `FixedRotation`, `GravityScale`, `Bullet`, `Layer`, `Sleeping`), `Rigidbody3DComponent` (`Type`, `Mass`, `GravityFactor`, `LockRotation`, `ContinuousCollision`, `Layer`, `Sleeping`) |
+| 2D colliders | `BoxCollider2DComponent`, `CircleCollider2DComponent`, `PolygonCollider2DComponent`, `EdgeCollider2DComponent`; `Polygon2D::Decompose` |
+| 3D colliders | `BoxCollider3DComponent`, `SphereCollider3DComponent`, `CapsuleCollider3DComponent`, `ConvexHullCollider3DComponent`, `MeshCollider3DComponent` |
+| Effectors | `PlatformEffector2DComponent`, `AreaEffector2DComponent`, `BuoyancyEffector2DComponent` |
+| Joints | `DistanceJoint2DComponent`, `RevoluteJoint2DComponent`, `PrismaticJoint2DComponent`, `WeldJoint2DComponent`, `WheelJoint2DComponent`; `FixedJoint3DComponent`, `HingeJoint3DComponent`, `DistanceJoint3DComponent`, `SliderJoint3DComponent`, `ConeJoint3DComponent` |
+| Character | `CharacterController3DComponent::Move`, `Jump`, `Grounded`, `Velocity`, `VerticalVelocity`, `PushBodies`, `PushForce` |
+| Movement (scripts) | `GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `DropThroughPlatforms`; `GetVelocity3D`, `SetVelocity3D`, `GetAngularVelocity3D`, `SetAngularVelocity3D`, `ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D` |
+| Sleeping | `IsSleeping`, `WakeUp`, `PutToSleep`, `IsSleeping3D`, `WakeUp3D`, `PutToSleep3D`; `Scene::IsSleeping2D`, `Scene::IsSleeping3D` |
+| Callbacks | `OnCollisionBegin`, `OnCollisionEnd`, `OnTriggerBegin`, `OnTriggerEnd`, `OnJointBreak` (`JointBreak2D`), `OnJointBreak3D` (`JointBreak3D`) |
+| 2D queries | `Raycast2D`, `Raycast2DAll`, `OverlapCircle2D`, `OverlapBox2D`, `OverlapPoint2D` |
+| 3D queries | `Raycast3D`, `Raycast3DAll`, `OverlapSphere3D`, `OverlapBox3D`, `OverlapCapsule3D`, `SphereCast3D`, `BoxCast3D`, `CapsuleCast3D` (+ `...All`); `RaycastHit` (`Hit`, `EntityID`, `Point`, `Normal`, `Distance`) |
+| Layers | `LayerMask({ ... })`, `LayerIndex(name)`; `CollisionLayers2D` (`Names`, `Masks`, `CanCollide`, `SetCollision`, `MakeMask`, `ApplyPreset`) |
+| Materials | `PhysicsMaterialData`, `PhysicsCombine`, `PhysicsMaterial::ToJson` / `FromJson` / `Save` / `Load`, `PhysicsMaterialLibrary::Load` / `Resolve` |
+| Settings | `SceneSettings::Gravity`, `Gravity3D`, `PhysicsStep` (`StepRate`, `MaxStepsPerFrame`), `Physics2D` (`SubSteps`, `VelocityIterations`, `PositionIterations`, `AllowSleep`, `TimeToSleep`), `Physics3D`; `PhysicsDefaults` (the project's gravity) |
+| Statistics | `Scene::GetPhysics2DStats()`, `GetPhysics3DStats()`, `GetPhysics2DStepsLastFrame()` |
 | Debug | `DebugDraw::Line`, `WireSphere`, `WireCapsule`, `Circle`, `Text`, `GetSettings()`, `SetEnabled`, `IsShowingRaycasts`, `IsShowingContacts`; `PhysicsWorld3D::GetDebugContacts` |

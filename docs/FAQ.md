@@ -7,7 +7,7 @@ messages are exactly as the program writes them; `<...>` marks a place where a c
 of a message into the Console's search field, or find it on this page.
 
 Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
-[Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-common-problems),
+[Physics.md, 18](Physics.md#18-common-problems), [Rendering.md, 18](Rendering.md#18-common-problems),
 [Audio.md, 18](Audio.md#18-common-problems), [Runtime.md, 15](Runtime.md#15-problems-and-solutions),
 [BuildAndExport.md, 13](BuildAndExport.md#13-problems-and-solutions).
 
@@ -46,7 +46,7 @@ Getting started: [Scripting.md](Scripting.md), first games: [Tutorial-2D.md](Tut
 ### Can 2D and 3D be mixed in one game?
 
 Yes: sprites and meshes are drawn together in one scene (3D first, then 2D and UI on top). But the physics worlds are
-separate: 2D bodies (Box2D) do not collide with 3D bodies (Jolt) ([Physics.md](Physics.md#1-asosiy-tushunchalar)).
+separate: 2D bodies (Box2D) do not collide with 3D bodies (Jolt) ([Physics.md](Physics.md#1-core-concepts)).
 
 ### Can the editor language be changed?
 
@@ -277,7 +277,7 @@ each other (Project settings > Physics), the collider is a sensor (`IsSensor`) -
 
 2D: **Fast object (bullet)** (`Bullet`) on the Rigidbody 2D; 3D: **Continuous (CCD)** on the Rigidbody 3D
 (`ContinuousCollision`). Or raise the
-step rate (the physics part of the scene settings: **Step rate**, `StepRate`) ([Physics.md, 2](Physics.md#2-qadam-gravitatsiya-va-simulyatsiya-sozlamalari)).
+step rate (the physics part of the scene settings: **Step rate**, `StepRate`) ([Physics.md, 2](Physics.md#2-step-gravity-and-simulation-settings)).
 
 ### A Mesh Collider does not work on a dynamic body
 

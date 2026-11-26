@@ -53,7 +53,19 @@
     "levels": {
         "title": "DARAJALAR",
         "back": "Orqaga",
-        "moves": "{0} qadam"
+        "moves": "{0} qadam",
+        "names": {
+            "1": "Birinchi qadam",
+            "2": "Ikki quti",
+            "3": "Tor yo'lak",
+            "4": "Ombor",
+            "5": "Zinapoya",
+            "6": "Ustunlar",
+            "7": "To'rt burchak",
+            "8": "Ikki xona",
+            "9": "Chorraha",
+            "10": "Katta ombor"
+        }
     },
     "pause": {
         "title": "PAUZA",

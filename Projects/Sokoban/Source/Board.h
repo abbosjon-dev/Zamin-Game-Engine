@@ -17,8 +17,7 @@ namespace Sokoban {
 
     struct Level
     {
-        const char* Name;     // Uzbek name (shown in the HUD when the game language is Uzbek)
-        const char* NameEn;
+        const char* Name; // English; the HUD shows levels.names.<n> of the game language when it has one
         const char* Map;
     };
     const std::vector<Level>& GetLevels();

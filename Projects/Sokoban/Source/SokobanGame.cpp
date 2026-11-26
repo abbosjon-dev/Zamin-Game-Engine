@@ -803,8 +803,9 @@ void SokobanGame::Burst(const EntityRef& ref, const glm::vec3& at, int count)
 
 std::string SokobanGame::LevelName(int index) const
 {
-    const Level& level = GetLevels()[(size_t)std::clamp(index, 0, (int)GetLevels().size() - 1)];
-    return Localization::GetLanguage() == "uz" ? level.Name : level.NameEn;
+    index = std::clamp(index, 0, (int)GetLevels().size() - 1);
+    const std::string key = "levels.names." + std::to_string(index + 1);
+    return Localization::Has(key) ? Localization::Get(key) : std::string(GetLevels()[(size_t)index].Name);
 }
 
 int SokobanGame::GetBest(int index) const

@@ -53,7 +53,19 @@
     "levels": {
         "title": "LEVELS",
         "back": "Back",
-        "moves": "{0} moves"
+        "moves": "{0} moves",
+        "names": {
+            "1": "First step",
+            "2": "Two crates",
+            "3": "Narrow aisle",
+            "4": "Warehouse",
+            "5": "Staircase",
+            "6": "Pillars",
+            "7": "Four corners",
+            "8": "Two rooms",
+            "9": "Crossroads",
+            "10": "Big warehouse"
+        }
     },
     "pause": {
         "title": "PAUSED",

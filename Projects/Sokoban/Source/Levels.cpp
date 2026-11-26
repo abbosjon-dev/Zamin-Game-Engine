@@ -1,6 +1,7 @@
 #include "Board.h"
 
 // Levels: from simple to hard. Each can be solved (Tools/samples/gen_sokoban.py and the demo bot - Solve - check it).
+// The names are English; the HUD shows the game language's name (levels.names.<n> in Assets/Localization).
 // Notation: '#' wall, ' ' floor, '.' goal, '$' crate, '*' crate on a goal, '@' player, '+' player on a goal.
 
 namespace Sokoban {
@@ -8,14 +9,14 @@ namespace Sokoban {
     const std::vector<Level>& GetLevels()
     {
         static const std::vector<Level> levels = {
-            { "Birinchi qadam", "First step", R"(
+            { "First step", R"(
 #######
 #     #
 # @$ .#
 #     #
 #######
 )" },
-            { "Ikki quti", "Two crates", R"(
+            { "Two crates", R"(
 ######
 #    #
 # $$ #
@@ -23,7 +24,7 @@ namespace Sokoban {
 #  @ #
 ######
 )" },
-            { "Tor yo'lak", "Narrow aisle", R"(
+            { "Narrow aisle", R"(
   ####
 ###  #
 # $  #
@@ -33,7 +34,7 @@ namespace Sokoban {
  #    #
  ######
 )" },
-            { "Ombor", "Warehouse", R"(
+            { "Warehouse", R"(
 ########
 #  .   #
 # $$$  #
@@ -41,7 +42,7 @@ namespace Sokoban {
 ## .  @#
  #######
 )" },
-            { "Zinapoya", "Staircase", R"(
+            { "Staircase", R"(
   #####
 ###   #
 # $ # ##
@@ -51,7 +52,7 @@ namespace Sokoban {
  #  ####
  ####
 )" },
-            { "Ustunlar", "Pillars", R"(
+            { "Pillars", R"(
 ########
 #  .   #
 # .##  #
@@ -61,7 +62,7 @@ namespace Sokoban {
 #   @. #
 ########
 )" },
-            { "To'rt burchak", "Four corners", R"(
+            { "Four corners", R"(
 #########
 #.  #  .#
 # $   $ #
@@ -70,7 +71,7 @@ namespace Sokoban {
 #.  #  .#
 #########
 )" },
-            { "Ikki xona", "Two rooms", R"(
+            { "Two rooms", R"(
 ##########
 #    #   #
 #       .#
@@ -79,7 +80,7 @@ namespace Sokoban {
 #   #. $ #
 ##########
 )" },
-            { "Chorraha", "Crossroads", R"(
+            { "Crossroads", R"(
 #########
 #   #   #
 # $ . $ #
@@ -90,7 +91,7 @@ namespace Sokoban {
 #   #   #
 #########
 )" },
-            { "Katta ombor", "Big warehouse", R"(
+            { "Big warehouse", R"(
 ##########
 # .  #   #
 # .  $   #

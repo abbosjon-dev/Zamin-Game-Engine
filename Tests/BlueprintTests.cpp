@@ -167,7 +167,8 @@ namespace {
 }
 TEST(BlueprintCollectionOperationsAcrossAllElementTypes)
 {
-    for (int i = int(Type::ArrayBool); i < int(Type::Count); ++i)
+    // The value element types; struct arrays need a struct definition (BlueprintStructArraysRunTheArrayNodes).
+    for (int i = int(Type::ArrayBool); i <= int(Type::ArrayEntity); ++i)
     {
         const auto type = Type(i), element = ElementType(type);
         Value item = DefaultValue(element), other = item;
@@ -546,15 +547,16 @@ TEST(BlueprintCallArityAndSignatureDiagnostics)
     g.Links.push_back({ 30, "Value", 2, "X" });
     CHECK(Mentions(g.Validate(), "Link pin types differ"));
 }
-TEST(BlueprintFormatVersion2AndVersion1Migration)
+TEST(BlueprintFormatVersion3AndOlderMigration)
 {
     auto g = FunctionGraph();
     auto json = g.Serialize();
-    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 2 && json.at("Enums").is_object());
-    // A version 1 file (no Enums section): typed functions, locals and legacy names read unchanged.
+    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 3 && json.at("Enums").is_object() && json.at("Structs").is_object());
+    // A version 1 file (no Enums/Structs section): typed functions, locals and legacy names read unchanged.
     auto v1 = json;
     v1["Version"] = 1;
     v1.erase("Enums");
+    v1.erase("Structs");
     v1["Nodes"].push_back({ { "ID", 40 }, { "Kind", "Function" }, { "X", 0 }, { "Y", 0 }, { "Inputs", { { "Name", "Legacy" } } }, { "Breakpoint", false } });
     v1["Nodes"].push_back({ { "ID", 41 }, { "Kind", "Event.Create" }, { "X", 0 }, { "Y", 0 }, { "Inputs", Value::object() }, { "Breakpoint", false } });
     v1["Nodes"].push_back({ { "ID", 42 }, { "Kind", "Call" }, { "X", 0 }, { "Y", 0 }, { "Inputs", { { "Name", "Legacy" } } }, { "Breakpoint", false } });
@@ -567,16 +569,36 @@ TEST(BlueprintFormatVersion2AndVersion1Migration)
     vm.Event("Start");
     CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
     const auto upgraded = migrated.Serialize();
-    CHECK(upgraded.at("Version") == 2 && Graph::Parse(upgraded).SourceVersion == 2 && Graph::Parse(upgraded).Serialize() == upgraded);
-    // Enums do not exist in version 1; a later version is not guessed at.
+    CHECK(upgraded.at("Version") == 3 && Graph::Parse(upgraded).SourceVersion == 3 && Graph::Parse(upgraded).Serialize() == upgraded);
+    // A version 2 file (enums, no Structs section) loads unchanged and runs the same.
+    auto enumV2 = EnumGraph().Serialize();
+    enumV2["Version"] = 2;
+    enumV2.erase("Structs");
+    auto fromV2 = Graph::Parse(enumV2);
+    CHECK(fromV2.SourceVersion == 2 && fromV2.Validate().empty() && fromV2.Enums == EnumGraph().Enums && fromV2.Serialize() == EnumGraph().Serialize());
+    // Enums do not exist in version 1, structs not in 1-2; a later version is not guessed at.
     auto enumV1 = EnumGraph().Serialize();
     enumV1["Version"] = 1;
     enumV1.erase("Enums");
+    enumV1.erase("Structs");
     bool threw = false;
     try { Graph::Parse(enumV1); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 2") != std::string::npos; }
     CHECK(threw);
+    auto structV2 = json;
+    structV2["Version"] = 2;
+    structV2["Structs"] = { { "Point", { { "Fields", Value::array({ { { "Name", "X" }, { "Type", "Number" }, { "Default", 0 } } }) } } } };
+    threw = false;
+    try { Graph::Parse(structV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
+    CHECK(threw);
+    auto structVariableV2 = json;
+    structVariableV2["Version"] = 2;
+    structVariableV2.erase("Structs");
+    structVariableV2["Variables"]["P"] = { { "Type", "Struct" }, { "Default", Value::object() }, { "Struct", "Point" } };
+    threw = false;
+    try { Graph::Parse(structVariableV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
+    CHECK(threw);
     auto future = json;
-    future["Version"] = 3;
+    future["Version"] = 4;
     threw = false;
     try { Graph::Parse(future); } catch (const std::exception&) { threw = true; }
     CHECK(threw);
@@ -795,4 +817,231 @@ TEST(BlueprintSignatureAndEnumEntryRenamesKeepWires)
     CHECK(run.Load(e));
     run.Event("Start");
     CHECK(run.Variables().at("Picked") == "run" && run.Variables().at("Label") == "Sprint");
+}
+namespace {
+    // Struct Hit { Damage: Number, Kind: Element enum, Tags: ArrayString, Label: String }. Start calls
+    // Scale(Base = Make{4, Ice, "bolt"}, Factor = 3) -> Hit, whose body keeps the scaled hit in a struct local;
+    // the result goes to Last, is appended to Hits, broken into Total and its Kind field read into KindName.
+    Graph StructGraph()
+    {
+        Graph g;
+        g.Enums["Element"] = { { { "Fire", 0 }, { "Ice", 1 } }, "" };
+        g.Structs["Hit"] = { { { "Damage", Type::Number, 5. }, { "Kind", Type::Enum, 0, "Element" }, { "Tags", Type::ArrayString, Value::array() }, { "Label", Type::String, "hit" } } };
+        const Value hit = { { "Damage", 5. }, { "Kind", 0 }, { "Tags", Value::array() }, { "Label", "hit" } };
+        g.Variables["Last"] = { Type::Struct, hit, "Hit" };
+        g.Variables["Hits"] = { Type::ArrayStruct, Value::array(), "Hit" };
+        g.Variables["Total"] = { Type::Number, 0. };
+        g.Variables["KindName"] = { Type::String, "" };
+        g.Functions["Scale"] = { { { "Base", Type::Struct, hit, "Hit" }, { "Factor", Type::Number, 1. } }, { { "Result", Type::Struct, hit, "Hit" } }, { { "Work", { Type::Struct, hit, "Hit" } } } };
+        g.Nodes = { { 1, "Event.Start" },
+                    { 2, "Struct.Make", 0, 0, { { "Struct", "Hit" }, { "Damage", 4. }, { "Kind", 1 }, { "Label", "bolt" } } },
+                    { 3, "Function.Call", 0, 0, { { "Name", "Scale" }, { "Factor", 3. } } },
+                    { 4, "Set.Struct", 0, 0, { { "Name", "Last" } } },
+                    { 5, "Get.Struct", 0, 0, { { "Name", "Last" } } },
+                    { 6, "Get.ArrayStruct", 0, 0, { { "Name", "Hits" } } },
+                    { 7, "Array.Append.Struct", 0, 0, { { "Struct", "Hit" } } },
+                    { 8, "Set.ArrayStruct", 0, 0, { { "Name", "Hits" }, { "Struct", "Hit" } } },
+                    { 9, "Struct.Break", 0, 0, { { "Struct", "Hit" } } },
+                    { 10, "Set.Number", 0, 0, { { "Name", "Total" } } },
+                    { 11, "Struct.GetField", 0, 0, { { "Struct", "Hit" }, { "Field", "Kind" } } },
+                    { 12, "Enum.ToText", 0, 0, { { "Enum", "Element" } } },
+                    { 13, "Set.String", 0, 0, { { "Name", "KindName" } } },
+                    { 20, "Function.Entry", 0, 0, { { "Name", "Scale" } } },
+                    { 21, "Struct.GetField", 0, 0, { { "Struct", "Hit" }, { "Field", "Damage" } } },
+                    { 22, "Multiply" },
+                    { 23, "Struct.SetField", 0, 0, { { "Struct", "Hit" }, { "Field", "Damage" } } },
+                    { 24, "Local.Set.Struct", 0, 0, { { "Name", "Work" } } },
+                    { 25, "Local.Get.Struct", 0, 0, { { "Name", "Work" } } },
+                    { 26, "Function.Return", 0, 0, { { "Name", "Scale" } } } };
+        g.Links = { { 1, "Then", 3, "In" }, { 2, "Value", 3, "Base" }, { 3, "Then", 4, "In" }, { 3, "Result", 4, "Value" },
+                    { 4, "Then", 8, "In" }, { 6, "Value", 7, "Array" }, { 5, "Value", 7, "Value" }, { 7, "Value", 8, "Value" },
+                    { 8, "Then", 10, "In" }, { 5, "Value", 9, "Value" }, { 9, "Damage", 10, "Value" },
+                    { 10, "Then", 13, "In" }, { 5, "Value", 11, "Value" }, { 11, "Value", 12, "Value" }, { 12, "Value", 13, "Value" },
+                    { 20, "Then", 24, "In" }, { 20, "Base", 21, "Value" }, { 21, "Value", 22, "A" }, { 20, "Factor", 22, "B" },
+                    { 20, "Base", 23, "Value" }, { 22, "Value", 23, "FieldValue" }, { 23, "Value", 24, "Value" }, { 24, "Then", 26, "In" }, { 25, "Value", 26, "Result" } };
+        return g;
+    }
+    std::map<std::string, Value> RunStruct(const Graph& g)
+    {
+        Machine vm;
+        CHECK(vm.Load(g));
+        vm.Event("Start");
+        CHECK(vm.Error().empty());
+        if (!vm.Error().empty()) std::printf("    VM: %s\n", vm.Error().c_str());
+        return vm.Variables();
+    }
+}
+TEST(BlueprintStructsMakeBreakFieldsFunctionsAndLocalsRun)
+{
+    auto g = StructGraph();
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty() && g.Warnings().empty());
+    // The pins follow the struct: Make takes a pin per field, Break gives one, GetField/SetField the named field.
+    const auto make = g.Describe(*g.Find(2)), split = g.Describe(*g.Find(9)), get = g.Describe(*g.Find(11)), set = g.Describe(*g.Find(23));
+    CHECK(make.Inputs.size() == 5 && make.Inputs[2].Name == "Kind" && make.Inputs[2].Kind == Type::Enum && make.Inputs[2].Enum == "Element");
+    CHECK(make.Outputs[0].Kind == Type::Struct && make.Outputs[0].Enum == "Hit" && make.Outputs[0].Default == g.DefaultFor(Type::Struct, "Hit"));
+    CHECK(split.Outputs.size() == 4 && split.Outputs[3].Name == "Label" && split.Outputs[3].Kind == Type::String);
+    CHECK(get.Outputs.size() == 1 && get.Outputs[0].Kind == Type::Enum && get.Outputs[0].Enum == "Element");
+    CHECK(set.Inputs.back().Name == "FieldValue" && set.Inputs.back().Kind == Type::Number);
+    const auto vars = RunStruct(g);
+    const Value expected = { { "Damage", 12. }, { "Kind", 1 }, { "Tags", Value::array() }, { "Label", "bolt" } };
+    CHECK(vars.at("Last") == expected && vars.at("Hits") == Value::array({ expected }));
+    CHECK(vars.at("Total") == 12. && vars.at("KindName") == "Ice");
+    // A per-instance override of a struct variable is used when it fits, ignored when its shape is wrong.
+    Machine overridden;
+    Value custom = expected;
+    custom["Label"] = "custom";
+    CHECK(overridden.Load(g, {}, { { "Last", custom } }) && overridden.Variables().at("Last") == custom);
+    Machine wrong;
+    CHECK(wrong.Load(g, {}, { { "Last", { { "Damage", 1. } } } }) && wrong.Variables().at("Last") == g.Variables.at("Last").Default);
+}
+TEST(BlueprintStructTypesAreCheckedStaticallyAndAtRuntime)
+{
+    const auto g = StructGraph();
+    auto other = g;
+    other.Structs["Other"] = other.Structs.at("Hit");
+    other.Nodes[1].Inputs["Struct"] = "Other"; // an Other value into the Hit parameter
+    CHECK(Mentions(other.Validate(), "Link pin types differ"));
+    auto variable = g;
+    variable.Variables["Last"].Default.erase("Label");
+    CHECK(Mentions(variable.Validate(), "Invalid variable: Last"));
+    variable = g;
+    variable.Variables["Last"].Default["Kind"] = 7; // not an Element value
+    CHECK(Mentions(variable.Validate(), "Invalid variable: Last"));
+    auto unknown = g;
+    unknown.Nodes[1].Inputs["Struct"] = "Missing";
+    CHECK(Mentions(unknown.Validate(), "Unknown struct: Missing"));
+    auto field = g;
+    field.Nodes[10].Inputs["Field"] = "Speed";
+    CHECK(Mentions(field.Validate(), "Unknown struct field: Speed"));
+    auto definition = g;
+    definition.Structs["Hit"].Fields.push_back({ "Struct", Type::Number, 0. });
+    CHECK(Mentions(definition.Validate(), "reserved or duplicate field name"));
+    definition = g;
+    definition.Structs["Inner"] = { { { "Hit", Type::Struct, Value::object(), "Hit" } } };
+    CHECK(Mentions(definition.Validate(), "unsupported type"));
+    definition = g;
+    definition.Structs["Hit"].Fields[1].Enum = "Missing";
+    CHECK(Mentions(definition.Validate(), "invalid default or unknown enum"));
+    definition = g;
+    definition.Structs["Empty"] = {};
+    CHECK(Mentions(definition.Validate(), "needs 1..32 fields"));
+    auto wired = g;
+    wired.Nodes.push_back({ 30, "Constant.String", 0, 0, { { "Value", "Kind" } } });
+    wired.Links.push_back({ 30, "Value", 11, "Field" });
+    CHECK(Mentions(wired.Validate(), "Struct type and field must be literals"));
+    auto local = g;
+    local.Functions["Scale"].Locals["Work"].Enum = "Other";
+    CHECK(!local.Validate().empty());
+    // Bounded memory: a struct array that would pass 64 KiB stops the graph at the node that builds it.
+    Graph big;
+    big.Structs["Note"] = { { { "Text", Type::String, std::string(2000, 'a') } } };
+    big.Variables["Notes"] = { Type::ArrayStruct, Value::array(), "Note" };
+    big.Nodes = { { 1, "Event.Start" }, { 2, "For", 0, 0, { { "Count", 100. } } }, { 3, "Get.ArrayStruct", 0, 0, { { "Name", "Notes" } } }, { 4, "Struct.Make", 0, 0, { { "Struct", "Note" } } },
+                  { 5, "Array.Append.Struct", 0, 0, { { "Struct", "Note" } } }, { 6, "Set.ArrayStruct", 0, 0, { { "Name", "Notes" } } } };
+    big.Links = { { 1, "Then", 2, "In" }, { 2, "Body", 6, "In" }, { 3, "Value", 5, "Array" }, { 4, "Value", 5, "Value" }, { 5, "Value", 6, "Value" } };
+    CHECK(big.Validate().empty());
+    Machine vm;
+    CHECK(vm.Load(big));
+    vm.Event("Start");
+    CHECK(vm.Error().find("Node 6") != std::string::npos && vm.Error().find("Invalid result from Array.Append.Struct") != std::string::npos);
+    CHECK(vm.Variables().at("Notes").size() < 40 && vm.RetainedBytes() < Machine::MaxRetainedBytes);
+}
+TEST(BlueprintStructsRoundTripAndPaste)
+{
+    const auto g = StructGraph();
+    const auto json = g.Serialize();
+    CHECK(json.at("Structs").at("Hit").at("Fields").size() == 4 && json.at("Variables").at("Hits").at("Struct") == "Hit");
+    auto copy = Graph::Parse(json);
+    CHECK(copy.Structs == g.Structs && copy.Variables.at("Last").Enum == "Hit" && copy.Functions.at("Scale").Locals.at("Work").Kind == Type::Struct);
+    CHECK(copy.Serialize() == json && copy.Validate().empty() && RunStruct(copy).at("Total") == 12.);
+    // Paste brings the struct along; a different struct of the same name is refused without a change.
+    std::set<uint32_t> ids;
+    std::string error;
+    Graph target;
+    CHECK(target.PasteNodes(g.CopyNodes({ 1, 2, 9 }), 0, 0, ids, error) && ids.size() == 3 && target.Structs.at("Hit") == g.Structs.at("Hit"));
+    Graph conflicting;
+    conflicting.Structs["Hit"] = { { { "Damage", Type::Number, 0. } } };
+    CHECK(!conflicting.PasteNodes(g.CopyNodes({ 2 }), 0, 0, ids, error) && error.find("Struct Hit differs") != std::string::npos && conflicting.Nodes.empty());
+}
+TEST(BlueprintStructRenamesKeepWiresAndValues)
+{
+    auto g = StructGraph();
+    const auto links = g.Links.size();
+    CHECK(g.StructUses("Hit") == 20); // 15 nodes (all but Start, the Number/String sets, Multiply, Enum.ToText), 2 variables, a parameter, a result and a local
+    CHECK(g.RenameStructField("Hit", "Damage", "Power"));
+    CHECK(!g.RenameStructField("Hit", "Power", "Kind") && !g.RenameStructField("Hit", "Power", "Struct") && !g.RenameStructField("Hit", "Missing", "X") && !g.RenameStructField("Nope", "Power", "X"));
+    CHECK(g.Validate().empty() && g.PruneInvalidPins() == 0 && g.Links.size() == links);
+    CHECK(g.Nodes[1].Inputs.contains("Power") && !g.Nodes[1].Inputs.contains("Damage") && g.Nodes[14].Inputs.at("Field") == "Power");
+    CHECK(g.Variables.at("Last").Default.contains("Power") && g.Functions.at("Scale").Locals.at("Work").Default.contains("Power"));
+    auto vars = RunStruct(g);
+    CHECK(vars.at("Total") == 12. && vars.at("Last").at("Power") == 12.);
+    // Renaming the struct retypes nodes, variables, the signature and the local; renaming the enum the field.
+    CHECK(g.RenameStruct("Hit", "Strike") && !g.RenameStruct("Strike", "") && g.Validate().empty());
+    CHECK(g.Variables.at("Hits").Enum == "Strike" && g.Functions.at("Scale").Outputs[0].Enum == "Strike" && g.Nodes[6].Inputs.at("Struct") == "Strike");
+    CHECK(g.RenameEnum("Element", "School") && g.Structs.at("Strike").Fields[1].Enum == "School" && g.Validate().empty());
+    CHECK(g.EnumUses("School") == 5); // the field, the Make/Break/GetField nodes that show it, and Enum.ToText
+    vars = RunStruct(g);
+    CHECK(vars.at("Total") == 12. && vars.at("KindName") == "Ice");
+}
+TEST(BlueprintStructFieldEditsConformValuesAndUndo)
+{
+    auto g = StructGraph();
+    const auto snapshot = g.Serialize(); // the editor's undo state
+    // A new field: every stored Hit value takes its default.
+    g.Structs["Hit"].Fields.push_back({ "Crit", Type::Bool, true });
+    CHECK(!g.Validate().empty());
+    CHECK(g.ConformStructValues() == 4); // Last, the parameter, the result and the local (Hits is empty)
+    CHECK(g.Validate().empty() && g.Variables.at("Last").Default.at("Crit") == true);
+    CHECK(RunStruct(g).at("Last").at("Crit") == true);
+    // Removing a wired field drops its wires (Undo restores them) and the field from every value.
+    auto removed = g;
+    std::erase_if(removed.Structs["Hit"].Fields, [](const Pin& f) { return f.Name == "Damage"; });
+    removed.ConformStructValues();
+    CHECK(removed.PruneInvalidPins() >= 2); // Break.Damage -> Total, Make's Damage literal
+    CHECK(!removed.Variables.at("Last").Default.contains("Damage") && Mentions(removed.Validate(), "Unknown struct field: Damage"));
+    // A retyped field: values reset that field to its new default.
+    auto retyped = Graph::Parse(snapshot);
+    retyped.Structs["Hit"].Fields[3] = { "Label", Type::Number, 1. };
+    CHECK(retyped.ConformStructValues() >= 4 && retyped.Variables.at("Last").Default.at("Label") == 1.);
+    CHECK(retyped.PruneInvalidPins() == 1 && retyped.Validate().empty()); // Make's "bolt" literal no longer fits
+    // Undo is the serialized snapshot: it restores the definition, the values and the wires exactly.
+    CHECK(Graph::Parse(snapshot).Serialize() == StructGraph().Serialize());
+}
+TEST(BlueprintStructArraysRunTheArrayNodes)
+{
+    Graph g;
+    g.Structs["Item"] = { { { "Name", Type::String, "" }, { "Count", Type::Number, 1. } } };
+    const Value sword = { { "Name", "Sword" }, { "Count", 1. } }, arrows = { { "Name", "Arrow" }, { "Count", 20. } };
+    g.Variables["Bag"] = { Type::ArrayStruct, Value::array({ sword, arrows }), "Item" };
+    g.Variables["Sum"] = { Type::Number, 0. };
+    g.Variables["Where"] = { Type::Number, -1. };
+    g.Variables["Has"] = { Type::Bool, false };
+    g.Variables["Second"] = { Type::Struct, sword, "Item" };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "Get.ArrayStruct", 0, 0, { { "Name", "Bag" } } }, { 3, "ForEach.Struct", 0, 0, { { "Struct", "Item" } } }, { 4, "Struct.GetField", 0, 0, { { "Struct", "Item" }, { "Field", "Count" } } },
+                { 5, "Get.Number", 0, 0, { { "Name", "Sum" } } }, { 6, "Add" }, { 7, "Set.Number", 0, 0, { { "Name", "Sum" } } }, { 8, "Array.Find.Struct", 0, 0, { { "Struct", "Item" }, { "Value", arrows } } },
+                { 9, "Set.Number", 0, 0, { { "Name", "Where" } } }, { 10, "Array.Contains.Struct", 0, 0, { { "Struct", "Item" }, { "Value", sword } } }, { 11, "Set.Bool", 0, 0, { { "Name", "Has" } } },
+                { 12, "Array.Get.Struct", 0, 0, { { "Struct", "Item" }, { "Index", 1. } } }, { 13, "Set.Struct", 0, 0, { { "Name", "Second" } } } };
+    g.Links = { { 1, "Then", 3, "In" }, { 2, "Value", 3, "Array" }, { 3, "Body", 7, "In" }, { 3, "Value", 4, "Value" }, { 4, "Value", 6, "A" }, { 5, "Value", 6, "B" }, { 6, "Value", 7, "Value" },
+                { 3, "Completed", 9, "In" }, { 2, "Value", 8, "Array" }, { 8, "Value", 9, "Value" }, { 9, "Then", 11, "In" }, { 2, "Value", 10, "Array" }, { 10, "Value", 11, "Value" },
+                { 11, "Then", 13, "In" }, { 2, "Value", 12, "Array" }, { 12, "Value", 13, "Value" } };
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty());
+    const auto vars = RunStruct(g);
+    CHECK(vars.at("Sum") == 21. && vars.at("Where") == 1. && vars.at("Has") == true && vars.at("Second") == arrows);
+    // An array of another shape does not fit the struct array type.
+    CHECK(!g.Fits(Type::ArrayStruct, "Item", Value::array({ { { "Name", "x" } } })) && g.Fits(Type::ArrayStruct, "Item", Value::array()));
+}
+TEST(BlueprintCollapseCarriesStructWires)
+{
+    // Collapsing the Break + Set Total step turns the struct wire into a Hit parameter.
+    auto g = StructGraph();
+    const auto expected = RunStruct(g);
+    uint32_t call = 0;
+    std::string error;
+    CHECK(g.CollapseToFunction({ 9, 10 }, "Store", call, error));
+    if (!error.empty()) std::printf("    %s\n", error.c_str());
+    const auto& signature = g.Functions.at("Store");
+    CHECK(signature.Inputs.size() == 1 && signature.Inputs[0].Kind == Type::Struct && signature.Inputs[0].Enum == "Hit" && g.Fits(signature.Inputs[0], signature.Inputs[0].Default));
+    CHECK(g.Validate().empty() && RunStruct(g) == expected);
 }

@@ -27,6 +27,7 @@ namespace Zamin {
         {
             for (int i = 1; i < int(Type::Count); ++i)
             {
+                if (Type(i) == Type::Struct || Type(i) == Type::ArrayStruct) continue; // no struct editor yet
                 ImGui::PushID(i);
                 if (ImGui::Selectable(TypeName(Type(i)), Type(i) == type) && Type(i) != type)
                 {

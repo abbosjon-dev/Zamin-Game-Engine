@@ -297,7 +297,7 @@ namespace Zamin::Visual {
                             const auto& def = defs.at(n.ID);
                             auto type = n.Kind.starts_with("Local.Get.") ? def.Outputs.back().Kind : def.Inputs.back().Kind;
                             const auto& pin = n.Kind.starts_with("Local.Get.") ? def.Outputs.back() : def.Inputs.back();
-                            if (type != locals.at(key).Kind || (type == Type::Enum && pin.Enum != locals.at(key).Enum)) error(n.ID, "Local variable type differs from node");
+                            if (type != locals.at(key).Kind || (IsNamed(type) && pin.Enum != locals.at(key).Enum)) error(n.ID, "Local variable type differs from node");
                         }
                     }
                 }
@@ -432,8 +432,7 @@ namespace Zamin::Visual {
                 std::string pinName = source.Name;
                 for (int i = 2; taken.contains(pinName); ++i) pinName = source.Name + std::to_string(i);
                 taken.insert(pinName);
-                Value initial = Fits(source, source.Default) ? source.Default : DefaultValue(source.Kind);
-                if (source.Kind == Type::Enum && !Fits(source, initial) && Enums.contains(source.Enum)) initial = Enums.at(source.Enum).Entries.front().Value;
+                Value initial = Fits(source, source.Default) ? source.Default : DefaultFor(source.Kind, source.Enum);
                 pins.push_back({ pinName, source.Kind, initial, source.Enum });
                 return pinName;
             };

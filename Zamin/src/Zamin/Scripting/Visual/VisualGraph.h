@@ -24,6 +24,9 @@ namespace Zamin::Visual {
         // A value of a named enum (Graph::Enums): an integer that must be one of the enum's entry values.
         // The pin/variable names its enum in Pin::Enum / Variable::Enum.
         Enum,
+        // A value of a graph-local struct (Graph::Structs): a JSON object with exactly the struct's fields, each of
+        // its field's type. The pin/variable names its struct in Pin::Enum / Variable::Enum (the "named type").
+        Struct,
         ArrayBool,
         ArrayNumber,
         ArrayString,
@@ -31,6 +34,8 @@ namespace Zamin::Visual {
         ArrayVec3,
         ArrayVec4,
         ArrayEntity,
+        // An array of one struct's values (up to 1024 elements, 64 KiB).
+        ArrayStruct,
         Count
     };
     struct Pin
@@ -38,7 +43,9 @@ namespace Zamin::Visual {
         std::string Name;
         Type Kind;
         Value Default;
-        std::string Enum; // the enum's name when Kind == Type::Enum
+        // The named type: the enum's name when Kind == Type::Enum, the struct's name for Struct/ArrayStruct.
+        std::string Enum;
+        bool operator==(const Pin&) const = default;
     };
     struct Definition
     {
@@ -65,7 +72,7 @@ namespace Zamin::Visual {
     {
         Type Kind = Type::Number;
         Value Default = 0.0;
-        std::string Enum; // the enum's name when Kind == Type::Enum
+        std::string Enum; // the named type (enum or struct name), see Pin::Enum
     };
     // One named value of an enum. Values are integers within +-2^53 (exact in JSON); names and values are unique.
     struct EnumEntry
@@ -83,6 +90,14 @@ namespace Zamin::Visual {
         const EnumEntry* Find(const std::string& name) const;
         bool operator==(const EnumDefinition&) const = default;
     };
+    // A graph-local struct: 1..32 named, typed fields (any value type except Exec and other structs; enums and
+    // arrays are allowed). A field's Default is the field's value in a new struct value.
+    struct StructDefinition
+    {
+        std::vector<Pin> Fields;
+        const Pin* Find(const std::string& name) const;
+        bool operator==(const StructDefinition&) const = default;
+    };
     struct Diagnostic
     {
         uint32_t Node = 0;
@@ -95,11 +110,13 @@ namespace Zamin::Visual {
     const std::vector<const char*>* PinChoices(const std::string& kind, const std::string& pin);
     const char* TypeName(Type type);
     bool IsArray(Type type);
+    // A type that names a graph definition: Enum, Struct and ArrayStruct (Pin::Enum holds the name).
+    bool IsNamed(Type type);
     Type ElementType(Type type);
     Value DefaultValue(Type type);
     size_t ValueBytes(const Value& value);
     bool Matches(Type type, const Value& value);
-    // Same pin type: the kind, and for an Enum pin the same enum.
+    // Same pin type: the kind, and for an Enum/Struct pin the same enum/struct.
     bool SameType(const Pin& a, const Pin& b);
     struct FunctionSignature
     {
@@ -108,20 +125,35 @@ namespace Zamin::Visual {
     };
     struct Graph
     {
-        // Version 2 added enums (Type::Enum, "Enums", the "Enum" key of pins/variables). Version 1 files load
-        // unchanged (they cannot hold enums) and are written back as version 2.
-        static constexpr int FormatVersion = 2;
+        // Version 2 added enums (Type::Enum, "Enums", the "Enum" key of pins/variables); version 3 added structs
+        // (Type::Struct/ArrayStruct, "Structs", the "Struct" key). Version 1 and 2 files load unchanged (they cannot
+        // hold the newer types) and are written back as version 3.
+        static constexpr int FormatVersion = 3;
         int SourceVersion = FormatVersion; // the version the graph was parsed from
         std::vector<Node> Nodes;
         std::vector<Link> Links;
         std::map<std::string, Variable> Variables;
         std::map<std::string, FunctionSignature> Functions;
         std::map<std::string, EnumDefinition> Enums;
+        std::map<std::string, StructDefinition> Structs;
         Definition Describe(const Node& node) const;
-        // Type check with enum membership: an Enum value must be an entry of the named enum.
+        // Type check with the named types: an Enum value must be an entry of the named enum, a Struct value must have
+        // exactly the struct's fields, each fitting its field.
         bool Fits(Type type, const std::string& enumName, const Value& value) const;
         bool Fits(const Pin& pin, const Value& value) const { return Fits(pin.Kind, pin.Enum, value); }
+        // The initial value of a type: the first entry of an enum, the field defaults of a struct.
+        Value DefaultFor(Type type, const std::string& named) const;
         bool RenameEnum(const std::string& from, const std::string& to);
+        // Renames a struct; every node, variable, signature pin and local that names it follows.
+        bool RenameStruct(const std::string& from, const std::string& to);
+        // Renames a field: the wires of Make/Break pins named after it, Get/SetField literals and the stored struct
+        // values (variable defaults, signature defaults, locals, node literals) follow.
+        bool RenameStructField(const std::string& structName, const std::string& from, const std::string& to);
+        // How many nodes, variables and signature pins name this struct.
+        size_t StructUses(const std::string& name) const;
+        // After a struct's fields change: every stored value of that struct keeps its fitting fields and takes the
+        // field defaults for the others. Returns how many values changed.
+        size_t ConformStructValues();
         // Renames an entry; the Switch outputs named after it keep their wires.
         bool RenameEnumEntry(const std::string& enumName, const std::string& from, const std::string& to);
         // How many nodes, variables and signature pins name this enum.
@@ -150,6 +182,9 @@ namespace Zamin::Visual {
         bool CollapseToFunction(const std::set<uint32_t>& selected, const std::string& name, uint32_t& call, std::string& error);
         Value Serialize() const;
         static Graph Parse(const Value& json);
+    private:
+        Definition DescribeStruct(const Node& node, Definition catalog) const;
+    public:
         static Graph Load(const std::filesystem::path& path);
         bool Save(const std::filesystem::path& path) const;
         static Graph Example(bool threeD = true);

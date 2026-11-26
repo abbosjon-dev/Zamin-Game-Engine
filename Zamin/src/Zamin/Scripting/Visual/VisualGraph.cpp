@@ -16,6 +16,7 @@ namespace Zamin::Visual {
                                                                                             : Type::Vec4,
                                                       Value(std::vector<double>(dims, 0)) }; }
         Pin En(const char* n) { return { n, Type::Enum, Value(0) }; }
+        Pin St(const char* n) { return { n, Type::Struct, Value::object() }; }
         Pin EntityPin(const char* n = "Target") { return { n, Type::Entity, std::string(n) == "Target" ? UINT64_MAX : 0ull }; }
         const Pin* FindPin(const std::vector<Pin>& pins, const std::string& name)
         {
@@ -33,13 +34,14 @@ namespace Zamin::Visual {
             if (ValueBytes(v) > 65536) return false;
             if (v.is_number()) return std::isfinite(v.get<double>());
             if (v.is_string() || v.is_boolean() || v.is_null()) return true;
+            if (v.is_object()) return v.size() <= 32 && std::all_of(v.begin(), v.end(), [](const auto& item) { return SafeValue(item); }); // a struct
             if (!v.is_array() || v.size() > 1024) return false;
             return std::all_of(v.begin(), v.end(), [](const auto& item) { return SafeValue(item); });
         }
     }
     const char* TypeName(Type t)
     {
-        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
+        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "Struct", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity", "ArrayStruct" };
         return t >= Type::Exec && t < Type::Count ? names[int(t)] : "Invalid";
     }
     bool Matches(Type t, const Value& v)
@@ -53,6 +55,7 @@ namespace Zamin::Visual {
             case Type::Number: return v.is_number() && std::isfinite(v.get<double>());
             case Type::String: return v.is_string() && v.get_ref<const std::string&>().size() <= 65536;
             case Type::Entity: return v.is_number_unsigned() || (v.is_number_integer() && v.get<int64_t>() >= 0);
+            case Type::Struct: return v.is_object() && v.size() <= 32 && ValueBytes(v) <= 65536;
             case Type::Enum:   return v.is_number_integer() && !v.is_number_unsigned() ? std::abs(v.get<int64_t>()) <= (int64_t(1) << 53) : v.is_number_unsigned() && v.get<uint64_t>() <= (uint64_t(1) << 53);
             default:
                 if (!v.is_array() || v.size() != size_t(int(t) - int(Type::Vec2) + 2)) return false;
@@ -60,7 +63,7 @@ namespace Zamin::Visual {
         }
     }
 
-    bool SameType(const Pin& a, const Pin& b) { return a.Kind == b.Kind && (a.Kind != Type::Enum || a.Enum == b.Enum); }
+    bool SameType(const Pin& a, const Pin& b) { return a.Kind == b.Kind && (!IsNamed(a.Kind) || a.Enum == b.Enum); }
 
     const std::vector<const char*>* PinChoices(const std::string& kind, const std::string& pin)
     {
@@ -121,13 +124,19 @@ for (int ti = 1; ti < int(Type::Count); ++ti)
     auto type = Type(ti);
     auto value = DefaultValue(type);
     std::string name = TypeName(type);
-    // An Enum local names its enum (empty: the type of the local with that name).
+    // An Enum/Struct local names its enum/struct (empty: the type of the local with that name).
+    const bool structured = type == Type::Struct || type == Type::ArrayStruct;
     std::vector<Pin> getInputs{ S("Name") }, setInputs{ E("In"), S("Name") };
-    if (type == Type::Enum)
+    if (type == Type::Enum || structured)
     {
-        getInputs.push_back(S("Enum"));
-        setInputs.push_back(S("Enum"));
+        getInputs.push_back(S(structured ? "Struct" : "Enum"));
+        setInputs.push_back(S(structured ? "Struct" : "Enum"));
     }
+    // Struct array nodes name their struct in a literal Struct input (after In, before the data pins).
+    auto named = [&](std::vector<Pin> pins) {
+        if (structured) pins.insert(pins.begin() + (!pins.empty() && pins.front().Kind == Type::Exec ? 1 : 0), S("Struct"));
+        return pins;
+    };
     setInputs.push_back({ "Value", type, value });
     add("Local.Get." + name, "Function locals", getInputs, { { "Value", type, value } }, true);
     add("Local.Set." + name, "Function locals", setInputs, { E("Then") });
@@ -136,20 +145,20 @@ for (int ti = 1; ti < int(Type::Count); ++ti)
         auto element = ElementType(type);
         std::string suffix = TypeName(element);
         auto item = DefaultValue(element);
-        add("Constant." + name, "Collections", { { "Value", type, value } }, { { "Value", type, value } }, true);
-        add("Get." + name, "Variables", { S("Name") }, { { "Value", type, value } }, true);
-        add("Set." + name, "Variables", { E("In"), S("Name"), { "Value", type, value } }, { E("Then") });
-        add("Array.Empty." + suffix, "Collections", {}, { { "Value", type, value } }, true);
-        add("Array.Append." + suffix, "Collections", { { "Array", type, value }, { "Value", element, item } }, { { "Value", type, value } }, true);
-        add("Array.Set." + suffix, "Collections", { { "Array", type, value }, N("Index"), { "Value", element, item } }, { { "Value", type, value } }, true);
-        add("Array.Remove." + suffix, "Collections", { { "Array", type, value }, N("Index") }, { { "Value", type, value } }, true);
-        add("Array.Get." + suffix, "Collections", { { "Array", type, value }, N("Index") }, { { "Value", element, item } }, true);
-        add("Array.Length." + suffix, "Collections", { { "Array", type, value } }, { N("Value") }, true);
-        add("Array.Contains." + suffix, "Collections", { { "Array", type, value }, { "Value", element, item } }, { B("Value") }, true);
-        add("Array.Find." + suffix, "Collections", { { "Array", type, value }, { "Value", element, item } }, { N("Value", -1) }, true);
-        add("Array.Slice." + suffix, "Collections", { { "Array", type, value }, N("Start"), N("Count") }, { { "Value", type, value } }, true);
-        add("Array.Concat." + suffix, "Collections", { { "Array", type, value }, { "Other", type, value } }, { { "Value", type, value } }, true);
-        add("ForEach." + suffix, "Collections", { E("In"), { "Array", type, value } }, { E("Body"), E("Completed"), N("Index", -1), { "Value", element, item } });
+        add("Constant." + name, "Collections", named({ { "Value", type, value } }), { { "Value", type, value } }, true);
+        add("Get." + name, "Variables", getInputs, { { "Value", type, value } }, true);
+        add("Set." + name, "Variables", named({ E("In"), S("Name"), { "Value", type, value } }), { E("Then") });
+        add("Array.Empty." + suffix, "Collections", named({}), { { "Value", type, value } }, true);
+        add("Array.Append." + suffix, "Collections", named({ { "Array", type, value }, { "Value", element, item } }), { { "Value", type, value } }, true);
+        add("Array.Set." + suffix, "Collections", named({ { "Array", type, value }, N("Index"), { "Value", element, item } }), { { "Value", type, value } }, true);
+        add("Array.Remove." + suffix, "Collections", named({ { "Array", type, value }, N("Index") }), { { "Value", type, value } }, true);
+        add("Array.Get." + suffix, "Collections", named({ { "Array", type, value }, N("Index") }), { { "Value", element, item } }, true);
+        add("Array.Length." + suffix, "Collections", named({ { "Array", type, value } }), { N("Value") }, true);
+        add("Array.Contains." + suffix, "Collections", named({ { "Array", type, value }, { "Value", element, item } }), { B("Value") }, true);
+        add("Array.Find." + suffix, "Collections", named({ { "Array", type, value }, { "Value", element, item } }), { N("Value", -1) }, true);
+        add("Array.Slice." + suffix, "Collections", named({ { "Array", type, value }, N("Start"), N("Count") }), { { "Value", type, value } }, true);
+        add("Array.Concat." + suffix, "Collections", named({ { "Array", type, value }, { "Other", type, value } }), { { "Value", type, value } }, true);
+        add("ForEach." + suffix, "Collections", named({ E("In"), { "Array", type, value } }), { E("Body"), E("Completed"), N("Index", -1), { "Value", element, item } });
     }
 }
 // Enums: every node names its enum in the literal Enum input (Get/Set.Enum may leave it empty: the variable's enum).
@@ -163,6 +172,14 @@ add("Enum.FromNumber", "Enums", { S("Enum"), N("Number") }, { En("Value") }, tru
 add("Enum.FromText", "Enums", { S("Enum"), S("Text") }, { En("Value") }, true);
 // One execution output per entry, named after it (Graph::Describe).
 add("Enum.Switch", "Enums", { E("In"), S("Enum"), En("Value") }, {});
+// Structs: every node names its struct in the literal Struct input (Get/Set.Struct may leave it empty: the variable's
+// struct). Make/Break take one pin per field, GetField/SetField the field named in the literal Field (Graph::Describe).
+add("Get.Struct", "Variables", { S("Name"), S("Struct") }, { St("Value") }, true);
+add("Set.Struct", "Variables", { E("In"), S("Name"), S("Struct"), St("Value") }, { E("Then") });
+add("Struct.Make", "Structs", { S("Struct") }, { St("Value") }, true);
+add("Struct.Break", "Structs", { S("Struct"), St("Value") }, {}, true);
+add("Struct.GetField", "Structs", { S("Struct"), S("Field"), St("Value") }, {}, true);
+add("Struct.SetField", "Structs", { S("Struct"), S("Field"), St("Value") }, { St("Value") }, true);
 add("ReadField.Enum", "C++ bridge", { EntityPin(), S("Name"), S("Enum") }, { En("Value") }, true);
 add("WriteField.Enum", "C++ bridge", { E("In"), EntityPin(), S("Name"), S("Enum"), En("Value") }, { E("Then") });
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
@@ -463,6 +480,22 @@ return c; }();
                 if (!values.insert(entry.Value).second || std::abs(entry.Value) > (int64_t(1) << 53)) error(0, "Enum " + name + " has a duplicate or out-of-range value");
             }
         }
+        if (Structs.size() > 64) error(0, "Struct definition limit exceeds 64");
+        for (const auto& [name, definition] : Structs)
+        {
+            if (name.empty() || name.size() > 64) error(0, "Invalid struct name");
+            if (definition.Fields.empty() || definition.Fields.size() > 32) error(0, "Struct " + name + " needs 1..32 fields");
+            std::set<std::string> names;
+            size_t bytes = 0;
+            for (const auto& field : definition.Fields)
+            {
+                bytes += field.Name.size() + ValueBytes(field.Default);
+                if (field.Name.empty() || field.Name.size() > 64 || field.Name == "Struct" || !names.insert(field.Name).second) error(0, "Struct " + name + " has an empty, long, reserved or duplicate field name");
+                else if (field.Kind == Type::Exec || field.Kind == Type::Struct || field.Kind == Type::ArrayStruct || field.Kind >= Type::Count) error(0, "Struct " + name + " field " + field.Name + " has an unsupported type");
+                else if (!Fits(field, field.Default)) error(0, "Struct " + name + " field " + field.Name + " has an invalid default or unknown enum");
+            }
+            if (bytes > 65536) error(0, "Struct " + name + " defaults exceed 64 KiB");
+        }
         auto extra = ValidateFunctions();
         d.insert(d.end(), extra.begin(), extra.end());
         std::map<uint32_t, const Node*> nodeMap;
@@ -511,12 +544,20 @@ return c; }();
             }
             for (const auto* pins : { &definitions.at(n.ID).Inputs, &definitions.at(n.ID).Outputs })
             {
-                auto unknown = std::find_if(pins->begin(), pins->end(), [&](const Pin& p) { return p.Kind == Type::Enum && !Enums.contains(p.Enum); });
+                auto unknown = std::find_if(pins->begin(), pins->end(), [&](const Pin& p) { return (p.Kind == Type::Enum && !Enums.contains(p.Enum)) || ((p.Kind == Type::Struct || p.Kind == Type::ArrayStruct) && !Structs.contains(p.Enum)); });
                 if (unknown != pins->end())
                 {
-                    error(n.ID, "Unknown enum: " + unknown->Enum);
+                    error(n.ID, std::string(unknown->Kind == Type::Enum ? "Unknown enum: " : "Unknown struct: ") + unknown->Enum);
                     break;
                 }
+            }
+            if (n.Kind == "Struct.GetField" || n.Kind == "Struct.SetField")
+            {
+                auto field = n.Inputs.find("Field");
+                const std::string key = field != n.Inputs.end() && field->second.is_string() ? field->second.get<std::string>() : "";
+                const auto* structPin = FindPin(definitions.at(n.ID).Inputs, "Value");
+                auto definition = structPin ? Structs.find(structPin->Enum) : Structs.end();
+                if (definition != Structs.end() && !definition->second.Find(key)) error(n.ID, "Unknown struct field: " + key);
             }
             if (n.Kind.starts_with("Get.") || n.Kind.starts_with("Set."))
             {
@@ -527,7 +568,7 @@ return c; }();
                 else
                 {
                     auto& p = n.Kind.starts_with("Get.") ? definitions.at(n.ID).Outputs.back() : definitions.at(n.ID).Inputs.back();
-                    if (v->second.Kind != p.Kind || (p.Kind == Type::Enum && v->second.Enum != p.Enum)) error(n.ID, "Variable type differs from node");
+                    if (v->second.Kind != p.Kind || (IsNamed(p.Kind) && v->second.Enum != p.Enum)) error(n.ID, "Variable type differs from node");
                 }
             }
         }
@@ -562,6 +603,7 @@ return c; }();
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
             if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
             if (l.Input == "Enum" && i->Kind == Type::String && b->Kind.find("Enum") != std::string::npos) error(l.To, "Enum type must be a literal");
+            if ((l.Input == "Struct" || l.Input == "Field") && i->Kind == Type::String && b->Kind.find("Struct") != std::string::npos) error(l.To, "Struct type and field must be literals");
             if (i->Kind != Type::Exec) dependencies[l.To].push_back(l.From);
         }
         std::map<uint32_t, int> color;
@@ -574,6 +616,7 @@ return c; }();
         Value j = { { "Format", "Zamin.VisualGraph" }, { "Version", FormatVersion }, { "Nodes", Value::array() }, { "Links", Value::array() }, { "Variables", Value::object() } };
         auto typed = [](Type kind, const std::string& enumName, Value entry) {
             if (kind == Type::Enum) entry["Enum"] = enumName;
+            if (kind == Type::Struct || kind == Type::ArrayStruct) entry["Struct"] = enumName;
             return entry;
         };
         for (auto& n : Nodes) j["Nodes"].push_back({ { "ID", n.ID }, { "Kind", n.Kind }, { "X", n.X }, { "Y", n.Y }, { "Inputs", n.Inputs }, { "Breakpoint", n.Breakpoint } });
@@ -585,6 +628,13 @@ return c; }();
             Value entries = Value::array();
             for (const auto& entry : definition.Entries) entries.push_back({ { "Name", entry.Name }, { "Value", entry.Value } });
             j["Enums"][name] = { { "Entries", std::move(entries) }, { "Source", definition.Source } };
+        }
+        j["Structs"] = Value::object();
+        for (const auto& [name, definition] : Structs)
+        {
+            Value fields = Value::array();
+            for (const auto& f : definition.Fields) fields.push_back(typed(f.Kind, f.Enum, { { "Name", f.Name }, { "Type", TypeName(f.Kind) }, { "Default", f.Default } }));
+            j["Structs"][name] = { { "Fields", std::move(fields) } };
         }
         j["Functions"] = Value::object();
         for (const auto& [name, signature] : Functions)
@@ -604,9 +654,16 @@ return c; }();
         Require(version >= 1 && version <= FormatVersion, "Unsupported graph format/version");
         Graph g;
         g.SourceVersion = int(version);
-        // Version 1 -> 2 migration: version 1 has no enum type, so its types, nodes, legacy Function/Call and typed
-        // functions read unchanged; an enum in a version 1 file is rejected rather than guessed.
+        // Version 1/2 -> 3 migration: version 1 has no enum type and versions 1-2 no struct types, so their types,
+        // nodes, legacy Function/Call and typed functions read unchanged; a newer type in an older file is rejected
+        // rather than guessed.
         auto enumName = [&](Type kind, const Value& entry) {
+            if (kind == Type::Struct || kind == Type::ArrayStruct)
+            {
+                Require(version >= 3, "Struct types need graph format version 3");
+                Require(entry.contains("Struct") && entry.at("Struct").is_string(), "Struct type without a struct name");
+                return entry.at("Struct").get<std::string>();
+            }
             if (kind != Type::Enum) return std::string();
             Require(version >= 2, "Enum types need graph format version 2");
             Require(entry.contains("Enum") && entry.at("Enum").is_string(), "Enum type without an enum name");
@@ -677,6 +734,24 @@ return c; }();
                 g.Enums[it.key()] = std::move(definition);
             }
         }
+        if (j.contains("Structs"))
+        {
+            Require(version >= 3, "Structs need graph format version 3");
+            const auto& structs = j.at("Structs");
+            Require(structs.is_object() && structs.size() <= 64, "Struct definition limit/type");
+            for (auto it = structs.begin(); it != structs.end(); ++it)
+            {
+                StructDefinition definition;
+                const auto& fields = it.value().at("Fields");
+                Require(fields.is_array() && fields.size() <= 32, "Struct field limit/type");
+                for (const auto& field : fields)
+                {
+                    const auto kind = type(field.at("Type"));
+                    definition.Fields.push_back({ field.at("Name").get<std::string>(), kind, field.at("Default"), enumName(kind, field) });
+                }
+                g.Structs[it.key()] = std::move(definition);
+            }
+        }
         return g;
     }
     Graph Graph::Load(const std::filesystem::path& p)
@@ -689,7 +764,7 @@ return c; }();
     }
     bool Graph::Save(const std::filesystem::path& p) const
     {
-        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64) return false;
+        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64 || Structs.size() > 64) return false;
         auto text = Serialize().dump(2);
         return text.size() <= 4 * 1024 * 1024 && FileSystem::WriteTextFileAtomic(p, text);
     }
@@ -728,11 +803,12 @@ return c; }();
         {
             auto& n = m_Graph.Nodes[i];
             m_NodeIndex[n.ID] = i;
-            std::string descriptionKey = n.Kind;
             std::string functionName = n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Inputs.at("Name").get<std::string>() : "MyFunction";
-            // Typed function and enum nodes take their pins from the graph (signature, enum): one description each.
-            descriptionKey = n.Kind + (n.Kind.starts_with("Function.") || n.Kind.find("Enum") != std::string::npos ? ":" + functionName : "");
-            if (n.Kind.find("Enum") != std::string::npos && n.Inputs.contains("Enum") && n.Inputs.at("Enum").is_string()) descriptionKey += ":" + n.Inputs.at("Enum").get<std::string>();
+            // Typed function, enum and struct nodes take their pins from the graph (signature, enum, struct, field)
+            // through their literal Name/Enum/Struct/Field inputs: one shared description per distinct literal set.
+            std::string descriptionKey = n.Kind;
+            for (const char* literal : { "Name", "Enum", "Struct", "Field" })
+                if (auto it = n.Inputs.find(literal); it != n.Inputs.end() && it->second.is_string()) descriptionKey += std::string("|") + literal + "=" + it->second.get<std::string>();
             if (!descriptions.contains(descriptionKey)) descriptions[descriptionKey] = std::make_shared<Definition>(m_Graph.Describe(n));
             m_Definitions[n.ID] = descriptions.at(descriptionKey);
             if (n.Kind == "Function.Entry") m_TypedEntries[functionName] = n.ID;
@@ -889,6 +965,27 @@ return c; }();
                 const auto* entry = definition.Find(in("Text").get<std::string>());
                 Require(entry, "Text is not an entry of enum " + enumName);
                 r = entry->Value;
+            }
+        }
+        else if (k.starts_with("Struct."))
+        {
+            if (k == "Struct.Make")
+            {
+                r = Value::object();
+                for (const auto& p : Def(*n).Inputs)
+                    if (p.Name != "Struct") r[p.Name] = Input(*n, p.Name, t, active);
+            }
+            else
+            {
+                auto value = in("Value");
+                const std::string field = k == "Struct.Break" ? output : in("Field").get<std::string>();
+                Require(value.is_object() && value.contains(field), "Struct field missing: " + field);
+                if (k == "Struct.SetField")
+                {
+                    value[field] = in("FieldValue");
+                    r = std::move(value);
+                }
+                else r = value.at(field);
             }
         }
         else if (k.starts_with("Constant.")) r = in("Value");

@@ -174,7 +174,7 @@ The games do not read keys directly: everything comes from the actions, axes and
 keyboard / mouse and a gamepad binding; rebinding a key needs no code change.
 The controls caption in the main menu also comes from the map (the text component's **Control hints**, `InputHints`):
 with the keyboard it shows "WASD - move", and as soon as a gamepad is picked up, "left stick / D-pad - move"
-([UI.md](UI.md#6-matn)).
+([UI.md](UI.md#6-text)).
 
 | Game | Actions (keyboard · gamepad) | Axes / vectors |
 |---|---|---|

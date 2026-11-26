@@ -5,7 +5,7 @@ animatsiyasi va Animator (holat mashinasi, blend tree, qatlamlar), event'lar, ro
 morph target'lar, sprite animatsiyasi va kliplar, tint (rang) animatsiyasi, skript tween'lari, AnimationCurve va
 spline yo'llar, samaradorlik (keshlash, kesish), testlar va ko'p uchraydigan muammolar. Har bo'limda C++ skript
 misollari bor (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). Komponentlarning to'liq maydonlari —
-[Components.md](Components.md#2-rendering); UI animatsiyalari — [UI.md](UI.md#10-ui-animatsiyalari); particle'larning
+[Components.md](Components.md#2-rendering); UI animatsiyalari — [UI.md](UI.md#10-ui-animations); particle'larning
 tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-particle-tizimi).
 
 ![Animatsiya oynasi: darvoza klipi](images/animation-timeline-editor.jpg)
@@ -867,7 +867,7 @@ fizik jismlar uchun tezlik yoki kinematik tur ishlating. Taymerlar va tween'lar 
 
 Ekran UI uchun alohida, **UI vaqtida** (o'yin pauzasida ham) ishlaydigan tween'lar (`UIScaleTo`, `UIFadeTo`, `UIMoveTo`,
 `UIPunchScale`, `Scene::TweenUI`) va **UI Animation** komponenti (paydo bo'lish / yashirish presetlari, ustiga kelganda va
-bosilganda masshtab) — [UI.md](UI.md#10-ui-animatsiyalari). UI xususiyatlari (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
+bosilganda masshtab) — [UI.md](UI.md#10-ui-animations). UI xususiyatlari (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
 `UIImage.Color`) property kliplarda ham animatsiya qilinadi (2-bo'lim).
 
 ---

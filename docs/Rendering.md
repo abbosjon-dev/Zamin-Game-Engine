@@ -121,7 +121,7 @@ sichqoncha bilan yangi kadr chizish, har kadrning nomi, to'rtburchagi, pivot'i v
 `PlaySpriteSequence("run")` (`run_0`, `run_1` ...), `GetSpriteSheet()`.
 
 **Circle Renderer** — doira yoki halqa (`Thickness`, `Fade`). **Text** — dunyodagi matn (UI Transform'siz; UTF-8,
-tekislash, o'rash — [UI.md](UI.md#6-matn)). Ikkalasi ham saralash qatlami va tartibini oladi.
+tekislash, o'rash — [UI.md](UI.md#6-text)). Ikkalasi ham saralash qatlami va tartibini oladi.
 
 **Rasm import sozlamalari** (kontent brauzerda rasm tanlang → inspektor): filtr (silliq / piksel), wrap (takrorlash /
 chetda / ko'zgu), mipmap, sRGB (o'chirilsa — chiziqli ma'lumot, masalan maska yoki normal map); **Qo'llash** `.zmeta` ga

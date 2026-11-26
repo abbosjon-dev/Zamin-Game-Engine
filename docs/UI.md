@@ -1,70 +1,72 @@
-# Zamin Engine: ekran UI (interfeys)
+# Zamin Engine: screen UI (interface)
 
-Bu qo'llanma o'yin ichidagi ekran interfeysini tushuntiradi: UI ierarxiyasi va langarlar (RectTransform modeli), ekranga
-moslashuvchi Canvas, layout guruhlari, vidjetlar (tugma, rasm, slayder, belgilash, progress bar, matn maydoni), matn
-tekislash va o'rash, sichqoncha hodisalari, klaviatura / gamepad navigatsiyasi, UI animatsiyalari, maska va scroll view,
-editorda UI bilan ishlash va pauza menyusi namunasi — C++ skript misollari bilan.
+This guide explains the in-game screen interface: the UI hierarchy and anchors (the RectTransform model), the Canvas
+that adapts to the screen, layout groups, widgets (button, image, slider, toggle, progress bar, input field), text
+alignment and wrapping, mouse events, keyboard / gamepad navigation, UI animations, masks and scroll views, working
+with UI in the editor and a pause menu sample — with C++ script examples.
 
-Komponentlarning to'liq maydonlari: [Components.md](Components.md#8-ui-screen-interface). Misollar `#include <Zamin/Zamin.h>`
-va `using namespace Zamin;` bilan.
+The components' full fields: [Components.md](Components.md#8-ui-screen-interface). The examples assume
+`#include <Zamin/Zamin.h>` and `using namespace Zamin;`.
 
-![UI Layout sahnasi editorda](images/ui-layout-editor.jpg)
+![The UI Layout scene in the editor](images/ui-layout-editor.jpg)
 
-*Platformer2D `Scenes/UILayout.zscene`: tanlangan `Menyu` ning to'rtburchak gizmo'si, inspektorda UI Transform (langar) va
-vertikal UI Layout Group; yuqori / pastki panellar cho'zilgan langar bilan.*
+*Platformer2D `Scenes/UILayout.zscene`: the rectangle gizmo of the selected `Menyu`, the UI Transform (anchor) and a
+vertical UI Layout Group in the inspector; the top / bottom bars use a stretched anchor.*
 
-Mundarija:
+Contents:
 
-1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)
-2. [Tez boshlash: hisob va pauza tugmasi](#2-tez-boshlash-hisob-va-pauza-tugmasi)
-3. [UI Transform: langar, pivot, o'lcham](#3-ui-transform-langar-pivot-olcham)
-4. [UI Canvas: ekranga moslashish](#4-ui-canvas-ekranga-moslashish)
-5. [Layout guruhlari](#5-layout-guruhlari)
-6. [Matn](#6-matn)
-7. [Vidjetlar](#7-vidjetlar)
-8. [Hodisalar: skript callback'lari va event bus](#8-hodisalar-skript-callbacklari-va-event-bus)
-9. [Klaviatura va gamepad navigatsiyasi](#9-klaviatura-va-gamepad-navigatsiyasi)
-10. [UI animatsiyalari](#10-ui-animatsiyalari)
-11. [UI Mask va Scroll View](#11-ui-mask-va-scroll-view)
-12. [Pauza va UI vaqti](#12-pauza-va-ui-vaqti)
-13. [Editorda UI](#13-editorda-ui)
-14. [Namuna: pauza menyusi](#14-namuna-pauza-menyusi)
-15. [Namuna sahnalar](#15-namuna-sahnalar)
-16. [Ko'p uchraydigan muammolar](#16-kop-uchraydigan-muammolar)
-17. [Testlar](#17-testlar)
-18. [Qisqa API ma'lumotnomasi](#18-qisqa-api-malumotnomasi)
-
----
-
-## 1. Asosiy tushunchalar
-
-- **UI obyekt** — `UITransformComponent` (**UI Transform**) bor obyekt. U dunyoda emas, **ekranda**, sahna ustida
-  chiziladi — 2D va 3D sahnalarda bir xil. UI Transform'li obyektdagi Sprite / Circle Renderer, Text va UI vidjetlari
-  ekranga chiziladi; UI Transform'siz Text — dunyodagi matn.
-- **Ierarxiya** — UI obyektning UI bolasi otasining to'rtburchagiga nisbatan joylashadi (oddiy obyekt ostidagi UI —
-  butun ekranga). Bolalar otasidan keyin (ustida) chiziladi, aka-ukalar orasida — `Order` bo'yicha.
-- **Birliklar** — UI birligi. Canvas bo'lmasa 1 birlik = 1 piksel; Canvas ostida UI mo'ljal o'lcham (masalan
-  1920 x 1080) uchun yasaladi va ekran bilan masshtablanadi ([4-bo'lim](#4-ui-canvas-ekranga-moslashish)). `Position`
-  yuqoriga musbat.
-- **Kamera kerak emas** — UI faol sahnaning ko'rinishi (o'yin oynasi) ustiga chiziladi.
-- **UI vaqti** — UI (vidjetlar, tween'lar, navigatsiya) haqiqiy vaqtda ishlaydi: o'yin pauzada ham
-  ([12-bo'lim](#12-pauza-va-ui-vaqti)). Kadrda UI birinchi yangilanadi (skriptlarning `OnUpdate` idan oldin).
-- **Nofaol** UI obyekt va uning UI bolalari chizilmaydi va bosilmaydi.
-
-Tayyor elementlar: *Obyekt > UI (ekran)* — **Matn**, **Rasm**, **Tugma**, **Slayder**, **Belgilash (toggle)**,
-**Progress bar**, **Matn maydoni (input)**, **Canvas**, **Menyu (vertikal layout)**, **Scroll view (ro'yxat)**. Ierarxiyada
-obyekt ustida o'ng tugma → **Bola obyekt yaratish** → *UI (ekran)* — yangi element o'sha obyektning bolasi bo'ladi.
+1. [Core concepts](#1-core-concepts)
+2. [Quick start: a score and a pause button](#2-quick-start-a-score-and-a-pause-button)
+3. [UI Transform: anchor, pivot, size](#3-ui-transform-anchor-pivot-size)
+4. [UI Canvas: fitting the screen](#4-ui-canvas-fitting-the-screen)
+5. [Layout groups](#5-layout-groups)
+6. [Text](#6-text)
+7. [Widgets](#7-widgets)
+8. [Events: script callbacks and the event bus](#8-events-script-callbacks-and-the-event-bus)
+9. [Keyboard and gamepad navigation](#9-keyboard-and-gamepad-navigation)
+10. [UI animations](#10-ui-animations)
+11. [UI Mask and Scroll View](#11-ui-mask-and-scroll-view)
+12. [Pause and UI time](#12-pause-and-ui-time)
+13. [UI in the editor](#13-ui-in-the-editor)
+14. [Sample: a pause menu](#14-sample-a-pause-menu)
+15. [Sample scenes](#15-sample-scenes)
+16. [Common problems](#16-common-problems)
+17. [Tests](#17-tests)
+18. [Short API reference](#18-short-api-reference)
 
 ---
 
-## 2. Tez boshlash: hisob va pauza tugmasi
+## 1. Core concepts
 
-1. *Obyekt > UI (ekran) > Canvas* — butun ekranga cho'zilgan `Canvas` (UI Transform + UI Canvas, mo'ljal 1920 x 1080).
-2. `Canvas` ustida o'ng tugma → *Bola obyekt yaratish > UI (ekran) > Matn*. Inspektorda: **Langar (anchor)** — chap yuqori,
-   `Position` (40, -40), `Size` (400, 60), matn "Tangalar: 0". Nomini `ScoreText` qiling.
-3. Yana *Bola obyekt yaratish > UI (ekran) > Tugma*: langar — o'ng yuqori, `Position` (-140, -50), matn "Pauza". UI Button'da
-   **Xabar nomi** (`ClickMessage`) = `Pause`, **Qabul qiluvchi** bo'sh — xabar hamma skriptlarga (`Broadcast`) boradi.
-4. Istalgan obyektga skript:
+- **UI object** — an object with a `UITransformComponent` (**UI Transform**). It is drawn not in the world but **on the
+  screen**, over the scene — the same in 2D and 3D scenes. A Sprite / Circle Renderer, Text and UI widgets on an object
+  with a UI Transform are drawn on the screen; a Text without a UI Transform is text in the world.
+- **Hierarchy** — a UI child of a UI object is placed relative to its parent's rectangle (UI under a plain object —
+  relative to the whole screen). Children are drawn after (over) their parent, siblings in `Order`.
+- **Units** — UI units. Without a Canvas 1 unit = 1 pixel; under a Canvas the UI is made for a reference size (for
+  example 1920 x 1080) and scales with the screen ([section 4](#4-ui-canvas-fitting-the-screen)). `Position` is
+  positive upward.
+- **No camera needed** — the UI is drawn over the active scene's view (the game view).
+- **UI time** — the UI (widgets, tweens, navigation) runs on real time: also while the game is paused
+  ([section 12](#12-pause-and-ui-time)). In a frame the UI updates first (before the scripts' `OnUpdate`).
+- An **inactive** UI object and its UI children are neither drawn nor clickable.
+
+Ready-made elements: *Object > UI (screen)* — **Text**, **Image**, **Button**, **Slider**, **Toggle**,
+**Progress bar**, **Input field**, **Canvas**, **Menu (vertical layout)**, **Scroll view (list)**. Right-click an
+object in the hierarchy → **Create child object** → *UI (screen)* — the new element becomes that object's child.
+
+---
+
+## 2. Quick start: a score and a pause button
+
+1. *Object > UI (screen) > Canvas* — a `Canvas` stretched over the whole screen (UI Transform + UI Canvas, reference
+   1920 x 1080).
+2. Right-click `Canvas` → *Create child object > UI (screen) > Text*. In the inspector: **Anchor** — top left,
+   `Position` (40, -40), `Size` (400, 60), text "Coins: 0". Name it `ScoreText`.
+3. Again *Create child object > UI (screen) > Button*: anchor — top right, `Position` (-140, -50), text "Pause". On the
+   UI Button set **Message name** (`ClickMessage`) = `Pause` and leave **Receiver** empty — the message goes to every
+   script (`Broadcast`).
+4. A script on any object:
 
 ```cpp
 class Hud : public ScriptableEntity
@@ -74,7 +76,7 @@ public:
 
     void OnCreate() override
     {
-        SetUpdateWhenPaused(true);                      // pauzada ham tugmani eshitsin
+        SetUpdateWhenPaused(true);                      // hear the button while paused too
         AddMessageHandler("Pause", [this](const ScriptMessage&) {
             if (IsGamePaused()) ResumeGame(); else PauseGame();
         });
@@ -82,8 +84,8 @@ public:
             m_Coins++;
             if (Entity text = Resolve(ScoreText); text && text.HasComponent<TextComponent>())
             {
-                text.GetComponent<TextComponent>().Text = std::format("Tangalar: {}", m_Coins);
-                GetScene().PunchUIScale(text, 0.2f, 0.3f);   // hisob "sakraydi"
+                text.GetComponent<TextComponent>().Text = std::format("Coins: {}", m_Coins);
+                GetScene().PunchUIScale(text, 0.2f, 0.3f);   // the score "jumps"
             }
         });
     }
@@ -94,167 +96,170 @@ private:
 ZM_REGISTER_SCRIPT(Hud, ZM_FIELD(Hud, ScoreText))
 ```
 
-`ScoreText` maydoniga ierarxiyadan `ScoreText` obyektini sudrang, ▶ bosing. Ekran o'lchami o'zgarsa (O'yin oynasi
-o'lchami: 16:9, 4:3, 1280x720 ...) Canvas hammasini birga masshtablaydi, burchaklarga bog'langanlar burchakda qoladi.
-To'liq ishlaydigan namuna: [Tutorial-2D.md](Tutorial-2D.md) (`ScoreHud`).
+Drag the `ScoreText` object from the hierarchy onto the `ScoreText` field and press ▶. When the screen size changes
+(the Game view size: 16:9, 4:3, 1280x720 ...) the Canvas scales everything together and what is tied to the corners
+stays in the corners. A complete working sample: [Tutorial-2D.md](Tutorial-2D.md) (`ScoreHud`).
 
 ---
 
-## 3. UI Transform: langar, pivot, o'lcham
+## 3. UI Transform: anchor, pivot, size
 
-UI Transform (`UITransformComponent`) — ota to'rtburchagi ichidagi joy:
+The UI Transform (`UITransformComponent`) is a place inside the parent's rectangle:
 
-| Maydon | Ma'nosi |
+| Field | Meaning |
 |---|---|
-| `AnchorMin`, `AnchorMax` (0 ... 1) | ota to'rtburchagidagi langar: teng bo'lsa — bitta nuqtaga mahkam (9 ta tayyor nuqta); farqli bo'lsa — shu o'q bo'ylab ota bilan **cho'ziladi** (yuqori panel, fon) |
-| `Pivot` (0 ... 1) | o'z to'rtburchagining tayanch nuqtasi (aylanish / masshtab markazi ham) |
-| `Position` | langardan pivotgacha, UI birligida (yuqoriga +) |
-| `Size` | kenglik / balandlik; cho'zilgan o'qda inspektor **Chap \| O'ng** (yoki **Past \| Yuqori**) chekkalarini ko'rsatadi |
-| `FontSize` | shu obyektdagi matn balandligi (0 — to'rtburchak balandligi) |
-| `Order` | aka-ukalar orasida chizilish tartibi |
-| `Scale`, `VisualOffset`, `Alpha` | faqat **ko'rinish**: joylashuvni o'zgartirmaydi, UI bolalari ham birga kattalashadi / suriladi / so'nadi — UI tween'lari shularni o'zgartiradi |
+| `AnchorMin`, `AnchorMax` (0 ... 1) | the anchor in the parent's rectangle: when equal — pinned to one point (9 ready-made points); when different — **stretched** with the parent along that axis (a top bar, a background) |
+| `Pivot` (0 ... 1) | the reference point of its own rectangle (also the center of rotation / scale) |
+| `Position` | from the anchor to the pivot, in UI units (+ upward) |
+| `Size` | width / height; on a stretched axis the inspector shows the **Left \| Right** (or **Bottom \| Top**) edges |
+| `FontSize` | the height of the text on this object (0 — the rectangle's height) |
+| `Order` | the drawing order among siblings |
+| `Scale`, `VisualOffset`, `Alpha` | **appearance** only: they do not change the layout; UI children grow / move / fade with it — the UI tweens change these |
 
-Inspektorda langar yoki pivot o'zgartirilsa obyekt joyida qoladi (`Shift` bilan — yangi langarga joylashadi).
+When the anchor or pivot is changed in the inspector the object stays where it is (with `Shift` — it moves to the new
+anchor).
 
-Skriptdan (`Scene`; to'rtburchak — `UIRect`, pikselda, ko'rinishning chap pastki burchagidan, y yuqoriga):
+From a script (`Scene`; the rectangle is a `UIRect`, in pixels, from the view's bottom-left corner, y upward):
 
 ```cpp
-UIRect rect = GetScene().GetUIRect(panel);          // UI birliklarida
-UIRect screen = GetScene().GetUIScreenRect(panel);  // ekran pikselida
+UIRect rect = GetScene().GetUIRect(panel);          // in UI units
+UIRect screen = GetScene().GetUIScreenRect(panel);  // in screen pixels
 UIRect parent = GetScene().GetUIParentRect(panel);
 GetScene().SetUIRect(panel, UIRect::FromCenter({ 960.0f, 540.0f }, { 600.0f, 400.0f }));
-GetScene().SetUIAnchors(panel, { 0.0f, 1.0f }, { 1.0f, 1.0f }, true);   // yuqoridan cho'zish, joyida qolsin
+GetScene().SetUIAnchors(panel, { 0.0f, 1.0f }, { 1.0f, 1.0f }, true);   // stretch along the top, stay in place
 GetScene().SetUIPivot(panel, { 0.5f, 1.0f });
-float scale = GetScene().GetUIScale(panel);          // ekran pikseli / UI birligi
+float scale = GetScene().GetUIScale(panel);          // screen pixels / UI unit
 ```
 
-Sichqoncha ostidagi UI: `GetScene().GetHoveredUI()`, nuqtadagi: `GetScene().PickUI(point)`.
+The UI under the mouse: `GetScene().GetHoveredUI()`, at a point: `GetScene().PickUI(point)`.
 
 ---
 
-## 4. UI Canvas: ekranga moslashish
+## 4. UI Canvas: fitting the screen
 
-**UI Canvas** (`UICanvasComponent`) ostidagi butun UI daraxtini ekranga moslab masshtablaydi (ichma-ich canvas'lardan faqat
-eng tashqisi hisoblanadi):
+A **UI Canvas** (`UICanvasComponent`) scales the whole UI tree under it to fit the screen (of nested canvases only the
+outermost counts):
 
-| `ScaleMode` | Nima bo'ladi |
+| `ScaleMode` | What happens |
 |---|---|
-| `ScaleWithScreenSize` (standart) | UI `ReferenceResolution` (1920 x 1080) uchun yasaladi va ekran bilan kattalashadi / kichrayadi. `MatchMode`: `MatchWidthOrHeight` — `MatchWidthOrHeight` 0 kenglikka, 1 balandlikka, 0.5 ikkalasi orasiga (logarifmik) moslaydi; `Expand` — UI doim sig'adi; `Shrink` — doim ekranni to'ldiradi |
-| `ConstantPixelSize` | 1 UI birligi = `ScaleFactor` piksel |
+| `ScaleWithScreenSize` (default) | the UI is made for `ReferenceResolution` (1920 x 1080) and grows / shrinks with the screen. `MatchMode`: `MatchWidthOrHeight` — `MatchWidthOrHeight` 0 matches the width, 1 the height, 0.5 between the two (logarithmic); `Expand` — the UI always fits; `Shrink` — it always fills the screen |
+| `ConstantPixelSize` | 1 UI unit = `ScaleFactor` pixels |
 
-Joriy masshtab: `GetScene().GetUIScale(entity)` yoki komponentning `CurrentScale` i. Platformer2D `Scenes/UILayout.zscene` —
-ekran o'lchami va masshtabni ekranga yozib turadi (`UILayoutDemo`).
+The current scale: `GetScene().GetUIScale(entity)` or the component's `CurrentScale`. Platformer2D
+`Scenes/UILayout.zscene` keeps writing the screen size and the scale on the screen (`UILayoutDemo`).
 
-**O'yinchining UI o'lchami sozlamasi.** `Scene::SetUIScaleMultiplier(s)` (0.5..2, standart 1) har UI Canvas masshtabini
-yana `s` ga ko'paytiradi (`SceneManager::SetUIScaleMultiplier` — barcha sahnalarga va keyin yuklanadiganlarga). Sahna
-bilan saqlanmaydi: o'yin sozlamani o'zi saqlaydi (masalan GameState) va har sahnaga qo'llaydi. Blueprint:
-`Display.SetUIScale` (Scale 0.5..2 — chegaradan tashqari qiymat graf xatosi) va `Display.UIScale`. Ikkala vertical
-slice sozlamalarida *Interfeys o'lchami* slayderi (8..12 butun son = 80..120 %, qadami 10 %) shu tugunlar bilan ishlaydi
-va qiymat `<O'yin>.Settings.UIScale` da saqlanadi.
+**The player's UI size setting.** `Scene::SetUIScaleMultiplier(s)` (0.5..2, default 1) multiplies every UI Canvas
+scale by `s` again (`SceneManager::SetUIScaleMultiplier` — for every scene and the ones loaded later). It is not saved
+with the scene: the game stores the setting itself (for example in GameState) and applies it to each scene. Blueprint:
+`Display.SetUIScale` (Scale 0.5..2 — a value outside is a graph error) and `Display.UIScale`. In the settings of both
+vertical slices the *Interface size* slider (whole numbers 8..12 = 80..120 %, in steps of 10 %) works with these nodes
+and the value is stored in `<Game>.Settings.UIScale`.
 
-**UI audit (masshtab darvozasi).** `Scene::AuditUI(width, height, measureText)` UI ni istalgan ko'rinish o'lchami uchun
-chizmasdan joylaydi (sahnaning o'z ko'rinishi va joylashuvi o'zgarmaydi) va har faol elementning yozuvini beradi:
-vidjet turi, ekrandagi to'rtburchagi (px), shrift o'lchami, matni qancha joy olishi (shrifti bilan, bo'lmasa standart
-shriftning metrikalari GPU'siz o'qiladi), ishlatsa bo'ladimi, tanlanganmi, navigatsiya qaerga olib boradi, qaysi
-gameplay UI paneli ichida (`Zamin/UI/UIAudit.h`; ko'pi bilan 4 096 element). `CheckUIAudit(report, rules)` qoidalari:
-ishlatsa bo'ladigan vidjet ko'rinish chetidan ≥ 8 px ichkarida (`Margin`), matn ekrandan chiqmaydi (`Offscreen`),
-qo'shni vidjetlar ustma-ust tushmaydi (`Overlap`), matn joyiga sig'adi (`TextOverflow`; Truncate/Ellipsis bundan
-mustasno), eng kichik matn 800 x 600 da 12 px, 1024 x 768 va kattada 14 px (UI o'lchami 100 % dan kichik bo'lsa
-mutanosib kamayadi; `MinFont`), panel ochiq bo'lsa tanlov uning ichida (`Focus`) va panelning har vidjetiga klaviatura
-bilan yetiladi (`Unreachable`), 21:9 ekranning chetki 10 % iga faqat o'sha tomonga bog'langan element kiradi
-(`SideBand`). Player'da `ZAMIN_UI_AUDIT` ([Runtime.md](Runtime.md)) har panel almashganda `UI_AUDIT` qatorini yozadi.
-
----
-
-## 5. Layout guruhlari
-
-**UI Layout Group** (`UILayoutGroupComponent`) UI bolalarini ierarxiya tartibida teradi:
-
-- `Type`: `Horizontal` (qator), `Vertical` (ustun), `Grid` (panjara: `CellSize`, `GridSpacing`, `StartCorner`,
-  `StartAxisVertical`, `Constraint` — `Flexible`, `FixedColumnCount`, `FixedRowCount` va `ConstraintCount`);
-- `Padding` (ichki chekka), `Spacing` (oraliq), `ChildAlignment` (9 nuqta), `ReverseArrangement` (teskari tartib);
-- `ControlChildWidth` / `ControlChildHeight` — bolalar o'lchamini guruh belgilaydi, `ChildForceExpandWidth` / `Height` —
-  ortgan joy bo'linadi;
-- **Kenglik / Balandlik mazmunga mos** (`FitWidth` / `FitHeight`) — guruh o'zi bolalariga moslashadi (elementlar qo'shilsa
-  o'sadigan ro'yxat).
-
-Ichma-ich guruhlar (ro'yxat ichida qator) afzal o'lchamni bolalaridan oladi. Nofaol bolalar tashlab ketiladi.
-**UI Layout Element** (`UILayoutElementComponent`) — bola nima so'raydi: `MinSize`, `PreferredSize`, `FlexibleSize` (qolgan
-joydan ulushi; -1 — berilmagan), `IgnoreLayout` — guruh uni o'z joyida qoldiradi. Guruh joylagan obyektni editorda qo'lda
-surib bo'lmaydi (`GetScene().IsUILayoutDriven(e)`).
-
-*Obyekt > UI (ekran) > Menyu (vertikal layout)* — vertikal guruhli panel va uchta tugma: tugma qo'shsangiz panel o'zi
-o'sadi.
+**UI audit (the scale gate).** `Scene::AuditUI(width, height, measureText)` lays the UI out for any view size without
+drawing it (the scene's own view and layout do not change) and returns a record for every active element: the widget
+type, its rectangle on the screen (px), the font size, how much room its text takes (with its font; otherwise the
+default font's metrics are read without a GPU), whether it can be used, whether it is selected, where navigation leads
+and which gameplay UI panel it is in (`Zamin/UI/UIAudit.h`; at most 4 096 elements). The rules of
+`CheckUIAudit(report, rules)`: a usable widget is ≥ 8 px inside the view's edge (`Margin`), text does not leave the
+screen (`Offscreen`), neighbouring widgets do not overlap (`Overlap`), text fits its place (`TextOverflow`;
+Truncate/Ellipsis are exempt), the smallest text is 12 px at 800 x 600 and 14 px at 1024 x 768 and above (lowered in
+proportion when the UI size is below 100 %; `MinFont`), with a panel open the selection is inside it (`Focus`) and every
+widget of the panel can be reached with the keyboard (`Unreachable`), and only an element tied to that side enters the
+outer 10 % of a 21:9 screen (`SideBand`). In the Player `ZAMIN_UI_AUDIT` ([Runtime.md](Runtime.md)) writes a `UI_AUDIT`
+line whenever the panel changes.
 
 ---
 
-## 6. Matn
+## 5. Layout groups
 
-Text komponenti (`TextComponent`) UI obyektda to'rtburchak ichida chiziladi:
+A **UI Layout Group** (`UILayoutGroupComponent`) arranges its UI children in hierarchy order:
 
-| Maydon | Ma'nosi |
+- `Type`: `Horizontal` (a row), `Vertical` (a column), `Grid` (a grid: `CellSize`, `GridSpacing`, `StartCorner`,
+  `StartAxisVertical`, `Constraint` — `Flexible`, `FixedColumnCount`, `FixedRowCount` and `ConstraintCount`);
+- `Padding` (inner margin), `Spacing` (gap), `ChildAlignment` (9 points), `ReverseArrangement` (reverse order);
+- `ControlChildWidth` / `ControlChildHeight` — the group sets the children's size, `ChildForceExpandWidth` / `Height` —
+  the spare room is shared out;
+- **Fit width to content** / **Fit height to content** (`FitWidth` / `FitHeight`) — the group itself fits its children
+  (a list that grows as elements are added).
+
+Nested groups (a row inside a list) take their preferred size from their children. Inactive children are skipped.
+A **UI Layout Element** (`UILayoutElementComponent`) says what a child asks for: `MinSize`, `PreferredSize`,
+`FlexibleSize` (its share of the remaining room; -1 — not given), `IgnoreLayout` — the group leaves it where it is. An
+object placed by a group cannot be moved by hand in the editor (`GetScene().IsUILayoutDriven(e)`).
+
+*Object > UI (screen) > Menu (vertical layout)* — a panel with a vertical group and three buttons: add a button and the
+panel grows by itself.
+
+---
+
+## 6. Text
+
+The Text component (`TextComponent`) on a UI object is drawn inside the rectangle:
+
+| Field | Meaning |
 |---|---|
-| `Text` | UTF-8 matn (lotin, kirill, `oʻ gʻ`) |
-| `AlignH` (`Left`, `Center`, `Right`), `AlignV` (`Top`, `Middle`, `Bottom`, `Baseline`) | tekislash |
-| `WordWrap` | so'z bo'yicha o'rash (apostrof so'z ichida qoladi; uzun so'z sig'magan joyidan, defisdan keyin ham bo'linadi) |
-| `Overflow` (`TextOverflow`): `Overflow` / `Truncate` / `Ellipsis` | sig'magani chiqib ketadi / kesiladi (butun belgi va qatorlar) / uch nuqta (…) |
-| `LineSpacing`, `Kerning` | qator va harf oralig'i (em) |
-| `Color`, `FontPath` | rang, shrift (bo'sh — dvigatel shrifti) |
-| `LocalizationKey` | til fayllaridan olinadigan matn ([ProjectSettings.md](ProjectSettings.md#13-lokalizatsiya)) |
-| `InputHints` (inspektorda **Boshqaruv ishoralari**) | matndagi `[Nom]` — loyiha input xaritasidagi harakat / o'q / vektor — o'yinchi ishlatayotgan qurilmaning tugmalari bilan ko'rinadi |
+| `Text` | UTF-8 text (Latin, Cyrillic, `oʻ gʻ`) |
+| `AlignH` (`Left`, `Center`, `Right`), `AlignV` (`Top`, `Middle`, `Bottom`, `Baseline`) | alignment |
+| `WordWrap` | wrapping by words (an apostrophe stays inside its word; a long word is broken where it no longer fits and after a hyphen) |
+| `Overflow` (`TextOverflow`): `Overflow` / `Truncate` / `Ellipsis` | what does not fit spills out / is cut off (whole characters and lines) / ends in an ellipsis (…) |
+| `LineSpacing`, `Kerning` | line and letter spacing (em) |
+| `Color`, `FontPath` | color, font (empty — the engine font) |
+| `LocalizationKey` | text taken from the language files ([ProjectSettings.md](ProjectSettings.md#13-lokalizatsiya)) |
+| `InputHints` (**Control hints** in the inspector) | `[Name]` in the text — an action / axis / vector of the project's input map — is shown with the buttons of the device the player is using |
 
-Matn balandligi — UI Transform'ning `FontSize` i (0 — to'rtburchak balandligi). Shriftlar har bir piksel o'lchami uchun
-alohida atlasda yasaladi: kichik yozuv ham, katta sarlavha ham tiniq; UI matni butun piksellarga joylanadi. Yasalgan
-atlaslar diskda saqlanadi (`~/.cache/zamin/FontAtlases`, `FontAtlasCache`; `ZAMIN_FONT_CACHE=0` — o'chiq): keyingi ishga
-tushirishda shrift rasterlanmaydi, o'qiladi. **Kerning** — shriftning o'z harf juftliklari ("AV", "To", "Ye" yaqinroq)
-odatda o'chiq (matn avvalgidek joylashadi); shrift asseti inspektorida **Kerning** belgisi yoki `.zmeta` da
-`"Import": { "Kerning": true }` yoqadi (`Font::SetKerningEnabled`, `Font::GetKerning`). Dunyodagi
-matn (UI Transform'siz) obyekt nuqtasi atrofida tekislanadi, o'rash `MaxWidth` bo'yicha. Joylashtirish hisobining o'zi:
-`TextLayout::Layout(...)` (`Zamin/UI/TextLayout.h`, testlar uchun ham).
+The text height is the UI Transform's `FontSize` (0 — the rectangle's height). Fonts get a separate atlas for every
+pixel size: small labels and large titles are both sharp; UI text is placed on whole pixels. The built atlases are
+stored on disk (`~/.cache/zamin/FontAtlases`, `FontAtlasCache`; `ZAMIN_FONT_CACHE=0` — off): the next run reads the
+font instead of rasterizing it. **Kerning** — the font's own letter pairs ("AV", "To", "Ye" closer together) — is off
+by default (text is laid out as before); the **Kerning** checkbox in the font asset's inspector or
+`"Import": { "Kerning": true }` in the `.zmeta` turns it on (`Font::SetKerningEnabled`, `Font::GetKerning`). Text in
+the world (without a UI Transform) is aligned around the object's point and wrapped by `MaxWidth`. The layout
+computation itself: `TextLayout::Layout(...)` (`Zamin/UI/TextLayout.h`, also for tests).
 
-Til almashganda kalitli matnlar o'zi yangilanadi; skript yasagan matnlarni `OnLanguageChanged` da qayta yozing.
+When the language changes, keyed texts update themselves; rewrite texts made by a script in `OnLanguageChanged`.
 
-**Boshqaruv ishoralari.** `InputHints` yoqilgan matnda `[Jump] - sakrash` klaviatura bilan `Space - sakrash`,
-gamepad bilan `A - sakrash` bo'lib ko'rinadi va o'yinchi qurilmani almashtirsa o'zi yangilanadi (`Input::GetActiveDevice`).
-Bog'lanishlar Loyiha sozlamalari → Input'dan olinadi, ya'ni tugma qayta bog'lansa ishora ham o'zgaradi. `[Look|Sichqoncha]` —
-qurilmada bog'lanish bo'lmasa qavs ichidagi matn, `[kb:...]` / `[pad:...]` — matn faqat klaviatura / gamepad uchun.
-Lokalizatsiya kaliti bilan birga ishlaydi (shablon til faylida); tugma nomlari tilga `input.<id>` kalitlari bilan moslanadi
-(`input.key.Arrows`: "strelkalar"). Batafsil: [Scripting.md](Scripting.md#8-input). Misol — namuna o'yinlarning bosh menyusi:
+**Control hints.** In a text with `InputHints` on, `[Jump] - jump` shows as `Space - jump` with the keyboard and as
+`A - jump` with a gamepad, and updates itself when the player switches devices (`Input::GetActiveDevice`). The bindings
+come from Project settings → Input, so when a button is rebound the hint changes too. `[Look|Mouse]` — the text in the
+brackets when the device has no binding, `[kb:...]` / `[pad:...]` — text only for the keyboard / gamepad. It works
+together with a localization key (the template is in the language file); button names are adapted to the language with
+`input.<id>` keys (`input.key.Arrows`: "arrows"). Details: [Scripting.md](Scripting.md#8-input). An example — the main
+menu of the sample games:
 
 ```json
-"menu": { "controls": "[Move] - yurish   ·   [Fire] - otish   ·   [Pause] - pauza" },
-"input": { "key": { "Arrows": "strelkalar" }, "mouse": { "Left": "LKM" }, "stick": { "Left": "chap stik" } }
+"menu": { "controls": "[Move] - move   ·   [Fire] - shoot   ·   [Pause] - pause" },
+"input": { "key": { "Arrows": "arrows" }, "mouse": { "Left": "LMB" }, "stick": { "Left": "left stick" } }
 ```
 
 ---
 
-## 7. Vidjetlar
+## 7. Widgets
 
-Hammasi *Obyekt > UI (ekran)* da tayyor, *+ Komponent > Effektlar va UI* da alohida. `Interactable` yoki obyekt nofaol bo'lsa
-bosilmaydi.
+All of them are ready-made in *Object > UI (screen)* and available separately in *+ Component > Effects and UI*. A
+widget is not clickable when `Interactable` is off or the object is inactive.
 
-| Vidjet | Asosiy maydonlar | Skriptga | Koddan |
+| Widget | Main fields | To the script | From code |
 |---|---|---|---|
-| **UI Button** (`UIButtonComponent`) | `NormalColor`, `HoverColor`, `PressedColor`, `Interactable`, `ClickMessage` (**Xabar nomi**), `ClickTarget` (**Qabul qiluvchi**); o'yinda `Hovered`, `Pressed`, `Clicked` (bir kadr) | `OnClick()`, `"UIClick"`, xabar `ClickMessage` | — |
-| **UI Image** (`UIImageComponent`) | `TexturePath`, `SpriteName` (atlas kadri), `Color`, `Type`: `Simple` (`PreserveAspect`) / `Sliced` (9-slice, `SliceBorder`, `BorderScale`) / `Tiled` / `Filled` (`FillMethod`: `Horizontal`, `Vertical`, `Radial360`; `FillAmount` 0 ... 1), `RaycastTarget` (**Sichqonchani to'sadi**) | — | `FillAmount` ni o'zgartirish |
-| **UI Slider** (`UISliderComponent`) | `MinValue`, `MaxValue`, `Value`, `WholeNumbers`, `Direction` (`UIDirection`), yo'lak / to'ldirish / tutqich ranglari | `OnValueChanged(float)`, `"UISliderChanged"` | `GetScene().SetSliderValue(e, v, notify)` |
-| **UI Toggle** (`UIToggleComponent`) | `Style` (`Checkbox` / `Switch`), `IsOn`, `Group` (radio tugmalar), `AllowSwitchOff`; yorlig'i — obyektning Text'i | `OnToggleChanged(bool)`, `"UIToggleChanged"` | `GetScene().SetToggle(e, on, notify)` |
-| **UI Progress Bar** (`UIProgressBarComponent`) | `Value` (0 ... 1), `Direction`, fon / to'ldirish ranglari, `UseLowColor` + `LowColor` (bo'shaganda qizaradi), `SmoothSpeed`, `ShowPercentage` | — | `Value` ni o'zgartirish |
+| **UI Button** (`UIButtonComponent`) | `NormalColor`, `HoverColor`, `PressedColor`, `Interactable`, `ClickMessage` (**Message name**), `ClickTarget` (**Receiver**); in play `Hovered`, `Pressed`, `Clicked` (one frame) | `OnClick()`, `"UIClick"`, the `ClickMessage` message | — |
+| **UI Image** (`UIImageComponent`) | `TexturePath`, `SpriteName` (an atlas frame), `Color`, `Type`: `Simple` (`PreserveAspect`) / `Sliced` (9-slice, `SliceBorder`, `BorderScale`) / `Tiled` / `Filled` (`FillMethod`: `Horizontal`, `Vertical`, `Radial360`; `FillAmount` 0 ... 1), `RaycastTarget` (**Blocks the mouse**) | — | change `FillAmount` |
+| **UI Slider** (`UISliderComponent`) | `MinValue`, `MaxValue`, `Value`, `WholeNumbers`, `Direction` (`UIDirection`), the track / fill / handle colors | `OnValueChanged(float)`, `"UISliderChanged"` | `GetScene().SetSliderValue(e, v, notify)` |
+| **UI Toggle** (`UIToggleComponent`) | `Style` (`Checkbox` / `Switch`), `IsOn`, `Group` (radio buttons), `AllowSwitchOff`; its label is the object's Text | `OnToggleChanged(bool)`, `"UIToggleChanged"` | `GetScene().SetToggle(e, on, notify)` |
+| **UI Progress Bar** (`UIProgressBarComponent`) | `Value` (0 ... 1), `Direction`, the background / fill colors, `UseLowColor` + `LowColor` (turns red when nearly empty), `SmoothSpeed`, `ShowPercentage` | — | change `Value` |
 | **UI Input Field** (`UIInputFieldComponent`) | `Text`, `Placeholder`, `ContentType` (`UIContentType`: `Standard`, `Integer`, `Decimal`, `Alphanumeric`, `Password`), `CharacterLimit`, `ReadOnly` | `OnTextChanged`, `OnTextSubmit` (Enter), `OnTextEndEdit`; `"UITextChanged"`, `"UITextSubmitted"`, `"UITextEndEdit"` | `GetScene().FocusInputField(e)`, `GetFocusedInputField()` |
 
-**Matn maydoni**: bosilganda tahrirlanadi (kursor sichqoncha joyiga), sudrab / `Shift` + strelka / ikki marta bosib
-tanlash, `Ctrl+A/C/X/V` (tizim buferi), `Home` / `End`, `Ctrl` + strelka / `Backspace` — so'z bo'yicha, `Enter` — yuborish,
-`Escape` — bekor (oldingi matn); UTF-8 harflar bitta belgi; parol nuqtalar bilan va buferga nusxalanmaydi. Editorda o'yin
-ko'rinishi fokusda bo'lganda yoziladi (editor yorliqlari o'sha payt ishlamaydi). Past daraja: `Input::GetTextInput()`,
-`Input::GetClipboardText()` / `SetClipboardText()`.
+**Input field**: a click starts editing (the cursor goes where the mouse is); selection by dragging / `Shift` + arrow /
+double-click, `Ctrl+A/C/X/V` (the system clipboard), `Home` / `End`, `Ctrl` + arrow / `Backspace` — by word, `Enter` —
+submit, `Escape` — cancel (the previous text); a UTF-8 letter is one character; a password shows dots and is not copied
+to the clipboard. In the editor you can type while the game view has focus (the editor shortcuts do not work then).
+Lower level: `Input::GetTextInput()`, `Input::GetClipboardText()` / `SetClipboardText()`.
 
-Vidjetlar bilan ishlash (Platformer2D `UIWidgetsDemo`, `Projects/Platformer2D/Source/UIWidgetsDemo.cpp`, qisqartirilgan):
+Working with widgets (Platformer2D `UIWidgetsDemo`, `Projects/Platformer2D/Source/UIWidgetsDemo.cpp`, shortened):
 
 ```cpp
 void OnStart() override
 {
     if (Entity field = Resolve(NameField))
-        GetScene().FocusInputField(field);             // darhol yozish mumkin
+        GetScene().FocusInputField(field);             // ready for typing at once
 
     Subscribe("UISliderChanged", [this](const ScriptMessage& m) {
         if (m.Sender == Resolve(MusicSlider))
@@ -262,7 +267,7 @@ void OnStart() override
     });
     Subscribe("UIToggleChanged", [this](const ScriptMessage& m) {
         if (m.Get<bool>())
-            SetStatus(std::format("Tanlandi: {}", m.Sender.GetName()));
+            SetStatus(std::format("Selected: {}", m.Sender.GetName()));
     });
     Subscribe("UITextSubmitted", [this](const ScriptMessage& m) { Greet(m.Get<std::string>()); });
 }
@@ -273,7 +278,7 @@ void OnUpdate(Timestep ts) override
     if (Entity bar = Resolve(Loading))
         if (auto* p = bar.TryGetComponent<UIProgressBarComponent>())
             p->Value = std::fmod(m_Time, LoadingSeconds + 1.0f) / LoadingSeconds;
-    if (Entity icon = Resolve(Cooldown))                // radial "qayta tiklanish" belgisi
+    if (Entity icon = Resolve(Cooldown))                // a radial "cooldown" icon
         if (auto* image = icon.TryGetComponent<UIImageComponent>())
             image->FillAmount = std::min(1.0f, std::fmod(m_Time, CooldownSeconds + 0.5f) / CooldownSeconds);
 }
@@ -281,15 +286,15 @@ void OnUpdate(Timestep ts) override
 
 ---
 
-## 8. Hodisalar: skript callback'lari va event bus
+## 8. Events: script callbacks and the event bus
 
-Vidjet obyektining **o'z skripti** callback oladi; **boshqa skriptlar** sahnaning event bus'idan eshitadi (`Subscribe`,
-jo'natuvchi — `m.Sender`, qiymat — `m.Get<T>()`).
+The widget object's **own script** gets callbacks; **other scripts** listen on the scene's event bus (`Subscribe`, the
+sender — `m.Sender`, the value — `m.Get<T>()`).
 
-| Callback (vidjet skriptida) | Event bus | Payload |
+| Callback (in the widget's script) | Event bus | Payload |
 |---|---|---|
 | `OnPointerEnter(const UIPointerEvent&)` / `OnPointerExit` | `"UIPointerEnter"` / `"UIPointerExit"` | `UIPointerEvent` |
-| `OnPointerDown` / `OnPointerUp` (`event.Inside` — bosilgan obyekt ustida qo'yib yuborildimi) / `OnPointerClick` | `"UIPointerDown"`, `"UIPointerUp"`, `"UIPointerClick"` | `UIPointerEvent` |
+| `OnPointerDown` / `OnPointerUp` (`event.Inside` — whether it was released over the pressed object) / `OnPointerClick` | `"UIPointerDown"`, `"UIPointerUp"`, `"UIPointerClick"` | `UIPointerEvent` |
 | `OnClick()` | `"UIClick"` | — |
 | `OnSelect()` / `OnDeselect()` / `OnCancel()` | `"UISelected"`, `"UIDeselected"`, `"UICancel"` | — |
 | `OnValueChanged(float)` | `"UISliderChanged"` | `float` |
@@ -297,141 +302,146 @@ jo'natuvchi — `m.Sender`, qiymat — `m.Get<T>()`).
 | `OnTextChanged` / `OnTextSubmit` / `OnTextEndEdit(const std::string&)` | `"UITextChanged"`, `"UITextSubmitted"`, `"UITextEndEdit"` | `std::string` |
 | `OnScrollChanged(const glm::vec2&)` | `"UIScrollChanged"` | `glm::vec2` |
 
-`UIPointerEvent`: `Target` (sichqoncha ostidagi vidjet — ota uchun Enter / Exit'da uning bolasi), `Position` (UI birligida),
-`ScreenPosition` (pikselda, chap pastdan), `Inside`. Bolasi ustida turgan sichqoncha uchun ota UI obyekt ham Enter / Exit
-oladi.
+`UIPointerEvent`: `Target` (the widget under the mouse — for a parent's Enter / Exit, its child), `Position` (in UI
+units), `ScreenPosition` (in pixels, from the bottom left), `Inside`. While the mouse is over a child, the parent UI
+object gets Enter / Exit too.
 
-**Tugma xabari** — kod yozmasdan ulash: UI Button'ning **Xabar nomi** (`ClickMessage`) bosilganda shu nomdagi skript
-xabari **Qabul qiluvchi** obyektga (`ClickTarget`; bo'sh — `Broadcast`, hamma skriptlarga) yuboriladi. Qabul qilish:
+**Button message** — wiring without code: when clicked, a UI Button's **Message name** (`ClickMessage`) is sent as a
+script message of that name to the **Receiver** object (`ClickTarget`; empty — `Broadcast`, to every script).
+Receiving it:
 
 ```cpp
 AddMessageHandler("Resume", [this](const ScriptMessage&) { Close(); });     // Platformer2D PauseMenu
 AddMessageHandler("Quit", [this](const ScriptMessage&) { QuitGame(); });
 ```
 
-Xabar `"UIClick"` dan keyin keladi. Nofaol tugma bosilmaydi va `OnClick` olmaydi.
+The message comes after `"UIClick"`. An inactive button cannot be clicked and gets no `OnClick`.
 
 ---
 
-## 9. Klaviatura va gamepad navigatsiyasi
+## 9. Keyboard and gamepad navigation
 
-Tanlangan vidjet ramka bilan ko'rinadi:
+The selected widget is shown with a frame:
 
-| Tugma | Amal |
+| Button | Action |
 |---|---|
-| Strelkalar / D-pad / chap stik (ushlab turilsa takrorlanadi) | eng yaqin vidjetga o'tish; gorizontal slayderda chap / o'ng — qiymat |
-| `Tab` / `Shift+Tab` | keyingi / oldingi (matn maydoniga kirsa yozish boshlanadi) |
-| `Enter` / gamepad A | bosish (tugma, belgilash, matn maydonini tahrirlash) |
+| Arrows / D-pad / left stick (repeats while held) | move to the nearest widget; on a horizontal slider left / right change the value |
+| `Tab` / `Shift+Tab` | next / previous (entering an input field starts typing) |
+| `Enter` / gamepad A | press (button, toggle, edit an input field) |
 | `Esc` / gamepad B | `OnCancel()`, `"UICancel"` |
 
-Hech narsa tanlanmagan bo'lsa strelkalar o'yinga tegishli; sichqoncha bosgan vidjet tanlanadi.
+When nothing is selected the arrows belong to the game; a widget clicked with the mouse gets selected.
 
-**UI Navigation** (`UINavigationComponent`) — vidjetdan qayerga o'tiladi: `NavigationMode` — `Automatic` (yo'nalishdagi eng
-yaqini), `Horizontal`, `Vertical`, `Explicit` (`Up`, `Down`, `Left`, `Right` havolalari), `None`; `SelectOnEnable`
-(**Faollashganda tanlash** — menyu ochilganda birinchi tugma tanlanadi), `ShowHighlight`, `HighlightColor`.
+**UI Navigation** (`UINavigationComponent`) — where to go from a widget: `NavigationMode` — `Automatic` (the nearest
+one in that direction), `Horizontal`, `Vertical`, `Explicit` (the `Up`, `Down`, `Left`, `Right` links), `None`;
+`SelectOnEnable` (**Select when enabled** — the first button is selected when a menu opens), `ShowHighlight`,
+`HighlightColor`.
 
-Skriptdan: `GetScene().SetSelectedUI(button)` (bo'sh `{}` — tanlovni olib tashlash), `GetSelectedUI()`,
-`NavigateUI(UINavDirection::Down)`, `SubmitUI()`, `CancelUI()`, `SetUINavigationEnabled(false)`. To'liq yashiringan
-(maska ostida) vidjetga navigatsiya o'tmaydi; scroll view ichidagi tanlangan vidjet ko'rinadigan joyga o'zi aylanadi.
+From a script: `GetScene().SetSelectedUI(button)` (an empty `{}` clears the selection), `GetSelectedUI()`,
+`NavigateUI(UINavDirection::Down)`, `SubmitUI()`, `CancelUI()`, `SetUINavigationEnabled(false)`. Navigation does not go
+to a widget that is completely hidden (under a mask); a selected widget inside a scroll view scrolls into view by
+itself.
 
-Avtomatik sinov (player, headless): `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"` — kadr raqami va amal
+Automated runs (player, headless): `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"` — a frame number and an action
 ([Runtime.md](Runtime.md#14-environment-variables-for-automation)).
 
 ---
 
-## 10. UI animatsiyalari
+## 10. UI animations
 
-**Tween'lar** — UI Transform'ning ko'rinishini (masshtab — pivot atrofida, siljish, shaffoflik), joylashuvini (pozitsiya,
-o'lcham) yoki rasm rangini silliq o'zgartiradi. Ko'rinish tween'lari layout'ni buzmaydi, UI bolalari ham birga o'zgaradi,
-sichqoncha chizilgan joyga tegadi (shaffoflik 0 — bosilmaydi). Bitta xususiyatga bitta tween (yangisi eskisini almashtiradi).
+**Tweens** smoothly change a UI Transform's appearance (scale — around the pivot, offset, opacity), its layout
+(position, size) or an image's color. Appearance tweens do not disturb the layout, UI children change along with it,
+and the mouse hits where the element is drawn (opacity 0 — not clickable). One tween per property (a new one replaces
+the old one).
 
 ```cpp
-UIScaleTo({ 1.2f, 1.2f }, 0.2f);                                   // shu obyekt; Ease::OutBack standart
-UIFadeTo(0.0f, 0.3f, Ease::OutQuad, [this] { SetActive(false); });  // tugagach o'chadi
-UIMoveTo({ 0.0f, 40.0f }, 0.4f);                                   // 40 UI birligi yuqoriroqda chiziladi
-UIPunchScale(0.15f);                                               // qisqa "sakrash" (hisob o'zgardi)
+UIScaleTo({ 1.2f, 1.2f }, 0.2f);                                   // this object; Ease::OutBack by default
+UIFadeTo(0.0f, 0.3f, Ease::OutQuad, [this] { SetActive(false); });  // switched off when done
+UIMoveTo({ 0.0f, 40.0f }, 0.4f);                                   // drawn 40 UI units higher
+UIPunchScale(0.15f);                                               // a short "jump" (the score changed)
 CancelUITweens();
 
-// To'liq: Scene::TweenUI - istalgan obyekt, xususiyat, sikl va boshlang'ich qiymat bilan.
+// The full form: Scene::TweenUI - any object and property, with a loop and a start value.
 GetScene().TweenUI(icon, UITweenProperty::Alpha, glm::vec4(0.3f), 0.6f,
                    { .Easing = Ease::InOutQuad, .Loop = UITweenLoop::PingPong, .Loops = 4 });
 ```
 
-`UITweenProperty`: `Scale`, `Alpha`, `Offset`, `Position`, `Size`, `Color`. `UITweenOptions`: `Easing`, `Delay`, `Loop`
-(`None`, `Loop`, `PingPong`), `Loops` (-1 — cheksiz), `From`, `OnComplete`. Har funksiya tween ID'sini qaytaradi
-(`Scene::CancelUITween(id)`).
+`UITweenProperty`: `Scale`, `Alpha`, `Offset`, `Position`, `Size`, `Color`. `UITweenOptions`: `Easing`, `Delay`,
+`Loop` (`None`, `Loop`, `PingPong`), `Loops` (-1 — endless), `From`, `OnComplete`. Every function returns the tween's
+ID (`Scene::CancelUITween(id)`).
 
-**UI Animation** komponenti (`UIAnimationComponent`) — kodsiz:
+The **UI Animation** component (`UIAnimationComponent`) — without code:
 
-- `Show` — faollashganda (o'yin boshida ham, `ShowAtStart`) ko'rinish preseti (`UIAnimPreset`): `Fade`, `Pop`
-  (kattalashib chiqish), `SlideLeft` / `SlideRight` / `SlideUp` / `SlideDown` (`SlideDistance`); `Duration`, `ShowDelay`
-  (ketma-ket chiqadigan menyu tugmalari), easing;
-- `Hide` — `HideUI(panel)` chaqirilganda o'ynaydi, keyin obyektni o'chiradi;
-- `HoverScale`, `PressScale` — tugma / belgilash / slayder / matn maydoni ustiga kelganda kattalashadi, bosilganda kichrayadi.
+- `Show` — an appearance preset (`UIAnimPreset`) when it is enabled (also at the start of the game, `ShowAtStart`):
+  `Fade`, `Pop` (growing in), `SlideLeft` / `SlideRight` / `SlideUp` / `SlideDown` (`SlideDistance`); `Duration`,
+  `ShowDelay` (menu buttons that come in one after another), easing;
+- `Hide` — plays when `HideUI(panel)` is called, then switches the object off;
+- `HoverScale`, `PressScale` — a button / toggle / slider / input field grows when hovered and shrinks when pressed.
 
 ```cpp
-ShowUI(Resolve(News));      // yoqiladi va Show animatsiyasini o'ynaydi
-HideUI(Resolve(News));      // Hide animatsiyasi, keyin o'chadi (HideUI(panel, false) - darhol)
+ShowUI(Resolve(News));      // switched on and plays the Show animation
+HideUI(Resolve(News));      // the Hide animation, then switched off (HideUI(panel, false) - at once)
 ```
 
 ---
 
-## 11. UI Mask va Scroll View
+## 11. UI Mask and Scroll View
 
-**UI Mask** (`UIMaskComponent`) — obyektning butun UI ierarxiyasi faqat uning to'rtburchagi ichida chiziladi va sichqoncha
-ham faqat shu yerda topadi (`Padding` — chekka ichkariga / tashqariga). Maska ichidagi maska — ikkalasi kesishgan joy.
-**O'z rasmini ko'rsatish** (`ShowGraphic`) o'chiq bo'lsa maska faqat kesadi. `GetScene().GetUIClipRect(e, rect)`.
+**UI Mask** (`UIMaskComponent`) — the object's whole UI hierarchy is drawn only inside its rectangle, and the mouse
+finds it only there (`Padding` — the edge moved inward / outward). A mask inside a mask — where the two intersect.
+With **Show own image** (`ShowGraphic`) off the mask only clips. `GetScene().GetUIClipRect(e, rect)`.
 
-**UI Scroll View** (`UIScrollViewComponent`) — `Content` (masalan balandligi qatorlariga moslashuvchi vertikal layout
-guruhi) ko'rinish ichida suriladi:
+**UI Scroll View** (`UIScrollViewComponent`) — the `Content` (for example a vertical layout group whose height fits
+its rows) scrolls inside the view:
 
-- sichqoncha **g'ildiragi** (`ScrollSensitivity`), **sudrash** (tugma ustidan boshlansa ham — u holda tugma bosilmaydi),
-  **scrollbar'lar** (`Scrollbars`: `Permanent`, `AutoHide`, `Hidden`; tutqichni sudrash, yo'lakni bosish);
-- **inersiya** (`Inertia`, `DecelerationRate`) va chekka xatti-harakati `Movement`: `Elastic` (tortilganda qarshilik qiladi
-  va qaytadi, `Elasticity`), `Clamped`, `Unrestricted`; `Horizontal` / `Vertical`;
-- klaviatura / gamepad bilan tanlangan vidjet ko'rinadigan joyga o'zi aylanadi.
+- the mouse **wheel** (`ScrollSensitivity`), **dragging** (even when it starts over a button — the button is then not
+  clicked), **scrollbars** (`Scrollbars`: `Permanent`, `AutoHide`, `Hidden`; drag the handle, click the track);
+- **inertia** (`Inertia`, `DecelerationRate`) and the edge behaviour `Movement`: `Elastic` (resists when pulled and
+  springs back, `Elasticity`), `Clamped`, `Unrestricted`; `Horizontal` / `Vertical`;
+- a widget selected with the keyboard / gamepad scrolls into view by itself.
 
-Holat: `OnScrollChanged(pos)` va `"UIScrollChanged"` (x: 0 chap ... 1 o'ng, y: 1 tepa ... 0 past). Koddan:
-`GetScene().GetScrollPosition(view)`, `SetScrollPosition(view, { 0.0f, 1.0f })` (tepaga), `ScrollBy(view, delta)`,
-`ScrollIntoView(widget)`, `GetScrollContent(view)`. Tayyor: *Obyekt > UI (ekran) > Scroll view (ro'yxat bilan)*.
-
----
-
-## 12. Pauza va UI vaqti
-
-UI o'yin vaqtiga bog'liq emas: `PauseGame()` (vaqt masshtabi 0) fizika, animatsiya va skriptlarni to'xtatadi, lekin
-vidjetlar, UI tween'lari va navigatsiya ishlayveradi. Pauza menyusini ochadigan / yopadigan skript `OnCreate` da
-`SetUpdateWhenPaused(true)` qiladi — u pauzada ham `OnUpdate` oladi. Skript taymerlari va tween'larini haqiqiy vaqtga
-o'tkazish: `SetTimersUnscaled(true)`. Haqiqiy kadr vaqti: `GetUnscaledDeltaTime()`.
-
-UI dan pauzani olish o'yinni keyingi kadrdan davom ettiradi (menyu tugmasini bosgan gamepad A o'yinda sakrash bo'lib
-o'tmaydi).
+State: `OnScrollChanged(pos)` and `"UIScrollChanged"` (x: 0 left ... 1 right, y: 1 top ... 0 bottom). From code:
+`GetScene().GetScrollPosition(view)`, `SetScrollPosition(view, { 0.0f, 1.0f })` (to the top), `ScrollBy(view, delta)`,
+`ScrollIntoView(widget)`, `GetScrollContent(view)`. Ready-made: *Object > UI (screen) > Scroll view (list)*.
 
 ---
 
-## 13. Editorda UI
+## 12. Pause and UI time
 
-- **Tanlash**: viewport'da UI obyektlari to'rtburchagi bo'yicha tanlanadi (shaffof joyidan ham), sichqoncha ostidagisi
-  ingichka ramka bilan ko'rinadi; *Ko'rinish > UI elementlarini tanlash* bilan o'chiriladi.
-- **To'rtburchak gizmo'si** (tanlangan UI obyekt): ichidan sudrash — ko'chirish (ota chetlari / markaziga yopishadi), 8 ta
-  tutqich — o'lcham (`Shift` — nisbatni saqlash, `Alt` — markaz atrofida, magnit / `Ctrl` — 10 birlik qadam), pivot halqasi,
-  ota to'rtburchagidagi **langarlar** (uchburchaklar, sudraladi, 0 / 0.5 / 1 ga yopishadi), o'lcham yozuvi; `Esc` — bekor,
-  `Ctrl+Z` — qaytarish. Layout guruhi joylagan obyektda tutqichlar yo'q (yozuvi aytadi).
-- **O'yin oynasi o'lchami** (Play paytida viewport toolbar'i): 16:9, 4:3, 1920x1080 ... — Canvas'ni turli ekranlarda sinash.
-- **Animatsiya oynasi** UI xususiyatlarini (`UITransform.Position`, `Size`, `Scale`, `Alpha`, `UIImage.Color`) property klip
-  bilan ham animatsiya qila oladi ([Animation.md](Animation.md#2-property-kliplar-zanim)).
-- Avtomatlashtirish: `ZAMIN_EDITOR_UI_HOVER=right` — gizmo tutqichi sichqoncha ostidagidek ko'rinadi,
-  `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — 20-kadrda tanlangan UI obyektning tutqichini shuncha piksel sudraydi
-  (skrinshotlar uchun, [Editor.md](Editor.md#15-automation-screenshots-ci)).
+The UI does not depend on game time: `PauseGame()` (time scale 0) stops physics, animation and scripts, but widgets, UI
+tweens and navigation keep running. The script that opens / closes the pause menu calls `SetUpdateWhenPaused(true)` in
+`OnCreate` — it then gets `OnUpdate` while paused too. To move a script's timers and tweens to real time:
+`SetTimersUnscaled(true)`. The real frame time: `GetUnscaledDeltaTime()`.
+
+Unpausing from the UI resumes the game from the next frame (the gamepad A that pressed the menu button does not also
+become a jump in the game).
 
 ---
 
-## 14. Namuna: pauza menyusi
+## 13. UI in the editor
 
-Platformer2D 1-3 darajalari (`Projects/Platformer2D/Source/PauseMenu.cpp`): `Esc` / gamepad Start — o'yin to'xtaydi, menyu
-(Davom etish / Sozlamalar / Chiqish) ochiladi, musiqa bo'g'iladi. Sozlamalar scroll view ichida: ovoz guruhlari slayderlari
-mixerga ulangan, to'liq ekran va VSync switch'lari, gamma / yorqinlik, til tugmasi; hammasi SaveData'da saqlanadi.
-Asosiy qismi:
+- **Selecting**: in the viewport UI objects are picked by their rectangle (also at transparent spots), the one under the
+  mouse is shown with a thin frame; *View > Pick UI elements (by their rectangle)* turns this off.
+- **Rectangle gizmo** (the selected UI object): drag inside — move (snaps to the parent's edges / center), 8 handles —
+  size (`Shift` — keep the ratio, `Alt` — around the center, snap / `Ctrl` — 10-unit steps), the pivot ring, the
+  **anchors** in the parent's rectangle (triangles, draggable, snap to 0 / 0.5 / 1), a size label; `Esc` — cancel,
+  `Ctrl+Z` — undo. An object placed by a layout group has no handles (its label says so).
+- **Game view size** (the viewport toolbar during Play): 16:9, 4:3, 1920x1080 ... — try the Canvas on different
+  screens.
+- The **Animation window** can also animate UI properties (`UITransform.Position`, `Size`, `Scale`, `Alpha`,
+  `UIImage.Color`) with a property clip ([Animation.md](Animation.md#2-property-kliplar-zanim)).
+- Automation: `ZAMIN_EDITOR_UI_HOVER=right` — the gizmo handle looks as if it were under the mouse,
+  `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — on frame 20 drags the selected UI object's handle by that many pixels
+  (for screenshots, [Editor.md](Editor.md#15-automation-screenshots-ci)).
+
+---
+
+## 14. Sample: a pause menu
+
+Platformer2D levels 1-3 (`Projects/Platformer2D/Source/PauseMenu.cpp`): `Esc` / gamepad Start — the game stops, the
+menu (Resume / Settings / Quit) opens and the music is muffled. The settings are inside a scroll view: the sound group
+sliders are wired to the mixer, fullscreen and VSync switches, gamma / brightness, a language button; all of it is
+stored in SaveData. The main part:
 
 ```cpp
 class PauseMenu : public ScriptableEntity
@@ -445,7 +455,7 @@ public:
     {
         if (Entity overlay = Resolve(Overlay))
             overlay.SetActive(false);
-        AddMessageHandler("Resume", [this](const ScriptMessage&) { Close(); });     // tugmalarning Xabar nomi
+        AddMessageHandler("Resume", [this](const ScriptMessage&) { Close(); });     // the buttons' Message name
         AddMessageHandler("Quit", [this](const ScriptMessage&) { Close(); QuitGame(); });
         Subscribe("UIToggleChanged", [this](const ScriptMessage& m) {
             if (m.Sender == Resolve(FullscreenToggle))
@@ -455,12 +465,12 @@ public:
 
     void OnUpdate(Timestep) override
     {
-        if (!Input::IsActionJustPressed("Pause"))   // Esc / Start (Loyiha sozlamalari > Input)
+        if (!Input::IsActionJustPressed("Pause"))   // Esc / Start (Project settings > Input)
             return;
         if (IsOpen()) Close(); else Open();
     }
 
-    void OnDisable() override { if (IsOpen()) Close(); }    // o'yin pauzada qolib ketmasin
+    void OnDisable() override { if (IsOpen()) Close(); }    // do not leave the game paused
 
 private:
     bool IsOpen() const
@@ -472,9 +482,9 @@ private:
     {
         PauseGame();
         if (Entity overlay = Resolve(Overlay))
-            overlay.SetActive(true);                          // UI Animation'ning Show'i o'ynaydi
+            overlay.SetActive(true);                          // the UI Animation's Show plays
         if (Entity button = Resolve(ResumeButton))
-            GetScene().SetSelectedUI(button);                 // klaviatura / gamepad "Davom etish" dan boshlaydi
+            GetScene().SetSelectedUI(button);                 // the keyboard / gamepad start at "Resume"
     }
     void Close()
     {
@@ -487,67 +497,68 @@ private:
 };
 ```
 
-Bosh menyu — xuddi shunday vidjetlardan yasalgan prefab: Platformer2D `Prefabs/GameMenu.zprefab` (`GameMenu` skripti,
-`Scenes/Menu.zscene`). Ovoz slayderlari: [Audio.md](Audio.md#15-the-players-sound-settings).
+The main menu is a prefab built from the same widgets: Platformer2D `Prefabs/GameMenu.zprefab` (the `GameMenu` script,
+`Scenes/Menu.zscene`). Sound sliders: [Audio.md](Audio.md#15-the-players-sound-settings).
 
 ---
 
-## 15. Namuna sahnalar
+## 15. Sample scenes
 
-| Sahna (Platformer2D) | Nima ko'rsatadi | Skript |
+| Scene (Platformer2D) | What it shows | Script |
 |---|---|---|
-| `Scenes/UILayout.zscene` | Canvas masshtabi, cho'zilgan panellar, vertikal / panjara / gorizontal guruhlar, hodisalar, navigatsiya, Show / Hide animatsiyalari, `PunchUIScale`, matn o'rash va uch nuqta | `UILayoutDemo` |
-| `Scenes/UIWidgets.zscene` | slayderlar, belgilashlar (guruh bilan), progress bar, radial to'ldirish, matn maydoni, tugma | `UIWidgetsDemo` |
-| `Scenes/Level1.zscene` ... `Level3` | HUD, pauza menyusi (scroll view, maska, slayderlar, switch'lar) | `PauseMenu`, `GameManager` |
-| `Scenes/Menu.zscene` | bosh menyu (`GameMenu` prefabi) | `GameMenu` |
-| `Scenes/Loading.zscene` | yuklanish ekrani: progress bar ([Scenes.md](Scenes.md#5-fonda-yuklash-va-yuklanish-ekrani)) | `LoadingScreen` |
+| `Scenes/UILayout.zscene` | Canvas scale, stretched panels, vertical / grid / horizontal groups, events, navigation, Show / Hide animations, `PunchUIScale`, text wrapping and ellipsis | `UILayoutDemo` |
+| `Scenes/UIWidgets.zscene` | sliders, toggles (with a group), a progress bar, a radial fill, an input field, a button | `UIWidgetsDemo` |
+| `Scenes/Level1.zscene` ... `Level3` | the HUD, the pause menu (scroll view, mask, sliders, switches) | `PauseMenu`, `GameManager` |
+| `Scenes/Menu.zscene` | the main menu (the `GameMenu` prefab) | `GameMenu` |
+| `Scenes/Loading.zscene` | the loading screen: a progress bar ([Scenes.md](Scenes.md#5-fonda-yuklash-va-yuklanish-ekrani)) | `LoadingScreen` |
 
 ---
 
-## 16. Ko'p uchraydigan muammolar
+## 16. Common problems
 
-| Belgi | Sabab va yechim |
+| Symptom | Cause and fix |
 |---|---|
-| UI ko'rinmaydi | Obyektda UI Transform yo'q (dunyoda chiziladi), obyekt yoki ota nofaol, `Alpha` 0, yoki to'rtburchak ekrandan tashqarida (langar / `Position`) |
-| Ekran o'lchami o'zgarganda UI siljib ketadi | Canvas yo'q yoki langar noto'g'ri: burchakdagi element shu burchakka, panel — cho'zilgan langar bilan |
-| Tugma bosilmaydi | Ustida `RaycastTarget` li UI Image (to'sadi), maska tashqarisida, `Interactable` o'chiq, yoki obyekt nofaol |
-| `OnClick` kelmaydi, lekin `"UIClick"` keladi | Skript boshqa obyektda — `OnClick` faqat tugma obyektining o'z skriptiga; boshqalar `Subscribe("UIClick", ...)` yoki **Xabar nomi** |
-| Pauzada menyu skripti ishlamaydi | `SetUpdateWhenPaused(true)` qiling (`OnCreate` da) |
-| Strelkalar o'yin qahramonini ham yurgizadi | Menyu ochilganda `SetSelectedUI` bilan vidjet tanlang (navigatsiya tugmalarni oladi) yoki o'yin skriptida `IsGamePaused()` ni tekshiring |
-| Layout guruhidagi obyektni surib bo'lmaydi | Guruh joylaydi — `UILayoutElement`'da `IgnoreLayout` yoki guruh sozlamalari |
-| Matn xira yoki chetidan chiqadi | `FontSize` ni bering, `WordWrap` / `Overflow` ni tanlang |
+| The UI does not show | The object has no UI Transform (it is drawn in the world), the object or a parent is inactive, `Alpha` is 0, or the rectangle is off the screen (anchor / `Position`) |
+| The UI shifts when the screen size changes | No Canvas or a wrong anchor: a corner element to its corner, a panel with a stretched anchor |
+| A button cannot be clicked | A UI Image with `RaycastTarget` above it (blocks), outside a mask, `Interactable` off, or the object is inactive |
+| `OnClick` does not arrive but `"UIClick"` does | The script is on another object — `OnClick` goes only to the button object's own script; others use `Subscribe("UIClick", ...)` or the **Message name** |
+| The menu script does not run while paused | Call `SetUpdateWhenPaused(true)` (in `OnCreate`) |
+| The arrows also move the game's hero | Select a widget with `SetSelectedUI` when the menu opens (navigation takes the buttons) or check `IsGamePaused()` in the game script |
+| An object in a layout group cannot be moved | The group places it — `IgnoreLayout` on its `UILayoutElement`, or the group's settings |
+| Text is blurry or spills over the edge | Give a `FontSize`, choose `WordWrap` / `Overflow` |
 
 ---
 
-## 17. Testlar
+## 17. Tests
 
 ```bash
 ./build/bin/ZaminTests "UI*:TextLayout*:TextEdit*:FontAtlas*"
 ```
 
-Asosiylari: `UIRectLayoutMath`, `UIHierarchyLayout`, `UICanvasScaleMath`, `UICanvasScalesTheUI`, `UILayoutGroupMath`,
-`UILayoutGroupsInTheScene`, `UIPointerEventsReachScripts`, `UIKeyboardAndGamepadNavigation`, `UINavigationIntoInputFields`,
-`UISliderDragging`, `UIToggleClicksAndGroups`, `UIImageBlocksTheMouse`, `UIInputFieldEditing`, `TextEditUTF8`,
-`TextLayoutWordWrap`, `TextLayoutOverflowModes`, `UITweensRunOnUITime`, `UIAnimationShowHideAndFeedback`,
-`UIMaskClipsDrawingAndPicking`, `UIScrollViewDragging`, `UIScrollViewScrollbarAndNavigation`, `UIWidgetsSampleScene`,
-`UILayoutSampleScene`. UI audit: `UIAuditRulesNameEachLayoutDefect`, `UIAuditLaysOutAtAnyViewSizeAndKeepsTheScenesOwn`,
-`SliceMenuLayout*` (vertical slice'larning har ekrani 6 o'lcham x 3 UI masshtabda) va Player darvozasi
-`Tests/slice_ui_test.py` ([VerticalSlices.md](VerticalSlices.md#gates)). Katalog: [Testing.md](Testing.md).
+The main ones: `UIRectLayoutMath`, `UIHierarchyLayout`, `UICanvasScaleMath`, `UICanvasScalesTheUI`,
+`UILayoutGroupMath`, `UILayoutGroupsInTheScene`, `UIPointerEventsReachScripts`, `UIKeyboardAndGamepadNavigation`,
+`UINavigationIntoInputFields`, `UISliderDragging`, `UIToggleClicksAndGroups`, `UIImageBlocksTheMouse`,
+`UIInputFieldEditing`, `TextEditUTF8`, `TextLayoutWordWrap`, `TextLayoutOverflowModes`, `UITweensRunOnUITime`,
+`UIAnimationShowHideAndFeedback`, `UIMaskClipsDrawingAndPicking`, `UIScrollViewDragging`,
+`UIScrollViewScrollbarAndNavigation`, `UIWidgetsSampleScene`, `UILayoutSampleScene`. UI audit:
+`UIAuditRulesNameEachLayoutDefect`, `UIAuditLaysOutAtAnyViewSizeAndKeepsTheScenesOwn`, `SliceMenuLayout*` (every
+screen of the vertical slices at 6 sizes x 3 UI scales) and the Player gate `Tests/slice_ui_test.py`
+([VerticalSlices.md](VerticalSlices.md#gates)). Catalog: [Testing.md](Testing.md).
 
 ---
 
-## 18. Qisqa API ma'lumotnomasi
+## 18. Short API reference
 
-| Nima | API |
+| What | API |
 |---|---|
-| Komponentlar | `UITransformComponent`, `UICanvasComponent`, `UILayoutGroupComponent`, `UILayoutElementComponent`, `UINavigationComponent`, `UIAnimationComponent`, `UIButtonComponent`, `UIImageComponent`, `UISliderComponent`, `UIToggleComponent`, `UIProgressBarComponent`, `UIInputFieldComponent`, `UIMaskComponent`, `UIScrollViewComponent`, `TextComponent` |
-| Joylashuv | `Scene::GetUIRect`, `GetUIScreenRect`, `GetUIParentRect`, `SetUIRect`, `SetUIAnchors`, `SetUIPivot`, `GetUIScale`, `IsUILayoutDriven`, `PickUI`, `GetHoveredUI`; `UIRect` |
-| Callback'lar | `OnClick`, `OnPointerEnter`, `OnPointerExit`, `OnPointerDown`, `OnPointerUp`, `OnPointerClick` (`UIPointerEvent`), `OnSelect`, `OnDeselect`, `OnCancel`, `OnValueChanged`, `OnToggleChanged`, `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`, `OnScrollChanged` |
+| Components | `UITransformComponent`, `UICanvasComponent`, `UILayoutGroupComponent`, `UILayoutElementComponent`, `UINavigationComponent`, `UIAnimationComponent`, `UIButtonComponent`, `UIImageComponent`, `UISliderComponent`, `UIToggleComponent`, `UIProgressBarComponent`, `UIInputFieldComponent`, `UIMaskComponent`, `UIScrollViewComponent`, `TextComponent` |
+| Layout | `Scene::GetUIRect`, `GetUIScreenRect`, `GetUIParentRect`, `SetUIRect`, `SetUIAnchors`, `SetUIPivot`, `GetUIScale`, `IsUILayoutDriven`, `PickUI`, `GetHoveredUI`; `UIRect` |
+| Callbacks | `OnClick`, `OnPointerEnter`, `OnPointerExit`, `OnPointerDown`, `OnPointerUp`, `OnPointerClick` (`UIPointerEvent`), `OnSelect`, `OnDeselect`, `OnCancel`, `OnValueChanged`, `OnToggleChanged`, `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`, `OnScrollChanged` |
 | Event bus | `"UIClick"`, `"UIPointerEnter"` ... `"UIPointerClick"`, `"UISelected"`, `"UIDeselected"`, `"UICancel"`, `"UISliderChanged"`, `"UIToggleChanged"`, `"UITextChanged"`, `"UITextSubmitted"`, `"UITextEndEdit"`, `"UIScrollChanged"` |
-| Vidjetlar (kod) | `Scene::SetSliderValue`, `SetToggle`, `FocusInputField`, `GetFocusedInputField` |
-| Navigatsiya | `Scene::SetSelectedUI`, `GetSelectedUI`, `NavigateUI` (`UINavDirection`), `SubmitUI`, `CancelUI`, `SetUINavigationEnabled` |
-| Animatsiya | `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale`, `TweenUI`, `CancelUITweens`, `ShowUI`, `HideUI`; `Scene::TweenUI` (`UITweenProperty`, `UITweenOptions`, `UITweenLoop`), `PunchUIScale`, `CancelUITween`, `IsUITweening` |
-| Scroll / maska | `Scene::GetScrollPosition`, `SetScrollPosition`, `ScrollBy`, `ScrollIntoView`, `GetScrollContent`, `GetUIClipRect` |
-| Matn | `TextComponent` (`AlignH`, `AlignV`, `WordWrap`, `Overflow`, `LineSpacing`, `LocalizationKey`, `InputHints`), `TextLayout::Layout`, `Input::ExpandBindings` |
-| Matn kiritish | `Input::GetTextInput`, `Input::GetClipboardText`, `Input::SetClipboardText` |
-| Vaqt | `PauseGame`, `ResumeGame`, `IsGamePaused`, `SetUpdateWhenPaused`, `SetTimersUnscaled`, `GetUnscaledDeltaTime` |
+| Widgets (code) | `Scene::SetSliderValue`, `SetToggle`, `FocusInputField`, `GetFocusedInputField` |
+| Navigation | `Scene::SetSelectedUI`, `GetSelectedUI`, `NavigateUI` (`UINavDirection`), `SubmitUI`, `CancelUI`, `SetUINavigationEnabled` |
+| Animation | `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale`, `TweenUI`, `CancelUITweens`, `ShowUI`, `HideUI`; `Scene::TweenUI` (`UITweenProperty`, `UITweenOptions`, `UITweenLoop`), `PunchUIScale`, `CancelUITween`, `IsUITweening` |
+| Scroll / mask | `Scene::GetScrollPosition`, `SetScrollPosition`, `ScrollBy`, `ScrollIntoView`, `GetScrollContent`, `GetUIClipRect` |
+| Text | `TextComponent` (`AlignH`, `AlignV`, `WordWrap`, `Overflow`, `LineSpacing`, `LocalizationKey`, `InputHints`), `TextLayout::Layout`, `Input::ExpandBindings` |
+| Text input | `Input::GetTextInput`, `Input::GetClipboardText`, `Input::SetClipboardText` |
+| Time | `PauseGame`, `ResumeGame`, `IsGamePaused`, `SetUpdateWhenPaused`, `SetTimersUnscaled`, `GetUnscaledDeltaTime` |

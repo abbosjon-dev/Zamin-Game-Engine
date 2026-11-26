@@ -207,16 +207,16 @@ namespace Zamin {
                 InfoRow("Debug", current.DebugContext ? (current.DebugOutput ? Tr("debug konteksti, xabarlar logda") : Tr("debug konteksti"))
                                                       : (current.DebugOutput ? Tr("xabarlar logda") : Tr("yo'q")));
                 InfoRow(Tr("MSAA (oyna)"), current.Samples > 0 ? std::format("{}x", current.Samples) : std::string(Tr("yo'q")));
-                InfoRow(Tr("sRGB oyna buferi"), current.SRGB ? "ha" : Tr("yo'q"));
+                InfoRow(Tr("sRGB oyna buferi"), current.SRGB ? Tr("ha") : Tr("Yo'q"));
                 InfoRow(Tr("Eng katta tekstura"), std::format("{} px", current.MaxTextureSize));
                 InfoRow(Tr("Eng ko'p MSAA"), std::format("{}x", current.MaxSamples));
                 InfoRow(Tr("Anizotropiya"), current.MaxAnisotropy > 0.0f ? TrFormat("{:.0f}x gacha", current.MaxAnisotropy) : std::string(Tr("yo'q")));
                 UI::PropertyLabel("");
-                if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxa olish")))
+                if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxalash")))
                 {
                     ImGui::SetClipboardText(TrFormat("{}\n{} | {} | {}\nGLSL {}\nMSAA {} | sRGB {} | max tekstura {} | max MSAA {} | anizotropiya {:.0f}",
                                                         current.Summary(), current.Vendor, current.Renderer, current.Version, current.ShadingLanguage,
-                                                        current.Samples, current.SRGB ? "ha" : Tr("yo'q"), current.MaxTextureSize, current.MaxSamples,
+                                                        current.Samples, current.SRGB ? Tr("ha") : Tr("Yo'q"), current.MaxTextureSize, current.MaxSamples,
                                                         current.MaxAnisotropy).c_str());
                     ZM_INFO("Graphics context information copied");
                 }

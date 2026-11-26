@@ -8063,7 +8063,7 @@ namespace Zamin {
             }
             ImGui::EndTable();
         }
-        if (ImGui::Button(Tr(ICON_FA_COPY "  Nusxa olish")))
+        if (ImGui::Button(Tr(ICON_FA_COPY "  Nusxalash")))
             ImGui::SetClipboardText((LoadReportFileName(report) + "\n" + report.Format(1000)).c_str());
         ImGui::SameLine();
         if (!report.File.empty() && fs::exists(fs::path(report.File)) && m_SceneState == SceneState::Edit)
@@ -11352,7 +11352,7 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Yuklashlar ro'yxatini bo'shatish (har yuklash konsolga ham yoziladi)");
         ImGui::SameLine();
-        if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxa olish")))
+        if (ImGui::SmallButton(Tr(ICON_FA_COPY "  Nusxalash")))
         {
             std::string text;
             for (const SceneLoadTiming& row : history)

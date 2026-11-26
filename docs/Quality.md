@@ -226,7 +226,7 @@ Tests/bench.sh --compare; Tests/render_bench.sh
    Joriy holatning o'zi limitdan katta bo'lsa, u yagona holat sifatida qoladi. Saqlangan eski snapshot weak reference bilan eslanadi.
 6. Editor xizmatlari alohida kutubxonaga, katta inspektor/build modullari va editor unit testlari alohida fayllarga ajratildi.
    Monolit `EditorLayer.cpp` va qolgan asosiy test faylini keyingi o'zgarishlarda yana maydalash mumkin; bu refaktor butun kod bazasini qayta yozmaydi.
-7. Standart CPU profili x86-64/SSE2. AVX2/FMA faqat aniq opt-in bilan; [talablar](BuildAndExport.md#cpu-profili-va-editor-xizmatlarisiz-runtime).
+7. Standart CPU profili x86-64/SSE2. AVX2/FMA faqat aniq opt-in bilan; [talablar](BuildAndExport.md#the-cpu-profile-and-a-runtime-without-the-editor-services).
 
 Regressiyalar: `SafetyTests.cpp`, `EditorServicesTests.cpp`, `TerrainTests.cpp`. `ZAMIN_EDITOR_TERRAIN=test`
 haqiqiy editor ichida save xatosidan keyin dirty, history va autosave saqlanishini ham tekshiradi.

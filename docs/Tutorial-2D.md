@@ -7,7 +7,7 @@ scripts, the event bus, UI text, camera follow, testing the game and exporting i
 
 ![The finished game](images/tutorial-2d-game.jpg)
 
-You will need: a built Zamin ([BuildAndExport.md](BuildAndExport.md#2-dvigatelni-build-qilish)) and 30-40 minutes. An
+You will need: a built Zamin ([BuildAndExport.md](BuildAndExport.md#2-building-the-engine)) and 30-40 minutes. An
 overview of the editor: [Editor.md](Editor.md); scripts: [Scripting.md](Scripting.md); components: [Components.md](Components.md).
 
 > The steps and scripts of this tutorial were checked by doing them in a real project: the project was created in the

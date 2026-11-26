@@ -9,7 +9,7 @@ of a message into the Console's search field, or find it on this page.
 Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
 [Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar),
 [Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar), [Runtime.md, 15](Runtime.md#15-muammolar-va-yechimlar),
-[BuildAndExport.md, 13](BuildAndExport.md#13-muammolar-va-yechimlar).
+[BuildAndExport.md, 13](BuildAndExport.md#13-problems-and-solutions).
 
 ## Contents
 
@@ -368,7 +368,7 @@ GLFW recognizes a gamepad from its own database - an unknown device stays a plai
 > `script module not found - the game is exported without scripts`
 
 Compile the scripts before exporting. Look at the script module line in the export report (**File → Export report**)
-([BuildAndExport.md, 8](BuildAndExport.md#8-oyinni-eksport-qilish-editor)).
+([BuildAndExport.md, 8](BuildAndExport.md#8-exporting-the-game-editor)).
 
 ### The export report cannot be opened again
 

@@ -7,7 +7,7 @@ The home page is the [README](../README.md).
 
 **Where to start:**
 
-- **New to the engine?** [README](../README.md) → [build](BuildAndExport.md#2-dvigatelni-build-qilish) →
+- **New to the engine?** [README](../README.md) → [build](BuildAndExport.md#2-building-the-engine) →
   [your first 2D game](Tutorial-2D.md) or [your first 3D game](Tutorial-3D.md) → [Editor](Editor.md).
 - **Writing a game?** [C++ scripts](Scripting.md) and [components](Components.md), then the guide of the system you need
   (the table below); when something goes wrong — the [FAQ](FAQ.md).
@@ -64,7 +64,7 @@ The home page is the [README](../README.md).
 | [Runtime.md, section 11](Runtime.md#11-eksport) | An exported game from the player's side |
 
 The API reference (Doxygen, from the comments in the headers): `cmake --build build --target docs` →
-`build/docs/html/index.html` ([BuildAndExport.md, section 7](BuildAndExport.md#7-api-malumotnomasi-doxygen)).
+`build/docs/html/index.html` ([BuildAndExport.md, section 7](BuildAndExport.md#7-the-api-reference-doxygen)).
 
 ## Internals and contributing
 

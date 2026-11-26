@@ -6,7 +6,7 @@ Dvigatelga hissa qo'shmoqchi bo'lganlar va "kapot ostida nima bo'lyapti?" deb qi
 uchun buni bilish shart emas: [Scripting.md](Scripting.md), [Editor.md](Editor.md) va qo'llanmalardan boshlang.
 
 Klasslar va funksiyalarning to'liq ro'yxati - Doxygen API ma'lumotnomasi (`cmake --build build --target docs` yoki
-repozitoriy ildizida `doxygen`; [BuildAndExport.md, 7-bo'lim](BuildAndExport.md#7-api-malumotnomasi-doxygen)).
+repozitoriy ildizida `doxygen`; [BuildAndExport.md, 7-bo'lim](BuildAndExport.md#7-the-api-reference-doxygen)).
 Bu yerda tilga olingan har bir klass va fayl kodda bor - qaysi faylga qarashni ham ko'rsatamiz.
 
 ## Mundarija

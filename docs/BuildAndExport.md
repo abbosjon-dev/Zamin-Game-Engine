@@ -1,38 +1,38 @@
-# Zamin Engine: build qilish va o'yinni eksport qilish
+# Zamin Engine: building and exporting the game
 
-Bu qo'llanma ikki narsa haqida: **dvigatelni manbadan build qilish** (talablar, CMake variantlari va presetlar,
-build turlari, target'lar, API ma'lumotnomasi) va **o'yinni tayyorlab tarqatish** (skript modulini build qilish,
-editordan eksport, eksport papkasi, avtomatik eksport va paketlash, o'yinchi kompyuterida ishga tushirish).
-Player'ning o'zi (buyruq qatori, log, crash hisobotlari) - [Runtime.md](Runtime.md); eksport sozlamalari -
-[ProjectSettings.md, 12-bo'lim](ProjectSettings.md#12-build-sahnalar); ichki tuzilma - [Architecture.md](Architecture.md).
+This guide is about two things: **building the engine from source** (requirements, CMake options and presets,
+build types, targets, the API reference) and **preparing and distributing the game** (building the script module,
+exporting from the editor, the export folder, automatic export and packaging, running on the player's computer).
+The player itself (the command line, the log, crash reports) - [Runtime.md](Runtime.md); the export settings -
+[ProjectSettings.md, section 12](ProjectSettings.md#12-build-sahnalar); the internal structure - [Architecture.md](Architecture.md).
 
-## Mundarija
+## Contents
 
-1. [Talablar](#1-talablar)
-2. [Dvigatelni build qilish](#2-dvigatelni-build-qilish)
-3. [CMake variantlari](#3-cmake-variantlari)
-4. [Presetlar va build turlari](#4-presetlar-va-build-turlari)
-5. [Target'lar va yordamchi buyruqlar](#5-targetlar-va-yordamchi-buyruqlar)
-6. [O'yinning skript modulini build qilish](#6-oyinning-skript-modulini-build-qilish)
-7. [API ma'lumotnomasi (Doxygen)](#7-api-malumotnomasi-doxygen)
-8. [O'yinni eksport qilish (editor)](#8-oyinni-eksport-qilish-editor)
-9. [Eksport papkasi](#9-eksport-papkasi)
-10. [Avtomatik eksport, test va paketlash](#10-avtomatik-eksport-test-va-paketlash)
-11. [O'yinni tarqatish va o'yinchi kompyuterida](#11-oyinni-tarqatish-va-oyinchi-kompyuterida)
-12. [Sanitizer va coverage build'lari](#12-sanitizer-va-coverage-buildlari)
-13. [Muammolar va yechimlar](#13-muammolar-va-yechimlar)
+1. [Requirements](#1-requirements)
+2. [Building the engine](#2-building-the-engine)
+3. [CMake options](#3-cmake-options)
+4. [Presets and build types](#4-presets-and-build-types)
+5. [Targets and helper commands](#5-targets-and-helper-commands)
+6. [Building the game's script module](#6-building-the-games-script-module)
+7. [The API reference (Doxygen)](#7-the-api-reference-doxygen)
+8. [Exporting the game (editor)](#8-exporting-the-game-editor)
+9. [The export folder](#9-the-export-folder)
+10. [Automatic export, testing and packaging](#10-automatic-export-testing-and-packaging)
+11. [Distributing the game and on the player's computer](#11-distributing-the-game-and-on-the-players-computer)
+12. [Sanitizer and coverage builds](#12-sanitizer-and-coverage-builds)
+13. [Problems and solutions](#13-problems-and-solutions)
 
 ---
 
-## 1. Talablar
+## 1. Requirements
 
-- Linux x86_64 (Windows va macOS hali yo'q - [yo'l xaritasi](Features.md#yol-xaritasi)).
-- C++20 kompilyator: **GCC 13+** yoki **Clang 17+**; **CMake 3.20+** (presetlar uchun 3.25+); Ninja tavsiya
-  qilinadi (ixtiyoriy); `git` (bog'liqliklar birinchi configure'da yuklab olinadi).
-- **OpenGL 4.1+** drayveri, X11 yoki Wayland dev paketlari.
-- Fayl dialoglari uchun `zenity` (yoki `kdialog`).
-- Ixtiyoriy: `xvfb-run` (displeysiz testlar va skrinshotlar), `clang-format` 17+ (formatlash tekshiruvi),
-  `doxygen` + `graphviz` (API ma'lumotnomasi), `strip` (binutils: eksport qilingan binarlarni kichraytirish).
+- Linux x86_64 (no Windows and macOS yet - [the roadmap](Features.md#yol-xaritasi)).
+- A C++20 compiler: **GCC 13+** or **Clang 17+**; **CMake 3.20+** (3.25+ for the presets); Ninja is recommended
+  (optional); `git` (the dependencies are downloaded on the first configure).
+- An **OpenGL 4.1+** driver, the X11 or Wayland dev packages.
+- `zenity` (or `kdialog`) for the file dialogs.
+- Optional: `xvfb-run` (tests and screenshots without a display), `clang-format` 17+ (the formatting check),
+  `doxygen` + `graphviz` (the API reference), `strip` (binutils: making the exported binaries smaller).
 
 Ubuntu / Debian:
 ```bash
@@ -50,12 +50,12 @@ Arch:
 sudo pacman -S base-devel cmake ninja mesa libx11 libxrandr libxinerama libxcursor libxi wayland libxkbcommon zenity
 ```
 
-Uchinchi tomon kutubxonalari CMake `FetchContent` bilan qat'iy versiyalarda yuklab olinadi
+The third-party libraries are downloaded at fixed versions with CMake `FetchContent`
 (`cmake/Dependencies.cmake`): GLFW 3.4, GLM 1.0.1, EnTT 3.13.2, nlohmann/json 3.11.3, Box2D 2.4.1, Jolt 5.2.0,
-Dear ImGui 1.91.5 (docking), ImGuizmo, stb, miniaudio 0.11.21, cgltf 1.14, tinyobjloader 2.0.0rc13 (glad
-repozitoriy ichida). Ular `libZamin.so` ichiga kiradi - o'yinchi alohida o'rnatmaydi.
+Dear ImGui 1.91.5 (docking), ImGuizmo, stb, miniaudio 0.11.21, cgltf 1.14, tinyobjloader 2.0.0rc13 (glad is in the
+repository). They go into `libZamin.so` - the player does not install them separately.
 
-## 2. Dvigatelni build qilish
+## 2. Building the engine
 
 ```bash
 git clone https://github.com/abbosjon-dev/zamin-game-engine.git
@@ -64,80 +64,80 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Build turi berilmasa **Release** olinadi. Natija:
+When no build type is given, **Release** is used. The result:
 
 ```
 build/
 ├── bin/
-│   ├── libZamin.so            dvigatel (shared library)
-│   ├── ZaminEditor            editor
-│   ├── ZaminPlayer            player
+│   ├── libZamin.so            the engine (shared library)
+│   ├── ZaminEditor            the editor
+│   ├── ZaminPlayer            the player
 │   ├── ZaminTests, ZaminRenderTests, ZaminBench, ZaminScriptTemplateGen
-│   └── Resources/             dvigatel resurslari (shriftlar; Resources/ dan nusxa)
-├── ZaminConfig.cmake          tashqi o'yin loyihalari uchun (find_package(Zamin CONFIG))
-├── generated/                 ZaminBuildInfo.inc (kommit, sana), ZaminEngineNames.inc
-└── compile_commands.json      IDE / clangd uchun
+│   └── Resources/             the engine resources (fonts; a copy of Resources/)
+├── ZaminConfig.cmake          for external game projects (find_package(Zamin CONFIG))
+├── generated/                 ZaminBuildInfo.inc (commit, date), ZaminEngineNames.inc
+└── compile_commands.json      for an IDE / clangd
 ```
 
-Namuna o'yinlarning skript modullari ham shu build'da yasaladi: `Projects/<O'yin>/Binaries/lib<O'yin>.so`
-(`ZAMIN_BUILD_EXAMPLES`). Ishga tushirish:
+The script modules of the sample games are built in this build too: `Projects/<Game>/Binaries/lib<Game>.so`
+(`ZAMIN_BUILD_EXAMPLES`). Running:
 
 ```bash
-./build/bin/ZaminEditor                          # launcher (loyiha tanlash / yaratish)
-./build/bin/ZaminEditor Projects/Platformer2D    # namuna 2D o'yinni to'g'ridan-to'g'ri ochish
-./build/bin/ZaminEditor Projects/Showcase3D      # namuna 3D sahnalar
-./build/bin/ZaminEditor Projects/Adventure3D     # uchinchi shaxs 3D o'yin
-./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editorsiz
+./build/bin/ZaminEditor                          # the launcher (choose / create a project)
+./build/bin/ZaminEditor Projects/Platformer2D    # open the sample 2D game directly
+./build/bin/ZaminEditor Projects/Showcase3D      # the sample 3D scenes
+./build/bin/ZaminEditor Projects/Adventure3D     # a third-person 3D game
+./build/bin/ZaminPlayer Projects/Platformer2D    # the game without the editor
 ./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/DebugDraw.zscene --debug-raycasts --debug-contacts --debug-velocities
-./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # hamma variantlar: --help
-ctest --test-dir build -LE gui                   # tezkor testlar (unit, benchmark smoke, hujjatlar)
-./build/bin/ZaminTests --filter "Prefab*" --timing   # nom bo'yicha filtr (glob, '-' chiqarib tashlaydi), vaqt hisoboti
-./build/bin/ZaminTests --list                    # testlar nomlari; --help: --slowest N, --fail-fast, --report, --junit
-ctest --test-dir build -L gui                    # editor smoke, skript hot reload, eksport testlari (bir necha daqiqa)
-Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
-Tests/editor_smoke.sh --shots                    # editorning barcha oyna/menyu/popup'lari (xvfb ostida)
-Tests/hot_reload_test.sh                         # skript modulini qayta kompilyatsiya + hot reload
-Tests/export_test.sh                             # eksport + eksport qilingan o'yin headless (skrinshot bilan)
-Tests/package_games.sh --out dist                # uchala namuna o'yin: eksport + tekshiruv + <Nom>-<versiya>-linux-x86_64.tar.gz
-Tests/render_bench.sh                            # 10 000 sprite, 1 000 mesh: ms / kadr (Benchmarks.md)
-Tests/bench.sh --compare                         # ECS, serializatsiya, prefab benchmarklari + boshlang'ich natija bilan solishtirish
-Tests/coverage.sh [--gui] [--html]               # kod qamrovi (gcov, build-cov): modullar bo'yicha hisobot (Coverage.md)
-Tests/sanitize.sh address                        # unit testlar AddressSanitizer + LeakSanitizer bilan (build-asan)
-Tests/sanitize.sh address --smoke --editor-smoke # + 3 o'yin, editor va editor smoke testi ASan ostida (CI'dagi asan job)
-Tests/sanitize.sh undefined --compiler clang     # UndefinedBehaviorSanitizer bilan, Clang (build-ubsan; CI'dagi ubsan-clang)
-Tests/format_check.sh [--base main] [--fix]      # clang-format faqat o'zgargan qatorlarda (.clang-format - mavjud uslub)
+./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # all the options: --help
+ctest --test-dir build -LE gui                   # the quick tests (unit, benchmark smoke, docs)
+./build/bin/ZaminTests --filter "Prefab*" --timing   # a filter by name (glob, '-' excludes), a timing report
+./build/bin/ZaminTests --list                    # the test names; --help: --slowest N, --fail-fast, --report, --junit
+ctest --test-dir build -L gui                    # editor smoke, script hot reload, export tests (a few minutes)
+Tests/render_tests.sh                            # the rendering regression test (needs a display; xvfb-run otherwise)
+Tests/editor_smoke.sh --shots                    # every window/menu/popup of the editor (under xvfb)
+Tests/hot_reload_test.sh                         # recompiling the script module + hot reload
+Tests/export_test.sh                             # export + the exported game headless (with a screenshot)
+Tests/package_games.sh --out dist                # the three sample games: export + check + <Name>-<version>-linux-x86_64.tar.gz
+Tests/render_bench.sh                            # 10 000 sprites, 1 000 meshes: ms / frame (Benchmarks.md)
+Tests/bench.sh --compare                         # ECS, serialization, prefab benchmarks + comparing with the baseline
+Tests/coverage.sh [--gui] [--html]               # code coverage (gcov, build-cov): a report by module (Coverage.md)
+Tests/sanitize.sh address                        # the unit tests with AddressSanitizer + LeakSanitizer (build-asan)
+Tests/sanitize.sh address --smoke --editor-smoke # + 3 games, the editor and the editor smoke test under ASan (the asan job in CI)
+Tests/sanitize.sh undefined --compiler clang     # with UndefinedBehaviorSanitizer, Clang (build-ubsan; ubsan-clang in CI)
+Tests/format_check.sh [--base main] [--fix]      # clang-format on the changed lines only (.clang-format - the existing style)
 ```
 
-Har bir test nimani qo'riqlashi va qachon ishga tushirilishi - [Testing.md](Testing.md); o'lchangan natijalar -
+What each test guards and when it is run - [Testing.md](Testing.md); the measured results -
 [Quality.md](Quality.md).
 
-Manba fayllar `CONFIGURE_DEPENDS` glob bilan yig'iladi: yangi `.cpp` / `.h` qo'shgandan keyin CMake'ni qayta
-ishga tushiring (`cmake -S . -B build`) - build buni odatda o'zi sezadi. Build `-Wall -Wextra -Wpedantic` bilan
-ogohlantirishsiz bo'lishi kerak (`zamin_target_settings`, `cmake/ZaminGame.cmake`).
+The source files are collected with a `CONFIGURE_DEPENDS` glob: after adding a new `.cpp` / `.h`, run CMake
+again (`cmake -S . -B build`) - the build usually notices it by itself. The build must be free of warnings with
+`-Wall -Wextra -Wpedantic` (`zamin_target_settings`, `cmake/ZaminGame.cmake`).
 
-## 3. CMake variantlari
+## 3. CMake options
 
-`-D<NOM>=<qiymat>` bilan configure paytida beriladi.
+Given at configure time with `-D<NAME>=<value>`.
 
-| Variant | Standart | Ma'nosi |
+| Option | Default | Meaning |
 |---|---|---|
-| `CMAKE_BUILD_TYPE` | `Release` | `Debug`, `Release`, `RelWithDebInfo` (4-bo'lim) |
-| `ZAMIN_BUILD_EDITOR` | `ON` | Editor (`ZaminEditor`) |
-| `ZAMIN_BUILD_RUNTIME` | `ON` | Player (`ZaminPlayer`) |
-| `ZAMIN_BUILD_TESTS` | `ON` | Unit testlar, rendering testi, benchmarklar, ctest |
-| `ZAMIN_BUILD_EXAMPLES` | `ON` | Namuna o'yinlarning skript modullari (`Projects/*`) |
-| `ZAMIN_WITH_IMGUI` | editor yoqilganiga bog'liq | ImGui overlay; editor uchun majburiy, runtime-only yangi build'da `OFF` |
-| `ZAMIN_ENABLE_AVX2` | `OFF` | Jolt va engine CPU profili: `OFF` — x86-64/SSE2, `ON` — AVX2/FMA/BMI1/LZCNT/POPCNT/F16C talab qiladi |
-| `ZAMIN_SHIPPING` | `OFF` | Yakuniy o'yin build'i: ishlab chiqish yordamchilari (debug chizish - `DebugDraw`, player'ning `--debug-*` variantlari) kompilyatsiyadan chiqariladi; `BuildInfo::Shipping` |
-| `ZAMIN_DEBUG_DRAW` | `ON` | Debug chizish API'si (`ZAMIN_SHIPPING` bo'lsa e'tiborsiz) |
-| `ZAMIN_ASSERTS` | `AUTO` | `ZM_ASSERT` / `ZM_CORE_ASSERT`: `AUTO` - faqat Debug'da, `ON` - Release'da ham (bajarilmagani crash hisobotini yozadi), `OFF` - hech qachon |
-| `ZAMIN_SANITIZE` | bo'sh | `address`, `undefined`, `leak`, `thread` (ro'yxat ham bo'ladi) - 12-bo'lim |
-| `ZAMIN_COVERAGE` | `OFF` | gcov hisoblagichlari (faqat bizning target'larda) - 12-bo'lim |
-| `ZAMIN_OPTIMIZE_SERIALIZER_IN_DEBUG` | `ON` | Debug'da ham sahna serializatori `-O2` bilan (katta sahnalar bir necha marta tez); debugger'da qadamlash uchun `OFF` |
-| `ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG` | `ON` | Debug'da ham particle simulyatsiyasi `-O2` bilan (~30x tez); debugger uchun `OFF` |
-| `ZAMIN_GAME_MODULE_OUTPUT_DIR` | bo'sh (`build/` dan boshqa build papkasida: `<build>/GameModules`) | O'yin modullari `Projects/<O'yin>/Binaries` o'rniga shu papkaga yoziladi va build'ning o'z dasturlari (`<build>/bin`) ularni o'sha yerdan yuklaydi (loyihaning moduli yangiroq bo'lsa - editor kompilyatsiyasi - u). Asosiy `build/` papkasi modullarni `Binaries/` ga yozadi; ikkinchi build (Release, Clang, benchmark) ularning ustiga yozmaydi |
+| `CMAKE_BUILD_TYPE` | `Release` | `Debug`, `Release`, `RelWithDebInfo` (section 4) |
+| `ZAMIN_BUILD_EDITOR` | `ON` | The editor (`ZaminEditor`) |
+| `ZAMIN_BUILD_RUNTIME` | `ON` | The player (`ZaminPlayer`) |
+| `ZAMIN_BUILD_TESTS` | `ON` | The unit tests, the rendering test, the benchmarks, ctest |
+| `ZAMIN_BUILD_EXAMPLES` | `ON` | The script modules of the sample games (`Projects/*`) |
+| `ZAMIN_WITH_IMGUI` | depends on whether the editor is on | The ImGui overlay; required for the editor, `OFF` in a new runtime-only build |
+| `ZAMIN_ENABLE_AVX2` | `OFF` | The Jolt and engine CPU profile: `OFF` — x86-64/SSE2, `ON` — requires AVX2/FMA/BMI1/LZCNT/POPCNT/F16C |
+| `ZAMIN_SHIPPING` | `OFF` | The final game build: the development helpers (debug drawing - `DebugDraw`, the player's `--debug-*` options) are compiled out; `BuildInfo::Shipping` |
+| `ZAMIN_DEBUG_DRAW` | `ON` | The debug drawing API (ignored with `ZAMIN_SHIPPING`) |
+| `ZAMIN_ASSERTS` | `AUTO` | `ZM_ASSERT` / `ZM_CORE_ASSERT`: `AUTO` - only in Debug, `ON` - in Release too (a failed one writes a crash report), `OFF` - never |
+| `ZAMIN_SANITIZE` | empty | `address`, `undefined`, `leak`, `thread` (a list works too) - section 12 |
+| `ZAMIN_COVERAGE` | `OFF` | gcov counters (only on our targets) - section 12 |
+| `ZAMIN_OPTIMIZE_SERIALIZER_IN_DEBUG` | `ON` | The scene serializer with `-O2` in Debug too (large scenes several times faster); `OFF` to step through it in a debugger |
+| `ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG` | `ON` | The particle simulation with `-O2` in Debug too (~30x faster); `OFF` for the debugger |
+| `ZAMIN_GAME_MODULE_OUTPUT_DIR` | empty (in a build folder other than `build/`: `<build>/GameModules`) | The game modules are written to this folder instead of `Projects/<Game>/Binaries`, and the build's own programs (`<build>/bin`) load them from there (when the project's module is newer - an editor compile - that one). The main `build/` folder writes the modules to `Binaries/`; a second build (Release, Clang, a benchmark) does not overwrite them |
 
-Masalan - faqat dvigatel va player, Shipping:
+For example - only the engine and the player, Shipping:
 
 ```bash
 cmake -S . -B build-ship -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_SHIPPING=ON \
@@ -145,55 +145,55 @@ cmake -S . -B build-ship -G Ninja -DCMAKE_BUILD_TYPE=Release -DZAMIN_SHIPPING=ON
 cmake --build build-ship
 ```
 
-## 4. Presetlar va build turlari
+## 4. Presets and build types
 
 `CMakePresets.json` (CMake 3.25+):
 
-| Preset | Papka | Nima |
+| Preset | Folder | What |
 |---|---|---|
 | `debug` | `build/` | Debug, Ninja |
 | `release` | `build-release/` | Release, Ninja |
-| `clang` | `build-clang/` | Clang bilan Release |
-| `asan`, `ubsan`, `lsan`, `tsan` | `build-asan/` ... | Debug + sanitizer (build preset faqat `ZaminTests`) |
+| `clang` | `build-clang/` | Release with Clang |
+| `asan`, `ubsan`, `lsan`, `tsan` | `build-asan/` ... | Debug + a sanitizer (the build preset only builds `ZaminTests`) |
 | `coverage` | `build-cov/` | Debug + gcov (`Tests/coverage.sh`) |
 
 ```bash
 cmake --preset release && cmake --build --preset release && ctest --preset release -LE gui
 ```
 
-Build turlari:
+Build types:
 
-- **Debug** - ishlab chiqish uchun (assertlar, debugger); serializator va particle'lar baribir optimallashtirilgan
-  (3-bo'lim). Editorni kundalik ishlatish uchun ham yaroqli.
-- **Release** - CMake'ning Release bayroqlari (`-O3 -DNDEBUG`), assertlarsiz (`ZAMIN_ASSERTS=ON` bo'lmasa). CI shu
-  bilan build qiladi.
-- **RelWithDebInfo** - Release + debug ma'lumoti (profiling).
-- **Shipping** - build turi emas, variant: `-DZAMIN_SHIPPING=ON` (odatda Release bilan).
+- **Debug** - for development (asserts, the debugger); the serializer and the particles are optimized anyway
+  (section 3). Fine for everyday use of the editor too.
+- **Release** - CMake's Release flags (`-O3 -DNDEBUG`), without asserts (unless `ZAMIN_ASSERTS=ON`). CI builds
+  with it.
+- **RelWithDebInfo** - Release + debug info (profiling).
+- **Shipping** - not a build type but an option: `-DZAMIN_SHIPPING=ON` (usually with Release).
 
-Build ma'lumoti (kommit, sana, tur, kompilyator) har build'da yangilanadi va `ZaminPlayer --version`, log boshi,
-crash hisobotlari va editorning "Zamin haqida" oynasida ko'rinadi ([Runtime.md, 8-bo'lim](Runtime.md#8-versiya-malumoti)).
+The build info (commit, date, type, compiler) is updated on every build and shows up in `ZaminPlayer --version`, at the start
+of the log, in crash reports and in the editor's "About Zamin" window ([Runtime.md, section 8](Runtime.md#8-versiya-malumoti)).
 
-## 5. Target'lar va yordamchi buyruqlar
+## 5. Targets and helper commands
 
-`cmake --build build --target <nom>`:
+`cmake --build build --target <name>`:
 
-| Target | Nima qiladi |
+| Target | What it does |
 |---|---|
-| `Zamin`, `ZaminEditor`, `ZaminPlayer`, `ZaminTests` ... | Dasturlarning o'zi |
-| `render_tests`, `update_render_references` | Rendering regressiya testi / etalon rasmlarni qayta yaratish ([Testing.md](Testing.md)) |
-| `editor_smoke`, `hot_reload_test`, `export_test` | Editorning barcha oynalari, skript hot reload, eksport testi |
-| `package_games` | Uchala namuna o'yin: eksport + tekshiruv + `.tar.gz` (10-bo'lim) |
-| `bench`, `render_bench`, `player_bench`, `particle_bench`, `nav_bench` | Benchmarklar ([Benchmarks.md](Benchmarks.md)) |
-| `format_check`, `format_stats` | clang-format tekshiruvi ([Testing.md, 9-bo'lim](Testing.md#9-formatting---clang-format)) |
-| `docs` | Doxygen API ma'lumotnomasi (7-bo'lim; faqat Doxygen topilganda) |
+| `Zamin`, `ZaminEditor`, `ZaminPlayer`, `ZaminTests` ... | The programs themselves |
+| `render_tests`, `update_render_references` | The rendering regression test / regenerating the reference pictures ([Testing.md](Testing.md)) |
+| `editor_smoke`, `hot_reload_test`, `export_test` | Every editor window, script hot reload, the export test |
+| `package_games` | The three sample games: export + check + `.tar.gz` (section 10) |
+| `bench`, `render_bench`, `player_bench`, `particle_bench`, `nav_bench` | Benchmarks ([Benchmarks.md](Benchmarks.md)) |
+| `format_check`, `format_stats` | The clang-format check ([Testing.md, section 9](Testing.md#9-formatting---clang-format)) |
+| `docs` | The Doxygen API reference (section 7; only when Doxygen is found) |
 
-Testlar ctest orqali: `ctest --test-dir build -LE gui` (tezkorlar), `-L gui` (displey kerak bo'lganlar), `-L docs`
-(hujjatlar tekshiruvi). Hammasi - [Testing.md](Testing.md).
+Tests through ctest: `ctest --test-dir build -LE gui` (the quick ones), `-L gui` (the ones that need a display), `-L docs`
+(the documentation check). All of them - [Testing.md](Testing.md).
 
-## 6. O'yinning skript modulini build qilish
+## 6. Building the game's script module
 
-O'yinning C++ skriptlari (`<loyiha>/Source/*.cpp`) alohida shared library bo'lib kompilyatsiya qilinadi:
-`<loyiha>/Binaries/lib<O'yin>.so`. Loyihaning `CMakeLists.txt` i (yangi loyihada editor yozadi) shunday:
+The game's C++ scripts (`<project>/Source/*.cpp`) are compiled as a separate shared library:
+`<project>/Binaries/lib<Game>.so`. The project's `CMakeLists.txt` (the editor writes it in a new project) looks like this:
 
 ```cmake
 cmake_minimum_required(VERSION 3.20)
@@ -213,98 +213,98 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Sou
 zamin_add_game_module(Platformer2D ${GAME_SOURCES})
 ```
 
-(`Projects/Platformer2D/CMakeLists.txt`; namunalar qo'shimcha `zamin_target_settings(Platformer2D)` bilan dvigatel
-ogohlantirishlarida build qilinadi - o'z o'yiningizda ham qo'shsa bo'ladi.)
+(`Projects/Platformer2D/CMakeLists.txt`; the samples are built with the engine's warnings through an extra
+`zamin_target_settings(Platformer2D)` - you can add it in your own game too.)
 
-`zamin_add_game_module` (`cmake/ZaminGame.cmake`) `SHARED` kutubxona yasaydi, uni `Zamin::Zamin` bilan bog'laydi,
-natijani `Binaries/` ga (yoki `ZAMIN_GAME_MODULE_OUTPUT_DIR` ga) yozadi va GCC'da `-fno-gnu-unique` beradi
-(busiz modul tushirilmaydi va hot reload ishlamaydi).
+`zamin_add_game_module` (`cmake/ZaminGame.cmake`) makes a `SHARED` library, links it with `Zamin::Zamin`,
+writes the result to `Binaries/` (or to `ZAMIN_GAME_MODULE_OUTPUT_DIR`) and gives `-fno-gnu-unique` on GCC
+(without it the module is not unloaded and hot reload does not work).
 
-Uch yo'l bilan build qilinadi:
+It is built in one of three ways:
 
-1. **Editordan** - **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`). Editor `cmake -S <loyiha> -B <loyiha>/Build
-   -DCMAKE_BUILD_TYPE=Release -DZamin_DIR=<dvigatel build papkasi>` (bor bo'lsa Ninja bilan), keyin `cmake --build`
-   ni ishga tushiradi; chiqish **Kompilyatsiya** oynasida, xatolar ro'yxati bilan. Tayyor modul avtomatik qayta
-   yuklanadi.
-2. **Tashqarida (terminal / IDE)** - xuddi shu buyruqlar; editor ochiq bo'lsa modul o'zgarganini sezib, o'zi qayta
-   yuklaydi:
+1. **From the editor** - **Scripts → Compile + reload** (`Ctrl+B`). The editor runs `cmake -S <project> -B <project>/Build
+   -DCMAKE_BUILD_TYPE=Release -DZamin_DIR=<engine build folder>` (with Ninja when there is one), then `cmake --build`;
+   the output is in the **Compilation** window, with a list of the errors. The finished module is reloaded
+   automatically.
+2. **Outside (a terminal / an IDE)** - the same commands; when the editor is open it notices that the module changed and reloads it
+   by itself:
 
    ```bash
-   cmake -S ~/games/Tangalar -B ~/games/Tangalar/Build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+   cmake -S ~/games/Coins -B ~/games/Coins/Build -G Ninja -DCMAKE_BUILD_TYPE=Release \
          -DZamin_DIR=$HOME/zamin-game-engine/build
-   cmake --build ~/games/Tangalar/Build --parallel
+   cmake --build ~/games/Coins/Build --parallel
    ```
-3. **Dvigatel build'i ichida** - namuna o'yinlar kabi, ildiz `CMakeLists.txt` ga `add_subdirectory(...)` qilinsa
-   (`Zamin` target'i bor - `find_package` kerak emas).
+3. **Inside the engine build** - like the sample games, by an `add_subdirectory(...)` in the root `CMakeLists.txt`
+   (the `Zamin` target exists - no `find_package` needed).
 
-`-DZamin_DIR` - dvigatel **build** papkasi (unda `ZaminConfig.cmake`): o'yin aynan shu dvigatel bilan build
-qilinadi (bir xil sarlavhalar, bir xil define'lar: `ZAMIN_SHIPPING`, `ZM_DEBUG_DRAW`, assertlar). Dvigatel qayta
-build qilinsa o'yin modulini ham qayta build qiling.
+`-DZamin_DIR` is the engine's **build** folder (it has `ZaminConfig.cmake`): the game is built with exactly this engine
+(the same headers, the same defines: `ZAMIN_SHIPPING`, `ZM_DEBUG_DRAW`, asserts). When the engine is rebuilt,
+rebuild the game module too.
 
-Modulni boshqa papkadan yuklash: `ZAMIN_SCRIPT_MODULE_DIR=<papka>` - editor va player loyihaning
-`ScriptModulePath` i o'rniga o'sha papkadagi bir xil nomli modulni yuklaydi (testlar, sanitizer build'lari).
-Bir nechta fayldan iborat skriptlar va boshqa tafsilotlar - [Scripting.md](Scripting.md).
+Loading the module from another folder: `ZAMIN_SCRIPT_MODULE_DIR=<folder>` - the editor and the player load the module with the
+same name from that folder instead of the project's `ScriptModulePath` (tests, sanitizer builds).
+Scripts made of several files and other details - [Scripting.md](Scripting.md).
 
-## 7. API ma'lumotnomasi (Doxygen)
+## 7. The API reference (Doxygen)
 
-Dvigatelning ochiq sarlavhalaridan (`Zamin/src/Zamin`) HTML ma'lumotnoma: har klass, funksiya, komponent maydoni
-- sarlavhalardagi `///` izohlari bilan (inglizcha). Repozitoriy ildizidagi `Doxyfile` ishlatiladi:
+An HTML reference built from the engine's public headers (`Zamin/src/Zamin`): every class, function, component field
+- with the `///` comments of the headers. The `Doxyfile` in the repository root is used:
 
 ```bash
-sudo apt install doxygen graphviz      # graphviz ixtiyoriy (klass diagrammalari)
-doxygen                                # ildizda: build/docs/html/index.html
-cmake --build build --target docs      # yoki CMake orqali: <build>/docs/html/index.html
+sudo apt install doxygen graphviz      # graphviz is optional (class diagrams)
+doxygen                                # in the root: build/docs/html/index.html
+cmake --build build --target docs      # or through CMake: <build>/docs/html/index.html
 ```
 
-- Natija `build/docs/` da (git'ga kirmaydi); ogohlantirishlar `build/docs/doxygen-warnings.log` da (izohlardagi
-  xatolar; hujjatlanmagan a'zolar haqida ogohlantirilmaydi - `EXTRACT_ALL` ularni baribir ro'yxatga oladi).
-- `docs` target'i Doxygen topilganda bo'ladi; Graphviz (`dot`) bo'lmasa diagrammalarsiz ishlaydi.
-- Bosh sahifa - `Zamin/Zamin.h` dagi `@mainpage`; qayerdan boshlash kerakligini ko'rsatadi
-  (`ScriptableEntity`, `Scene`, `Entity`, komponentlar, `SceneManager` ...).
-- `Doxyfile` dagi `PROJECT_NUMBER` CMake'dagi dvigatel versiyasiga teng bo'lishi kerak - `ctest -L docs` tekshiradi.
+- The result is in `build/docs/` (not in git); the warnings are in `build/docs/doxygen-warnings.log` (errors in the
+  comments; there are no warnings about undocumented members - `EXTRACT_ALL` lists them anyway).
+- The `docs` target exists when Doxygen is found; without Graphviz (`dot`) it works without diagrams.
+- The main page is the `@mainpage` in `Zamin/Zamin.h`; it shows where to start
+  (`ScriptableEntity`, `Scene`, `Entity`, the components, `SceneManager` ...).
+- `PROJECT_NUMBER` in the `Doxyfile` must equal the engine version in CMake - `ctest -L docs` checks it.
 
-![Doxygen ma'lumotnomasi: ScriptableEntity klassi sahifasi - callback'lar izohlari bilan](images/doxygen-api-reference.jpg)
+![The Doxygen reference: the ScriptableEntity class page - the callbacks with their comments](images/doxygen-api-reference.jpg)
 
-O'zbekcha qo'llanmalar - [docs/](.) dagi Markdown fayllar; ma'lumotnoma ularni to'ldiradi, almashtirmaydi.
+The guides are the Markdown files in [docs/](.); the reference complements them, it does not replace them.
 
-## 8. O'yinni eksport qilish (editor)
+## 8. Exporting the game (editor)
 
-**Fayl → O'yinni build qilish...** oynasi:
+The **File → Build game...** window:
 
-| Sozlama | Ma'nosi |
+| Setting | Meaning |
 |---|---|
-| Chiqish papkasi | O'yin shu papkaga yig'iladi (bor bo'lsa yangilanadi) |
-| Sahnalarni binar keshga ham yozish (.zsceneb) | Har sahnaning binar nusxasi - player uni tezroq o'qiydi |
-| Ishlatilmagan assetlarni chiqarib tashlash | Faqat o'yin ishlatadigan assetlar ketadi (quyida) |
-| Skript modulini Release'da kompilyatsiya qilish (-O2) | Modul `<loyiha>/Build/ExportRelease` da qayta build qilinadi (editorning moduli tegilmaydi) |
-| Binarlarni strip qilish (player, engine, skriptlar) | Debug ma'lumoti olib tashlanadi - ancha kichik |
-| Prefab ogohlantirishlari xato hisoblansin | Prefab tekshiruvining ogohlantirishlari eksportni to'xtatadi |
+| Output folder | The game is assembled in this folder (updated when it exists) |
+| Also write scenes to the binary cache (.zsceneb) | A binary copy of each scene - the player reads it faster |
+| Leave out unused assets | Only the assets the game uses go along (below) |
+| Compile the script module in Release (-O2) | The module is rebuilt in `<project>/Build/ExportRelease` (the editor's module is not touched) |
+| Strip the binaries (player, engine, scripts) | The debug info is removed - much smaller |
+| Treat prefab warnings as errors | The prefab check's warnings stop the export |
 
-Oxirgi to'rttasi loyihaning sozlamalari (Project settings > Build scenes > Export, `.zproject` dagi `"Export"`
-bo'limi; [ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)). **Build** tugmasi bosilgach eksport
-fonda ishlaydi (editor javob berib turadi):
+The last four are project settings (Project settings > Build scenes > Export, the `"Export"` section in the `.zproject`;
+[ProjectSettings.md](ProjectSettings.md#eksport-ishlatilmagan-assetlar)). After the **Build** button is pressed the export
+runs in the background (the editor stays responsive):
 
-1. Boshlang'ich sahna va build ro'yxati tekshiriladi (o'yinni buzadigani - xato, qolgani - ogohlantirish).
-2. Qaysi assetlar ketishi rejalashtiriladi: build sahnalari, boshlang'ich sahna, ularning sub-sahnalari va ular orqali
-   kerak bo'lgan hamma narsa (prefab'lar, materiallar, modellar, kliplar ...), loyiha faylida (ikonka, splash) va C++
-   kodidagi `"..."` satrlarida tilga olingan fayllar, `Assets/Resources/`, til fayllari, "Doim kiritish" ro'yxati.
-   Qolgani `excluded-assets.txt` ga yoziladi.
-3. Prefab'lar tekshiriladi ([Prefabs.md](Prefabs.md)); sahnalar editorning prefab bog'lanishlarisiz yoziladi.
-4. Player, `libZamin.so`, `Resources/`, loyiha fayli, assetlar (`.zmeta` lari bilan), asset registri
-   (`AssetRegistry.zreg`), sahnalarning binar keshi.
-5. Skript moduli Release'da build qilinadi (yoki editorning moduli nusxalanadi); modul umuman bo'lmasa o'yin
-   skriptlarsiz eksport qilinadi - bu ogohlantirish.
-6. Binarlar `strip` qilinadi, ikonka (16 ... 256 px), `.desktop` fayli va o'rnatish skripti yoziladi.
-7. Papka o'zini tekshiradi (`ExportFiles::CheckExportFolder`): o'yin ishga tushishi uchun kerak bo'lgan hamma narsa
-   joyidami.
-8. **Eksport hisoboti** oynasi: jami hajm, turlar bo'yicha, eng katta fayllar, chiqarib tashlangan assetlar,
-   ogohlantirish va xatolar (`export-report.json`, `export-report.txt`; keyin ham **Fayl → Eksport hisoboti**).
+1. The start scene and the build list are checked (what would break the game is an error, the rest are warnings).
+2. Which assets go along is planned: the build scenes, the start scene, their sub-scenes and everything needed through them
+   (prefabs, materials, models, clips ...), the files named in the project file (the icon, the splash) and in the `"..."` strings of the C++
+   code, `Assets/Resources/`, the language files, the "Always include" list.
+   The rest is written to `excluded-assets.txt`.
+3. The prefabs are checked ([Prefabs.md](Prefabs.md)); the scenes are written without the editor's prefab links.
+4. The player, `libZamin.so`, `Resources/`, the project file, the assets (with their `.zmeta` files), the asset registry
+   (`AssetRegistry.zreg`), the binary cache of the scenes.
+5. The script module is built in Release (or the editor's module is copied); when there is no module at all, the game is
+   exported without scripts - this is a warning.
+6. The binaries are `strip`ped, the icon (16 ... 256 px), the `.desktop` file and the install script are written.
+7. The folder checks itself (`ExportFiles::CheckExportFolder`): is everything the game needs to start in
+   place.
+8. The **Export report** window: the total size, by type, the largest files, the excluded assets,
+   the warnings and errors (`export-report.json`, `export-report.txt`; later too with **File → Export report**).
 
-![Eksport hisoboti oynasi: Platformer2D - jami hajm, turlar bo'yicha, eng katta fayllar, chiqarib tashlangan assetlar](images/export-report-editor.jpg)
+![The Export report window: Platformer2D - the total size, by type, the largest files, the excluded assets](images/export-report-editor.jpg)
 
-*Platformer2D eksportidan keyingi **Eksport hisoboti** oynasi (`ZAMIN_EDITOR_EXPORT_REPORT=<papka>` bilan qayta ochilgan).*
+*The **Export report** window after the Platformer2D export (reopened with `ZAMIN_EDITOR_EXPORT_REPORT=<folder>`).*
 
-Log'da shunday ko'rinadi (Platformer2D, Debug dvigatel build'idan):
+In the log it looks like this (Platformer2D, from a Debug engine build):
 
 ```
 Export: 16 scenes of the build list
@@ -316,148 +316,148 @@ Export: icon in 6 sizes (16 ... 256 px, icons/hicolor)
 Export report: 122 files, 45.0 MB (0 warnings, 0 errors) - .../export-report.txt
 ```
 
-## 9. Eksport papkasi
+## 9. The export folder
 
 ```
 Platformer2D/
-├── Platformer2D.sh              ishga tushirish skripti (o'z papkasiga o'tadi: ZaminPlayer Game/Platformer2D.zproject)
-├── ZaminPlayer, libZamin.so     player va dvigatel (RPATH $ORIGIN: bir-birini yonidan topadi)
-├── Resources/                   dvigatel resurslari (shriftlar)
+├── Platformer2D.sh              the start script (changes to its own folder: ZaminPlayer Game/Platformer2D.zproject)
+├── ZaminPlayer, libZamin.so     the player and the engine (RPATH $ORIGIN: they find each other next to them)
+├── Resources/                   the engine resources (fonts)
 ├── Game/
-│   ├── Platformer2D.zproject    loyiha fayli
-│   ├── Assets/                  o'yin ishlatadigan assetlar (+ .zmeta, sahnalarning .zsceneb keshi)
-│   ├── AssetRegistry.zreg       asset registri (faqat eksport qilinganlar)
-│   └── Binaries/libPlatformer2D.so   skript moduli
-├── Platformer2D.desktop         ko'chiriladigan menyu yozuvi
-├── Platformer2D.png, icons/hicolor/<o'lcham>/apps/...   ikonka
-├── install-desktop-entry.sh     ilovalar menyusiga o'rnatish (--uninstall - olib tashlash)
+│   ├── Platformer2D.zproject    the project file
+│   ├── Assets/                  the assets the game uses (+ .zmeta, the .zsceneb cache of the scenes)
+│   ├── AssetRegistry.zreg       the asset registry (only the exported ones)
+│   └── Binaries/libPlatformer2D.so   the script module
+├── Platformer2D.desktop         a relocatable menu entry
+├── Platformer2D.png, icons/hicolor/<size>/apps/...   the icon
+├── install-desktop-entry.sh     installs into the applications menu (--uninstall - removes it)
 ├── export-report.json, export-report.txt
-└── excluded-assets.txt          chiqarib tashlangan assetlar (bo'lsa)
+└── excluded-assets.txt          the excluded assets (when there are any)
 ```
 
-Papkani istalgan joyga ko'chirish yoki arxivlash mumkin: `<O'yin>.sh` va `.desktop` o'z joyidan ishlaydi (o'yin
-yangi joydan birinchi ishga tushganda `.desktop` dagi ikonka yo'lini to'g'rilaydi). Har fayl nima ekani va ishga
-tushish tafsilotlari - [Runtime.md, 11-bo'lim](Runtime.md#11-eksport).
+The folder can be moved anywhere or archived: `<Game>.sh` and the `.desktop` work from where they are (when the game first
+starts from a new place it fixes the icon path in the `.desktop`). What each file is and the details of
+starting - [Runtime.md, section 11](Runtime.md#11-eksport).
 
-## 10. Avtomatik eksport, test va paketlash
+## 10. Automatic export, testing and packaging
 
-Editor eksportni displeysiz ham qiladi:
+The editor exports without a display too:
 
 ```bash
 ZAMIN_EDITOR_EXPORT=/tmp/Platformer2D ZAMIN_MAX_FRAMES=8 xvfb-run -a ./build/bin/ZaminEditor Projects/Platformer2D
 ```
 
-(`ZAMIN_EDITOR_EXPORT=<papka>` - 5-kadrda eksport boshlanadi va tugaguncha kutiladi; chiqish kodi 0 - muvaffaqiyat.)
+(`ZAMIN_EDITOR_EXPORT=<folder>` - the export starts in frame 5 and is waited for until it finishes; exit code 0 means success.)
 
-- **`Tests/export_test.sh`** (`--project`, `--frames`, `--keep`, `--work`; target `export_test`) - eksport, `--version`,
-  eksport qilingan o'yinni ishga tushirish skripti orqali `--benchmark` bilan, skrinshot bilan va boshqa papkaga
-  ko'chirilgandan keyin ishga tushirish. Natija va variantlar: [Runtime.md, 13-bo'lim](Runtime.md#13-eksport-testi-avtomatik).
-- **`Tests/package_games.sh`** (target `package_games`) - uchala namuna o'yinni eksport qiladi, `export_test.sh` bilan
-  tekshiradi va `<Nom>-<versiya>-linux-x86_64.tar.gz` + `.sha256` qilib qadoqlaydi (arxiv qayta ochilib sinaladi):
+- **`Tests/export_test.sh`** (`--project`, `--frames`, `--keep`, `--work`; target `export_test`) - the export, `--version`,
+  running the exported game through its start script with `--benchmark`, with a screenshot, and running it after it was
+  moved to another folder. The result and the options: [Runtime.md, section 13](Runtime.md#13-eksport-testi-avtomatik).
+- **`Tests/package_games.sh`** (target `package_games`) - exports the three sample games, checks them with `export_test.sh`
+  and packs them as `<Name>-<version>-linux-x86_64.tar.gz` + `.sha256` (the archive is unpacked again and tried):
 
   ```bash
-  Tests/package_games.sh --out dist                      # dist/*.tar.gz, dist/summary.md, dist/logs/<o'yin>/
+  Tests/package_games.sh --out dist                      # dist/*.tar.gz, dist/summary.md, dist/logs/<game>/
   Tests/package_games.sh --frames 60 Projects/Adventure3D
-  ZAMIN_BUILD_DIR=build-release Tests/package_games.sh   # boshqa build'ning dvigateli / player'i bilan
+  ZAMIN_BUILD_DIR=build-release Tests/package_games.sh   # with the engine / player of another build
   ```
-- **CI** (`.github/workflows/linux.yml`): har push / pull request'da `build` job GCC va Clang bilan build qiladi,
-  testlarni ishga tushiradi va o'yin build'larini artefakt sifatida yuklaydi (`player-builds-gcc`,
-  `player-builds-clang`: `.tar.gz` + `.sha256`, 14 kun). Boshqa job'lar: `sanitizers`, `format`, `coverage`
+- **CI** (`.github/workflows/linux.yml`): on every push / pull request the `build` job builds with GCC and Clang,
+  runs the tests and uploads the game builds as artifacts (`player-builds-gcc`,
+  `player-builds-clang`: `.tar.gz` + `.sha256`, 14 days). The other jobs: `sanitizers`, `format`, `coverage`
   ([Testing.md](Testing.md#ci-githubworkflowslinuxyml)).
 
-Eksport sinovi uchun ishlash testi (`--benchmark N`, `--benchmark-out`, chegaralar) - [Runtime.md, 12-bo'lim](Runtime.md#12-ishlash-testi-headless).
+The performance test for checking an export (`--benchmark N`, `--benchmark-out`, the limits) - [Runtime.md, section 12](Runtime.md#12-ishlash-testi-headless).
 
-## 11. O'yinni tarqatish va o'yinchi kompyuterida
+## 11. Distributing the game and on the player's computer
 
-1. Eksport papkasini arxivlang (`tar czf Tangalar-1.0.0.tar.gz Tangalar/`) yoki `Tests/package_games.sh` kabi
-   qadoqlang.
-2. O'yinchi ochadi va ishga tushiradi:
+1. Archive the export folder (`tar czf Coins-1.0.0.tar.gz Coins/`) or pack it the way
+   `Tests/package_games.sh` does.
+2. The player unpacks and runs it:
 
    ```bash
-   tar xzf Tangalar-1.0.0.tar.gz && cd Tangalar
-   ./Tangalar.sh                       # yoki: ./Tangalar.sh --fullscreen --lang en
-   ./install-desktop-entry.sh          # ixtiyoriy: ilovalar menyusiga (ikonka bilan)
+   tar xzf Coins-1.0.0.tar.gz && cd Coins
+   ./Coins.sh                          # or: ./Coins.sh --fullscreen --lang en
+   ./install-desktop-entry.sh          # optional: into the applications menu (with the icon)
    ```
 
-O'yinchining kompyuterida kerak: Linux x86_64, OpenGL 4.1 ni qo'llaydigan drayver, X11 yoki Wayland ish stoli.
-Dvigatel va hamma kutubxonalar papkada (yoki `libZamin.so` ichida) - alohida o'rnatiladigan narsa yo'q. O'yinchi
-uchun foydali variantlar (`--windowed`, `--resolution 1280x720`, `--quality Low`, `--no-splash`, `--gl 4.1`,
-`--log-level`, `--version`, `--help` ...) - [Runtime.md, 4-bo'lim](Runtime.md#4-buyruq-qatori); log va crash
-fayllari `~/.local/share/<kompaniya>/<o'yin>/logs/` da ([Runtime.md, 6-bo'lim](Runtime.md#6-log-fayllari)).
+The player's computer needs: Linux x86_64, a driver that supports OpenGL 4.1, an X11 or Wayland desktop.
+The engine and all the libraries are in the folder (or inside `libZamin.so`) - nothing to install separately. Useful options
+for the player (`--windowed`, `--resolution 1280x720`, `--quality Low`, `--no-splash`, `--gl 4.1`,
+`--log-level`, `--version`, `--help` ...) - [Runtime.md, section 4](Runtime.md#4-buyruq-qatori); the log and crash
+files are in `~/.local/share/<company>/<game>/logs/` ([Runtime.md, section 6](Runtime.md#6-log-fayllari)).
 
-Versiya, kompaniya va mahsulot nomi, ikonka, splash, oyna sozlamalari - Project settings > Player
-([ProjectSettings.md, 4-bo'lim](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka)).
+The version, the company and product names, the icon, the splash, the window settings - Project settings > Player
+([ProjectSettings.md, section 4](ProjectSettings.md#4-player-oyna-nom-versiya-ikonka)).
 
-## 12. Sanitizer va coverage build'lari
+## 12. Sanitizer and coverage builds
 
-- **Sanitizerlar**: `-DZAMIN_SANITIZE=address` (yoki `undefined`, `leak`, `thread`; presetlar `asan` ...). Bayroqlar
-  hamma target'larga (vendor kutubxonalarga ham) va `ZaminConfig.cmake` orqali tashqi o'yin modullariga beriladi.
-  Bunday build o'yin modullarini loyihaning `Binaries/` iga emas, o'zining `GameModules/` papkasiga yozadi va o'z
-  dasturlari o'sha yerdan yuklaydi. Qulay yo'l - `Tests/sanitize.sh address [--smoke] [--editor-smoke]`.
-Yangi native modul konfiguratsiyasi engine build'idagi `ZaminModuleCompiler.cmake` initial-cache
-faylini `-C` orqali o'qiydi: F7 va eksport engine ishlatgan C/C++ kompilyatorini tanlaydi.
-Bu `project()` dan oldin bajariladi; mavjud CMake cache yoki aniq berilgan compiler
-qiymati almashtirilmaydi. Kompilyatorni almashtirayotgan loyihada yangi build papkasidan
-foydalaning. Mos kelmagan kompilyatorni SDK ABI tekshiruvi rad etishda davom etadi.
+- **Sanitizers**: `-DZAMIN_SANITIZE=address` (or `undefined`, `leak`, `thread`; the presets `asan` ...). The flags go
+  to every target (the vendor libraries too) and, through `ZaminConfig.cmake`, to external game modules.
+  Such a build writes the game modules not to the project's `Binaries/` but to its own `GameModules/` folder, and its own
+  programs load them from there. The convenient way - `Tests/sanitize.sh address [--smoke] [--editor-smoke]`.
+A new native module configuration reads the `ZaminModuleCompiler.cmake` initial-cache file of the engine build
+through `-C`: F7 and the export choose the C/C++ compiler the engine used.
+This runs before `project()`; an existing CMake cache or an explicitly given compiler
+value is not replaced. In a project that switches compilers, use a new build
+folder. The SDK ABI check keeps rejecting a compiler that does not match.
 
-Clang sanitizer build'larida runtime yakuniy executable tomonidan ulanadi: instrumentlangan engine
-shared library'larida `--no-undefined` qo'llanmaydi. Oddiy build'larda engine va UI'siz kutubxona
-uchun bu tekshiruv saqlanadi. `SanitizerSharedLink` CTest'i production CMake qoidasini kichik
-ASan/UBSan DSO va consumer bilan tekshiradi, haqiqiy overflow aniqlanishi hamda oddiy build'da
-noto'g'ri application symbol rad etilishini tasdiqlaydi. Clang yoki compiler-rt bo'lmasa bu
-qo'shimcha test o'tkazib yuboriladi.
+In Clang sanitizer builds the runtime is linked by the final executable: `--no-undefined` is not applied to the
+instrumented engine shared libraries. In normal builds this check is kept for the engine and the library without UI.
+The `SanitizerSharedLink` CTest checks the production CMake rule with a small
+ASan/UBSan DSO and a consumer, and confirms that a real overflow is detected and that a
+wrong application symbol is rejected in a normal build. Without Clang or compiler-rt this
+extra test is skipped.
 
-- **Coverage**: `-DZAMIN_COVERAGE=ON` (preset `coverage`) - faqat bizning target'lar `--coverage -O0` bilan;
+- **Coverage**: `-DZAMIN_COVERAGE=ON` (the `coverage` preset) - only our targets with `--coverage -O0`;
   `Tests/coverage.sh [--gui] [--html]` ([Coverage.md](Coverage.md)).
 
-Natijalar va ularni qachon ishlatish - [Testing.md, 6-bo'lim](Testing.md#6-sanitizers), [Quality.md](Quality.md).
+The results and when to use them - [Testing.md, section 6](Testing.md#6-sanitizers), [Quality.md](Quality.md).
 
-## 13. Muammolar va yechimlar
+## 13. Problems and solutions
 
-| Muammo | Yechim |
+| Problem | Solution |
 |---|---|
-| Birinchi configure uzoq yoki tarmoq xatosi bilan tugaydi | Bog'liqliklar `git` bilan yuklab olinadi: internet va `git` bormi? Qayta ishga tushiring - yuklanganlari `build/_deps` da qoladi |
-| `Could not find a package configuration file provided by "Zamin"` (o'yin loyihasida) | `-DZamin_DIR=<dvigatel build papkasi>` bering (unda `ZaminConfig.cmake` bor); editordan kompilyatsiya buni o'zi beradi |
-| Skript moduli kompilyatsiya bo'ldi, lekin editor eski kodni ishlatyapti | Modul boshqa papkaga yozilgan bo'lishi mumkin (`ZAMIN_GAME_MODULE_OUTPUT_DIR`); loyihaning `ScriptModulePath` i `Binaries/lib<O'yin>.so` mi? |
-| Dvigatelni qayta build qilgandan keyin o'yin qulaydi yoki yuklanmaydi | Modul eski sarlavhalar bilan build qilingan: skriptlarni qayta kompilyatsiya qiling |
-| Eksport: `skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi` | Skript moduli hali build qilinmagan - avval **Skriptlar → Kompilyatsiya + qayta yuklash** |
-| Eksport hisobotida xato: sahna / registr / modul yo'q | Hisobot nima yetishmasligini aytadi (`ExportFiles::CheckExportFolder`); boshlang'ich sahna va build ro'yxatini tekshiring (Project settings > Build scenes) |
-| Eksport qilingan o'yin juda katta | **Binarlarni strip qilish** yoqilganmi? `strip` (binutils) o'rnatilganmi? Release dvigatel build'idan eksport qiling |
-| O'yinda biror asset yo'q (eksportdan keyin) | Fayl nomi kodda yasalgan bo'lsa (`"Level" + n`), eksport uni topa olmaydi - "Doim kiritish" ro'yxatiga qo'shing; `excluded-assets.txt` ga qarang |
+| The first configure takes long or ends with a network error | The dependencies are downloaded with `git`: is there internet and `git`? Run it again - what was downloaded stays in `build/_deps` |
+| `Could not find a package configuration file provided by "Zamin"` (in a game project) | Give `-DZamin_DIR=<engine build folder>` (it has `ZaminConfig.cmake`); a compile from the editor gives it by itself |
+| The script module compiled, but the editor runs the old code | The module may have been written to another folder (`ZAMIN_GAME_MODULE_OUTPUT_DIR`); is the project's `ScriptModulePath` `Binaries/lib<Game>.so`? |
+| After rebuilding the engine the game crashes or does not load | The module was built with the old headers: recompile the scripts |
+| Export: `script module not found - the game is exported without scripts` | The script module is not built yet - first **Scripts → Compile + reload** |
+| An error in the export report: no scene / registry / module | The report says what is missing (`ExportFiles::CheckExportFolder`); check the start scene and the build list (Project settings > Build scenes) |
+| The exported game is very large | Is **Strip the binaries** on? Is `strip` (binutils) installed? Export from a Release engine build |
+| An asset is missing in the game (after the export) | When the file name is built in code (`"Level" + n`), the export cannot find it - add it to the "Always include" list; look at `excluded-assets.txt` |
 
-Ko'proq savollar va xabarlar matni bilan - [FAQ.md](FAQ.md).
-
-
-## CPU profili va editor xizmatlarisiz runtime
-
-Standart x86-64 build SSE2 bazasida yig'iladi. Jolt'ning AVX, AVX2, FMA, SSE4, F16C va bit-operation
-tezlashtirish bayroqlari o'z-o'zidan yoqilmaydi. `-DZAMIN_ENABLE_AVX2=ON` ularni aniq yoqadi;
-bunday distributiv uchun AVX2, FMA, BMI1, LZCNT, POPCNT va F16C bor CPU kerak. `-march=native` kabi
-qo'shimcha toolchain bayroqlari bu minimal talabni oshirishi mumkin.
-
-`ZAMIN_BUILD_EDITOR=OFF` va `ZAMIN_WITH_IMGUI=OFF` bilan runtime-only build editor utilitalari,
-Dear ImGui yoki ImGuizmo'ni kompilyatsiya/link qilmaydi. CMake cache'da oldingi overlay qiymati qolgan
-bo'lsa `-DZAMIN_WITH_IMGUI=OFF` ni aniq bering. C++ o'yin modullarining SDK'si editor xizmatlariga bog'liq emas.
-
-Editor va testlar `ZaminEditorSupport` statik kutubxonasini ishlatadi. Umumiy engine kodi `ZaminCoreObjects`
-OBJECT targetida bir marta yig'iladi. Test build'ida `cmake --build build-review --target ZaminStandalone`
-ImGui'siz haqiqiy `build-review/bin/runtime-check/libZamin.so` hosil qiladi. `LD_LIBRARY_PATH` bilan
-shu kutubxonada `ZaminPlayer` ni ishga tushirish runtime chegarasini sinashga xizmat qiladi.
+More questions, with the message texts - [FAQ.md](FAQ.md).
 
 
-### Native modul SDK mosligi
+## The CPU profile and a runtime without the editor services
 
-SDK consumer'lari `zamin_add_game_module` orqali quriladi. Helper `.zamin_abi` yozuvini yaratadi va engine'ga tegishli SDK header fingerprint/toolchain'ini konfiguratsiyada tekshiradi. SDK fayllari o'zgargan bo'lsa avval engine'ni qayta build qiling, keyin loyiha build'ini qayta konfiguratsiya qiling. To'g'ridan-to'g'ri qo'lda yaratilgan eski `.so` yuklanmaydi. Loader xato nomzodga o'tishdan oldin ishlayotgan modulni saqlaydi; eksport ham nusxalangan modulning mosligini tekshiradi. Tafsilotlar: [Scripting.md](Scripting.md#native-sdk--abi-mosligi).
+The default x86-64 build is built on the SSE2 baseline. Jolt's AVX, AVX2, FMA, SSE4, F16C and bit-operation
+acceleration flags are not turned on by themselves. `-DZAMIN_ENABLE_AVX2=ON` turns them on explicitly;
+such a distribution needs a CPU with AVX2, FMA, BMI1, LZCNT, POPCNT and F16C. Extra toolchain flags like
+`-march=native` can raise this minimum requirement.
+
+A runtime-only build with `ZAMIN_BUILD_EDITOR=OFF` and `ZAMIN_WITH_IMGUI=OFF` does not compile/link the editor utilities,
+Dear ImGui or ImGuizmo. When an earlier overlay value is left in the CMake cache,
+give `-DZAMIN_WITH_IMGUI=OFF` explicitly. The SDK of the C++ game modules does not depend on the editor services.
+
+The editor and the tests use the `ZaminEditorSupport` static library. The shared engine code is built once in the
+`ZaminCoreObjects` OBJECT target. In a test build `cmake --build build-review --target ZaminStandalone`
+produces a real `build-review/bin/runtime-check/libZamin.so` without ImGui. Running `ZaminPlayer` on this
+library with `LD_LIBRARY_PATH` serves to test the runtime boundary.
 
 
-### Streaming world eksporti
+### Native module SDK compatibility
 
-`Project.StreamingWorld` asset ildiziga nisbatan `.zworld` faylini bildiradi. Player anchor scene bilan
-boshlanadi va world’ni avtomatik ulaydi. Editor eksporti manifest/policy va barcha katak scene yo‘llarini
-tekshiradi, build list bo‘lsa world scene’larini ham qo‘shadi. Manifest → scene → asset reference zanjiri
-unused-assets filtri bilan ham saqlanadi. World’ni **Oyna → World Streaming** orqali sozlang;
-[ishlash tartibi va chegaralar](Terrain.md) shu yerda qayd etilgan. Asset byudjeti (`AssetStreaming`) va
-rezidentlik limitlari `.zworld` siyosatining qismi bo‘lib eksportda o‘zgarishsiz ishlaydi; eksport qilingan
-o‘yin ham `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT` ni qabul qiladi (`.ztour` ga mutlaq yo‘l bering — u eksport
-closure’iga kirmaydi). `Tests/world_asset_streaming_test.py --stage demo` WorldGallery3D’ni eksport qiladi,
-papkani ko‘chiradi va shu kamera yo‘lini eksportda qayta bosib o‘tadi.
+SDK consumers are built through `zamin_add_game_module`. The helper creates a `.zamin_abi` record and checks the engine's SDK header fingerprint/toolchain at configure time. When the SDK files changed, rebuild the engine first, then reconfigure the project build. An old `.so` made directly by hand is not loaded. The loader keeps the running module before moving on to a wrong candidate; the export also checks the compatibility of the copied module. Details: [Scripting.md](Scripting.md#native-sdk--abi-mosligi).
+
+
+### Streaming world export
+
+`Project.StreamingWorld` names a `.zworld` file relative to the asset root. The player starts with the anchor scene
+and attaches the world automatically. The editor export checks the manifest/policy and every cell scene path,
+and adds the world scenes to the build list when there is one. The manifest → scene → asset reference chain
+is kept with the unused-assets filter too. Set the world up through **Window → World Streaming**;
+[how it works and its limits](Terrain.md) are recorded there. The asset budget (`AssetStreaming`) and the
+residency limits are part of the `.zworld` policy and work unchanged in the export; an exported
+game also accepts `ZAMIN_WORLD_TOUR` / `ZAMIN_WORLD_REPORT` (give the `.ztour` an absolute path — it is not part of the export
+closure). `Tests/world_asset_streaming_test.py --stage demo` exports WorldGallery3D,
+moves the folder and replays the same camera path in the export.

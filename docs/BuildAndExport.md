@@ -184,7 +184,7 @@ crash hisobotlari va editorning "Zamin haqida" oynasida ko'rinadi ([Runtime.md, 
 | `editor_smoke`, `hot_reload_test`, `export_test` | Editorning barcha oynalari, skript hot reload, eksport testi |
 | `package_games` | Uchala namuna o'yin: eksport + tekshiruv + `.tar.gz` (10-bo'lim) |
 | `bench`, `render_bench`, `player_bench`, `particle_bench`, `nav_bench` | Benchmarklar ([Benchmarks.md](Benchmarks.md)) |
-| `format_check`, `format_stats` | clang-format tekshiruvi ([Testing.md, 9-bo'lim](Testing.md#9-formatlash---clang-format)) |
+| `format_check`, `format_stats` | clang-format tekshiruvi ([Testing.md, 9-bo'lim](Testing.md#9-formatting---clang-format)) |
 | `docs` | Doxygen API ma'lumotnomasi (7-bo'lim; faqat Doxygen topilganda) |
 
 Testlar ctest orqali: `ctest --test-dir build -LE gui` (tezkorlar), `-L gui` (displey kerak bo'lganlar), `-L docs`
@@ -410,7 +410,7 @@ qo'shimcha test o'tkazib yuboriladi.
 - **Coverage**: `-DZAMIN_COVERAGE=ON` (preset `coverage`) - faqat bizning target'lar `--coverage -O0` bilan;
   `Tests/coverage.sh [--gui] [--html]` ([Coverage.md](Coverage.md)).
 
-Natijalar va ularni qachon ishlatish - [Testing.md, 6-bo'lim](Testing.md#6-sanitizerlar), [Quality.md](Quality.md).
+Natijalar va ularni qachon ishlatish - [Testing.md, 6-bo'lim](Testing.md#6-sanitizers), [Quality.md](Quality.md).
 
 ## 13. Muammolar va yechimlar
 

@@ -5,8 +5,8 @@ collider'lar, joint'lar, effektorlar, Character Controller 3D, fizik materiallar
 boshqarish, to'qnashuv va trigger callback'lari, raycast / overlap / shape cast so'rovlari, uxlash, debug ko'rinishlari
 va determinizm — editorda qanday sozlanishi va C++ skriptda qanday ishlatilishi bilan.
 
-Komponentlarning to'liq maydonlari (turi, standart qiymati) [Components.md](Components.md) da: [Fizika 2D](Components.md#4-fizika-2d)
-va [Fizika 3D](Components.md#5-fizika-3d). Skript API'ning umumiy qo'llanmasi — [Scripting.md](Scripting.md). Bu yerdagi
+Komponentlarning to'liq maydonlari (turi, standart qiymati) [Components.md](Components.md) da: [Fizika 2D](Components.md#4-physics-2d)
+va [Fizika 3D](Components.md#5-physics-3d). Skript API'ning umumiy qo'llanmasi — [Scripting.md](Scripting.md). Bu yerdagi
 misollar `#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan yozilgan.
 
 ![Fizika debug ko'rinishi: kontakt nuqtalari, joint yuklari, uxlayotgan jismlar](images/physics-debug-editor.jpg)

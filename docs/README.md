@@ -2,7 +2,7 @@
 
 All of Zamin Engine's documentation in one place. Everything is in English; the code examples come from the engine's real API and
 the sample games (`Projects/Platformer2D`, `Projects/Showcase3D`, `Projects/Adventure3D`) and
-`ctest --test-dir build -L docs` checks that they match the code ([Testing.md](Testing.md#10-kompilyatsiya-tekshiruvlari)).
+`ctest --test-dir build -L docs` checks that they match the code ([Testing.md](Testing.md#10-compile-time-checks)).
 The home page is the [README](../README.md).
 
 **Where to start:**

@@ -1,74 +1,75 @@
-# Zamin Engine: komponentlar ma'lumotnomasi
+# Zamin Engine: component reference
 
-Sahnadagi har bir obyekt (entity) — bir nechta komponentdan iborat: joylashuv (`TransformComponent`), tasvir
-(`SpriteRendererComponent`, `MeshRendererComponent` ...), fizika, audio, UI, skript. Bu hujjat dvigateldagi **hamma**
-komponentlarni sanaydi: nima qiladi, editorda qayerdan qo'shiladi, sahna faylida qaysi kalit bilan yoziladi, qanday
-maydonlari bor va skriptdan qanday ishlatiladi.
+Every entity of a scene is made of several components: placement (`TransformComponent`), picture
+(`SpriteRendererComponent`, `MeshRendererComponent` ...), physics, audio, UI, script. This document lists **all** the
+components of the engine: what each one does, where it is added in the editor, which key it is written with in the
+scene file, which fields it has and how it is used from a script.
 
-Har bo'limning `<!-- gen:... -->` belgilari orasidagi qismi (inspektor nomi, menyu yo'li, sahna kaliti, maydonlar
-jadvali) `Tests/docs_components.py` bilan **manba koddan yaratiladi**: `Zamin/src/Zamin/Scene/Components.h`
-(`AllComponents` ro'yxati va strukturalar), `Editor/src/Panels/SceneHierarchyPanel.cpp` (inspektor bo'limlari va
-**+ Komponent** menyusi) va `Zamin/src/Zamin/Scene/SceneSerializer.cpp` (sahna kalitlari). Komponent o'zgarsa
-`Tests/docs_components.py --update docs/Components.md` ni ishga tushiring; `Tests/docs_check.py` (ctest: `DocsCheck`)
-bloklar eskirganini yoki yangi komponent hujjatlanmaganini aniqlaydi. Tavsiflar qo'lda yozilgan.
+The part of each section between the `<!-- gen:... -->` markers (the inspector name, the menu path, the scene key, the
+field table) is **generated from the source code** by `Tests/docs_components.py`: `Zamin/src/Zamin/Scene/Components.h`
+(the `AllComponents` list and the structs), `Editor/src/Panels/SceneHierarchyPanel.cpp` (the inspector sections and
+the **+ Component** menu) and `Zamin/src/Zamin/Scene/SceneSerializer.cpp` (the scene keys). When a component changes,
+run `Tests/docs_components.py --update docs/Components.md`; `Tests/docs_check.py` (ctest: `DocsCheck`) detects stale
+blocks and a new component that is not documented. The descriptions are written by hand.
 
-Jadvallarda: **Standart** — koddagi boshlang'ich qiymat; _(faqat o'yin paytida)_ — sahnaga saqlanmaydigan, o'yin
-davomida dvigatel yoki skript to'ldiradigan maydon (skriptdan o'qish uchun). Burchaklar `TransformComponent`'da
-radianda, inspektorda gradusda ko'rsatiladi.
+In the tables: **Default** is the initial value in the code; _(runtime only)_ marks a field that is not saved to the
+scene and that the engine or a script fills in while the game runs (for scripts to read). Angles are in radians in
+`TransformComponent` and shown in degrees in the inspector.
 
-Skriptdan foydalanish: `GetComponent<T>()`, `TryGetComponent<T>()`, `HasComponent<T>()`, `AddComponent<T>()`
-([Scripting.md](Scripting.md#7-obyektlar-komponentlar-ierarxiya)). Editorda: obyektni tanlang → **Inspektor** →
-**+ Komponent** (qidiruv maydoni bor); komponent sarlavhasidagi tishli g'ildirak menyusi — **Komponentni
-nusxalash**, joylash, **Yuqoriga / Pastga ko'chirish**, **Komponentni olib tashlash**.
+Using components from a script: `GetComponent<T>()`, `TryGetComponent<T>()`, `HasComponent<T>()`, `AddComponent<T>()`
+([Scripting.md](Scripting.md#7-obyektlar-komponentlar-ierarxiya)). In the editor: select the entity → **Inspector** →
+**+ Component** (it has a search field); the gear menu in a component's header has **Copy component**, paste,
+**Move up / Move down** and **Remove component**.
 
-![Inspektordagi komponentlar](images/components-inspector.jpg)
+![The components in the inspector](images/components-inspector.jpg)
 
-*Adventure3D `Player` obyektining komponentlari inspektorda: Transform, Mesh Renderer (`Models/Robot.gltf` modeli) va
-boshqalar; yuqorida faollik belgisi, nom va **+ Komponent** tugmasi.*
+*The components of Adventure3D's `Player` entity in the inspector: Transform, Mesh Renderer (the `Models/Robot.gltf`
+model) and others; at the top the active checkbox, the name and the **+ Component** button.*
 
-Mundarija:
+Contents:
 
-1. [Asosiy](#1-asosiy) — ID, nom, Transform, ierarxiya, teglar
-2. [Render](#2-render) — sprite, doira, matn, mesh, animatsiya, kamera
-3. [Yorug'lik](#3-yoruglik)
-4. [Fizika 2D](#4-fizika-2d)
-5. [Fizika 3D](#5-fizika-3d)
-6. [Navigatsiya va AI](#6-navigatsiya-va-ai)
-7. [Effektlar va 2D yordamchilar](#7-effektlar-va-2d-yordamchilar)
-8. [UI (ekran interfeysi)](#8-ui-ekran-interfeysi)
+1. [Core](#1-core) — ID, name, Transform, hierarchy, tags
+2. [Rendering](#2-rendering) — sprite, circle, text, mesh, animation, camera
+3. [Lights](#3-lights)
+4. [Physics 2D](#4-physics-2d)
+5. [Physics 3D](#5-physics-3d)
+6. [Navigation and AI](#6-navigation-and-ai)
+7. [Effects and 2D helpers](#7-effects-and-2d-helpers)
+8. [UI (screen interface)](#8-ui-screen-interface)
 9. [Audio](#9-audio)
-10. [Skript, sub-sahna va editor ma'lumotlari](#10-skript-sub-sahna-va-editor-malumotlari)
+10. [Script, sub-scene and editor data](#10-script-sub-scene-and-editor-data)
 
 ---
 
-## 1. Asosiy
+## 1. Core
 
 ### IDComponent
 
-Obyektning o'zgarmas noyob identifikatori (`UUID`, 64 bit). Sahna faylida `"Entity"`, havolalar (`EntityRef`,
-ota-ona, joint'ning ulangan jismi) shu raqam orqali saqlanadi. Skriptda: `GetEntity().GetUUID()`,
-`GetScene().GetEntityByUUID(id)`. Inspektor sarlavhasida `ID: ...` bo'lib ko'rinadi.
+The entity's permanent unique identifier (`UUID`, 64 bits). It is `"Entity"` in the scene file, and references
+(`EntityRef`, the parent, a joint's connected body) are stored as this number. In a script: `GetEntity().GetUUID()`,
+`GetScene().GetEntityByUUID(id)`. The inspector header shows it as `ID: ...`.
 
 <!-- gen:IDComponent -->
-_har bir obyektda bor; sahna faylida: `"Entity"`._
+_on every entity; in the scene file: `"Entity"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ID` | `UUID` | — |
 <!-- /gen:IDComponent -->
 
 ### TagComponent
 
-Obyektning **nomi** (`Tag`, ierarxiyada ko'rinadigan) va o'z **faollik** belgisi (`Active`). Obyekt o'yinda faqat o'zi va
-hamma ota-onalari faol bo'lsa ishtirok etadi. Belgini `SetActive` bilan o'zgartiring (skript `SetActive(false)`,
-`entity.SetActive(...)`, `Scene::SetActive`) — shunda skriptlar darhol `OnDisable` / `OnEnable` oladi; to'g'ridan-to'g'ri
-yozish keyingi kadrda seziladi. Inspektorda: sarlavhadagi belgilash katakchasi va nom maydoni. Nomni o'zgartirish:
-`SetName("...")` (`FindEntity` keshi yangilanadi). O'yin teglari bilan adashtirmang — ular `TagsComponent`.
+The entity's **name** (`Tag`, what the hierarchy shows) and its own **active** flag (`Active`). An entity takes part
+in the game only when it and all of its parents are active. Change the flag with `SetActive` (a script's
+`SetActive(false)`, `entity.SetActive(...)`, `Scene::SetActive`) — then scripts get `OnDisable` / `OnEnable` at once;
+a direct write is noticed on the next frame. In the inspector: the checkbox and the name field in the header. To
+rename: `SetName("...")` (the `FindEntity` cache is updated). Do not confuse it with gameplay tags — those are
+`TagsComponent`.
 
 <!-- gen:TagComponent -->
-_har bir obyektda bor; sahna faylida: `"Tag"` (nom) va `"Active"`._
+_on every entity; in the scene file: `"Tag"` (name) and `"Active"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Tag` | `std::string` | — |
 | `Active` | `bool` | `true` |
@@ -76,21 +77,21 @@ _har bir obyektda bor; sahna faylida: `"Tag"` (nom) va `"Active"`._
 
 ### TransformComponent
 
-Obyektning joyi (`Translation`), aylanishi (`Rotation` — Euler burchaklar, radian) va masshtabi (`Scale`). Bolaning
-transform'i otasiga nisbatan. Inspektorda **Pozitsiya**, **Aylanish** (gradus), **Masshtab**; viewport'da gizmo bilan
-(`W` / `E` / `R`). Yordamchilar: `GetTransform()` (matritsa), `GetForward()` (-Z), `GetRight()` (+X), `GetUp()` (+Y).
-Dunyo koordinatasi: skriptda `GetWorldPosition()`, `GetScene().GetWorldPosition(entity)`. Static va Kinematic 2D
-jismlar transformga ergashadi (skript ularni transform bilan surishi mumkin), Dynamic jismning joyini esa fizika
-yozadi — uni ko'chirish uchun `SetPosition2D` / `SetPosition3D`.
+The entity's position (`Translation`), rotation (`Rotation` — Euler angles, radians) and scale (`Scale`). A child's
+transform is relative to its parent. In the inspector: **Position**, **Rotation** (degrees), **Scale**; in the
+viewport with the gizmo (`W` / `E` / `R`). Helpers: `GetTransform()` (the matrix), `GetForward()` (-Z), `GetRight()`
+(+X), `GetUp()` (+Y). World coordinates: `GetWorldPosition()` in a script, `GetScene().GetWorldPosition(entity)`.
+Static and Kinematic 2D bodies follow the transform (a script may move them through the transform), while a Dynamic
+body's position is written by physics — to move it use `SetPosition2D` / `SetPosition3D`.
 
 ```cpp
-Transform().Rotation += Speed * (float)ts;   // Rotator (yangi loyiha shabloni)
+Transform().Rotation += Speed * (float)ts;   // Rotator (the new project template)
 ```
 
 <!-- gen:TransformComponent -->
-_Inspektorda: **Transform**; har bir obyektda bor; sahna faylida: `"Transform"`._
+_In the inspector: **Transform**; on every entity; in the scene file: `"Transform"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Translation` | `glm::vec3` | `{ 0.0f, 0.0f, 0.0f }` |
 | `Rotation` | `glm::vec3` | `{ 0.0f, 0.0f, 0.0f }` |
@@ -99,15 +100,15 @@ _Inspektorda: **Transform**; har bir obyektda bor; sahna faylida: `"Transform"`.
 
 ### RelationshipComponent
 
-Ota-ona / bola ierarxiyasi: `Parent` (0 — ildiz) va `Children`. Ierarxiya panelida obyektni boshqasiga sudrab bola
-qilinadi; skriptda `SetParent(parent, keepWorldTransform)`, `GetParent()`, `GetChildren()` ...
-([Scripting.md](Scripting.md#7-obyektlar-komponentlar-ierarxiya)). Sahna faylida faqat `"Parent"` yoziladi, bolalar
-ro'yxati yuklashda tiklanadi.
+The parent / child hierarchy: `Parent` (0 — a root) and `Children`. In the Hierarchy panel an entity becomes a child
+by dragging it onto another one; in a script `SetParent(parent, keepWorldTransform)`, `GetParent()`, `GetChildren()`
+... ([Scripting.md](Scripting.md#7-obyektlar-komponentlar-ierarxiya)). Only `"Parent"` is written to the scene file;
+the child lists are rebuilt on load.
 
 <!-- gen:RelationshipComponent -->
-_har bir obyektda bor; sahna faylida: `"Parent"`._
+_on every entity; in the scene file: `"Parent"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Parent` | `UUID` | `0` |
 | `Children` | `std::vector<UUID>` | — |
@@ -115,38 +116,38 @@ _har bir obyektda bor; sahna faylida: `"Parent"`._
 
 ### TagsComponent
 
-O'yin teglari (`"Player"`, `"Enemy"`, `"Coin"` ...) — obyektlarni guruhlash va qidirish uchun. Inspektordagi
-**Teglar** bo'limida yozib (Enter) yoki loyihaning teg ro'yxatidan tanlab qo'shiladi (ro'yxat: **Loyiha sozlamalari →
-Teglar**). Ierarxiya qidiruvida `#Enemy` deb yozilsa, shu tegli obyektlar chiqadi. Skriptda: `HasTag`, `AddTag`,
-`RemoveTag`, `FindEntitiesWithTag`, `FindEntityWithTag`, `other.HasTag("Player")` (indekslangan qidiruv).
+Gameplay tags (`"Player"`, `"Enemy"`, `"Coin"` ...) — for grouping and finding entities. They are added in the
+inspector's **Tags** section by typing (Enter) or by picking from the project's tag list (the list: **Project
+settings → Tags**). Typing `#Enemy` in the hierarchy search lists the entities with that tag. In a script: `HasTag`,
+`AddTag`, `RemoveTag`, `FindEntitiesWithTag`, `FindEntityWithTag`, `other.HasTag("Player")` (an indexed lookup).
 
 <!-- gen:TagsComponent -->
-_Inspektorda: **Teglar**; qo'shish: **+ Komponent → Boshqa → Teglar (Tags)**; sahna faylida: `"Tags"`._
+_In the inspector: **Tags**; add with: **+ Component → Other → Tags**; in the scene file: `"Tags"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Tags` | `std::vector<std::string>` | — |
 <!-- /gen:TagsComponent -->
 
-## 2. Render
+## 2. Rendering
 
-Qo'llanma: [Rendering.md](Rendering.md) (kamera, 2D, 3D, materiallar), animatsiya — [Animation.md](Animation.md).
+Guide: [Rendering.md](Rendering.md) (camera, 2D, 3D, materials); animation — [Animation.md](Animation.md).
 
 ### SpriteRendererComponent
 
-2D to'rtburchak tasvir: rang (`Color`) va tekstura (`TexturePath`, `Assets` ga nisbatan) yoki teksturaning nomlangan
-kadri (`SpriteName`, **Sprite muharriri** da kesilgan). `DrawMode`: `Simple` (birlik kvadrat, masshtab bilan),
-`Sliced` (9-slice: burchaklar `SliceBorder` bo'yicha o'z o'lchamida) va `Tiled` (`Size` ni to'ldiradi). `PixelArt` —
-aniq piksellar (nearest), `FlipX` / `FlipY`, `Lit` — 2D yorug'lik (`Light2DComponent`) ta'sir qiladi. 2D renderlar
-saralash qatlami (`SortingLayer`, **Loyiha sozlamalari → Saralash qatlamlari**) va `SortingOrder` bo'yicha orqadan oldinga
-chiziladi. Effektlar: urilish chaqnashi (`FlashColor` / `FlashAmount`, skriptda `Flash()`) va kontur
-(`OutlineColor` / `OutlineThickness`, `SetOutline()`). UI Transform bilan ekranda chiziladi. Yaratish: **Obyekt →
-2D → Sprite**.
+A 2D rectangular picture: a color (`Color`) and a texture (`TexturePath`, relative to `Assets`) or a named frame of
+the texture (`SpriteName`, cut in the **Sprite editor**). `DrawMode`: `Simple` (a unit square, sized by the scale),
+`Sliced` (9-slice: the corners keep their own size according to `SliceBorder`) and `Tiled` (fills `Size`).
+`PixelArt` — crisp pixels (nearest), `FlipX` / `FlipY`, `Lit` — affected by 2D lights (`Light2DComponent`). 2D
+renderers are drawn back to front by sorting layer (`SortingLayer`, **Project settings → Sorting layers**) and
+`SortingOrder`. Effects: the hit flash (`FlashColor` / `FlashAmount`, `Flash()` in a script) and the outline
+(`OutlineColor` / `OutlineThickness`, `SetOutline()`). With a UI Transform it is drawn on the screen. Create:
+**Object → 2D → Sprite**.
 
 <!-- gen:SpriteRendererComponent -->
-_Inspektorda: **Sprite Renderer**; qo'shish: **+ Komponent → Render → Sprite Renderer**; sahna faylida: `"SpriteRenderer"`._
+_In the inspector: **Sprite Renderer**; add with: **+ Component → Rendering → Sprite Renderer**; in the scene file: `"SpriteRenderer"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Color` | `glm::vec4` | `{ 1.0f, 1.0f, 1.0f, 1.0f }` |
 | `Texture` | `Ref<Texture2D>` | — |
@@ -167,24 +168,24 @@ _Inspektorda: **Sprite Renderer**; qo'shish: **+ Komponent → Render → Sprite
 | `FlashAmount` | `float` | `0.0f` |
 | `OutlineColor` | `glm::vec4` | `{ 1.0f, 1.0f, 1.0f, 1.0f }` |
 | `OutlineThickness` | `float` | `0.0f` |
-| `FlashPlayingColor` _(faqat o'yin paytida)_ | `glm::vec4` | `{ 1.0f }` |
-| `FlashTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `FlashDuration` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `FlashPlayingColor` _(runtime only)_ | `glm::vec4` | `{ 1.0f }` |
+| `FlashTime` _(runtime only)_ | `float` | `0.0f` |
+| `FlashDuration` _(runtime only)_ | `float` | `0.0f` |
 <!-- /gen:SpriteRendererComponent -->
 
 ### SpriteAnimationComponent
 
-Sprite Renderer teksturasida kadrlar ijro etadi: tekstura panjarasi kataklari (`Columns` x `Rows`, chapdan o'ngga,
-yuqoridan pastga raqamlangan; `StartFrame`, `FrameCount`, `FPS`, `Loop`) yoki sprite varag'ining nomlangan kadrlari
-(`Frames`). `Clips` — `.zsanim` sprite kliplari: skript `PlaySpriteClip("HeroSide")` bilan nomi bo'yicha qo'yadi;
-klip kadrlar, tezlik, takrorlanish va event'larni beradi, birinchisi o'yin boshida (`PlayOnStart`). Skriptdan yana:
-`GetComponent<SpriteAnimationComponent>().Play(start, count, fps, loop)` (Platformer2D qahramoni) va
-`PlaySpriteSequence("run")`. Batafsil: [Animation.md](Animation.md).
+Plays frames on the Sprite Renderer's texture: the cells of a texture grid (`Columns` x `Rows`, numbered left to
+right, top to bottom; `StartFrame`, `FrameCount`, `FPS`, `Loop`) or the named frames of a sprite sheet (`Frames`).
+`Clips` — `.zsanim` sprite clips: a script starts one by name with `PlaySpriteClip("HeroSide")`; a clip supplies the
+frames, the speed, the looping and the events, and the first one starts with the game (`PlayOnStart`). Also from a
+script: `GetComponent<SpriteAnimationComponent>().Play(start, count, fps, loop)` (the Platformer2D hero) and
+`PlaySpriteSequence("run")`. Details: [Animation.md](Animation.md).
 
 <!-- gen:SpriteAnimationComponent -->
-_Inspektorda: **Sprite Animation**; qo'shish: **+ Komponent → Render → Sprite Animation**; sahna faylida: `"SpriteAnimation"`._
+_In the inspector: **Sprite Animation**; add with: **+ Component → Rendering → Sprite Animation**; in the scene file: `"SpriteAnimation"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Columns` | `int` | `4` |
 | `Rows` | `int` | `1` |
@@ -196,28 +197,29 @@ _Inspektorda: **Sprite Animation**; qo'shish: **+ Komponent → Render → Sprit
 | `Frames` | `std::vector<std::string>` | — |
 | `Clips` | `std::vector<std::string>` | — |
 | `PlayOnStart` | `bool` | `true` |
-| `Time` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `CurrentClip` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `ClipAssets` _(faqat o'yin paytida)_ | `std::vector<Ref<SpriteClipAsset>>` | — |
-| `LoadedClips` _(faqat o'yin paytida)_ | `std::vector<std::string>` | — |
-| `AppliedRevision` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `LastFrame` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `Started` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `DrivenUpdate` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `DrivenState` _(faqat o'yin paytida)_ | `int` | `-1` |
+| `Time` _(runtime only)_ | `float` | `0.0f` |
+| `CurrentClip` _(runtime only)_ | `int` | `-1` |
+| `ClipAssets` _(runtime only)_ | `std::vector<Ref<SpriteClipAsset>>` | — |
+| `LoadedClips` _(runtime only)_ | `std::vector<std::string>` | — |
+| `AppliedRevision` _(runtime only)_ | `uint64_t` | `0` |
+| `LastFrame` _(runtime only)_ | `int` | `-1` |
+| `Started` _(runtime only)_ | `bool` | `false` |
+| `DrivenUpdate` _(runtime only)_ | `uint64_t` | `0` |
+| `DrivenState` _(runtime only)_ | `int` | `-1` |
 <!-- /gen:SpriteAnimationComponent -->
 
 ### TintAnimationComponent
 
-2D render (Sprite, Circle, Text, Tilemap) va Light 2D rangini gradient bo'yicha animatsiya qiladi: chiziladigan rang =
-render rangi x gradient rangi (`Keys`, `Duration` ga nisbatan 0..1). `Mode`: `Once`, `Loop`, `PingPong`; `Cycles > 0` —
-shuncha marta; `StartOffset` — nusxalar bir xil vaqtda miltillamasligi uchun. Render'ning o'z `Color` i o'zgarmaydi.
-Skriptda: `PlayTint()`, `PlayTint(color, duration, mode, cycles)`, `StopTint()`, `IsTintPlaying()`.
+Animates the color of a 2D renderer (Sprite, Circle, Text, Tilemap) and of a Light 2D along a gradient: the drawn
+color = the renderer's color x the gradient's color (`Keys`, at 0..1 of `Duration`). `Mode`: `Once`, `Loop`,
+`PingPong`; `Cycles > 0` — that many times; `StartOffset` — so that copies do not blink in unison. The renderer's own
+`Color` does not change. In a script: `PlayTint()`, `PlayTint(color, duration, mode, cycles)`, `StopTint()`,
+`IsTintPlaying()`.
 
 <!-- gen:TintAnimationComponent -->
-_Inspektorda: **Tint Animation**; qo'shish: **+ Komponent → Render → Tint Animation (rang)**; sahna faylida: `"TintAnimation"`._
+_In the inspector: **Tint Animation**; add with: **+ Component → Rendering → Tint Animation (color)**; in the scene file: `"TintAnimation"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Keys` | `std::vector<TintKey>` | `{ TintKey{ 0.0f, glm::vec4(1.0f) }, TintKey{ 1.0f, glm::vec4(1.0f, 0.35f, 0.3f, 1.0f) } }` |
 | `Duration` | `float` | `1.0f` |
@@ -226,21 +228,21 @@ _Inspektorda: **Tint Animation**; qo'shish: **+ Komponent → Render → Tint An
 | `Cycles` | `int` | `0` |
 | `StartOffset` | `float` | `0.0f` |
 | `PlayOnStart` | `bool` | `true` |
-| `Playing` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `EditorPreview` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Elapsed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `Playing` _(runtime only)_ | `bool` | `false` |
+| `EditorPreview` _(runtime only)_ | `bool` | `false` |
+| `Elapsed` _(runtime only)_ | `float` | `0.0f` |
 <!-- /gen:TintAnimationComponent -->
 
 ### CircleRendererComponent
 
-2D doira yoki halqa: `Color`, `Thickness` (1 — to'la doira, kichikroq — halqa), `Fade` (chetining yumshoqligi),
-saralash qatlami va tartibi. Yaratish: **Obyekt → 2D → Doira** yoki **Fizik shar**. [2D qo'llanmada](Tutorial-2D.md)
-tangalar shu komponent bilan chiziladi.
+A 2D circle or ring: `Color`, `Thickness` (1 — a filled circle, less — a ring), `Fade` (the softness of the edge),
+the sorting layer and order. Create: **Object → 2D → Circle** or **Physics ball**. The coins of the
+[2D tutorial](Tutorial-2D.md) are drawn with this component.
 
 <!-- gen:CircleRendererComponent -->
-_Inspektorda: **Circle Renderer**; qo'shish: **+ Komponent → Render → Circle Renderer**; sahna faylida: `"CircleRenderer"`._
+_In the inspector: **Circle Renderer**; add with: **+ Component → Rendering → Circle Renderer**; in the scene file: `"CircleRenderer"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Color` | `glm::vec4` | `{ 1.0f, 1.0f, 1.0f, 1.0f }` |
 | `Thickness` | `float` | `1.0f` |
@@ -251,16 +253,17 @@ _Inspektorda: **Circle Renderer**; qo'shish: **+ Komponent → Render → Circle
 
 ### TextComponent
 
-Matn: `Text` (yoki `LocalizationKey` — o'yin tilida avtomatik), rang, harf / qator oralig'i, tekislash (`AlignH`,
-`AlignV`), so'z bo'yicha ko'chirish (`WordWrap`), sig'masa (`Overflow`), shrift (`FontPath`, bo'sh — standart Inter).
-UI Transform bilan ekran to'rtburchagida (shrift o'lchami — UI Transform'ning `FontSize`, bo'lmasa to'rtburchak
-balandligi), aks holda dunyoda (1 birlik = shrift o'lchami). Yaratish: **Obyekt → 2D → Matn** yoki **Obyekt → UI
-(ekran) → Matn**. Skriptda `TryGetComponent<TextComponent>()->Text = ...` (ScoreHud, GameManager).
+Text: `Text` (or `LocalizationKey` — automatically in the game's language), the color, letter / line spacing,
+alignment (`AlignH`, `AlignV`), word wrapping (`WordWrap`), what happens when it does not fit (`Overflow`), the font
+(`FontPath`, empty — the default Inter). With a UI Transform it is laid out in a screen rectangle (the font size is
+the UI Transform's `FontSize`, otherwise the rectangle's height), without one in the world (1 unit = the font size).
+Create: **Object → 2D → Text** or **Object → UI (screen) → Text**. In a script
+`TryGetComponent<TextComponent>()->Text = ...` (ScoreHud, GameManager).
 
 <!-- gen:TextComponent -->
-_Inspektorda: **Text**; qo'shish: **+ Komponent → Render → Text**; sahna faylida: `"Text"`._
+_In the inspector: **Text**; add with: **+ Component → Rendering → Text**; in the scene file: `"Text"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Text` | `std::string` | `"Text"` |
 | `LocalizationKey` | `std::string` | — |
@@ -277,40 +280,40 @@ _Inspektorda: **Text**; qo'shish: **+ Komponent → Render → Text**; sahna fay
 | `FontAsset` | `Ref<Font>` | — |
 | `SortingLayer` | `uint32_t` | `0` |
 | `SortingOrder` | `int` | `1000` |
-| `LocalizedText` _(faqat o'yin paytida)_ | `std::string` | — |
-| `LocalizedFor` _(faqat o'yin paytida)_ | `std::string` | — |
-| `LocalizedVersion` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `HasLocalizedText` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `HintsVersion` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `HintsSource` _(faqat o'yin paytida)_ | `std::string` | — |
-| `HintsFromText` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `LocalizedText` _(runtime only)_ | `std::string` | — |
+| `LocalizedFor` _(runtime only)_ | `std::string` | — |
+| `LocalizedVersion` _(runtime only)_ | `uint64_t` | `0` |
+| `HasLocalizedText` _(runtime only)_ | `bool` | `false` |
+| `HintsVersion` _(runtime only)_ | `uint64_t` | `0` |
+| `HintsSource` _(runtime only)_ | `std::string` | — |
+| `HintsFromText` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:TextComponent -->
 
 ### MeshRendererComponent
 
-3D mesh: primitiv (`Type`: `Cube`, `Sphere`, `Plane`, `Cylinder`, `Cone`) yoki model (`Model`, `ModelPath` —
-`.gltf` / `.glb` / `.obj`). Material: asset (`MaterialPath`, `.zmat`; modelning har bo'lagi uchun
-`SubmeshMaterials`) yoki ichki material (`Mat`: albedo, metallic, roughness, emission, teksturalar ...).
-`CastShadows` — soya tashlaydi. `MorphWeights` — glTF blend shape og'irliklari (`SetMorphWeight("Smile", 0.8f)`).
-Skriptda: `GetMaterial()` — obyektning o'z material nusxasi, `GetSharedMaterial()`, `SetSharedMaterial(path)`
-([Scripting.md](Scripting.md#14-grafika-rang-va-effektlar)). Yaratish: **Obyekt → 3D → Kub / Shar / Tekislik / Silindr
-/ Konus / Model (glTF / OBJ)**.
+A 3D mesh: a primitive (`Type`: `Cube`, `Sphere`, `Plane`, `Cylinder`, `Cone`) or a model (`Model`, `ModelPath` —
+`.gltf` / `.glb` / `.obj`). The material: an asset (`MaterialPath`, `.zmat`; `SubmeshMaterials` for each part of a
+model) or the built-in material (`Mat`: albedo, metallic, roughness, emission, textures ...). `CastShadows` — casts a
+shadow. `MorphWeights` — the weights of glTF blend shapes (`SetMorphWeight("Smile", 0.8f)`). In a script:
+`GetMaterial()` — the entity's own copy of the material, `GetSharedMaterial()`, `SetSharedMaterial(path)`
+([Scripting.md](Scripting.md#14-grafika-rang-va-effektlar)). Create: **Object → 3D → Cube / Sphere / Plane / Cylinder
+/ Cone / Model (glTF / OBJ)**.
 
 <!-- gen:MeshRendererComponent -->
-_Inspektorda: **Mesh Renderer**; qo'shish: **+ Komponent → Render → Mesh Renderer**; sahna faylida: `"MeshRenderer"`._
+_In the inspector: **Mesh Renderer**; add with: **+ Component → Rendering → Mesh Renderer**; in the scene file: `"MeshRenderer"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Type` | `PrimitiveMesh` | `PrimitiveMesh::Cube` |
 | `ModelPath` | `std::string` | — |
-| `MeshAsset` _(faqat o'yin paytida)_ | `Ref<Mesh>` | — |
-| `ModelAsset` _(faqat o'yin paytida)_ | `Ref<Model>` | — |
+| `MeshAsset` _(runtime only)_ | `Ref<Mesh>` | — |
+| `ModelAsset` _(runtime only)_ | `Ref<Model>` | — |
 | `MaterialPath` | `std::string` | — |
 | `SubmeshMaterials` | `std::vector<std::string>` | — |
-| `MaterialRef` _(faqat o'yin paytida)_ | `Ref<MaterialAsset>` | — |
-| `SubmeshMaterialRefs` _(faqat o'yin paytida)_ | `std::vector<Ref<MaterialAsset>>` | — |
-| `MaterialInstance` _(faqat o'yin paytida)_ | `Ref<MaterialAsset>` | — |
-| `SubmeshMaterialInstances` _(faqat o'yin paytida)_ | `std::vector<Ref<MaterialAsset>>` | — |
+| `MaterialRef` _(runtime only)_ | `Ref<MaterialAsset>` | — |
+| `SubmeshMaterialRefs` _(runtime only)_ | `std::vector<Ref<MaterialAsset>>` | — |
+| `MaterialInstance` _(runtime only)_ | `Ref<MaterialAsset>` | — |
+| `SubmeshMaterialInstances` _(runtime only)_ | `std::vector<Ref<MaterialAsset>>` | — |
 | `Mat` | `Material` | — |
 | `AlbedoPath` | `std::string` | — |
 | `NormalPath` | `std::string` | — |
@@ -318,25 +321,27 @@ _Inspektorda: **Mesh Renderer**; qo'shish: **+ Komponent → Render → Mesh Ren
 | `EmissivePath` | `std::string` | — |
 | `CastShadows` | `bool` | `true` |
 | `MorphWeights` | `std::vector<float>` | — |
-| `MorphMeshes` _(faqat o'yin paytida)_ | `std::vector<Ref<Mesh>>` | — |
-| `MorphMeshWeights` _(faqat o'yin paytida)_ | `std::vector<std::vector<float>>` | — |
-| `MorphMeshSources` _(faqat o'yin paytida)_ | `std::vector<const Mesh*>` | — |
-| `MorphMeshOwner` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `MorphMeshes` _(runtime only)_ | `std::vector<Ref<Mesh>>` | — |
+| `MorphMeshWeights` _(runtime only)_ | `std::vector<std::vector<float>>` | — |
+| `MorphMeshSources` _(runtime only)_ | `std::vector<const Mesh*>` | — |
+| `MorphMeshOwner` _(runtime only)_ | `uint64_t` | `0` |
 <!-- /gen:MeshRendererComponent -->
 
 ### AnimatorComponent
 
-Teriga bog'langan (skinned) glTF modelning skeletal animatsiyalarini ijro etadi. Ikki usul: to'g'ridan-to'g'ri
-`Play("Walk", loop, speed, fade)`, yoki holat mashinasi — `Parameters` (float, bool, trigger), `States` (klip, 1D/2D
-blend), `Transitions` (shartlar, exit time, Priority, fade interruption) — skript faqat parametr beradi (`SetFloat("Speed", v)`, `SetBool`,
-`SetTrigger`). Qatlamlar (`Layers`, avatar niqobi bilan), root motion (`ApplyRootMotion`), event'lar (`Events`),
-ko'rinmaganda hisoblamaslik (`Culling`) va poza keshi (`CachePoses`). Grafni **Oyna → Animator grafi** da tahrirlash
-mumkin. Modelsiz 2D holatlar uchun State Duration; typed parametr/damping va Blueprint ko‘prigi ham mavjud. Batafsil: [Animation.md](Animation.md); namunalar: `Projects/Adventure3D` (Robot), `Projects/VisualWorkshop`.
+Plays the skeletal animations of a skinned glTF model. Two ways: directly with `Play("Walk", loop, speed, fade)`, or
+a state machine — `Parameters` (float, bool, trigger), `States` (a clip, a 1D/2D blend), `Transitions` (conditions,
+exit time, Priority, fade interruption) — where the script only sets parameters (`SetFloat("Speed", v)`, `SetBool`,
+`SetTrigger`). Layers (`Layers`, with an avatar mask), root motion (`ApplyRootMotion`), events (`Events`), no
+evaluation while invisible (`Culling`) and the pose cache (`CachePoses`). The graph can be edited in **Window →
+Animator graph**. For 2D states without a model there is State Duration; typed parameters / damping and the Blueprint
+bridge are available as well. Details: [Animation.md](Animation.md); samples: `Projects/Adventure3D` (Robot),
+`Projects/VisualWorkshop`.
 
 <!-- gen:AnimatorComponent -->
-_Inspektorda: **Animator**; qo'shish: **+ Komponent → Render → Animator (skeletal)**; sahna faylida: `"Animator"`._
+_In the inspector: **Animator**; add with: **+ Component → Rendering → Animator (skeletal)**; in the scene file: `"Animator"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Clip` | `std::string` | — |
 | `Speed` | `float` | `1.0f` |
@@ -345,82 +350,82 @@ _Inspektorda: **Animator**; qo'shish: **+ Komponent → Render → Animator (ske
 | `PlayInEditor` | `bool` | `true` |
 | `DefaultFade` | `float` | `0.2f` |
 | `Time` | `float` | `0.0f` |
-| `BlendTree` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `JointMatrices` _(faqat o'yin paytida)_ | `std::vector<glm::mat4>` | — |
-| `BlendWeights` _(faqat o'yin paytida)_ | `std::vector<float>` | — |
-| `PreviousClip` _(faqat o'yin paytida)_ | `std::string` | — |
-| `PreviousBlendTree` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `PreviousState` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `PreviousTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `PreviousSpeed` _(faqat o'yin paytida)_ | `float` | `1.0f` |
-| `PreviousLoop` _(faqat o'yin paytida)_ | `bool` | `true` |
-| `FadeDuration` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `FadeElapsed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `MorphWeights` _(faqat o'yin paytida)_ | `std::vector<float>` | — |
+| `BlendTree` _(runtime only)_ | `int` | `-1` |
+| `JointMatrices` _(runtime only)_ | `std::vector<glm::mat4>` | — |
+| `BlendWeights` _(runtime only)_ | `std::vector<float>` | — |
+| `PreviousClip` _(runtime only)_ | `std::string` | — |
+| `PreviousBlendTree` _(runtime only)_ | `int` | `-1` |
+| `PreviousState` _(runtime only)_ | `int` | `-1` |
+| `PreviousTime` _(runtime only)_ | `float` | `0.0f` |
+| `PreviousSpeed` _(runtime only)_ | `float` | `1.0f` |
+| `PreviousLoop` _(runtime only)_ | `bool` | `true` |
+| `FadeDuration` _(runtime only)_ | `float` | `0.0f` |
+| `FadeElapsed` _(runtime only)_ | `float` | `0.0f` |
+| `MorphWeights` _(runtime only)_ | `std::vector<float>` | — |
 | `EditorPreview` | `EditorPreviewState` | — |
 | `Events` | `std::vector<AnimatorEvent>` | — |
-| `EventsAtStart` _(faqat o'yin paytida)_ | `bool` | `true` |
+| `EventsAtStart` _(runtime only)_ | `bool` | `true` |
 | `ApplyRootMotion` | `bool` | `false` |
 | `RootMotionBone` | `std::string` | — |
 | `Culling` | `AnimatorCulling` | `AnimatorCulling::AlwaysAnimate` |
 | `CachePoses` | `bool` | `false` |
 | `PoseCacheRate` | `float` | `30.0f` |
 | `DriveSpriteClips` | `bool` | `false` |
-| `VisibleFrame` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Culled` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `PoseSignature` _(faqat o'yin paytida)_ | `std::vector<uint32_t>` | — |
-| `RootMotionVelocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `RootMotionTurnRate` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `VisibleFrame` _(runtime only)_ | `uint64_t` | `0` |
+| `Culled` _(runtime only)_ | `bool` | `false` |
+| `PoseSignature` _(runtime only)_ | `std::vector<uint32_t>` | — |
+| `RootMotionVelocity` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `RootMotionTurnRate` _(runtime only)_ | `float` | `0.0f` |
 | `Layers` | `std::vector<AnimatorLayer>` | — |
 | `Parameters` | `std::vector<AnimatorParameter>` | — |
 | `States` | `std::vector<AnimatorState>` | — |
 | `Transitions` | `std::vector<AnimatorTransition>` | — |
 | `DefaultState` | `int` | `0` |
-| `CurrentState` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `StateMachinePaused` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `CurrentState` _(runtime only)_ | `int` | `-1` |
+| `StateMachinePaused` _(runtime only)_ | `bool` | `false` |
 | `AnyStateGraphPosition` | `glm::vec2` | `{ 0.0f }` |
 <!-- /gen:AnimatorComponent -->
 
 ### AnimationPlayerComponent
 
-Property animatsiya kliplarini (`.zanim`, **Oyna → Animatsiya** timeline'ida yasaladi) obyekt va uning bolalarida
-ijro etadi: transform, rang, yorug'lik, UI va skript `float` maydonlari, event'lar bilan. Birinchi klip o'yin bilan
-boshlanadi (`PlayOnStart`); `Wrap` — klip oxirida nima bo'lishi. Skriptda: `PlayAnimation("DoorOpen")`,
-`PlayAnimation("DoorOpen", -1.0f)` (orqaga), `StopAnimation()` yoki
-`GetComponent<AnimationPlayerComponent>().Play(...)`. Namuna: Adventure3D darvozasi
-(`Animations/GateOpening.zanim`). Batafsil: [Animation.md](Animation.md).
+Plays property animation clips (`.zanim`, made on the timeline of **Window → Animation**) on the entity and its
+children: the transform, colors, lights, UI and `float` script fields, with events. The first clip starts with the
+game (`PlayOnStart`); `Wrap` — what happens at the end of a clip. In a script: `PlayAnimation("DoorOpen")`,
+`PlayAnimation("DoorOpen", -1.0f)` (backwards), `StopAnimation()` or
+`GetComponent<AnimationPlayerComponent>().Play(...)`. Sample: the Adventure3D gate
+(`Animations/GateOpening.zanim`). Details: [Animation.md](Animation.md).
 
 <!-- gen:AnimationPlayerComponent -->
-_Inspektorda: **Animation Player**; qo'shish: **+ Komponent → Render → Animation Player (.zanim kliplar)**; sahna faylida: `"AnimationPlayer"`._
+_In the inspector: **Animation Player**; add with: **+ Component → Rendering → Animation Player (.zanim clips)**; in the scene file: `"AnimationPlayer"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Clips` | `std::vector<std::string>` | — |
 | `Speed` | `float` | `1.0f` |
 | `PlayOnStart` | `bool` | `true` |
 | `Wrap` | `AnimationPlayerWrap` | `AnimationPlayerWrap::Clip` |
-| `ClipAssets` _(faqat o'yin paytida)_ | `std::vector<Ref<PropertyClipAsset>>` | — |
-| `LoadedClips` _(faqat o'yin paytida)_ | `std::vector<std::string>` | — |
-| `Current` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `Cursor` _(faqat o'yin paytida)_ | `ClipCursor` | — |
-| `PlaySpeed` _(faqat o'yin paytida)_ | `float` | `1.0f` |
-| `Playing` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Started` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `PoseDirty` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `ClipAssets` _(runtime only)_ | `std::vector<Ref<PropertyClipAsset>>` | — |
+| `LoadedClips` _(runtime only)_ | `std::vector<std::string>` | — |
+| `Current` _(runtime only)_ | `int` | `-1` |
+| `Cursor` _(runtime only)_ | `ClipCursor` | — |
+| `PlaySpeed` _(runtime only)_ | `float` | `1.0f` |
+| `Playing` _(runtime only)_ | `bool` | `false` |
+| `Started` _(runtime only)_ | `bool` | `false` |
+| `PoseDirty` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:AnimationPlayerComponent -->
 
 ### CameraComponent
 
-Kamera: `Camera` (`SceneCamera` — proyeksiya **Perspektiv** yoki **Ortografik**, ko'rish burchagi / ortografik
-o'lcham, yaqin va uzoq tekisliklar), `Primary` — o'yin shu kameradan ko'rsatiladi (bitta asosiy kamera bo'lishi
-kerak; asosiy kamerasiz sahna chizilmaydi), `FixedAspectRatio`, `ClearColor` (fon rangi, osmon chizilmaganda),
-`Shake` (silkinish sozlamalari: skriptda `ShakeCamera()`), `PixelPerfect` (2D piksel-art uchun). Yaratish: **Obyekt →
-Kamera → Perspektiv (3D)** yoki **Ortografik (2D)**.
+A camera: `Camera` (`SceneCamera` — the projection is **Perspective** or **Orthographic**, the field of view /
+orthographic size, the near and far planes), `Primary` — the game is shown from this camera (there has to be one
+primary camera; a scene without one is not drawn), `FixedAspectRatio`, `ClearColor` (the background color when no sky
+is drawn), `Shake` (the shake settings: `ShakeCamera()` in a script), `PixelPerfect` (for 2D pixel art). Create:
+**Object → Camera → Perspective (3D)** or **Orthographic (2D)**.
 
 <!-- gen:CameraComponent -->
-_Inspektorda: **Camera**; qo'shish: **+ Komponent → Render → Camera**; sahna faylida: `"Camera"`._
+_In the inspector: **Camera**; add with: **+ Component → Rendering → Camera**; in the scene file: `"Camera"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Camera` | `SceneCamera` | — |
 | `Primary` | `bool` | `true` |
@@ -430,20 +435,20 @@ _Inspektorda: **Camera**; qo'shish: **+ Komponent → Render → Camera**; sahna
 | `PixelPerfect` | `PixelPerfectSettings` | — |
 <!-- /gen:CameraComponent -->
 
-## 3. Yorug'lik
+## 3. Lights
 
-Qo'llanma: [Rendering.md](Rendering.md#9-yorugliklar).
+Guide: [Rendering.md](Rendering.md#9-yorugliklar).
 
 ### DirectionalLightComponent
 
-Quyosh kabi parallel nurlar: obyektning oldinga (-Z) yo'nalishi bo'yicha. `Color`, `Intensity`, `CastShadows`
-(cascaded soyalar; sifati — **Sahna sozlamalari**). Bir nechta quyosh bo'lishi mumkin. Yaratish: **Obyekt → Yorug'lik →
-Quyosh (yo'naltirilgan)**.
+Parallel rays like the sun's: along the entity's forward (-Z) direction. `Color`, `Intensity`, `CastShadows`
+(cascaded shadows; their quality is in **Scene settings**). There can be several suns. Create: **Object → Light → Sun
+(directional)**.
 
 <!-- gen:DirectionalLightComponent -->
-_Inspektorda: **Directional Light**; qo'shish: **+ Komponent → Yorug'lik → Directional Light**; sahna faylida: `"DirectionalLight"`._
+_In the inspector: **Directional Light**; add with: **+ Component → Light → Directional Light**; in the scene file: `"DirectionalLight"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Color` | `glm::vec3` | `{ 1.0f, 0.96f, 0.9f }` |
 | `Intensity` | `float` | `3.0f` |
@@ -452,13 +457,13 @@ _Inspektorda: **Directional Light**; qo'shish: **+ Komponent → Yorug'lik → D
 
 ### PointLightComponent
 
-Nuqtadan har tomonga tarqaladigan yorug'lik (lampa, olov, kristall): `Color`, `Intensity`, `Radius` (ta'sir
-masofasi). Yaratish: **Obyekt → Yorug'lik → Nuqtali**.
+Light that spreads from a point in every direction (a lamp, a fire, a crystal): `Color`, `Intensity`, `Radius` (the
+reach). Create: **Object → Light → Point**.
 
 <!-- gen:PointLightComponent -->
-_Inspektorda: **Point Light**; qo'shish: **+ Komponent → Yorug'lik → Point Light**; sahna faylida: `"PointLight"`._
+_In the inspector: **Point Light**; add with: **+ Component → Light → Point Light**; in the scene file: `"PointLight"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Color` | `glm::vec3` | `{ 1.0f }` |
 | `Intensity` | `float` | `5.0f` |
@@ -467,14 +472,14 @@ _Inspektorda: **Point Light**; qo'shish: **+ Komponent → Yorug'lik → Point L
 
 ### SpotLightComponent
 
-Obyekt joyidan oldinga (-Z) qaragan konus nur (fonar, sahna chirog'i): `InnerAngle` ichida to'liq yorug', `OuterAngle`
-gacha silliq so'nadi (gradus, o'qdan); `Range` — masofa. Yaratish: **Obyekt → Yorug'lik → Spot (konus)** (4 m balandda,
-pastga qaragan).
+A cone of light looking forward (-Z) from the entity's position (a flashlight, a stage lamp): fully lit inside
+`InnerAngle`, fading smoothly out to `OuterAngle` (degrees, from the axis); `Range` — the distance. Create: **Object
+→ Light → Spot (cone)** (4 m up, looking down).
 
 <!-- gen:SpotLightComponent -->
-_Inspektorda: **Spot Light**; qo'shish: **+ Komponent → Yorug'lik → Spot Light**; sahna faylida: `"SpotLight"`._
+_In the inspector: **Spot Light**; add with: **+ Component → Light → Spot Light**; in the scene file: `"SpotLight"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Color` | `glm::vec3` | `{ 1.0f }` |
 | `Intensity` | `float` | `20.0f` |
@@ -485,14 +490,14 @@ _Inspektorda: **Spot Light**; qo'shish: **+ Komponent → Yorug'lik → Spot Lig
 
 ### Light2DComponent
 
-2D yorug'lik (faqat `Lit` yoqilgan sprite / tilemap'larga ta'sir qiladi; sahnaning 2D atrof yorug'ligi — **Sahna
-sozlamalari**): `Type` — `Point` yoki `Spot` (`SpotAngle`, `SpotSoftness`), `Radius`, `InnerRadius`, `Falloff`, miltillash
-(`Flicker`, `FlickerSpeed` — olov uchun).
+A 2D light (it affects only sprites / tilemaps with `Lit` on; the scene's 2D ambient light is in **Scene
+settings**): `Type` — `Point` or `Spot` (`SpotAngle`, `SpotSoftness`), `Radius`, `InnerRadius`, `Falloff`, flicker
+(`Flicker`, `FlickerSpeed` — for fire).
 
 <!-- gen:Light2DComponent -->
-_Inspektorda: **Light 2D**; qo'shish: **+ Komponent → Yorug'lik → Light 2D**; sahna faylida: `"Light2D"`._
+_In the inspector: **Light 2D**; add with: **+ Component → Light → Light 2D**; in the scene file: `"Light2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Type` | `Light2DType` | `Light2DType::Point` |
 | `Color` | `glm::vec3` | `{ 1.0f, 0.85f, 0.6f }` |
@@ -506,29 +511,29 @@ _Inspektorda: **Light 2D**; qo'shish: **+ Komponent → Yorug'lik → Light 2D**
 | `FlickerSpeed` | `float` | `8.0f` |
 <!-- /gen:Light2DComponent -->
 
-## 4. Fizika 2D
+## 4. Physics 2D
 
-2D fizika — Box2D. Jism (`Rigidbody2DComponent`) va bir yoki bir nechta collider bir obyektda bo'ladi; jismsiz collider
-fizik dunyoga qo'shilmaydi. Tortishish va qadam sozlamalari — **Sahna sozlamalari → Fizika 2D**, loyiha standarti —
-**Loyiha sozlamalari** ([ProjectSettings.md](ProjectSettings.md)). Collider'larning umumiy maydonlari: `Density`,
-`Friction`, `Restitution` (sakrovchanlik), `RestitutionThreshold`, `IsSensor` (inspektorda **Trigger (sensor)** —
-to'qnashmaydi, `OnTriggerBegin` / `OnTriggerEnd` beradi), `MaterialPath` (`.zphysmat` fizik material — bo'lsa yuqoridagi
-qiymatlar o'rniga), `Layer` (-1 — jismning qatlami).
-Qo'llanma (sozlamalar, skript API, so'rovlar, namunalar): [Physics.md](Physics.md).
+2D physics is Box2D. A body (`Rigidbody2DComponent`) and one or more colliders sit on the same entity; a collider
+without a body is not added to the physics world. Gravity and step settings are in **Scene settings → Physics 2D**,
+the project default in **Project settings** ([ProjectSettings.md](ProjectSettings.md)). The fields the colliders
+share: `Density`, `Friction`, `Restitution` (bounciness), `RestitutionThreshold`, `IsSensor` (**Trigger (sensor)** in
+the inspector — it does not collide and gives `OnTriggerBegin` / `OnTriggerEnd`), `MaterialPath` (a `.zphysmat`
+physics material — when set, it replaces the values above), `Layer` (-1 — the body's layer).
+Guide (settings, script API, queries, samples): [Physics.md](Physics.md).
 
 ### Rigidbody2DComponent
 
-2D jism. `Type` (inspektorda **Turi**): `Static` (qimirlamaydi: yer, devor), `Dynamic` (kuch va tortishish ta'sir
-qiladi), `Kinematic` (faqat tezlik / skript bilan harakatlanadi, ustidagilarni olib yuradi). `FixedRotation`
-(**Aylanmasin** — qahramonlar uchun), `GravityScale`, so'nish, `Bullet` (tez obyektlar devordan o'tib ketmasligi uchun),
-`Layer` (to'qnashuv qatlami, **Loyiha sozlamalari → Fizika qatlamlari**), `Sleeping` (uxlash rejimi). Skriptda:
-`GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `IsSleeping`, `WakeUp`. Yaratish: **Obyekt
-→ 2D → Fizik quti / Fizik shar** (Sprite/Circle + Rigidbody 2D + collider).
+A 2D body. `Type` (**Type** in the inspector): `Static` (does not move: ground, walls), `Dynamic` (forces and gravity
+act on it), `Kinematic` (moved only by velocity / a script, carries what stands on it). `FixedRotation` (**Freeze
+rotation** — for characters), `GravityScale`, damping, `Bullet` (so that fast entities do not pass through walls),
+`Layer` (the collision layer, **Project settings → Physics layers**), `Sleeping` (the sleep mode). In a script:
+`GetVelocity`, `SetVelocity`, `ApplyImpulse`, `ApplyForce`, `SetPosition2D`, `IsSleeping`, `WakeUp`. Create: **Object
+→ 2D → Physics box / Physics ball** (Sprite/Circle + Rigidbody 2D + a collider).
 
 <!-- gen:Rigidbody2DComponent -->
-_Inspektorda: **Rigidbody 2D**; qo'shish: **+ Komponent → Fizika 2D → Rigidbody 2D**; sahna faylida: `"Rigidbody2D"`._
+_In the inspector: **Rigidbody 2D**; add with: **+ Component → Physics 2D → Rigidbody 2D**; in the scene file: `"Rigidbody2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Type` | `BodyType` | `BodyType::Dynamic` |
 | `FixedRotation` | `bool` | `false` |
@@ -538,19 +543,19 @@ _Inspektorda: **Rigidbody 2D**; qo'shish: **+ Komponent → Fizika 2D → Rigidb
 | `Bullet` | `bool` | `false` |
 | `Layer` | `int` | `0` |
 | `Sleeping` | `SleepMode` | `SleepMode::StartAwake` |
-| `RuntimeBody` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
+| `RuntimeBody` _(runtime only)_ | `void*` | `nullptr` |
 <!-- /gen:Rigidbody2DComponent -->
 
 ### BoxCollider2DComponent
 
-To'rtburchak collider. `Size` — **yarim** o'lcham (inspektorda **Yarim o'lcham**; transform masshtabiga
-ko'paytiriladi: masshtab 1 va `Size` 0.5 — 1x1 kvadrat), `Offset`. `OneWay` — bir tomonlama platforma (pastdan sakrab
-o'tiladi, ustiga qo'niladi; `DropThroughPlatforms()` bilan tushib ketiladi).
+A rectangular collider. `Size` is the **half** size (**Half extents** in the inspector; multiplied by the transform's
+scale: scale 1 and `Size` 0.5 make a 1x1 square), `Offset`. `OneWay` — a one-way platform (jumped through from below,
+landed on from above; dropped through with `DropThroughPlatforms()`).
 
 <!-- gen:BoxCollider2DComponent -->
-_Inspektorda: **Box Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Box Collider 2D**; sahna faylida: `"BoxCollider2D"`._
+_In the inspector: **Box Collider 2D**; add with: **+ Component → Physics 2D → Box Collider 2D**; in the scene file: `"BoxCollider2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Offset` | `glm::vec2` | `{ 0.0f, 0.0f }` |
 | `Size` | `glm::vec2` | `{ 0.5f, 0.5f }` |
@@ -562,17 +567,18 @@ _Inspektorda: **Box Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Box
 | `MaterialPath` | `std::string` | — |
 | `Layer` | `int` | `-1` |
 | `OneWay` | `bool` | `false` |
-| `RuntimeFixture` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
+| `RuntimeFixture` _(runtime only)_ | `void*` | `nullptr` |
 <!-- /gen:BoxCollider2DComponent -->
 
 ### CircleCollider2DComponent
 
-Doira collider: `Radius` (masshtabga ko'paytiriladi), `Offset`. Platformer2D'dagi tangalar: Static jism + sensor doira.
+A circle collider: `Radius` (multiplied by the scale), `Offset`. The coins of Platformer2D: a Static body + a sensor
+circle.
 
 <!-- gen:CircleCollider2DComponent -->
-_Inspektorda: **Circle Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Circle Collider 2D**; sahna faylida: `"CircleCollider2D"`._
+_In the inspector: **Circle Collider 2D**; add with: **+ Component → Physics 2D → Circle Collider 2D**; in the scene file: `"CircleCollider2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Offset` | `glm::vec2` | `{ 0.0f, 0.0f }` |
 | `Radius` | `float` | `0.5f` |
@@ -583,19 +589,19 @@ _Inspektorda: **Circle Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → 
 | `IsSensor` | `bool` | `false` |
 | `MaterialPath` | `std::string` | — |
 | `Layer` | `int` | `-1` |
-| `RuntimeFixture` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
+| `RuntimeFixture` _(runtime only)_ | `void*` | `nullptr` |
 <!-- /gen:CircleCollider2DComponent -->
 
 ### PolygonCollider2DComponent
 
-Istalgan ko'pburchak (`Points`, obyekt koordinatalarida). Botiq yoki uzun shakl avtomatik ravishda 8 burchakli
-qavariq bo'laklarga ajratiladi; o'zini kesadigan kontur qavariq qobiq bo'lib ishlaydi. Nuqtalar viewport'da
-tahrirlanadi; sprite'dan kontur olish ham mumkin.
+Any polygon (`Points`, in the entity's coordinates). A concave or long shape is split automatically into convex
+pieces of up to 8 vertices; an outline that crosses itself works as its convex hull. The points are edited in the
+viewport; the outline can also be taken from a sprite.
 
 <!-- gen:PolygonCollider2DComponent -->
-_Inspektorda: **Polygon Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Polygon Collider 2D (ko'pburchak)**; sahna faylida: `"PolygonCollider2D"`._
+_In the inspector: **Polygon Collider 2D**; add with: **+ Component → Physics 2D → Polygon Collider 2D (polygon)**; in the scene file: `"PolygonCollider2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Offset` | `glm::vec2` | `{ 0.0f, 0.0f }` |
 | `Points` | `std::vector<glm::vec2>` | `{ { -0.5f, -0.5f }, { 0.5f, -0.5f }, { 0.5f, 0.2f }, { 0.0f, 0.5f }, { -0.5f, 0.2f } }` |
@@ -606,19 +612,19 @@ _Inspektorda: **Polygon Collider 2D**; qo'shish: **+ Komponent → Fizika 2D →
 | `IsSensor` | `bool` | `false` |
 | `MaterialPath` | `std::string` | — |
 | `Layer` | `int` | `-1` |
-| `RuntimeFixture` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
-| `RuntimePieces` _(faqat o'yin paytida)_ | `int` | `0` |
+| `RuntimeFixture` _(runtime only)_ | `void*` | `nullptr` |
+| `RuntimePieces` _(runtime only)_ | `int` | `0` |
 <!-- /gen:PolygonCollider2DComponent -->
 
 ### EdgeCollider2DComponent
 
-Nuqtalar orqali o'tadigan chiziq (ochiq zanjir) yoki yopiq halqa (`Loop`): yer, qiyaliklar, devorlar. Yuzasi yo'q
-(massasi yo'q). `OneSided` — faqat bir tomondan to'xtatadigan silliq zanjir (burchaklarda ilinmaydi).
+A line through points (an open chain) or a closed loop (`Loop`): ground, slopes, walls. It has no area (no mass).
+`OneSided` — a smooth chain that stops bodies from one side only (nothing catches on its corners).
 
 <!-- gen:EdgeCollider2DComponent -->
-_Inspektorda: **Edge Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Edge Collider 2D (chiziq/zanjir)**; sahna faylida: `"EdgeCollider2D"`._
+_In the inspector: **Edge Collider 2D**; add with: **+ Component → Physics 2D → Edge Collider 2D (line/chain)**; in the scene file: `"EdgeCollider2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Offset` | `glm::vec2` | `{ 0.0f, 0.0f }` |
 | `Points` | `std::vector<glm::vec2>` | `{ { -1.0f, 0.0f }, { 1.0f, 0.0f } }` |
@@ -631,20 +637,20 @@ _Inspektorda: **Edge Collider 2D**; qo'shish: **+ Komponent → Fizika 2D → Ed
 | `IsSensor` | `bool` | `false` |
 | `MaterialPath` | `std::string` | — |
 | `Layer` | `int` | `-1` |
-| `RuntimeFixture` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
+| `RuntimeFixture` _(runtime only)_ | `void*` | `nullptr` |
 <!-- /gen:EdgeCollider2DComponent -->
 
 ### PlatformEffector2DComponent
 
-Obyekt collider'larini (yoki tilemap plitkalarini) platformaga aylantiradi: `OneWay` — pastdan / yondan o'tiladi,
-ustiga qo'niladi (`SurfaceArc` gradus ichida to'qnashadi; 180 — klassik bir tomonlama platforma), `RotationOffset`,
-yon tomondagi ishqalanish / sakrash (`UseSideFriction`, `UseSideBounce`, `SideArc`). Namuna:
-`Projects/Platformer2D/Assets/Scenes/Shapes2D.zscene`. Batafsil: [Physics.md](Physics.md#4-2d-effektorlar-platforma-shamol-suv).
+Turns the entity's colliders (or a tilemap's tiles) into a platform: `OneWay` — passed through from below / the
+sides, landed on from above (it collides within `SurfaceArc` degrees; 180 is the classic one-way platform),
+`RotationOffset`, friction / bounce on the sides (`UseSideFriction`, `UseSideBounce`, `SideArc`). Sample:
+`Projects/Platformer2D/Assets/Scenes/Shapes2D.zscene`. Details: [Physics.md](Physics.md#4-2d-effektorlar-platforma-shamol-suv).
 
 <!-- gen:PlatformEffector2DComponent -->
-_Inspektorda: **Platform Effector 2D**; qo'shish: **+ Komponent → Fizika 2D → Platform Effector 2D (bir tomonlama)**; sahna faylida: `"PlatformEffector2D"`._
+_In the inspector: **Platform Effector 2D**; add with: **+ Component → Physics 2D → Platform Effector 2D (one-way)**; in the scene file: `"PlatformEffector2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `OneWay` | `bool` | `true` |
 | `SurfaceArc` | `float` | `180.0f` |
@@ -656,15 +662,15 @@ _Inspektorda: **Platform Effector 2D**; qo'shish: **+ Komponent → Fizika 2D �
 
 ### AreaEffector2DComponent
 
-Collider'lari ichidagi dinamik jismlarni itaradi (shamol, havo oqimi, suv oqimi): har qadamda `ForceMagnitude` kuch
-`ForceAngle` yo'nalishida (`UseGlobalAngle` — dunyo burchagi), `ForceVariation` — tasodifiy qo'shimcha, `Drag` /
-`AngularDrag` — sekinlatish, `ColliderMask` — qaysi qatlamlarga ta'sir qiladi. Odatda Static jismdagi trigger collider
-bilan.
+Pushes the dynamic bodies inside its colliders (wind, an air stream, a water current): every step the force
+`ForceMagnitude` in the direction `ForceAngle` (`UseGlobalAngle` — a world angle), `ForceVariation` — a random
+addition, `Drag` / `AngularDrag` — slowing down, `ColliderMask` — which layers it affects. Usually with a trigger
+collider on a Static body.
 
 <!-- gen:AreaEffector2DComponent -->
-_Inspektorda: **Area Effector 2D**; qo'shish: **+ Komponent → Fizika 2D → Area Effector 2D (shamol)**; sahna faylida: `"AreaEffector2D"`._
+_In the inspector: **Area Effector 2D**; add with: **+ Component → Physics 2D → Area Effector 2D (wind)**; in the scene file: `"AreaEffector2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ForceAngle` | `float` | `90.0f` |
 | `UseGlobalAngle` | `bool` | `false` |
@@ -674,19 +680,19 @@ _Inspektorda: **Area Effector 2D**; qo'shish: **+ Komponent → Fizika 2D → Ar
 | `Drag` | `float` | `0.0f` |
 | `AngularDrag` | `float` | `0.0f` |
 | `ColliderMask` | `uint16_t` | `0xFFFF` |
-| `AffectedBodies` _(faqat o'yin paytida)_ | `int` | `0` |
+| `AffectedBodies` _(runtime only)_ | `int` | `0` |
 <!-- /gen:AreaEffector2DComponent -->
 
 ### BuoyancyEffector2DComponent
 
-Suyuqlik (suv): collider ichida `SurfaceLevel` gacha. Ichidagi jismni siqib chiqargan suyuqlik og'irligicha yuqoriga
-itaradi (`Density` dan yengil collider suzadi), `LinearDrag` / `AngularDrag` bilan sekinlatadi, `FlowAngle` /
-`FlowMagnitude` oqimi bilan olib ketadi. Collider trigger bo'lishi kerak (inspektor ogohlantiradi).
+A fluid (water): inside the collider up to `SurfaceLevel`. It pushes a body up with the weight of the fluid the body
+displaces (a collider lighter than `Density` floats), slows it with `LinearDrag` / `AngularDrag` and carries it along
+with the `FlowAngle` / `FlowMagnitude` current. The collider has to be a trigger (the inspector warns).
 
 <!-- gen:BuoyancyEffector2DComponent -->
-_Inspektorda: **Buoyancy Effector 2D**; qo'shish: **+ Komponent → Fizika 2D → Buoyancy Effector 2D (suv)**; sahna faylida: `"BuoyancyEffector2D"`._
+_In the inspector: **Buoyancy Effector 2D**; add with: **+ Component → Physics 2D → Buoyancy Effector 2D (water)**; in the scene file: `"BuoyancyEffector2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `SurfaceLevel` | `float` | `0.5f` |
 | `Density` | `float` | `2.0f` |
@@ -696,22 +702,22 @@ _Inspektorda: **Buoyancy Effector 2D**; qo'shish: **+ Komponent → Fizika 2D �
 | `FlowMagnitude` | `float` | `0.0f` |
 | `FlowVariation` | `float` | `0.0f` |
 | `ColliderMask` | `uint16_t` | `0xFFFF` |
-| `AffectedBodies` _(faqat o'yin paytida)_ | `int` | `0` |
-| `SubmergedArea` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `AffectedBodies` _(runtime only)_ | `int` | `0` |
+| `SubmergedArea` _(runtime only)_ | `float` | `0.0f` |
 <!-- /gen:BuoyancyEffector2DComponent -->
 
 ### DistanceJoint2DComponent
 
-Ikki anchor orasidagi masofani saqlaydi: qattiq tayoq, arqon (`MaxDistanceOnly`) yoki prujina (`Frequency`,
-`DampingRatio`). Barcha 2D joint'larning umumiy maydonlari: `ConnectedBody` (bo'sh — dunyodagi nuqtaga),
-`Anchor` / `ConnectedAnchor`, `AutoConfigureConnectedAnchor`, `CollideConnected`, `BreakForce` / `BreakTorque` (0 —
-uzilmaydi; uzilsa skript `OnJointBreak` oladi va `Broken` yoqiladi), o'yin paytidagi `ReactionForce` /
-`ReactionTorque`. Namuna: `Projects/Platformer2D/Assets/Scenes/Joints2D.zscene`.
+Keeps the distance between two anchors: a rigid rod, a rope (`MaxDistanceOnly`) or a spring (`Frequency`,
+`DampingRatio`). The fields all 2D joints share: `ConnectedBody` (empty — to a point of the world), `Anchor` /
+`ConnectedAnchor`, `AutoConfigureConnectedAnchor`, `CollideConnected`, `BreakForce` / `BreakTorque` (0 — never
+breaks; when it breaks the script gets `OnJointBreak` and `Broken` is set), the runtime `ReactionForce` /
+`ReactionTorque`. Sample: `Projects/Platformer2D/Assets/Scenes/Joints2D.zscene`.
 
 <!-- gen:DistanceJoint2DComponent -->
-_Inspektorda: **Distance Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Distance Joint 2D (masofa)**; sahna faylida: `"DistanceJoint2D"`._
+_In the inspector: **Distance Joint 2D**; add with: **+ Component → Physics 2D → Distance Joint 2D (distance)**; in the scene file: `"DistanceJoint2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec2` | `{ 0.0f }` |
@@ -720,30 +726,30 @@ _Inspektorda: **Distance Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → D
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `void*` | `nullptr` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `AutoConfigureDistance` | `bool` | `true` |
 | `Distance` | `float` | `1.0f` |
 | `MaxDistanceOnly` | `bool` | `false` |
 | `Frequency` | `float` | `0.0f` |
 | `DampingRatio` | `float` | `0.0f` |
-| `CurrentDistance` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `CurrentDistance` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint2DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint2DComponentBase`._
 <!-- /gen:DistanceJoint2DComponent -->
 
 ### RevoluteJoint2DComponent
 
-Sharnir: jismlar umumiy nuqta atrofida aylanadi; chegaralar (`EnableLimit`, `LowerAngle`, `UpperAngle`) va motor
-(`EnableMotor`, `MotorSpeed`, `MaxMotorTorque`). O'yin paytida `JointAngle`, `JointSpeed`.
+A hinge: the bodies rotate around a common point; limits (`EnableLimit`, `LowerAngle`, `UpperAngle`) and a motor
+(`EnableMotor`, `MotorSpeed`, `MaxMotorTorque`). At runtime `JointAngle`, `JointSpeed`.
 
 <!-- gen:RevoluteJoint2DComponent -->
-_Inspektorda: **Revolute Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Revolute Joint 2D (sharnir)**; sahna faylida: `"RevoluteJoint2D"`._
+_In the inspector: **Revolute Joint 2D**; add with: **+ Component → Physics 2D → Revolute Joint 2D (hinge)**; in the scene file: `"RevoluteJoint2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec2` | `{ 0.0f }` |
@@ -752,32 +758,32 @@ _Inspektorda: **Revolute Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → R
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `void*` | `nullptr` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `EnableLimit` | `bool` | `false` |
 | `LowerAngle` | `float` | `-45.0f` |
 | `UpperAngle` | `float` | `45.0f` |
 | `EnableMotor` | `bool` | `false` |
 | `MotorSpeed` | `float` | `0.0f` |
 | `MaxMotorTorque` | `float` | `10.0f` |
-| `JointAngle` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `JointSpeed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `JointAngle` _(runtime only)_ | `float` | `0.0f` |
+| `JointSpeed` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint2DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint2DComponentBase`._
 <!-- /gen:RevoluteJoint2DComponent -->
 
 ### PrismaticJoint2DComponent
 
-Sirpanish: jism ulangan jismga nisbatan faqat `Axis` bo'ylab, aylanmasdan siljiydi; chegara va motor bilan (lift,
-porshen).
+Sliding: the body moves relative to the connected body only along `Axis`, without rotating; with a limit and a motor
+(a lift, a piston).
 
 <!-- gen:PrismaticJoint2DComponent -->
-_Inspektorda: **Prismatic Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Prismatic Joint 2D (sirpanish)**; sahna faylida: `"PrismaticJoint2D"`._
+_In the inspector: **Prismatic Joint 2D**; add with: **+ Component → Physics 2D → Prismatic Joint 2D (slide)**; in the scene file: `"PrismaticJoint2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec2` | `{ 0.0f }` |
@@ -786,11 +792,11 @@ _Inspektorda: **Prismatic Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → 
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `void*` | `nullptr` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `Axis` | `glm::vec2` | `{ 1.0f, 0.0f }` |
 | `EnableLimit` | `bool` | `false` |
 | `LowerTranslation` | `float` | `-1.0f` |
@@ -798,20 +804,20 @@ _Inspektorda: **Prismatic Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → 
 | `EnableMotor` | `bool` | `false` |
 | `MotorSpeed` | `float` | `0.0f` |
 | `MaxMotorForce` | `float` | `10.0f` |
-| `JointTranslation` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `JointSpeed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `JointTranslation` _(runtime only)_ | `float` | `0.0f` |
+| `JointSpeed` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint2DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint2DComponentBase`._
 <!-- /gen:PrismaticJoint2DComponent -->
 
 ### WeldJoint2DComponent
 
-Jismlarni payvandlaydi (qattiq, yoki `Frequency` bilan burchak atrofida prujinali).
+Welds the bodies together (rigidly, or springy around the angle with `Frequency`).
 
 <!-- gen:WeldJoint2DComponent -->
-_Inspektorda: **Weld Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Weld Joint 2D (payvand)**; sahna faylida: `"WeldJoint2D"`._
+_In the inspector: **Weld Joint 2D**; add with: **+ Component → Physics 2D → Weld Joint 2D (weld)**; in the scene file: `"WeldJoint2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec2` | `{ 0.0f }` |
@@ -820,26 +826,26 @@ _Inspektorda: **Weld Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Weld 
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `void*` | `nullptr` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `Frequency` | `float` | `0.0f` |
 | `DampingRatio` | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint2DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint2DComponentBase`._
 <!-- /gen:WeldJoint2DComponent -->
 
 ### WheelJoint2DComponent
 
-G'ildirak: bu jism (g'ildirak) anchor atrofida erkin aylanadi va ulangan jismda (shassi) `Axis` bo'ylab amortizator
-prujinasi bilan turadi; motor g'ildirakni aylantiradi.
+A wheel: this body (the wheel) turns freely around the anchor and rides on the connected body (the chassis) along
+`Axis` on a suspension spring; the motor turns the wheel.
 
 <!-- gen:WheelJoint2DComponent -->
-_Inspektorda: **Wheel Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Wheel Joint 2D (g'ildirak)**; sahna faylida: `"WheelJoint2D"`._
+_In the inspector: **Wheel Joint 2D**; add with: **+ Component → Physics 2D → Wheel Joint 2D (wheel)**; in the scene file: `"WheelJoint2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec2` | `{ 0.0f }` |
@@ -848,11 +854,11 @@ _Inspektorda: **Wheel Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Whee
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `void*` | `nullptr` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `Axis` | `glm::vec2` | `{ 0.0f, 1.0f }` |
 | `Frequency` | `float` | `4.0f` |
 | `DampingRatio` | `float` | `0.7f` |
@@ -862,31 +868,31 @@ _Inspektorda: **Wheel Joint 2D**; qo'shish: **+ Komponent → Fizika 2D → Whee
 | `EnableMotor` | `bool` | `false` |
 | `MotorSpeed` | `float` | `0.0f` |
 | `MaxMotorTorque` | `float` | `10.0f` |
-| `JointTranslation` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `JointSpeed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `JointTranslation` _(runtime only)_ | `float` | `0.0f` |
+| `JointSpeed` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint2DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint2DComponentBase`._
 <!-- /gen:WheelJoint2DComponent -->
 
-## 5. Fizika 3D
+## 5. Physics 3D
 
-3D fizika — Jolt. Collider faqat `Rigidbody3DComponent` bor obyektda fizik dunyoga qo'shiladi (trigger ham:
-masalan Static jism + sensor collider). Collider'larning umumiy maydonlari: `Offset`, `Friction`, `Restitution`,
-`IsSensor` (**Trigger (sensor)**), `MaterialPath` (`.zphysmat`). O'lchamlar transform masshtabiga ko'paytiriladi.
-Qahramon uchun jism o'rniga `CharacterController3DComponent`.
-Qo'llanma: [Physics.md](Physics.md#6-3d-jismlar-va-colliderlar).
+3D physics is Jolt. A collider is added to the physics world only on an entity that has a `Rigidbody3DComponent`
+(triggers too: for example a Static body + a sensor collider). The fields the colliders share: `Offset`, `Friction`,
+`Restitution`, `IsSensor` (**Trigger (sensor)**), `MaterialPath` (`.zphysmat`). Sizes are multiplied by the
+transform's scale. For a character use `CharacterController3DComponent` instead of a body.
+Guide: [Physics.md](Physics.md#6-3d-jismlar-va-colliderlar).
 
 ### Rigidbody3DComponent
 
-3D jism: `Type` — `Static`, `Dynamic`, `Kinematic`; `Mass`, so'nish, `GravityFactor`, `LockRotation` (tik turadi),
-`Layer`, `ContinuousCollision` (tez kichik jismlar uchun), `Sleeping`. Skriptda: `GetVelocity3D`, `SetVelocity3D`,
-`ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D` ... Yaratish: **Obyekt → 3D → Fizik kub / Fizik shar /
-Fizik yer (statik)**.
+A 3D body: `Type` — `Static`, `Dynamic`, `Kinematic`; `Mass`, damping, `GravityFactor`, `LockRotation` (stays
+upright), `Layer`, `ContinuousCollision` (for small fast bodies), `Sleeping`. In a script: `GetVelocity3D`,
+`SetVelocity3D`, `ApplyImpulse3D`, `ApplyForce3D`, `ApplyTorque3D`, `SetPosition3D` ... Create: **Object → 3D →
+Physics cube / Physics ball / Physics ground (static)**.
 
 <!-- gen:Rigidbody3DComponent -->
-_Inspektorda: **Rigidbody 3D**; qo'shish: **+ Komponent → Fizika 3D → Rigidbody 3D**; sahna faylida: `"Rigidbody3D"`._
+_In the inspector: **Rigidbody 3D**; add with: **+ Component → Physics 3D → Rigidbody 3D**; in the scene file: `"Rigidbody3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Type` | `BodyType` | `BodyType::Dynamic` |
 | `Mass` | `float` | `1.0f` |
@@ -897,17 +903,17 @@ _Inspektorda: **Rigidbody 3D**; qo'shish: **+ Komponent → Fizika 3D → Rigidb
 | `Layer` | `int` | `0` |
 | `ContinuousCollision` | `bool` | `false` |
 | `Sleeping` | `SleepMode` | `SleepMode::StartAwake` |
-| `RuntimeBodyID` _(faqat o'yin paytida)_ | `uint32_t` | `0xffffffff` |
+| `RuntimeBodyID` _(runtime only)_ | `uint32_t` | `0xffffffff` |
 <!-- /gen:Rigidbody3DComponent -->
 
 ### BoxCollider3DComponent
 
-Quti collider: `HalfExtents` — yarim o'lchamlar (inspektorda **Yarim o'lcham**).
+A box collider: `HalfExtents` — the half sizes (**Half extents** in the inspector).
 
 <!-- gen:BoxCollider3DComponent -->
-_Inspektorda: **Box Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Box Collider 3D**; sahna faylida: `"BoxCollider3D"`._
+_In the inspector: **Box Collider 3D**; add with: **+ Component → Physics 3D → Box Collider 3D**; in the scene file: `"BoxCollider3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `HalfExtents` | `glm::vec3` | `{ 0.5f, 0.5f, 0.5f }` |
 | `Offset` | `glm::vec3` | `{ 0.0f, 0.0f, 0.0f }` |
@@ -919,12 +925,12 @@ _Inspektorda: **Box Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Box
 
 ### SphereCollider3DComponent
 
-Shar collider: `Radius`. [3D qo'llanmadagi](Tutorial-3D.md) kristallar: Static jism + sensor shar.
+A sphere collider: `Radius`. The crystals of the [3D tutorial](Tutorial-3D.md): a Static body + a sensor sphere.
 
 <!-- gen:SphereCollider3DComponent -->
-_Inspektorda: **Sphere Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Sphere Collider 3D**; sahna faylida: `"SphereCollider3D"`._
+_In the inspector: **Sphere Collider 3D**; add with: **+ Component → Physics 3D → Sphere Collider 3D**; in the scene file: `"SphereCollider3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Radius` | `float` | `0.5f` |
 | `Offset` | `glm::vec3` | `{ 0.0f, 0.0f, 0.0f }` |
@@ -936,12 +942,12 @@ _Inspektorda: **Sphere Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → 
 
 ### CapsuleCollider3DComponent
 
-Kapsula (Y o'qi bo'ylab): `Radius`, `HalfHeight` (silindr qismining yarim balandligi).
+A capsule (along the Y axis): `Radius`, `HalfHeight` (half the height of the cylinder part).
 
 <!-- gen:CapsuleCollider3DComponent -->
-_Inspektorda: **Capsule Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Capsule Collider 3D**; sahna faylida: `"CapsuleCollider3D"`._
+_In the inspector: **Capsule Collider 3D**; add with: **+ Component → Physics 3D → Capsule Collider 3D**; in the scene file: `"CapsuleCollider3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Radius` | `float` | `0.5f` |
 | `HalfHeight` | `float` | `0.5f` |
@@ -954,13 +960,14 @@ _Inspektorda: **Capsule Collider 3D**; qo'shish: **+ Komponent → Fizika 3D →
 
 ### ConvexHullCollider3DComponent
 
-Mesh shaklidagi qavariq collider: obyekt Mesh Renderer'ining (yoki `ModelPath` modelining) qavariq qobig'i,
-ko'pi bilan `MaxVertices` burchak. Chuqurlik va teshiklar to'ladi (kosa — yaxlit blok). Dinamik jismlar uchun mos.
+A convex collider in the shape of a mesh: the convex hull of the entity's Mesh Renderer (or of the `ModelPath`
+model), with at most `MaxVertices` vertices. Hollows and holes are filled (a bowl becomes a solid block). Suitable
+for dynamic bodies.
 
 <!-- gen:ConvexHullCollider3DComponent -->
-_Inspektorda: **Convex Hull Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Convex Hull Collider 3D (modeldan)**; sahna faylida: `"ConvexHullCollider3D"`._
+_In the inspector: **Convex Hull Collider 3D**; add with: **+ Component → Physics 3D → Convex Hull Collider 3D (from a model)**; in the scene file: `"ConvexHullCollider3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ModelPath` | `std::string` | — |
 | `MaxVertices` | `int` | `32` |
@@ -973,13 +980,13 @@ _Inspektorda: **Convex Hull Collider 3D**; qo'shish: **+ Komponent → Fizika 3D
 
 ### MeshCollider3DComponent
 
-Meshning o'zi (hamma uchburchaklari) collider: zinapoya, ark, tunnel, notekis yer. Faqat Static va Kinematic jismlar
-uchun (dinamik jism uni hisobga olmaydi). Uchburchaklar old tomonidan qattiq.
+The mesh itself (all of its triangles) as the collider: stairs, an arch, a tunnel, uneven ground. Only for Static and
+Kinematic bodies (a dynamic body ignores it). The triangles are solid from their front side.
 
 <!-- gen:MeshCollider3DComponent -->
-_Inspektorda: **Mesh Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Mesh Collider 3D (statik, modeldan)**; sahna faylida: `"MeshCollider3D"`._
+_In the inspector: **Mesh Collider 3D**; add with: **+ Component → Physics 3D → Mesh Collider 3D (static, from a model)**; in the scene file: `"MeshCollider3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ModelPath` | `std::string` | — |
 | `Offset` | `glm::vec3` | `{ 0.0f, 0.0f, 0.0f }` |
@@ -991,15 +998,15 @@ _Inspektorda: **Mesh Collider 3D**; qo'shish: **+ Komponent → Fizika 3D → Me
 
 ### FixedJoint3DComponent
 
-Jismlarni bir-biriga mahkamlaydi: birga harakatlanadi (uzilguncha). Barcha 3D joint'larning umumiy maydonlari
+Fastens the bodies to each other: they move together (until it breaks). The fields all 3D joints share
 (`Joint3DComponentBase`): `ConnectedBody`, `Anchor`, `ConnectedAnchor`, `AutoConfigureConnectedAnchor`,
-`CollideConnected`, `BreakForce`, `BreakTorque`; o'yin paytida `Broken`, `ReactionForce`, `ReactionTorque`. Uzilganda
-skript `OnJointBreak3D` oladi.
+`CollideConnected`, `BreakForce`, `BreakTorque`; at runtime `Broken`, `ReactionForce`, `ReactionTorque`. When it
+breaks the script gets `OnJointBreak3D`.
 
 <!-- gen:FixedJoint3DComponent -->
-_Inspektorda: **Fixed Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Fixed Joint 3D (mahkam)**; sahna faylida: `"FixedJoint3D"`._
+_In the inspector: **Fixed Joint 3D**; add with: **+ Component → Physics 3D → Fixed Joint 3D (rigid)**; in the scene file: `"FixedJoint3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec3` | `{ 0.0f }` |
@@ -1008,25 +1015,25 @@ _Inspektorda: **Fixed Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Fixe
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `uint32_t` | `0` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 
-_Barcha maydonlar `Joint3DComponentBase` dan meros._
+_All fields are inherited from `Joint3DComponentBase`._
 <!-- /gen:FixedJoint3DComponent -->
 
 ### HingeJoint3DComponent
 
-Sharnir (eshik, g'ildirak, tirsak): jism faqat `Axis` atrofida aylanadi; chegaralar, motor (`MotorSpeed`,
-`MaxMotorTorque`) yoki burchakka tortadigan prujina (`EnableSpring`, `SpringTargetAngle`, `SpringFrequency`,
-`SpringDamping`). O'yin paytida `JointAngle`, `JointSpeed`.
+A hinge (a door, a wheel, an elbow): the body rotates only around `Axis`; limits, a motor (`MotorSpeed`,
+`MaxMotorTorque`) or a spring that pulls towards an angle (`EnableSpring`, `SpringTargetAngle`, `SpringFrequency`,
+`SpringDamping`). At runtime `JointAngle`, `JointSpeed`.
 
 <!-- gen:HingeJoint3DComponent -->
-_Inspektorda: **Hinge Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Hinge Joint 3D (sharnir)**; sahna faylida: `"HingeJoint3D"`._
+_In the inspector: **Hinge Joint 3D**; add with: **+ Component → Physics 3D → Hinge Joint 3D (hinge)**; in the scene file: `"HingeJoint3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec3` | `{ 0.0f }` |
@@ -1035,11 +1042,11 @@ _Inspektorda: **Hinge Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Hing
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `uint32_t` | `0` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `Axis` | `glm::vec3` | `{ 0.0f, 1.0f, 0.0f }` |
 | `EnableLimit` | `bool` | `false` |
 | `LowerAngle` | `float` | `-45.0f` |
@@ -1051,21 +1058,21 @@ _Inspektorda: **Hinge Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Hing
 | `SpringTargetAngle` | `float` | `0.0f` |
 | `SpringFrequency` | `float` | `2.0f` |
 | `SpringDamping` | `float` | `0.5f` |
-| `JointAngle` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `JointSpeed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `JointAngle` _(runtime only)_ | `float` | `0.0f` |
+| `JointSpeed` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint3DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint3DComponentBase`._
 <!-- /gen:HingeJoint3DComponent -->
 
 ### DistanceJoint3DComponent
 
-Anchor'lar orasini `MinDistance`..`MaxDistance` da saqlaydi: tayoq (teng), arqon (`MaxDistanceOnly`) yoki oraliq;
-`Frequency` — prujinali uchlar.
+Keeps the anchors between `MinDistance` and `MaxDistance` apart: a rod (equal), a rope (`MaxDistanceOnly`) or a
+range; `Frequency` — springy ends.
 
 <!-- gen:DistanceJoint3DComponent -->
-_Inspektorda: **Distance Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Distance Joint 3D (masofa)**; sahna faylida: `"DistanceJoint3D"`._
+_In the inspector: **Distance Joint 3D**; add with: **+ Component → Physics 3D → Distance Joint 3D (distance)**; in the scene file: `"DistanceJoint3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec3` | `{ 0.0f }` |
@@ -1074,30 +1081,30 @@ _Inspektorda: **Distance Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → D
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `uint32_t` | `0` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `AutoConfigureDistance` | `bool` | `true` |
 | `MinDistance` | `float` | `1.0f` |
 | `MaxDistance` | `float` | `1.0f` |
 | `MaxDistanceOnly` | `bool` | `false` |
 | `Frequency` | `float` | `0.0f` |
 | `DampingRatio` | `float` | `0.0f` |
-| `CurrentDistance` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `CurrentDistance` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint3DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint3DComponentBase`._
 <!-- /gen:DistanceJoint3DComponent -->
 
 ### SliderJoint3DComponent
 
-Sirpanish: jism faqat `Axis` bo'ylab, aylanmasdan siljiydi; chegara va motor bilan. O'yin paytida `JointTranslation`.
+Sliding: the body moves only along `Axis`, without rotating; with a limit and a motor. At runtime `JointTranslation`.
 
 <!-- gen:SliderJoint3DComponent -->
-_Inspektorda: **Slider Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Slider Joint 3D (sirpanish)**; sahna faylida: `"SliderJoint3D"`._
+_In the inspector: **Slider Joint 3D**; add with: **+ Component → Physics 3D → Slider Joint 3D (slide)**; in the scene file: `"SliderJoint3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec3` | `{ 0.0f }` |
@@ -1106,11 +1113,11 @@ _Inspektorda: **Slider Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Sli
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `uint32_t` | `0` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `Axis` | `glm::vec3` | `{ 1.0f, 0.0f, 0.0f }` |
 | `EnableLimit` | `bool` | `false` |
 | `LowerTranslation` | `float` | `-1.0f` |
@@ -1118,21 +1125,21 @@ _Inspektorda: **Slider Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Sli
 | `EnableMotor` | `bool` | `false` |
 | `MotorSpeed` | `float` | `0.0f` |
 | `MaxMotorForce` | `float` | `10.0f` |
-| `JointTranslation` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `JointSpeed` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `JointTranslation` _(runtime only)_ | `float` | `0.0f` |
+| `JointSpeed` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint3DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint3DComponentBase`._
 <!-- /gen:SliderJoint3DComponent -->
 
 ### ConeJoint3DComponent
 
-Shar-sharnir (yelka, son, zanjirdagi chiroq): jism o'qini `SwingLimit` gradusli konus ichida tebrata oladi va
-`TwistLower`..`TwistUpper` oralig'ida buraladi; `FrictionTorque` — ragdoll a'zolari silkinib ketmasligi uchun.
+A ball joint (a shoulder, a hip, a lamp on a chain): the body can swing its axis inside a cone of `SwingLimit`
+degrees and twists within `TwistLower`..`TwistUpper`; `FrictionTorque` — so that ragdoll limbs do not flail.
 
 <!-- gen:ConeJoint3DComponent -->
-_Inspektorda: **Cone Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Cone Joint 3D (yelka, son: konus)**; sahna faylida: `"ConeJoint3D"`._
+_In the inspector: **Cone Joint 3D**; add with: **+ Component → Physics 3D → Cone Joint 3D (shoulder, hip: cone)**; in the scene file: `"ConeJoint3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ConnectedBody` | `EntityRef` | — |
 | `Anchor` | `glm::vec3` | `{ 0.0f }` |
@@ -1141,34 +1148,34 @@ _Inspektorda: **Cone Joint 3D**; qo'shish: **+ Komponent → Fizika 3D → Cone 
 | `CollideConnected` | `bool` | `false` |
 | `BreakForce` | `float` | `0.0f` |
 | `BreakTorque` | `float` | `0.0f` |
-| `RuntimeJoint` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `RuntimeConnected` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Broken` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ReactionForce` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `ReactionTorque` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeJoint` _(runtime only)_ | `uint32_t` | `0` |
+| `RuntimeConnected` _(runtime only)_ | `uint64_t` | `0` |
+| `Broken` _(runtime only)_ | `bool` | `false` |
+| `ReactionForce` _(runtime only)_ | `float` | `0.0f` |
+| `ReactionTorque` _(runtime only)_ | `float` | `0.0f` |
 | `Axis` | `glm::vec3` | `{ 0.0f, 1.0f, 0.0f }` |
 | `SwingLimit` | `float` | `45.0f` |
 | `TwistLower` | `float` | `-30.0f` |
 | `TwistUpper` | `float` | `30.0f` |
 | `FrictionTorque` | `float` | `0.0f` |
-| `SwingAngle` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `TwistAngle` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `SwingAngle` _(runtime only)_ | `float` | `0.0f` |
+| `TwistAngle` _(runtime only)_ | `float` | `0.0f` |
 
-_Jadval boshidagi maydonlar `Joint3DComponentBase` dan meros._
+_The fields at the top of the table are inherited from `Joint3DComponentBase`._
 <!-- /gen:ConeJoint3DComponent -->
 
 ### CharacterController3DComponent
 
-Kapsula qahramon (Jolt CharacterVirtual): qiyalik (`MaxSlope`) va zinapoyalar (`StepHeight`) bo'ylab yuradi, dunyo bilan
-to'qnashadi, tortishishni o'zi qo'llaydi. Obyekt pozitsiyasi — **oyoq** nuqtasi. Skript gorizontal tezlikni `Move()`
-bilan beradi va `Jump(speed)` chaqiradi; `Grounded`, `Velocity` o'qiladi. Dinamik jismlarni itaradi (`PushBodies`,
-`PushForce`), sensor collider'larga kirsa `OnTriggerBegin` keladi. Yaratish: **Obyekt → 3D → Qahramon (Character
-Controller)**. Namunalar: [Tutorial-3D.md](Tutorial-3D.md), `Projects/Adventure3D/Source/Player.cpp`.
+A capsule character (Jolt CharacterVirtual): walks on slopes (`MaxSlope`) and stairs (`StepHeight`), collides with
+the world and applies gravity itself. The entity's position is the **feet** point. The script gives the horizontal
+velocity with `Move()` and calls `Jump(speed)`; `Grounded` and `Velocity` are read. It pushes dynamic bodies
+(`PushBodies`, `PushForce`), and entering a sensor collider delivers `OnTriggerBegin`. Create: **Object → 3D → Hero
+(Character Controller)**. Samples: [Tutorial-3D.md](Tutorial-3D.md), `Projects/Adventure3D/Source/Player.cpp`.
 
 <!-- gen:CharacterController3DComponent -->
-_Inspektorda: **Character Controller 3D**; qo'shish: **+ Komponent → Fizika 3D → Character Controller 3D**; sahna faylida: `"CharacterController3D"`._
+_In the inspector: **Character Controller 3D**; add with: **+ Component → Physics 3D → Character Controller 3D**; in the scene file: `"CharacterController3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Radius` | `float` | `0.35f` |
 | `Height` | `float` | `1.8f` |
@@ -1182,26 +1189,26 @@ _Inspektorda: **Character Controller 3D**; qo'shish: **+ Komponent → Fizika 3D
 | `PushForce` | `float` | `100.0f` |
 | `MoveVelocity` | `glm::vec3` | `{ 0.0f }` |
 | `VerticalVelocity` | `float` | `0.0f` |
-| `Grounded` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Velocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `RuntimeID` _(faqat o'yin paytida)_ | `uint32_t` | `0xffffffff` |
+| `Grounded` _(runtime only)_ | `bool` | `false` |
+| `Velocity` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `RuntimeID` _(runtime only)_ | `uint32_t` | `0xffffffff` |
 <!-- /gen:CharacterController3DComponent -->
 
-## 6. Navigatsiya va AI
+## 6. Navigation and AI
 
-Batafsil va misollar: [AI.md](AI.md).
+Details and examples: [AI.md](AI.md).
 
 ### NavGrid2DComponent
 
-2D daraja ustidagi yo'l topish grid'i: to'qnashadigan plitkalar (`UseTilemaps`, `OneWayBlocks`) va statik 2D
-collider'lar (`UseColliders`, `LayerMask`) ostidagi kataklar yopiq, `AgentRadius` gacha atrofi ham. Maydon — manbalar
-chegarasi (`AutoBounds`) yoki `Size` + `Offset`; `CellSize`. O'yin boshida bake qilinadi, manbalar o'zgarsa qayta
-(`AutoRebuild`).
+The pathfinding grid over a 2D level: the cells under colliding tiles (`UseTilemaps`, `OneWayBlocks`) and static 2D
+colliders (`UseColliders`, `LayerMask`) are closed, and so is their surrounding up to `AgentRadius`. The area is the
+bounds of the sources (`AutoBounds`) or `Size` + `Offset`; `CellSize`. It is baked when the game starts and again
+when the sources change (`AutoRebuild`).
 
 <!-- gen:NavGrid2DComponent -->
-_Inspektorda: **NavGrid 2D**; qo'shish: **+ Komponent → Navigatsiya va AI → NavGrid 2D (tilemap / collider'lardan yo'l grid'i)**; sahna faylida: `"NavGrid2D"`._
+_In the inspector: **NavGrid 2D**; add with: **+ Component → Navigation and AI → NavGrid 2D (path grid from tilemaps / colliders)**; in the scene file: `"NavGrid2D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `AutoBounds` | `bool` | `true` |
 | `Offset` | `glm::vec2` | `{ 0.0f }` |
@@ -1215,26 +1222,26 @@ _Inspektorda: **NavGrid 2D**; qo'shish: **+ Komponent → Navigatsiya va AI → 
 | `AgentRadius` | `float` | `0.25f` |
 | `Paths` | `NavGridPathSettings` | — |
 | `AutoRebuild` | `bool` | `false` |
-| `Grid` _(faqat o'yin paytida)_ | `NavGrid` | — |
-| `Baked` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `SourceHash` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `RebuildTimer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `BakeCount` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `BakeMilliseconds` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `FromBakeFile` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `StartBakePending` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Grid` _(runtime only)_ | `NavGrid` | — |
+| `Baked` _(runtime only)_ | `bool` | `false` |
+| `SourceHash` _(runtime only)_ | `uint64_t` | `0` |
+| `RebuildTimer` _(runtime only)_ | `float` | `0.0f` |
+| `BakeCount` _(runtime only)_ | `uint32_t` | `0` |
+| `BakeMilliseconds` _(runtime only)_ | `float` | `0.0f` |
+| `FromBakeFile` _(runtime only)_ | `bool` | `false` |
+| `StartBakePending` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:NavGrid2DComponent -->
 
 ### NavGrid3DComponent
 
-3D daraja grid'i (XZ tekisligida kataklar, har birida bitta pol balandligi): har katak markazidan pastga statik 3D
-collider'larga nur tashlab yasaladi. `MaxSlope`, `StepHeight`, `AgentRadius`, `AgentHeight`, `LayerMask`. Bitta qavat
-(navmesh emas).
+The grid of a 3D level (cells in the XZ plane, one floor height in each): built by casting a ray down from the centre
+of every cell onto the static 3D colliders. `MaxSlope`, `StepHeight`, `AgentRadius`, `AgentHeight`, `LayerMask`. A
+single storey (not a navmesh).
 
 <!-- gen:NavGrid3DComponent -->
-_Inspektorda: **NavGrid 3D**; qo'shish: **+ Komponent → Navigatsiya va AI → NavGrid 3D (pol bo'yicha yo'l grid'i)**; sahna faylida: `"NavGrid3D"`._
+_In the inspector: **NavGrid 3D**; add with: **+ Component → Navigation and AI → NavGrid 3D (path grid over the floor)**; in the scene file: `"NavGrid3D"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Offset` | `glm::vec3` | `{ 0.0f }` |
 | `Size` | `glm::vec3` | `{ 20.0f, 10.0f, 20.0f }` |
@@ -1245,39 +1252,38 @@ _Inspektorda: **NavGrid 3D**; qo'shish: **+ Komponent → Navigatsiya va AI → 
 | `StepHeight` | `float` | `0.4f` |
 | `LayerMask` | `uint16_t` | `0xFFFF` |
 | `Paths` | `NavGridPathSettings` | — |
-| `Grid` _(faqat o'yin paytida)_ | `NavGrid` | — |
-| `Baked` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `BakeCount` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `BakeMilliseconds` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `BakeBodies` _(faqat o'yin paytida)_ | `int` | `0` |
-| `FromBakeFile` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `StartBakePending` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Grid` _(runtime only)_ | `NavGrid` | — |
+| `Baked` _(runtime only)_ | `bool` | `false` |
+| `BakeCount` _(runtime only)_ | `uint32_t` | `0` |
+| `BakeMilliseconds` _(runtime only)_ | `float` | `0.0f` |
+| `BakeBodies` _(runtime only)_ | `int` | `0` |
+| `FromBakeFile` _(runtime only)_ | `bool` | `false` |
+| `StartBakePending` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:NavGrid3DComponent -->
 
 ### NavAgentComponent
 
-Obyektni NavGrid 2D / 3D dagi yo'l bo'ylab yurgizadi: `SetDestination(point)` yoki `Target` (ortidan yuradigan obyekt),
-`Speed`, `Acceleration`, `AngularSpeed`, `StoppingDistance`, yo'lni silliqlash (`SmoothPath`, `SplinePath`),
-to'siqlardan qochish (`Avoidance`, his qiluvchi nurlar). Character Controller 3D, Rigidbody 2D / 3D yoki transformni
-harakatlantiradi.
+Walks the entity along a path of a NavGrid 2D / 3D: `SetDestination(point)` or `Target` (an entity to follow),
+`Speed`, `Acceleration`, `AngularSpeed`, `StoppingDistance`, path smoothing (`SmoothPath`, `SplinePath`), obstacle
+avoidance (`Avoidance`, feeler rays). It moves a Character Controller 3D, a Rigidbody 2D / 3D or the transform.
 
 <!-- gen:NavAgentComponent -->
-_Inspektorda: **Nav Agent**; qo'shish: **+ Komponent → Navigatsiya va AI → Nav Agent (yo'l topib yuradi)**; sahna faylida: `"NavAgent"`._
+_In the inspector: **Nav Agent**; add with: **+ Component → Navigation and AI → Nav Agent (finds a path and walks)**; in the scene file: `"NavAgent"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `WorldNavigation` | `bool` | `false` |
 | `RecoverySettings` | `NavRecovery::Settings` | — |
-| `Recovery` _(faqat o'yin paytida)_ | `NavRecovery` | — |
+| `Recovery` _(runtime only)_ | `NavRecovery` | — |
 | `CrowdAvoidance` | `bool` | `false` |
 | `CrowdNeighborDistance` | `float` | `4` |
 | `CrowdTimeHorizon` | `float` | `1.5f` |
 | `CrowdPriority` | `float` | `1` |
 | `CrowdHeight` | `float` | `1.8f` |
-| `PreferredVelocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0 }` |
-| `CrowdNeighbors` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `CrowdLimited` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `CrowdBlocked` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `PreferredVelocity` _(runtime only)_ | `glm::vec3` | `{ 0 }` |
+| `CrowdNeighbors` _(runtime only)_ | `uint32_t` | `0` |
+| `CrowdLimited` _(runtime only)_ | `bool` | `false` |
+| `CrowdBlocked` _(runtime only)_ | `bool` | `false` |
 | `WorldMaxExpanded` | `uint32_t` | `16384` |
 | `Grid` | `EntityRef` | — |
 | `Target` | `EntityRef` | — |
@@ -1300,48 +1306,48 @@ _Inspektorda: **Nav Agent**; qo'shish: **+ Komponent → Navigatsiya va AI → N
 | `AvoidanceWeight` | `float` | `1.0f` |
 | `AvoidanceMask` | `uint16_t` | `0xFFFF` |
 | `AvoidStatic` | `bool` | `false` |
-| `Destination` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `HasDestination` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Arrived` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `RepathRequested` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Destination` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `HasDestination` _(runtime only)_ | `bool` | `false` |
+| `Arrived` _(runtime only)_ | `bool` | `false` |
+| `RepathRequested` _(runtime only)_ | `bool` | `false` |
 | `Path` | `std::vector<glm::vec3>` | — |
-| `PathIndex` _(faqat o'yin paytida)_ | `int` | `0` |
-| `PathStatus` _(faqat o'yin paytida)_ | `NavPathStatus` | `NavPathStatus::None` |
-| `Velocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `Remaining` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `RepathTimer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `GridRevision` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `CarveRevision` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `PathLinks` _(faqat o'yin paytida)_ | `std::vector<uint64_t>` | — |
-| `AtlasRevision` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `PendingTraversalLink` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `TraversalTicket` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `TraversalEntry` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0 }` |
-| `TraversalExit` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0 }` |
-| `TraversalCompletions` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `PathRequests` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `BlockedRepaths` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `FeelerOrigin` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `FeelerEnds` _(faqat o'yin paytida)_ | `std::array<glm::vec3, 3>` | `{}` |
-| `FeelerHits` _(faqat o'yin paytida)_ | `uint8_t` | `0` |
-| `FeelersActive` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `AvoidancePush` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `LastDeltaTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `AvoidSide` _(faqat o'yin paytida)_ | `int` | `0` |
-| `AvoidClearTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `PausedTarget` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
+| `PathIndex` _(runtime only)_ | `int` | `0` |
+| `PathStatus` _(runtime only)_ | `NavPathStatus` | `NavPathStatus::None` |
+| `Velocity` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `Remaining` _(runtime only)_ | `float` | `0.0f` |
+| `RepathTimer` _(runtime only)_ | `float` | `0.0f` |
+| `GridRevision` _(runtime only)_ | `uint32_t` | `0` |
+| `CarveRevision` _(runtime only)_ | `uint32_t` | `0` |
+| `PathLinks` _(runtime only)_ | `std::vector<uint64_t>` | — |
+| `AtlasRevision` _(runtime only)_ | `uint64_t` | `0` |
+| `PendingTraversalLink` _(runtime only)_ | `uint64_t` | `0` |
+| `TraversalTicket` _(runtime only)_ | `uint64_t` | `0` |
+| `TraversalEntry` _(runtime only)_ | `glm::vec3` | `{ 0 }` |
+| `TraversalExit` _(runtime only)_ | `glm::vec3` | `{ 0 }` |
+| `TraversalCompletions` _(runtime only)_ | `uint32_t` | `0` |
+| `PathRequests` _(runtime only)_ | `uint32_t` | `0` |
+| `BlockedRepaths` _(runtime only)_ | `uint32_t` | `0` |
+| `FeelerOrigin` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `FeelerEnds` _(runtime only)_ | `std::array<glm::vec3, 3>` | `{}` |
+| `FeelerHits` _(runtime only)_ | `uint8_t` | `0` |
+| `FeelersActive` _(runtime only)_ | `bool` | `false` |
+| `AvoidancePush` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `LastDeltaTime` _(runtime only)_ | `float` | `0.0f` |
+| `AvoidSide` _(runtime only)_ | `int` | `0` |
+| `AvoidClearTime` _(runtime only)_ | `float` | `0.0f` |
+| `PausedTarget` _(runtime only)_ | `uint64_t` | `0` |
 <!-- /gen:NavAgentComponent -->
 
 ### NavObstacleComponent
 
-Harakatlanuvchi yoki vaqtinchalik to'siq (eshik, itariladigan quti): o'yin paytida o'z shakli (`Shape`: quti yoki
-doira, `Center`, `Size`, `Radius`) ostidagi kataklarni grid'dan o'yib oladi; `MoveThreshold` dan ko'p siljisa qayta
-o'yadi; `CarveOnlyStationary` — faqat to'xtab turganda.
+A moving or temporary obstacle (a door, a pushable crate): at runtime it carves the cells under its shape (`Shape`:
+a box or a circle, `Center`, `Size`, `Radius`) out of the grid; it carves again after moving more than
+`MoveThreshold`; `CarveOnlyStationary` — only while it stands still.
 
 <!-- gen:NavObstacleComponent -->
-_Inspektorda: **Nav Obstacle**; qo'shish: **+ Komponent → Navigatsiya va AI → Nav Obstacle (harakatlanuvchi to'siq)**; sahna faylida: `"NavObstacle"`._
+_In the inspector: **Nav Obstacle**; add with: **+ Component → Navigation and AI → Nav Obstacle (moving obstacle)**; in the scene file: `"NavObstacle"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Shape` | `ShapeType` | `ShapeType::Box` |
 | `Center` | `glm::vec3` | `{ 0.0f }` |
@@ -1351,25 +1357,25 @@ _Inspektorda: **Nav Obstacle**; qo'shish: **+ Komponent → Navigatsiya va AI �
 | `MoveThreshold` | `float` | `0.1f` |
 | `CarveOnlyStationary` | `bool` | `false` |
 | `StationaryTime` | `float` | `0.5f` |
-| `Carvings` _(faqat o'yin paytida)_ | `std::vector<Carving>` | — |
-| `CarvedPoints` _(faqat o'yin paytida)_ | `std::vector<glm::vec3>` | — |
-| `LastPoints` _(faqat o'yin paytida)_ | `std::vector<glm::vec3>` | — |
-| `StillTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `GridSignature` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `CarveCount` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
+| `Carvings` _(runtime only)_ | `std::vector<Carving>` | — |
+| `CarvedPoints` _(runtime only)_ | `std::vector<glm::vec3>` | — |
+| `LastPoints` _(runtime only)_ | `std::vector<glm::vec3>` | — |
+| `StillTime` _(runtime only)_ | `float` | `0.0f` |
+| `GridSignature` _(runtime only)_ | `uint64_t` | `0` |
+| `CarveCount` _(runtime only)_ | `uint32_t` | `0` |
 <!-- /gen:NavObstacleComponent -->
 
 ### SightSensorComponent
 
-AI ko'zi: `ViewDistance` ichida, oldinga qaragan `FieldOfView` konusida (yoki `NearDistance` dan yaqinda) nishonni
-ko'radi — nur `BlockingMask` qatlamlaridagi to'siqqa urilmasa. Nishon — `Target` yoki `TargetTag` tegli obyektlar.
-`CheckInterval` da tekshiriladi, `MemoryTime` eslab qoladi. Skriptda: `CanSeeTarget()`, `GetSeenTarget()`,
-`OnTargetSpotted` / `OnTargetLost`.
+The eyes of an AI: it sees the target within `ViewDistance`, inside the forward `FieldOfView` cone (or closer than
+`NearDistance`) — unless the ray hits an obstacle on the `BlockingMask` layers. The target is `Target` or the
+entities tagged `TargetTag`. It checks every `CheckInterval` and remembers for `MemoryTime`. In a script:
+`CanSeeTarget()`, `GetSeenTarget()`, `OnTargetSpotted` / `OnTargetLost`.
 
 <!-- gen:SightSensorComponent -->
-_Inspektorda: **Sight Sensor**; qo'shish: **+ Komponent → Navigatsiya va AI → Sight Sensor (ko'rish maydoni)**; sahna faylida: `"SightSensor"`._
+_In the inspector: **Sight Sensor**; add with: **+ Component → Navigation and AI → Sight Sensor (field of view)**; in the scene file: `"SightSensor"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ViewDistance` | `float` | `10.0f` |
 | `FieldOfView` | `float` | `110.0f` |
@@ -1380,26 +1386,26 @@ _Inspektorda: **Sight Sensor**; qo'shish: **+ Komponent → Navigatsiya va AI �
 | `BlockingMask` | `uint16_t` | `0xFFFF` |
 | `CheckInterval` | `float` | `0.1f` |
 | `MemoryTime` | `float` | `3.0f` |
-| `CanSee` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `SeenTarget` _(faqat o'yin paytida)_ | `UUID` | `0` |
-| `LastSeenPosition` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `HasSeen` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `TimeSinceSeen` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `CheckTimer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `Checks` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `VisibleCount` _(faqat o'yin paytida)_ | `int` | `0` |
+| `CanSee` _(runtime only)_ | `bool` | `false` |
+| `SeenTarget` _(runtime only)_ | `UUID` | `0` |
+| `LastSeenPosition` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `HasSeen` _(runtime only)_ | `bool` | `false` |
+| `TimeSinceSeen` _(runtime only)_ | `float` | `0.0f` |
+| `CheckTimer` _(runtime only)_ | `float` | `0.0f` |
+| `Checks` _(runtime only)_ | `uint32_t` | `0` |
+| `VisibleCount` _(runtime only)_ | `int` | `0` |
 <!-- /gen:SightSensorComponent -->
 
 ### PatrolPathComponent
 
-AI patrul yo'li: o'z nuqtalari (`Points`), `Route` obyektining bolalari yoki Spline nuqtalari. `Mode`: `Loop`,
-`PingPong`, `Random`, `Once`; har nuqtada `WaitTime` kutadi. Nav Agent bilan grid bo'ylab, bo'lmasa `Speed` bilan to'g'ri
-yuradi. Skriptda: `PausePatrol()`, `ResumePatrol()`, `OnPatrolPointReached(i)`.
+An AI patrol route: its own points (`Points`), the children of the `Route` entity or the points of a Spline. `Mode`:
+`Loop`, `PingPong`, `Random`, `Once`; it waits `WaitTime` at each point. With a Nav Agent it walks along the grid,
+otherwise straight at `Speed`. In a script: `PausePatrol()`, `ResumePatrol()`, `OnPatrolPointReached(i)`.
 
 <!-- gen:PatrolPathComponent -->
-_Inspektorda: **Patrol Path**; qo'shish: **+ Komponent → Navigatsiya va AI → Patrol Path (nuqtalar bo'ylab patrul)**; sahna faylida: `"PatrolPath"`._
+_In the inspector: **Patrol Path**; add with: **+ Component → Navigation and AI → Patrol Path (patrol along points)**; in the scene file: `"PatrolPath"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Source` | `PointSource` | `PointSource::Points` |
 | `Points` | `std::vector<Waypoint>` | — |
@@ -1414,36 +1420,36 @@ _Inspektorda: **Patrol Path**; qo'shish: **+ Komponent → Navigatsiya va AI →
 | `FaceMovement` | `bool` | `true` |
 | `StartAtNearest` | `bool` | `true` |
 | `PlayOnStart` | `bool` | `true` |
-| `Current` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `Direction` _(faqat o'yin paytida)_ | `int` | `1` |
-| `Started` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Patrolling` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Waiting` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Finished` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `DestinationIssued` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ResumeNearest` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `PatrolStateSet` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `WaitTimer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `StuckTimer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `BestDistance` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `StartPosition` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `Target` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `IssuedTarget` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `Arrivals` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `Laps` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `Skipped` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `RandomState` _(faqat o'yin paytida)_ | `uint32_t` | `0x9E3779B9u` |
+| `Current` _(runtime only)_ | `int` | `-1` |
+| `Direction` _(runtime only)_ | `int` | `1` |
+| `Started` _(runtime only)_ | `bool` | `false` |
+| `Patrolling` _(runtime only)_ | `bool` | `false` |
+| `Waiting` _(runtime only)_ | `bool` | `false` |
+| `Finished` _(runtime only)_ | `bool` | `false` |
+| `DestinationIssued` _(runtime only)_ | `bool` | `false` |
+| `ResumeNearest` _(runtime only)_ | `bool` | `false` |
+| `PatrolStateSet` _(runtime only)_ | `bool` | `false` |
+| `WaitTimer` _(runtime only)_ | `float` | `0.0f` |
+| `StuckTimer` _(runtime only)_ | `float` | `0.0f` |
+| `BestDistance` _(runtime only)_ | `float` | `0.0f` |
+| `StartPosition` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `Target` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `IssuedTarget` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `Arrivals` _(runtime only)_ | `uint32_t` | `0` |
+| `Laps` _(runtime only)_ | `uint32_t` | `0` |
+| `Skipped` _(runtime only)_ | `uint32_t` | `0` |
+| `RandomState` _(runtime only)_ | `uint32_t` | `0x9E3779B9u` |
 <!-- /gen:PatrolPathComponent -->
 
 ### FormationComponent
 
-Birga yuradigan guruh (yetakchida): `Members` (va `MemberTag` tegli obyektlar) yetakchi atrofidagi joylarda turadi —
-`Shape`: `Line`, `Column`, `Wedge`, `Circle`; `Spacing`, `WedgeAngle`. Skriptda `SetFormationShape(...)`.
+A group that moves together (on the leader): `Members` (and the entities tagged `MemberTag`) take slots around the
+leader — `Shape`: `Line`, `Column`, `Wedge`, `Circle`; `Spacing`, `WedgeAngle`. In a script `SetFormationShape(...)`.
 
 <!-- gen:FormationComponent -->
-_Inspektorda: **Formation**; qo'shish: **+ Komponent → Navigatsiya va AI → Formation (guruh shakli: qator, pona, doira)**; sahna faylida: `"Formation"`._
+_In the inspector: **Formation**; add with: **+ Component → Navigation and AI → Formation (group shape: line, wedge, circle)**; in the scene file: `"Formation"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Shape` | `FormationShape` | `FormationShape::Wedge` |
 | `Spacing` | `float` | `1.5f` |
@@ -1456,34 +1462,35 @@ _Inspektorda: **Formation**; qo'shish: **+ Komponent → Navigatsiya va AI → F
 | `UpdateInterval` | `float` | `0.25f` |
 | `SlotTolerance` | `float` | `0.35f` |
 | `Speed` | `float` | `3.0f` |
-| `SlotMembers` _(faqat o'yin paytida)_ | `std::vector<UUID>` | — |
-| `Slots` _(faqat o'yin paytida)_ | `std::vector<glm::vec3>` | — |
-| `Issued` _(faqat o'yin paytida)_ | `std::vector<glm::vec3>` | — |
-| `Heading` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
-| `AssignedHeading` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
-| `LastLeaderPosition` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `AssignedShape` _(faqat o'yin paytida)_ | `FormationShape` | `FormationShape::Wedge` |
-| `MemberSignature` _(faqat o'yin paytida)_ | `uint64_t` | `0` |
-| `Started` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `LeaderMoving` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Timer` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `InPlace` _(faqat o'yin paytida)_ | `int` | `0` |
-| `Assignments` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
+| `SlotMembers` _(runtime only)_ | `std::vector<UUID>` | — |
+| `Slots` _(runtime only)_ | `std::vector<glm::vec3>` | — |
+| `Issued` _(runtime only)_ | `std::vector<glm::vec3>` | — |
+| `Heading` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
+| `AssignedHeading` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
+| `LastLeaderPosition` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `AssignedShape` _(runtime only)_ | `FormationShape` | `FormationShape::Wedge` |
+| `MemberSignature` _(runtime only)_ | `uint64_t` | `0` |
+| `Started` _(runtime only)_ | `bool` | `false` |
+| `LeaderMoving` _(runtime only)_ | `bool` | `false` |
+| `Timer` _(runtime only)_ | `float` | `0.0f` |
+| `InPlace` _(runtime only)_ | `int` | `0` |
+| `Assignments` _(runtime only)_ | `uint32_t` | `0` |
 <!-- /gen:FormationComponent -->
 
-## 7. Effektlar va 2D yordamchilar
+## 7. Effects and 2D helpers
 
 ### TilemapComponent
 
-Tileset teksturasidan plitkalar panjarasi (obyekt pozitsiyasi — pastki chap burchak): `TilesetPath`, `TilesetColumns` x
-`TilesetRows`, `Width` x `Height`, `TileSize`, qatlamlar (`Layers`), rang, saralash, `Lit`. `Collision` — to'qnashadigan
-plitkalar 2D collider bo'ladi (plitka xususiyatlari: Solid / OneWay). Editorda **Plitka palitrasi** bilan chiziladi.
-Yaratish: **Obyekt → 2D → Tilemap**. Namuna: `Projects/Platformer2D/Assets/Scenes/Tilemap2D.zscene`.
+A grid of tiles from a tileset texture (the entity's position is the bottom left corner): `TilesetPath`,
+`TilesetColumns` x `TilesetRows`, `Width` x `Height`, `TileSize`, layers (`Layers`), color, sorting, `Lit`.
+`Collision` — colliding tiles become 2D colliders (the tile properties: Solid / OneWay). It is painted in the editor
+with the **Tile palette**. Create: **Object → 2D → Tilemap**. Sample:
+`Projects/Platformer2D/Assets/Scenes/Tilemap2D.zscene`.
 
 <!-- gen:TilemapComponent -->
-_Inspektorda: **Tilemap**; qo'shish: **+ Komponent → Effektlar va UI → Tilemap**; sahna faylida: `"Tilemap"`._
+_In the inspector: **Tilemap**; add with: **+ Component → Effects and UI → Tilemap**; in the scene file: `"Tilemap"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `TilesetPath` | `std::string` | — |
 | `Tileset` | `Ref<Texture2D>` | — |
@@ -1503,20 +1510,20 @@ _Inspektorda: **Tilemap**; qo'shish: **+ Komponent → Effektlar va UI → Tilem
 | `Restitution` | `float` | `0.0f` |
 | `MaterialPath` | `std::string` | — |
 | `CollisionLayer` | `int` | `0` |
-| `RuntimeBody` _(faqat o'yin paytida)_ | `void*` | `nullptr` |
+| `RuntimeBody` _(runtime only)_ | `void*` | `nullptr` |
 <!-- /gen:TilemapComponent -->
 
 ### ParallaxComponent
 
-Obyektni (bolalari bilan) o'yin kamerasi bilan birga siljitadi: `Factor` 0 — oddiy obyekt, 1 — ekranga mahkam
-(cheksiz uzoq), 0.5 — kameradan ikki baravar sekin (uzoq fon), manfiy — oldingi plan. `RepeatX` / `RepeatY` — sprite'ni
-`Spacing` oraliqda takrorlab ekranni to'ldiradi. Transform o'zgarmaydi; editorda **Ko'rinish → Parallax (editor
-kamerasi bilan)** oldindan ko'rsatadi.
+Shifts the entity (with its children) along with the game camera: `Factor` 0 — an ordinary entity, 1 — fixed to the
+screen (infinitely far), 0.5 — half as fast as the camera (a distant background), negative — the foreground.
+`RepeatX` / `RepeatY` — repeats the sprite every `Spacing` to fill the screen. The transform does not change; in the
+editor **View → Parallax (with the editor camera)** previews it.
 
 <!-- gen:ParallaxComponent -->
-_Inspektorda: **Parallax**; qo'shish: **+ Komponent → Effektlar va UI → Parallax**; sahna faylida: `"Parallax"`._
+_In the inspector: **Parallax**; add with: **+ Component → Effects and UI → Parallax**; in the scene file: `"Parallax"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Factor` | `glm::vec2` | `{ 0.5f, 0.5f }` |
 | `RepeatX` | `bool` | `false` |
@@ -1526,16 +1533,16 @@ _Inspektorda: **Parallax**; qo'shish: **+ Komponent → Effektlar va UI → Para
 
 ### Camera2DFollowComponent
 
-Obyektni (odatda kamerani) `Target` ortidan yurgizadi (har kadr fizika va `OnLateUpdate` dan keyin, faqat x/y):
-`Offset`, `Damping` (har o'q bo'yicha yetib olish vaqti; 0 — mahkam), `DeadZone` (kamera qimirlamaydigan quti),
-`LookAhead` (harakat yo'nalishiga oldinga qarash), `UseBounds` + `BoundsMin` / `BoundsMax` (daraja chegarasi),
-`SnapOnStart`. Inspektorda **Nishon** maydoniga obyektni sudrab qo'ying; skriptda `SetCameraTarget(entity)`.
-[2D qo'llanmada](Tutorial-2D.md) ishlatiladi.
+Makes the entity (usually the camera) follow `Target` (every frame after physics and `OnLateUpdate`, x/y only):
+`Offset`, `Damping` (the catch-up time per axis; 0 — rigid), `DeadZone` (a box inside which the camera does not
+move), `LookAhead` (looking ahead in the direction of movement), `UseBounds` + `BoundsMin` / `BoundsMax` (the level's
+limits), `SnapOnStart`. Drag the entity onto the **Target** field of the inspector; in a script
+`SetCameraTarget(entity)`. Used in the [2D tutorial](Tutorial-2D.md).
 
 <!-- gen:Camera2DFollowComponent -->
-_Inspektorda: **Camera 2D Follow**; qo'shish: **+ Komponent → Effektlar va UI → Camera 2D Follow**; sahna faylida: `"Camera2DFollow"`._
+_In the inspector: **Camera 2D Follow**; add with: **+ Component → Effects and UI → Camera 2D Follow**; in the scene file: `"Camera2DFollow"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Target` | `EntityRef` | — |
 | `Offset` | `glm::vec2` | `{ 0.0f, 1.0f }` |
@@ -1548,23 +1555,24 @@ _Inspektorda: **Camera 2D Follow**; qo'shish: **+ Komponent → Effektlar va UI 
 | `BoundsMin` | `glm::vec2` | `{ -20.0f, -10.0f }` |
 | `BoundsMax` | `glm::vec2` | `{ 20.0f, 10.0f }` |
 | `SnapOnStart` | `bool` | `true` |
-| `Initialized` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `SnapRequested` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `LastTarget` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
-| `LookAheadDirection` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
-| `LookAheadOffset` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
+| `Initialized` _(runtime only)_ | `bool` | `false` |
+| `SnapRequested` _(runtime only)_ | `bool` | `false` |
+| `LastTarget` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
+| `LookAheadDirection` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
+| `LookAheadOffset` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
 <!-- /gen:Camera2DFollowComponent -->
 
 ### SplineComponent
 
-Obyekt koordinatalaridagi nuqtalar orqali yo'l: `Path` — Catmull-Rom (har nuqtadan silliq), Bezier (har nuqtada ikki
-tutqich) yoki to'g'ri chiziqlar; ochiq yoki yopiq. Viewport'da tahrirlanadi (inspektorda **Nuqtalarni tahrirlash**).
-Skriptlar `Scene::GetSplinePosition` / `GetSplineTangent` bilan o'qiydi. Batafsil: [Animation.md](Animation.md).
+A path through points in the entity's coordinates: `Path` — Catmull-Rom (smooth through every point), Bezier (two
+handles at every point) or straight segments; open or closed. It is edited in the viewport (**Edit points** in the
+inspector). Scripts read it with `Scene::GetSplinePosition` / `GetSplineTangent`. Details:
+[Animation.md](Animation.md).
 
 <!-- gen:SplineComponent -->
-_Inspektorda: **Spline**; qo'shish: **+ Komponent → Effektlar va UI → Spline (yo'l: Catmull-Rom, Bezier)**; sahna faylida: `"Spline"`._
+_In the inspector: **Spline**; add with: **+ Component → Effects and UI → Spline (path: Catmull-Rom, Bezier)**; in the scene file: `"Spline"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Path` | `Zamin::Spline` | `DefaultPath()` |
 | `Color` | `glm::vec4` | `{ 0.35f, 0.85f, 1.0f, 1.0f }` |
@@ -1572,14 +1580,14 @@ _Inspektorda: **Spline**; qo'shish: **+ Komponent → Effektlar va UI → Spline
 
 ### SplineFollowerComponent
 
-Obyektni Spline yo'li (`Path`) bo'ylab `Speed` tezlikda harakatlantiradi: `Mode` — oxirigacha bir marta, aylanib
-(`Loop`) yoki borib-qaytib (`PingPong`); `Rotation` — yo'l bo'ylab burilish; `Offset`. Kinematik jism tezlik bilan
-suriladi (ustidagini olib yuradi).
+Moves the entity along a Spline path (`Path`) at `Speed`: `Mode` — once to the end, around (`Loop`) or there and back
+(`PingPong`); `Rotation` — turning along the path; `Offset`. A kinematic body is moved by velocity (it carries what
+stands on it).
 
 <!-- gen:SplineFollowerComponent -->
-_Inspektorda: **Spline Follower**; qo'shish: **+ Komponent → Effektlar va UI → Spline Follower (yo'l bo'ylab harakat)**; sahna faylida: `"SplineFollower"`._
+_In the inspector: **Spline Follower**; add with: **+ Component → Effects and UI → Spline Follower (movement along a path)**; in the scene file: `"SplineFollower"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Path` | `EntityRef` | — |
 | `Speed` | `float` | `2.0f` |
@@ -1588,27 +1596,27 @@ _Inspektorda: **Spline Follower**; qo'shish: **+ Komponent → Effektlar va UI �
 | `Rotation` | `RotationMode` | `RotationMode::None` |
 | `Offset` | `glm::vec3` | `{ 0.0f }` |
 | `PlayOnStart` | `bool` | `true` |
-| `Distance` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `Direction` _(faqat o'yin paytida)_ | `float` | `1.0f` |
-| `Playing` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Finished` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Initialized` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `PlayStateSet` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Distance` _(runtime only)_ | `float` | `0.0f` |
+| `Direction` _(runtime only)_ | `float` | `1.0f` |
+| `Playing` _(runtime only)_ | `bool` | `false` |
+| `Finished` _(runtime only)_ | `bool` | `false` |
+| `Initialized` _(runtime only)_ | `bool` | `false` |
+| `PlayStateSet` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:SplineFollowerComponent -->
 
 ### ParticleSystemComponent
 
-Particle emitter: emissiya (`EmissionRate`, `Burst`, `Bursts`), shakl (`Shape`: nuqta, doira, shar, quti, konus,
-chiziq, mesh sirti), umr, tezlik, yo'nalish, tortishish, boshlang'ich / oxirgi rang va o'lcham, render (doira yoki
-tekstura, additiv, cho'zilgan, billboard, saralash), `Duration`, `Looping`, `StartDelay`, `Prewarm`, `SimulationSpeed`,
-`StopActionType` (tugaganda o'chirish / yo'q qilish). Qo'shimcha modullar (rang / o'lcham / tezlik egri chiziqlari,
-shovqin, to'qnashuv, sub-emitter, tekstura varag'i, iz) yoqilmaguncha ishlamaydi. Tayyor effektlar: **Obyekt →
-Effektlar** (`.zparticle` presetlar). Skriptda: `EmitParticles(n)`, `OnParticlesFinished()`.
+A particle emitter: emission (`EmissionRate`, `Burst`, `Bursts`), the shape (`Shape`: point, circle, sphere, box,
+cone, line, mesh surface), lifetime, speed, direction, gravity, start / end color and size, rendering (a circle or a
+texture, additive, stretched, billboard, sorting), `Duration`, `Looping`, `StartDelay`, `Prewarm`, `SimulationSpeed`,
+`StopActionType` (disable / destroy when finished). The extra modules (color / size / speed curves, noise, collision,
+sub-emitters, texture sheet, trails) do nothing until they are enabled. Ready-made effects: **Object → Effects**
+(`.zparticle` presets). In a script: `EmitParticles(n)`, `OnParticlesFinished()`.
 
 <!-- gen:ParticleSystemComponent -->
-_Inspektorda: **Particle System**; qo'shish: **+ Komponent → Effektlar va UI → Particle System**; sahna faylida: `"ParticleSystem"`._
+_In the inspector: **Particle System**; add with: **+ Component → Effects and UI → Particle System**; in the scene file: `"ParticleSystem"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `PlayOnStart` | `bool` | `true` |
 | `Playing` | `bool` | `true` |
@@ -1668,43 +1676,44 @@ _Inspektorda: **Particle System**; qo'shish: **+ Komponent → Effektlar va UI �
 | `Texture` | `Ref<Texture2D>` | — |
 | `SortingLayer` | `uint32_t` | `0` |
 | `SortingOrder` | `int` | `0` |
-| `Particles` _(faqat o'yin paytida)_ | `std::vector<Particle>` | — |
-| `EmitAccumulator` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `BurstDone` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `RandomState` _(faqat o'yin paytida)_ | `uint32_t` | `0x9E3779B9u` |
+| `Particles` _(runtime only)_ | `std::vector<Particle>` | — |
+| `EmitAccumulator` _(runtime only)_ | `float` | `0.0f` |
+| `BurstDone` _(runtime only)_ | `bool` | `false` |
+| `RandomState` _(runtime only)_ | `uint32_t` | `0x9E3779B9u` |
 | `Time` | `float` | `0.0f` |
-| `PlayTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `Prewarmed` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Finished` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `FinishPending` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Paused` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `FollowActive` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `FollowPosition` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
+| `PlayTime` _(runtime only)_ | `float` | `0.0f` |
+| `Prewarmed` _(runtime only)_ | `bool` | `false` |
+| `Finished` _(runtime only)_ | `bool` | `false` |
+| `FinishPending` _(runtime only)_ | `bool` | `false` |
+| `Paused` _(runtime only)_ | `bool` | `false` |
+| `FollowActive` _(runtime only)_ | `bool` | `false` |
+| `FollowPosition` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
 | `Events` | `std::vector<ParticleEvent>` | — |
-| `TrailPool` _(faqat o'yin paytida)_ | `ParticleTrailPool` | — |
-| `MeshRuntime` _(faqat o'yin paytida)_ | `Ref<const ParticleEmitterMesh>` | — |
-| `MeshRuntimeKey` _(faqat o'yin paytida)_ | `std::string` | — |
+| `TrailPool` _(runtime only)_ | `ParticleTrailPool` | — |
+| `MeshRuntime` _(runtime only)_ | `Ref<const ParticleEmitterMesh>` | — |
+| `MeshRuntimeKey` _(runtime only)_ | `std::string` | — |
 <!-- /gen:ParticleSystemComponent -->
 
-## 8. UI (ekran interfeysi)
+## 8. UI (screen interface)
 
-UI Transform bor obyektlar dunyoda emas, ekranda sahna ustida chiziladi (Sprite, Circle, Text va UI vidjetlari).
-Tayyor elementlar: **Obyekt → UI (ekran)** (Matn, Rasm, Tugma, Slayder, Belgilash, Progress bar, Matn maydoni, Canvas,
-Menyu, Scroll view). Qo'llanma: [UI.md](UI.md); skript hodisalari va animatsiyalari: [Scripting.md](Scripting.md#15-ui).
+Entities with a UI Transform are drawn not in the world but on the screen, over the scene (Sprite, Circle, Text and
+the UI widgets). Ready-made elements: **Object → UI (screen)** (Text, Image, Button, Slider, Toggle, Progress bar,
+Input field, Canvas, Menu, Scroll view). Guide: [UI.md](UI.md); script events and animations:
+[Scripting.md](Scripting.md#15-ui).
 
 ### UITransformComponent
 
-Ekran to'rtburchagi (RectTransform modeli), otasining UI to'rtburchagida (bo'lmasa butun ekranda) joylashadi:
-`AnchorMin` / `AnchorMax` (0..1, teng — nuqtaga mahkam; har xil — ota bilan cho'ziladi; inspektordagi **Langar
-(anchor)** presetlari), `Pivot`, `Position` (langardan pivotgacha, UI birliklarida, yuqoriga +), `Size`
-(inspektorda **X | Kenglik**, **Y | Balandlik**), `FontSize` (**Shrift o'lchami**), `Order` (aka-ukalari orasida chizilish
-tartibi), ko'rinish uchun `Scale`, `VisualOffset`, `Alpha` (joylashuvga ta'sir qilmaydi — UI tween'lari shularni
-o'zgartiradi).
+A screen rectangle (the RectTransform model), placed in its parent's UI rectangle (or the whole screen when there is
+none): `AnchorMin` / `AnchorMax` (0..1; equal — pinned to a point; different — stretches with the parent; the
+**Anchor** presets of the inspector), `Pivot`, `Position` (from the anchor to the pivot, in UI units, + is up),
+`Size` (**X | Width**, **Y | Height** in the inspector), `FontSize` (**Font size**), `Order` (the drawing order among
+its siblings), and for the look `Scale`, `VisualOffset`, `Alpha` (they do not affect the layout — the UI tweens change
+these).
 
 <!-- gen:UITransformComponent -->
-_Inspektorda: **UI Transform**; qo'shish: **+ Komponent → Effektlar va UI → UI Transform**; sahna faylida: `"UITransform"`._
+_In the inspector: **UI Transform**; add with: **+ Component → Effects and UI → UI Transform**; in the scene file: `"UITransform"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `AnchorMin` | `glm::vec2` | `{ 0.0f, 1.0f }` |
 | `AnchorMax` | `glm::vec2` | `{ 0.0f, 1.0f }` |
@@ -1720,34 +1729,34 @@ _Inspektorda: **UI Transform**; qo'shish: **+ Komponent → Effektlar va UI → 
 
 ### UICanvasComponent
 
-Ostidagi UI'ni ekranga moslab masshtablaydi: `ScaleMode` — `ScaleWithScreenSize` (`ReferenceResolution` uchun
-yasalgan, ekran bilan kattalashadi / kichrayadi; `MatchMode`, `MatchWidthOrHeight`) yoki `ConstantPixelSize`
-(`ScaleFactor`). Faqat eng tashqi canvas hisobga olinadi.
+Scales the UI under it to fit the screen: `ScaleMode` — `ScaleWithScreenSize` (made for `ReferenceResolution`, grows
+/ shrinks with the screen; `MatchMode`, `MatchWidthOrHeight`) or `ConstantPixelSize` (`ScaleFactor`). Only the
+outermost canvas counts.
 
 <!-- gen:UICanvasComponent -->
-_Inspektorda: **UI Canvas**; qo'shish: **+ Komponent → Effektlar va UI → UI Canvas (ekranga moslashuvchi masshtab)**; sahna faylida: `"UICanvas"`._
+_In the inspector: **UI Canvas**; add with: **+ Component → Effects and UI → UI Canvas (scale that adapts to the screen)**; in the scene file: `"UICanvas"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ScaleMode` | `UIScaleMode` | `UIScaleMode::ScaleWithScreenSize` |
 | `ScaleFactor` | `float` | `1.0f` |
 | `ReferenceResolution` | `glm::vec2` | `{ 1920.0f, 1080.0f }` |
 | `MatchMode` | `UIScreenMatchMode` | `UIScreenMatchMode::MatchWidthOrHeight` |
 | `MatchWidthOrHeight` | `float` | `0.5f` |
-| `CurrentScale` _(faqat o'yin paytida)_ | `float` | `1.0f` |
+| `CurrentScale` _(runtime only)_ | `float` | `1.0f` |
 <!-- /gen:UICanvasComponent -->
 
 ### UILayoutGroupComponent
 
-UI bolalarini qatorga (`Horizontal`), ustunga (`Vertical`) yoki panjaraga (`Grid`) teradi, ierarxiya tartibida:
-`Padding`, `Spacing`, `ChildAlignment`, bolalar o'lchamini boshqarish (`ControlChildWidth/Height`,
-`ChildForceExpandWidth/Height`), panjara uchun `CellSize`, `GridSpacing`, `Constraint`. `FitWidth` / `FitHeight` —
-guruh o'zi kontentiga moslashadi (elementlar bilan o'sadigan ro'yxat).
+Arranges its UI children in a row (`Horizontal`), a column (`Vertical`) or a grid (`Grid`), in hierarchy order:
+`Padding`, `Spacing`, `ChildAlignment`, control of the children's size (`ControlChildWidth/Height`,
+`ChildForceExpandWidth/Height`), for a grid `CellSize`, `GridSpacing`, `Constraint`. `FitWidth` / `FitHeight` — the
+group sizes itself to its content (a list that grows with its items).
 
 <!-- gen:UILayoutGroupComponent -->
-_Inspektorda: **UI Layout Group**; qo'shish: **+ Komponent → Effektlar va UI → UI Layout Group (qator, ustun, panjara)**; sahna faylida: `"UILayoutGroup"`._
+_In the inspector: **UI Layout Group**; add with: **+ Component → Effects and UI → UI Layout Group (row, column, grid)**; in the scene file: `"UILayoutGroup"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Type` | `UILayoutType` | `UILayoutType::Vertical` |
 | `Padding` | `glm::vec4` | `{ 0.0f }` |
@@ -1767,18 +1776,18 @@ _Inspektorda: **UI Layout Group**; qo'shish: **+ Komponent → Effektlar va UI �
 | `FitWidth` | `bool` | `false` |
 | `FitHeight` | `bool` | `false` |
 
-_Barcha maydonlar `UILayoutGroupSettings` dan meros._
+_All fields are inherited from `UILayoutGroupSettings`._
 <!-- /gen:UILayoutGroupComponent -->
 
 ### UILayoutElementComponent
 
-Layout guruhi bolasi nima so'raydi (-1 — berilmagan): `MinSize`, `PreferredSize`, `FlexibleSize` (qolgan joydan
-ulushi); `IgnoreLayout` — guruh uni o'z UI Transform'i joyida qoldiradi.
+What a child of a layout group asks for (-1 — not given): `MinSize`, `PreferredSize`, `FlexibleSize` (its share of
+the remaining space); `IgnoreLayout` — the group leaves it where its own UI Transform puts it.
 
 <!-- gen:UILayoutElementComponent -->
-_Inspektorda: **UI Layout Element**; qo'shish: **+ Komponent → Effektlar va UI → UI Layout Element (min / afzal o'lcham)**; sahna faylida: `"UILayoutElement"`._
+_In the inspector: **UI Layout Element**; add with: **+ Component → Effects and UI → UI Layout Element (min / preferred size)**; in the scene file: `"UILayoutElement"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `IgnoreLayout` | `bool` | `false` |
 | `MinSize` | `glm::vec2` | `{ -1.0f }` |
@@ -1788,14 +1797,14 @@ _Inspektorda: **UI Layout Element**; qo'shish: **+ Komponent → Effektlar va UI
 
 ### UINavigationComponent
 
-Klaviatura / gamepad bilan bu vidjetdan qayerga o'tiladi: `NavigationMode` — `Automatic` (bosilgan yo'nalishdagi eng
-yaqini), `Horizontal`, `Vertical`, `Explicit` (`Up`, `Down`, `Left`, `Right` havolalari), `None`. `SelectOnEnable` —
-faollashganda tanlanadi (menyuning birinchi tugmasi); `ShowHighlight`, `HighlightColor`.
+Where the keyboard / gamepad moves to from this widget: `NavigationMode` — `Automatic` (the nearest one in the
+pressed direction), `Horizontal`, `Vertical`, `Explicit` (the `Up`, `Down`, `Left`, `Right` references), `None`.
+`SelectOnEnable` — selected when it becomes active (the first button of a menu); `ShowHighlight`, `HighlightColor`.
 
 <!-- gen:UINavigationComponent -->
-_Inspektorda: **UI Navigation**; qo'shish: **+ Komponent → Effektlar va UI → UI Navigation (klaviatura / gamepad)**; sahna faylida: `"UINavigation"`._
+_In the inspector: **UI Navigation**; add with: **+ Component → Effects and UI → UI Navigation (keyboard / gamepad)**; in the scene file: `"UINavigation"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `NavigationMode` | `Mode` | `Mode::Automatic` |
 | `Up` | `EntityRef` | — |
@@ -1805,20 +1814,20 @@ _Inspektorda: **UI Navigation**; qo'shish: **+ Komponent → Effektlar va UI →
 | `SelectOnEnable` | `bool` | `false` |
 | `ShowHighlight` | `bool` | `true` |
 | `HighlightColor` | `glm::vec4` | `{ 1.0f, 0.80f, 0.28f, 1.0f }` |
-| `WasActive` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `WasActive` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:UINavigationComponent -->
 
 ### UIAnimationComponent
 
-UI elementining animatsiyalari: `Show` (faollashganda kirib kelish preseti: so'nish, kattalashish, yondan sirpanib),
-`Hide` (`HideUI` chaqirilganda, keyin o'chadi), `ShowAtStart`, `Duration`, `ShowDelay`, easing, `SlideDistance`;
-tugma / slayder ustida sichqoncha bo'lsa `HoverScale`, bosilganda `PressScale`. Skriptda `ShowUI(panel)` /
-`HideUI(panel)`.
+The animations of a UI element: `Show` (the entrance preset when it becomes active: fade, grow, slide in from a
+side), `Hide` (when `HideUI` is called; it is deactivated afterwards), `ShowAtStart`, `Duration`, `ShowDelay`,
+easing, `SlideDistance`; `HoverScale` while the mouse is over a button / slider, `PressScale` when it is pressed. In
+a script `ShowUI(panel)` / `HideUI(panel)`.
 
 <!-- gen:UIAnimationComponent -->
-_Inspektorda: **UI Animation**; qo'shish: **+ Komponent → Effektlar va UI → UI Animation (ko'rinish, yashirish, bosilish)**; sahna faylida: `"UIAnimation"`._
+_In the inspector: **UI Animation**; add with: **+ Component → Effects and UI → UI Animation (show, hide, press)**; in the scene file: `"UIAnimation"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Show` | `UIAnimPreset` | `UIAnimPreset::Pop` |
 | `Hide` | `UIAnimPreset` | `UIAnimPreset::Fade` |
@@ -1831,26 +1840,26 @@ _Inspektorda: **UI Animation**; qo'shish: **+ Komponent → Effektlar va UI → 
 | `HoverScale` | `float` | `1.0f` |
 | `PressScale` | `float` | `1.0f` |
 | `FeedbackDuration` | `float` | `0.08f` |
-| `WasActive` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Hiding` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `RestSaved` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `RestLook` _(faqat o'yin paytida)_ | `UIAnimMath::Look` | — |
-| `FeedbackScale` _(faqat o'yin paytida)_ | `float` | `1.0f` |
-| `FeedbackFrom` _(faqat o'yin paytida)_ | `float` | `1.0f` |
-| `FeedbackTo` _(faqat o'yin paytida)_ | `float` | `1.0f` |
-| `FeedbackTime` _(faqat o'yin paytida)_ | `float` | `1.0f` |
+| `WasActive` _(runtime only)_ | `bool` | `false` |
+| `Hiding` _(runtime only)_ | `bool` | `false` |
+| `RestSaved` _(runtime only)_ | `bool` | `false` |
+| `RestLook` _(runtime only)_ | `UIAnimMath::Look` | — |
+| `FeedbackScale` _(runtime only)_ | `float` | `1.0f` |
+| `FeedbackFrom` _(runtime only)_ | `float` | `1.0f` |
+| `FeedbackTo` _(runtime only)_ | `float` | `1.0f` |
+| `FeedbackTime` _(runtime only)_ | `float` | `1.0f` |
 <!-- /gen:UIAnimationComponent -->
 
 ### UIButtonComponent
 
-Bosiladigan to'rtburchak: holat ranglari (`NormalColor`, `HoverColor`, `PressedColor`), `Interactable`. Bosilganda
-obyekt skripti `OnClick()` oladi, hodisalar shinasiga `"UIClick"` chiqadi va `ClickMessage` berilgan bo'lsa shu xabar
-`ClickTarget` ga (bo'sh — hammaga) yuboriladi. Tanlangan tugma Enter / gamepad A bilan bosiladi.
+A clickable rectangle: the state colors (`NormalColor`, `HoverColor`, `PressedColor`), `Interactable`. When it is
+clicked the entity's script gets `OnClick()`, `"UIClick"` goes out on the event bus and, if `ClickMessage` is given,
+that message is sent to `ClickTarget` (empty — to everyone). The selected button is pressed with Enter / gamepad A.
 
 <!-- gen:UIButtonComponent -->
-_Inspektorda: **UI Button**; qo'shish: **+ Komponent → Effektlar va UI → UI Button**; sahna faylida: `"UIButton"`._
+_In the inspector: **UI Button**; add with: **+ Component → Effects and UI → UI Button**; in the scene file: `"UIButton"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `NormalColor` | `glm::vec4` | `{ 0.16f, 0.62f, 0.50f, 1.0f }` |
 | `HoverColor` | `glm::vec4` | `{ 0.22f, 0.74f, 0.60f, 1.0f }` |
@@ -1858,21 +1867,21 @@ _Inspektorda: **UI Button**; qo'shish: **+ Komponent → Effektlar va UI → UI 
 | `Interactable` | `bool` | `true` |
 | `ClickMessage` | `std::string` | — |
 | `ClickTarget` | `EntityRef` | — |
-| `Hovered` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Pressed` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Clicked` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Hovered` _(runtime only)_ | `bool` | `false` |
+| `Pressed` _(runtime only)_ | `bool` | `false` |
+| `Clicked` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:UIButtonComponent -->
 
 ### UIImageComponent
 
-UI rasmi: tekstura yoki uning kadri (bo'sh — oddiy rang), `Color`. `Type`: `Simple` (`PreserveAspect`), `Sliced`
-(9-slice), `Tiled`, `Filled` (`FillAmount` 0..1, `FillMethod`: gorizontal, vertikal, radial — HP bar, qayta tiklanish
-taymeri). `RaycastTarget` — sichqoncha shu yerda to'xtaydi (ostidagi vidjetlar bosilmaydi).
+A UI image: a texture or a frame of one (empty — a plain color), `Color`. `Type`: `Simple` (`PreserveAspect`),
+`Sliced` (9-slice), `Tiled`, `Filled` (`FillAmount` 0..1, `FillMethod`: horizontal, vertical, radial — an HP bar, a
+cooldown timer). `RaycastTarget` — the mouse stops here (the widgets underneath are not clicked).
 
 <!-- gen:UIImageComponent -->
-_Inspektorda: **UI Image**; qo'shish: **+ Komponent → Effektlar va UI → UI Image (rasm, 9-slice, to'ldirish)**; sahna faylida: `"UIImage"`._
+_In the inspector: **UI Image**; add with: **+ Component → Effects and UI → UI Image (image, 9-slice, fill)**; in the scene file: `"UIImage"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Color` | `glm::vec4` | `{ 1.0f }` |
 | `Texture` | `Ref<Texture2D>` | — |
@@ -1892,14 +1901,14 @@ _Inspektorda: **UI Image**; qo'shish: **+ Komponent → Effektlar va UI → UI I
 
 ### UISliderComponent
 
-Sudrab tanlanadigan qiymat: `MinValue`..`MaxValue`, `Value`, `WholeNumbers`, `Direction`, ko'rinish (trek, to'ldirish,
-tutqich ranglari va o'lchamlari). O'yinchi o'zgartirsa skript `OnValueChanged(value)` oladi va `"UISliderChanged"`
-chiqadi; koddan: `Scene::SetSliderValue`.
+A value chosen by dragging: `MinValue`..`MaxValue`, `Value`, `WholeNumbers`, `Direction`, the look (the colors and
+sizes of the track, the fill and the handle). When the player changes it the script gets `OnValueChanged(value)` and
+`"UISliderChanged"` goes out; from code: `Scene::SetSliderValue`.
 
 <!-- gen:UISliderComponent -->
-_Inspektorda: **UI Slider**; qo'shish: **+ Komponent → Effektlar va UI → UI Slider**; sahna faylida: `"UISlider"`._
+_In the inspector: **UI Slider**; add with: **+ Component → Effects and UI → UI Slider**; in the scene file: `"UISlider"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `MinValue` | `float` | `0.0f` |
 | `MaxValue` | `float` | `1.0f` |
@@ -1913,21 +1922,21 @@ _Inspektorda: **UI Slider**; qo'shish: **+ Komponent → Effektlar va UI → UI 
 | `TrackColor` | `glm::vec4` | `{ 0.12f, 0.13f, 0.16f, 1.0f }` |
 | `FillColor` | `glm::vec4` | `{ 0.16f, 0.62f, 0.50f, 1.0f }` |
 | `HandleColor` | `glm::vec4` | `{ 0.92f, 0.94f, 0.96f, 1.0f }` |
-| `Hovered` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Dragging` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ValueChanged` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Hovered` _(runtime only)_ | `bool` | `false` |
+| `Dragging` _(runtime only)_ | `bool` | `false` |
+| `ValueChanged` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:UISliderComponent -->
 
 ### UIToggleComponent
 
-Yoqish / o'chirish: belgilash katakchasi yoki surma kalit (`Style`), yorlig'i — obyektning Text komponenti. Bir
-`Group` dagilar radio tugmalar (bittasi yoqiq; `AllowSwitchOff`). O'zgarsa `OnToggleChanged(isOn)`,
-`"UIToggleChanged"`; koddan `Scene::SetToggle`.
+On / off: a checkbox or a sliding switch (`Style`); its label is the entity's Text component. Those of one `Group`
+are radio buttons (one is on; `AllowSwitchOff`). On a change `OnToggleChanged(isOn)`, `"UIToggleChanged"`; from code
+`Scene::SetToggle`.
 
 <!-- gen:UIToggleComponent -->
-_Inspektorda: **UI Toggle**; qo'shish: **+ Komponent → Effektlar va UI → UI Toggle (belgilash)**; sahna faylida: `"UIToggle"`._
+_In the inspector: **UI Toggle**; add with: **+ Component → Effects and UI → UI Toggle (checkbox)**; in the scene file: `"UIToggle"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `IsOn` | `bool` | `false` |
 | `Interactable` | `bool` | `true` |
@@ -1940,21 +1949,21 @@ _Inspektorda: **UI Toggle**; qo'shish: **+ Komponent → Effektlar va UI → UI 
 | `BoxColor` | `glm::vec4` | `{ 0.12f, 0.13f, 0.16f, 1.0f }` |
 | `OnColor` | `glm::vec4` | `{ 0.16f, 0.62f, 0.50f, 1.0f }` |
 | `MarkColor` | `glm::vec4` | `{ 1.0f }` |
-| `Hovered` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Pressed` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ValueChanged` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Hovered` _(runtime only)_ | `bool` | `false` |
+| `Pressed` _(runtime only)_ | `bool` | `false` |
+| `ValueChanged` _(runtime only)_ | `bool` | `false` |
 | `Transition` | `float` | `0.0f` |
 <!-- /gen:UIToggleComponent -->
 
 ### UIProgressBarComponent
 
-`Value` (0..1) gacha to'ldirilgan chiziq, `Direction` bo'yicha: fon va to'ldirish ranglari, `UseLowColor` + `LowColor`
-(bo'shaganda qizarib boradigan HP bar), `SmoothSpeed` (silliq yetib borish), `ShowPercentage`.
+A bar filled up to `Value` (0..1), along `Direction`: the background and fill colors, `UseLowColor` + `LowColor` (an
+HP bar that reddens as it empties), `SmoothSpeed` (a smooth approach), `ShowPercentage`.
 
 <!-- gen:UIProgressBarComponent -->
-_Inspektorda: **UI Progress Bar**; qo'shish: **+ Komponent → Effektlar va UI → UI Progress Bar**; sahna faylida: `"UIProgressBar"`._
+_In the inspector: **UI Progress Bar**; add with: **+ Component → Effects and UI → UI Progress Bar**; in the scene file: `"UIProgressBar"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Value` | `float` | `0.5f` |
 | `Direction` | `UIDirection` | `UIDirection::LeftToRight` |
@@ -1971,14 +1980,14 @@ _Inspektorda: **UI Progress Bar**; qo'shish: **+ Komponent → Effektlar va UI �
 
 ### UIInputFieldComponent
 
-Bir qatorli matn maydoni: kursor, tanlash, `Ctrl+A/C/X/V`, Enter — yuborish, Escape — bekor qilish; UTF-8 (oʻ, gʻ,
-kirill). `Placeholder`, `ContentType` (`Integer`, `Decimal`, `Alphanumeric`, `Password`), `CharacterLimit`, `ReadOnly`,
-ranglar. Skriptda `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`.
+A single-line text field: a caret, selection, `Ctrl+A/C/X/V`, Enter — submit, Escape — cancel; UTF-8 (oʻ, gʻ,
+Cyrillic). `Placeholder`, `ContentType` (`Integer`, `Decimal`, `Alphanumeric`, `Password`), `CharacterLimit`,
+`ReadOnly`, colors. In a script `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`.
 
 <!-- gen:UIInputFieldComponent -->
-_Inspektorda: **UI Input Field**; qo'shish: **+ Komponent → Effektlar va UI → UI Input Field (matn maydoni)**; sahna faylida: `"UIInputField"`._
+_In the inspector: **UI Input Field**; add with: **+ Component → Effects and UI → UI Input Field (text field)**; in the scene file: `"UIInputField"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Text` | `std::string` | — |
 | `Placeholder` | `std::string` | `"Enter text..."` |
@@ -1998,27 +2007,27 @@ _Inspektorda: **UI Input Field**; qo'shish: **+ Komponent → Effektlar va UI �
 | `CaretColor` | `glm::vec4` | `{ 1.0f }` |
 | `SelectionColor` | `glm::vec4` | `{ 0.22f, 0.46f, 0.86f, 0.55f }` |
 | `CaretBlinkRate` | `float` | `0.53f` |
-| `Focused` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Hovered` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `TextChanged` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Submitted` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `Caret` _(faqat o'yin paytida)_ | `size_t` | `0` |
-| `Anchor` _(faqat o'yin paytida)_ | `size_t` | `0` |
-| `BlinkTime` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `Scroll` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `TextBeforeEdit` _(faqat o'yin paytida)_ | `std::string` | — |
-| `Selecting` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Focused` _(runtime only)_ | `bool` | `false` |
+| `Hovered` _(runtime only)_ | `bool` | `false` |
+| `TextChanged` _(runtime only)_ | `bool` | `false` |
+| `Submitted` _(runtime only)_ | `bool` | `false` |
+| `Caret` _(runtime only)_ | `size_t` | `0` |
+| `Anchor` _(runtime only)_ | `size_t` | `0` |
+| `BlinkTime` _(runtime only)_ | `float` | `0.0f` |
+| `Scroll` _(runtime only)_ | `float` | `0.0f` |
+| `TextBeforeEdit` _(runtime only)_ | `std::string` | — |
+| `Selecting` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:UIInputFieldComponent -->
 
 ### UIMaskComponent
 
-UI bolalarini o'z to'rtburchagi ichida kesadi (chiziladi va sichqonchaga javob beradi faqat ichkarida), `Padding`
-bilan; ichma-ich niqoblar kesishadi. `ShowGraphic` o'chiq — niqobning o'z rasmi chizilmaydi, faqat kesadi.
+Clips its UI children to its own rectangle (they are drawn and answer the mouse only inside it), with `Padding`;
+nested masks intersect. With `ShowGraphic` off the mask's own picture is not drawn, it only clips.
 
 <!-- gen:UIMaskComponent -->
-_Inspektorda: **UI Mask**; qo'shish: **+ Komponent → Effektlar va UI → UI Mask (bolalarini to'rtburchakda kesadi)**; sahna faylida: `"UIMask"`._
+_In the inspector: **UI Mask**; add with: **+ Component → Effects and UI → UI Mask (clips its children to the rectangle)**; in the scene file: `"UIMask"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ShowGraphic` | `bool` | `true` |
 | `Padding` | `glm::vec4` | `{ 0.0f }` |
@@ -2026,14 +2035,14 @@ _Inspektorda: **UI Mask**; qo'shish: **+ Komponent → Effektlar va UI → UI Ma
 
 ### UIScrollViewComponent
 
-Aylantiriladigan ko'rinish: `Content` (ichidagi ro'yxat yoki xarita) g'ildirak, sudrash, scrollbar'lar va navigatsiya
-bilan suriladi. `Horizontal` / `Vertical`, `Movement` (elastik, cheklangan, cheksiz), `Elasticity`, `Inertia`,
-`DecelerationRate`, `ScrollSensitivity`, `Scrollbars`. Skriptda `OnScrollChanged(pos)`.
+A scrollable view: `Content` (the list or map inside) is moved with the wheel, by dragging, with the scrollbars and
+by navigation. `Horizontal` / `Vertical`, `Movement` (elastic, clamped, unrestricted), `Elasticity`, `Inertia`,
+`DecelerationRate`, `ScrollSensitivity`, `Scrollbars`. In a script `OnScrollChanged(pos)`.
 
 <!-- gen:UIScrollViewComponent -->
-_Inspektorda: **UI Scroll View**; qo'shish: **+ Komponent → Effektlar va UI → UI Scroll View (aylantiriladigan ro'yxat)**; sahna faylida: `"UIScrollView"`._
+_In the inspector: **UI Scroll View**; add with: **+ Component → Effects and UI → UI Scroll View (scrollable list)**; in the scene file: `"UIScrollView"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Content` | `EntityRef` | — |
 | `Viewport` | `EntityRef` | — |
@@ -2050,36 +2059,36 @@ _Inspektorda: **UI Scroll View**; qo'shish: **+ Komponent → Effektlar va UI �
 | `ScrollbarInset` | `float` | `3.0f` |
 | `TrackColor` | `glm::vec4` | `{ 0.0f, 0.0f, 0.0f, 0.28f }` |
 | `HandleColor` | `glm::vec4` | `{ 0.78f, 0.80f, 0.86f, 0.85f }` |
-| `NormalizedPosition` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f, 1.0f }` |
-| `Velocity` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
-| `Dragging` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ScrollChanged` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ShowHorizontalBar` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `ShowVerticalBar` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `HoveredBar` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `DraggedBar` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `Revealing` _(faqat o'yin paytida)_ | `bool` | `false` |
-| `RevealTarget` _(faqat o'yin paytida)_ | `glm::vec2` | `{ 0.0f }` |
-| `PositionKnown` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `NormalizedPosition` _(runtime only)_ | `glm::vec2` | `{ 0.0f, 1.0f }` |
+| `Velocity` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
+| `Dragging` _(runtime only)_ | `bool` | `false` |
+| `ScrollChanged` _(runtime only)_ | `bool` | `false` |
+| `ShowHorizontalBar` _(runtime only)_ | `bool` | `false` |
+| `ShowVerticalBar` _(runtime only)_ | `bool` | `false` |
+| `HoveredBar` _(runtime only)_ | `int` | `-1` |
+| `DraggedBar` _(runtime only)_ | `int` | `-1` |
+| `Revealing` _(runtime only)_ | `bool` | `false` |
+| `RevealTarget` _(runtime only)_ | `glm::vec2` | `{ 0.0f }` |
+| `PositionKnown` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:UIScrollViewComponent -->
 
 ## 9. Audio
 
-Qo'llanma: [Audio.md](Audio.md).
+Guide: [Audio.md](Audio.md).
 
 ### AudioSourceComponent
 
-Obyektning ovozi: `Path` (`.wav`, `.mp3`, `.flac`, `Assets` ga nisbatan; OGG Vorbis dekoderi yo'q), `Volume`, `Pitch`, `Loop`,
-`PlayOnStart`, `Spatial` (3D: tinglovchiga nisbatan ovoz va panorama; `MinDistance`, `MaxDistance`), `Output` (mixer
-guruhi: SFX, Music, UI ... — **Oyna → Audio Mixer**), `Stream`, tasodifiy oraliqlar (`VolumeRandom`, `PitchRandom`),
-ovozlar limiti (`Priority`, `MaxInstances`, `Steal`), Doppler, `FadeIn` / `FadeOut`, filtr, yo'nalish konusi
-(`Cone`). Inspektorda to'lqin shakli va oldindan eshitish. Skriptda `PlayAudio()`, `StopAudio()`, `FadeAudio()` ...
-Yaratish: **Obyekt → Ovoz manbai**.
+The entity's sound: `Path` (`.wav`, `.mp3`, `.flac`, relative to `Assets`; there is no OGG Vorbis decoder), `Volume`,
+`Pitch`, `Loop`, `PlayOnStart`, `Spatial` (3D: volume and panning relative to the listener; `MinDistance`,
+`MaxDistance`), `Output` (the mixer group: SFX, Music, UI ... — **Window → Audio Mixer**), `Stream`, random ranges
+(`VolumeRandom`, `PitchRandom`), the voice limit (`Priority`, `MaxInstances`, `Steal`), Doppler, `FadeIn` /
+`FadeOut`, a filter, the directional cone (`Cone`). The inspector shows the waveform and plays a preview. In a script
+`PlayAudio()`, `StopAudio()`, `FadeAudio()` ... Create: **Object → Audio source**.
 
 <!-- gen:AudioSourceComponent -->
-_Inspektorda: **Audio Source**; qo'shish: **+ Komponent → Boshqa → Audio Source**; sahna faylida: `"AudioSource"`._
+_In the inspector: **Audio Source**; add with: **+ Component → Other → Audio Source**; in the scene file: `"AudioSource"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Path` | `std::string` | — |
 | `Volume` | `float` | `1.0f` |
@@ -2101,40 +2110,40 @@ _Inspektorda: **Audio Source**; qo'shish: **+ Komponent → Boshqa → Audio Sou
 | `FadeOut` | `float` | `0.0f` |
 | `Filter` | `AudioFilterSettings` | — |
 | `Cone` | `AudioConeSettings` | — |
-| `RuntimeHandle` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `Velocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `LastPosition` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `HasLastPosition` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `RuntimeHandle` _(runtime only)_ | `uint32_t` | `0` |
+| `Velocity` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `LastPosition` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `HasLastPosition` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:AudioSourceComponent -->
 
 ### AudioListenerComponent
 
-3D ovozlar qayerdan eshitiladi (asosiy kamera o'rniga; masalan uchinchi shaxs o'yinida qahramon boshi). Bir nechta
-bo'lsa, eng katta `Priority` li faol tinglovchi; hech biri bo'lmasa — asosiy kamera.
+Where 3D sounds are heard from (instead of the primary camera; for example the hero's head in a third-person game).
+With several, the active listener with the highest `Priority`; with none — the primary camera.
 
 <!-- gen:AudioListenerComponent -->
-_Inspektorda: **Audio Listener**; qo'shish: **+ Komponent → Boshqa → Audio Listener (tinglovchi)**; sahna faylida: `"AudioListener"`._
+_In the inspector: **Audio Listener**; add with: **+ Component → Other → Audio Listener**; in the scene file: `"AudioListener"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Enabled` | `bool` | `true` |
 | `Priority` | `int` | `0` |
 | `TrackVelocity` | `bool` | `false` |
-| `Velocity` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `LastPosition` _(faqat o'yin paytida)_ | `glm::vec3` | `{ 0.0f }` |
-| `HasLastPosition` _(faqat o'yin paytida)_ | `bool` | `false` |
+| `Velocity` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `LastPosition` _(runtime only)_ | `glm::vec3` | `{ 0.0f }` |
+| `HasLastPosition` _(runtime only)_ | `bool` | `false` |
 <!-- /gen:AudioListenerComponent -->
 
 ### AmbientZoneComponent
 
-Hajm ichida hamma joyda eshitiladigan takroriy fon ovozi (o'rmon, g'or, yomg'ir, daryo bo'yi): `Shape` — quti
-(`Size`) yoki shar (`Radius`); tinglovchi yaqinlashganda `BlendDistance` masofada asta kuchayadi, `FadeTime` o'zgarishlarni
-silliqlaydi. Eshitilganda boshlanadi, so'nganda to'xtaydi.
+A looping background sound heard everywhere inside a volume (a forest, a cave, rain, a riverside): `Shape` — a box
+(`Size`) or a sphere (`Radius`); it swells gradually over `BlendDistance` as the listener approaches, and `FadeTime`
+smooths the changes. It starts when it becomes audible and stops when it has faded out.
 
 <!-- gen:AmbientZoneComponent -->
-_Inspektorda: **Ambient Zone**; qo'shish: **+ Komponent → Boshqa → Ambient Zone (hajmdagi fon ovozi)**; sahna faylida: `"AmbientZone"`._
+_In the inspector: **Ambient Zone**; add with: **+ Component → Other → Ambient Zone (ambience in a volume)**; in the scene file: `"AmbientZone"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Path` | `std::string` | — |
 | `Volume` | `float` | `1.0f` |
@@ -2147,24 +2156,24 @@ _Inspektorda: **Ambient Zone**; qo'shish: **+ Komponent → Boshqa → Ambient Z
 | `Radius` | `float` | `5.0f` |
 | `BlendDistance` | `float` | `4.0f` |
 | `FadeTime` | `float` | `0.5f` |
-| `RuntimeHandle` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
-| `Target` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `Level` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `Distance` _(faqat o'yin paytida)_ | `float` | `0.0f` |
-| `RetryIn` _(faqat o'yin paytida)_ | `float` | `0.0f` |
+| `RuntimeHandle` _(runtime only)_ | `uint32_t` | `0` |
+| `Target` _(runtime only)_ | `float` | `0.0f` |
+| `Level` _(runtime only)_ | `float` | `0.0f` |
+| `Distance` _(runtime only)_ | `float` | `0.0f` |
+| `RetryIn` _(runtime only)_ | `float` | `0.0f` |
 <!-- /gen:AmbientZoneComponent -->
 
 ### FootstepsComponent
 
-Animatsiya event'idan qadam tovushi: har `EventName` event'ida (`Animator`, Animation Player yoki sprite klipi)
-`Sounds` dan tasodifiy biri chalinadi (ketma-ket bir xili emas), qahramon tezligiga qarab balandroq / yuqoriroq
-(`SpeedParameter` — Animator float parametri, `ReferenceSpeed`, `SpeedPitch`, `SpeedVolume`), `MinInterval` dan yaqin
-qadamlar bitta. Namuna: Adventure3D qahramoni (`Audio/Step1..4.wav`).
+A footstep sound from an animation event: on every `EventName` event (of an `Animator`, an Animation Player or a
+sprite clip) a random one of `Sounds` is played (never the same one twice in a row), louder / higher with the
+character's speed (`SpeedParameter` — an Animator float parameter, `ReferenceSpeed`, `SpeedPitch`, `SpeedVolume`);
+steps closer together than `MinInterval` count as one. Sample: the Adventure3D hero (`Audio/Step1..4.wav`).
 
 <!-- gen:FootstepsComponent -->
-_Inspektorda: **Footsteps**; qo'shish: **+ Komponent → Boshqa → Footsteps (animatsiya event'idan qadam tovushi)**; sahna faylida: `"Footsteps"`._
+_In the inspector: **Footsteps**; add with: **+ Component → Other → Footsteps (step sound from an animation event)**; in the scene file: `"Footsteps"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Sounds` | `std::vector<std::string>` | — |
 | `EventName` | `std::string` | `"Footstep"` |
@@ -2181,60 +2190,60 @@ _Inspektorda: **Footsteps**; qo'shish: **+ Komponent → Boshqa → Footsteps (a
 | `MinDistance` | `float` | `1.0f` |
 | `MaxDistance` | `float` | `25.0f` |
 | `Output` | `std::string` | `"SFX"` |
-| `LastSound` _(faqat o'yin paytida)_ | `int` | `-1` |
-| `LastStepTime` _(faqat o'yin paytida)_ | `double` | `-1.0e9` |
-| `RandomState` _(faqat o'yin paytida)_ | `uint32_t` | `0x9E3779B9u` |
-| `StepCount` _(faqat o'yin paytida)_ | `uint32_t` | `0` |
+| `LastSound` _(runtime only)_ | `int` | `-1` |
+| `LastStepTime` _(runtime only)_ | `double` | `-1.0e9` |
+| `RandomState` _(runtime only)_ | `uint32_t` | `0x9E3779B9u` |
+| `StepCount` _(runtime only)_ | `uint32_t` | `0` |
 <!-- /gen:FootstepsComponent -->
 
-## 10. Skript, sub-sahna va editor ma'lumotlari
+## 10. Script, sub-scene and editor data
 
 ### NativeScriptComponent
 
-C++ skript: `ClassName` (`ZM_REGISTER_SCRIPT` dagi nom; inspektorda **Klass**), `Fields` (inspektorda berilgan maydon
-qiymatlari, sahnada saqlanadi), `Enabled` (**Faol**). O'yin paytida `Instance` — ishlayotgan skript nusxasi
-(`GetScript<T>(entity)` shu orqali). Qo'shish: **+ Komponent → Boshqa → C++ Script**. To'liq qo'llanma:
+A C++ script: `ClassName` (the name in `ZM_REGISTER_SCRIPT`; **Class** in the inspector), `Fields` (the field values
+given in the inspector, saved in the scene), `Enabled` (**Enabled**). At runtime `Instance` is the running script
+instance (`GetScript<T>(entity)` goes through it). Add with: **+ Component → Other → C++ Script**. Full guide:
 [Scripting.md](Scripting.md).
 
 <!-- gen:NativeScriptComponent -->
-_Inspektorda: **Skript (C++ / Visual)**; qo'shish: **+ Komponent → Boshqa → Script / Visual graph**; sahna faylida: `"NativeScript"`._
+_In the inspector: **Script (C++ / Visual)**; add with: **+ Component → Other → Script / Visual graph**; in the scene file: `"NativeScript"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ClassName` | `std::string` | — |
 | `Fields` | `std::unordered_map<std::string, ScriptFieldValue>` | — |
 | `Enabled` | `bool` | `true` |
-| `Instance` _(faqat o'yin paytida)_ | `ScriptableEntity*` | `nullptr` |
+| `Instance` _(runtime only)_ | `ScriptableEntity*` | `nullptr` |
 <!-- /gen:NativeScriptComponent -->
 
 ### BoneAttachmentComponent
 
-Obyektni skinned modelning suyagiga biriktiradi (qo'ldagi qilich, boshdagi shapka): `Target` — modeli bor obyekt
-(bo'sh — eng yaqin ota-ona), `Bone` — suyak nomi, `InheritBoneScale`. Suyak obyektning otasi o'rnini egallaydi:
-Transform — suyak fazosidagi siljish. Batafsil: [Animation.md](Animation.md).
+Attaches the entity to a bone of a skinned model (a sword in the hand, a hat on the head): `Target` — the entity
+with the model (empty — the nearest ancestor), `Bone` — the bone's name, `InheritBoneScale`. The bone takes the place
+of the entity's parent: the Transform is an offset in the bone's space. Details: [Animation.md](Animation.md).
 
 <!-- gen:BoneAttachmentComponent -->
-_Inspektorda: **Bone Attachment**; qo'shish: **+ Komponent → Render → Bone Attachment (suyakka biriktirish)**; sahna faylida: `"BoneAttachment"`._
+_In the inspector: **Bone Attachment**; add with: **+ Component → Rendering → Bone Attachment (attach to a bone)**; in the scene file: `"BoneAttachment"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Target` | `EntityRef` | — |
 | `Bone` | `std::string` | — |
 | `InheritBoneScale` | `bool` | `false` |
-| `CachedJoint` _(faqat o'yin paytida)_ | `int` | `-1` |
+| `CachedJoint` _(runtime only)_ | `int` | `-1` |
 <!-- /gen:BoneAttachmentComponent -->
 
 ### SubSceneComponent
 
-Sahnaning alohida faylda saqlanadigan qismi (darajaning xonasi, umumiy yoritish): o'yin paytida `ScenePath` sahnasi
-shu obyekt transform'i bilan qo'shimcha (additive) yuklanadi; `LoadOnStart` o'chiq bo'lsa skript `LoadSubScene()`
-chaqirguncha kutadi. `ApplyTransform`, `ShowInEditor` (editorda faqat ko'rish uchun chiziladi). Inspektorda
-**Sub-sahna**. Batafsil: [Scenes.md](Scenes.md).
+A part of a scene kept in a separate file (a room of a level, shared lighting): at runtime the `ScenePath` scene is
+loaded additively with this entity's transform; with `LoadOnStart` off it waits until a script calls
+`LoadSubScene()`. `ApplyTransform`, `ShowInEditor` (drawn in the editor for viewing only). **Sub-scene** in the
+inspector. Details: [Scenes.md](Scenes.md).
 
 <!-- gen:SubSceneComponent -->
-_Inspektorda: **Sub-sahna**; qo'shish: **+ Komponent → Boshqa → Sub-sahna (boshqa sahna fayli shu joyda)**; sahna faylida: `"SubScene"`._
+_In the inspector: **Sub-scene**; add with: **+ Component → Other → Sub-scene (another scene file placed here)**; in the scene file: `"SubScene"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `ScenePath` | `std::string` | — |
 | `LoadOnStart` | `bool` | `true` |
@@ -2244,14 +2253,15 @@ _Inspektorda: **Sub-sahna**; qo'shish: **+ Komponent → Boshqa → Sub-sahna (b
 
 ### EditorMetadataComponent
 
-Faqat editor uchun: ierarxiyadagi ko'z (`Hidden` — editorda chizilmaydi) va qulf (`Locked` — viewport'da tanlanmaydi),
-inspektordagi komponentlar tartibi (`ComponentOrder`), prefab nusxasi ildizi (`Prefab` — prefab fayli yo'li). O'yin
-uni e'tiborga olmaydi. Sahna faylida `"Editor"` kaliti ostida (faqat biror narsa berilganda).
+For the editor only: the eye of the hierarchy (`Hidden` — not drawn in the editor) and the lock (`Locked` — cannot be
+selected in the viewport), the order of the components in the inspector (`ComponentOrder`), the root of a prefab
+instance (`Prefab` — the path of the prefab file). The game ignores it. In the scene file it is under the `"Editor"`
+key (only when something is set).
 
 <!-- gen:EditorMetadataComponent -->
-_inspektor menyusida yo'q (editor / tizim o'zi qo'shadi); sahna faylida: `"Editor"`._
+_not in the inspector menu (the editor / a system adds it); in the scene file: `"Editor"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Hidden` | `bool` | `false` |
 | `Locked` | `bool` | `false` |
@@ -2261,14 +2271,15 @@ _inspektor menyusida yo'q (editor / tizim o'zi qo'shadi); sahna faylida: `"Edito
 
 ### PrefabLinkComponent
 
-Faqat editor uchun: prefab nusxasidagi obyekt prefab faylidagi qaysi obyekt ekani (`PrefabEntity`), nusxadagi
-o'zgarishlar (`Overrides`), olib tashlangan komponentlar / obyektlar. Apply / Revert va prefab o'zgarganda sinxronlash
-shu ma'lumot bilan ishlaydi; player uni o'qimaydi, eksport olib tashlaydi. Batafsil: [Prefabs.md](Prefabs.md).
+For the editor only: which entity of the prefab file an entity of a prefab instance is (`PrefabEntity`), the changes
+in the instance (`Overrides`), the removed components / entities. Apply / Revert and the synchronisation when a
+prefab changes work from this data; the player does not read it and export strips it. Details:
+[Prefabs.md](Prefabs.md).
 
 <!-- gen:PrefabLinkComponent -->
-_inspektor menyusida yo'q (editor / tizim o'zi qo'shadi); sahna faylida: `"Editor"`._
+_not in the inspector menu (the editor / a system adds it); in the scene file: `"Editor"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `PrefabEntity` | `uint64_t` | `0` |
 | `Overrides` | `std::vector<std::string>` | — |
@@ -2281,12 +2292,12 @@ _inspektor menyusida yo'q (editor / tizim o'zi qo'shadi); sahna faylida: `"Edito
 
 ### TerrainComponent
 
-3D heightfield: `Resolution` (2..257), `Size` (X/Z, metr), `HeightLimit`, `Heights`, to'rtta `Layers` va `Weights`, `Collision`. Sahna kaliti `Terrain`. Runtime GPU va collider cache'lari serializatsiya qilinmaydi va nusxalar o'rtasida bo'lishilmaydi. Editor: **Obyekt → 3D → Terrain / map**, **Oyna → Map tayyorlash (Terrain)**. [To'liq qo'llanma](Terrain.md).
+A 3D heightfield: `Resolution` (2..257), `Size` (X/Z, metres), `HeightLimit`, `Heights`, four `Layers` and `Weights`, `Collision`. The scene key is `Terrain`. The runtime GPU and collider caches are not serialized and are not shared between copies. Editor: **Object → 3D → Terrain / map**, **Window → Map authoring (Terrain)**. [Full guide](Terrain.md).
 
 <!-- gen:TerrainComponent -->
-_Inspektorda: **Terrain**; qo'shish: **+ Komponent → Render → Terrain / map**; sahna faylida: `"Terrain"`._
+_In the inspector: **Terrain**; add with: **+ Component → Rendering → Terrain / map**; in the scene file: `"Terrain"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `Resolution` | `uint32_t` | `65` |
 | `Size` | `glm::vec2` | `{ 64.0f }` |
@@ -2305,12 +2316,12 @@ _Inspektorda: **Terrain**; qo'shish: **+ Komponent → Render → Terrain / map*
 
 ### FoliageComponent
 
-Packed statik foliage: bitta entity ichida 65536 tagacha transform, yaqin/uzoq mesh yoki model, tint, LOD/cull masofasi, hysteresis va GPU/CPU backend. Opaque/cutout statik submeshlar qo'llanadi. Bitta component picking ID; alohida instance collision yoki gameplay entity'lari yaratilmaydi. Model asset havolalari, instance transformlari va sozlamalar sahnada saqlanadi; runtime cache nusxalar orasida bo'lishilmaydi.
+Packed static foliage: up to 65536 transforms inside one entity, a near / far mesh or model, tint, LOD / cull distance, hysteresis and a GPU / CPU backend. Opaque / cutout static submeshes are supported. One component is one picking ID; no per-instance collision or gameplay entities are created. The model asset references, the instance transforms and the settings are saved in the scene; the runtime cache is not shared between copies.
 
 <!-- gen:FoliageComponent -->
-_Inspektorda: **Packed foliage**; qo'shish: **+ Komponent → Render → Packed foliage**; sahna faylida: `"Foliage"`._
+_In the inspector: **Packed foliage**; add with: **+ Component → Rendering → Packed foliage**; in the scene file: `"Foliage"`._
 
-| Maydon | Tur | Standart |
+| Field | Type | Default |
 |---|---|---|
 | `NearType` | `PrimitiveMesh` | `PrimitiveMesh::Cone` |
 | `FarType` | `PrimitiveMesh` | `PrimitiveMesh::Cube` |

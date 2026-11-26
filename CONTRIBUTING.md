@@ -135,9 +135,9 @@ TEST(MyFeatureRoundTrip)
 
 - Put the test under the section comment (`// ---------- ...`) that fits its subject, then update the list:
   `Tests/test_catalog.py --update docs/Testing.md` (`DocsCheck` finds a stale list).
-- For every bug you fix, write a test that keeps it from coming back ([Testing.md](docs/Testing.md#topilgan-xatolarni-qoriqlovchi-testlar)).
+- For every bug you fix, write a test that keeps it from coming back ([Testing.md](docs/Testing.md#tests-that-guard-found-bugs)).
 - Running one test: `./build/bin/ZaminTests MyFeature*` (a glob, `-` to exclude, `--list`,
-  `--timing`) — [Testing.md, section 1](docs/Testing.md#1-unit-testlar---zamintests).
+  `--timing`) — [Testing.md, section 1](docs/Testing.md#1-unit-tests---zamintests).
 
 ## 5. Sanitizers, coverage, benchmarks
 

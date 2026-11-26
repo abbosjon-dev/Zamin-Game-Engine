@@ -5,7 +5,7 @@ animatsiyasi va Animator (holat mashinasi, blend tree, qatlamlar), event'lar, ro
 morph target'lar, sprite animatsiyasi va kliplar, tint (rang) animatsiyasi, skript tween'lari, AnimationCurve va
 spline yo'llar, samaradorlik (keshlash, kesish), testlar va ko'p uchraydigan muammolar. Har bo'limda C++ skript
 misollari bor (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`). Komponentlarning to'liq maydonlari —
-[Components.md](Components.md#2-render); UI animatsiyalari — [UI.md](UI.md#10-ui-animatsiyalari); particle'larning
+[Components.md](Components.md#2-rendering); UI animatsiyalari — [UI.md](UI.md#10-ui-animatsiyalari); particle'larning
 tekstura sheet (flipbook) moduli — [Rendering.md](Rendering.md#13-particle-tizimi).
 
 ![Animatsiya oynasi: darvoza klipi](images/animation-timeline-editor.jpg)

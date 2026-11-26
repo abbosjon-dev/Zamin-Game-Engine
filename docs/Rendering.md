@@ -8,8 +8,8 @@ va testlar — editorda va C++ skriptda.
 
 Terrain: GPU albedo/normal/ORM qatlamlari, bo'yash, control cache va patch LOD — [Terrain qo'llanmasi](Terrain.md).
 
-Komponentlarning to'liq maydonlari: [Components.md](Components.md#2-render) (render), [yorug'lik](Components.md#3-yoruglik),
-[effektlar va 2D yordamchilar](Components.md#7-effektlar-va-2d-yordamchilar). Animatsiya (sprite kliplar, tint, property
+Komponentlarning to'liq maydonlari: [Components.md](Components.md#2-rendering) (render), [yorug'lik](Components.md#3-lights),
+[effektlar va 2D yordamchilar](Components.md#7-effects-and-2d-helpers). Animatsiya (sprite kliplar, tint, property
 kliplar, skelet) — [Animation.md](Animation.md), ekran UI — [UI.md](UI.md). Misollar `#include <Zamin/Zamin.h>` va
 `using namespace Zamin;` bilan.
 
@@ -532,7 +532,7 @@ Editor haqida batafsil: [Editor.md](Editor.md#5-viewport).
 ## 19. Testlar va benchmarklar
 
 - **Rendering regressiya testi** (`ZaminRenderTests`, `Tests/render_tests.sh`): etalon sahnalar offscreen chiziladi va
-  `Tests/Reference/*.png` bilan solishtiriladi — [Testing.md](Testing.md#2-rendering-regressiya-testi---zaminrendertests).
+  `Tests/Reference/*.png` bilan solishtiriladi — [Testing.md](Testing.md#2-rendering-regression-test---zaminrendertests).
 - **Render benchmark**: `ZaminBench --render` (10 000 sprite, 1 000 mesh; `Tests/render_bench.sh`) — [Benchmarks.md](Benchmarks.md).
 - **Unit testlar** (GPU'siz qism: saralash, culling matematikasi, materiallar JSON, particle simulyatsiyasi, soya
   sozlamalari ...):

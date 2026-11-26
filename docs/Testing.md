@@ -1,51 +1,51 @@
-# Testlar va regressiya testlari
+# Tests and regression tests
 
-Zamin Engine'dagi barcha avtomatik tekshiruvlar, ular nimani qo'riqlashi va qanday ishga tushirilishi. Har bir test
-mahalliy kompyuterda ham, CI'da ham (`.github/workflows/linux.yml`) **bir xil skript** bilan ishlaydi: CI qadamlari
-faqat `Tests/*.sh` skriptlarini chaqiradi. Raqamlar va o'lchangan natijalar: [Quality.md](Quality.md).
+All the automatic checks of Zamin Engine, what each one guards and how it is run. Every test runs with **the same
+script** on a local machine and in CI (`.github/workflows/linux.yml`): the CI steps only call the `Tests/*.sh`
+scripts. Numbers and measured results: [Quality.md](Quality.md).
 
-## Qachon nimani ishga tushirish
+## What to run when
 
-| O'zgarish | Ishga tushiring | Vaqt (Debug, 4 vCPU) |
+| Change | Run | Time (Debug, 4 vCPU) |
 |---|---|---|
-| Har qanday o'zgarish (commit oldidan) | `cmake --build build && ./build/bin/ZaminTests` (oxiri `N tests, 0 failures`) | ~5 daqiqa (shundan ~85 % slice o'tishlari) |
-| Tez tekshiruv (ish davomida) | `./build/bin/ZaminTests --quick` (yoki `ctest --test-dir build -L unit`): `SLOW_TEST` lar (butun o'yin o'tishlari) siz | ~45 s |
-| Faqat bir qism | `./build/bin/ZaminTests "Prefab*"`, `--filter "Scene*:-*Fuzz*"`, `--list` | soniyalar |
-| Rendering, shader, post effektlar | `Tests/render_tests.sh` | soniyalar |
-| Editor UI (panel, menyu, popup, inspektor) | `Tests/editor_smoke.sh` | ~3 daqiqa |
-| Skript tizimi, modul yuklash | `Tests/hot_reload_test.sh` | ~20 s |
-| Eksport, player, ishga tushirish skripti | `Tests/export_test.sh` (bitta o'yin), `Tests/package_games.sh` (uchala o'yin + paketlar) | 1-5 daqiqa |
-| Namuna o'yin (skript, sahna, generator) yoki ular ishlatadigan engine qismi | `Tests/samples_test.py --game <O'yin>` (hammasi: argumentsiz), `Tests/samples_assets.py --regen` | 1-5 daqiqa bir o'yinga, ~30 daqiqa hammasi; ~20 s |
-| Xotira, ko'rsatkichlar, egalik | `Tests/sanitize.sh address --smoke` (`--editor-smoke`), `Tests/sanitize.sh undefined` | 20-40 daqiqa (build bilan) |
-| Tezlikka ta'sir qiladigan o'zgarish | `Tests/bench.sh --compare`, `Tests/render_bench.sh`, `Tests/player_bench.sh` | 1-5 daqiqa (Release) |
-| Yangi kod, testlar yetarlimi | `Tests/coverage.sh` (`--gui`) | ~25 daqiqa |
-| Formatlash | `Tests/format_check.sh` (o'zgargan qatorlar) | soniyalar |
-| Hujjatlar, komponent, skript API'si yoki player varianti | `Tests/docs_check.py` (komponent o'zgarsa avval `Tests/docs_components.py --update docs/Components.md`), `Tests/docs_snippets.py` | ~1 s, ~5 s |
-| Hammasi (GUI testlari bilan) | `ctest --test-dir build` (`-LE gui` - tezkorlari, `-L gui` - editor/eksport) | ~10 daqiqa |
+| Any change (before a commit) | `cmake --build build && ./build/bin/ZaminTests` (ends with `N tests, 0 failures`) | ~5 minutes (~85 % of it the slice playthroughs) |
+| A quick check (while working) | `./build/bin/ZaminTests --quick` (or `ctest --test-dir build -L unit`): without the `SLOW_TEST`s (whole-game playthroughs) | ~45 s |
+| One part only | `./build/bin/ZaminTests "Prefab*"`, `--filter "Scene*:-*Fuzz*"`, `--list` | seconds |
+| Rendering, shaders, post effects | `Tests/render_tests.sh` | seconds |
+| Editor UI (panel, menu, popup, inspector) | `Tests/editor_smoke.sh` | ~3 minutes |
+| Script system, module loading | `Tests/hot_reload_test.sh` | ~20 s |
+| Export, player, launch script | `Tests/export_test.sh` (one game), `Tests/package_games.sh` (all three games + packages) | 1-5 minutes |
+| A sample game (script, scene, generator) or the part of the engine it uses | `Tests/samples_test.py --game <Game>` (all: no arguments), `Tests/samples_assets.py --regen` | 1-5 minutes per game, ~30 minutes for all; ~20 s |
+| Memory, pointers, ownership | `Tests/sanitize.sh address --smoke` (`--editor-smoke`), `Tests/sanitize.sh undefined` | 20-40 minutes (with the build) |
+| A change that affects speed | `Tests/bench.sh --compare`, `Tests/render_bench.sh`, `Tests/player_bench.sh` | 1-5 minutes (Release) |
+| New code: are there enough tests | `Tests/coverage.sh` (`--gui`) | ~25 minutes |
+| Formatting | `Tests/format_check.sh` (changed lines) | seconds |
+| Documentation, a component, the script API or a player option | `Tests/docs_check.py` (after a component change first `Tests/docs_components.py --update docs/Components.md`), `Tests/docs_snippets.py` | ~1 s, ~5 s |
+| Everything (with the GUI tests) | `ctest --test-dir build` (`-LE gui` - the quick ones, `-L gui` - editor/export) | ~10 minutes |
 
-Displey bo'lmasa (SSH, CI) GUI testlari o'zlari `xvfb-run` ni ishlatadi (`sudo apt-get install xvfb`).
+Without a display (SSH, CI) the GUI tests use `xvfb-run` themselves (`sudo apt-get install xvfb`).
 
-## 1. Unit testlar - `ZaminTests`
+## 1. Unit tests - `ZaminTests`
 
-`Tests/ZaminTests.cpp` (+ `Tests/TestFramework.h/.cpp`): **631 test**, GPU va oynasiz (headless) ishlaydi - engine
-kutubxonasi (`libZamin.so`) bilan bog'langan oddiy dastur. Sahna, ECS, serializatsiya, prefab'lar, skriptlar va
-ularning maydonlari, 2D/3D fizika, animatsiya, particle'lar, UI, audio, navigatsiya va AI, loyiha sozlamalari, player
-sozlamalari, editor mantiqi (panelsiz qismlari), matematika va yordamchi kutubxonalar. To'liq ro'yxat - quyida,
-[ilovada](#ilova-barcha-unit-testlar).
+`Tests/ZaminTests.cpp` (+ `Tests/TestFramework.h/.cpp`): **631 tests**, running without a GPU or a window
+(headless) - an ordinary program linked with the engine library (`libZamin.so`). Scenes, the ECS, serialization,
+prefabs, scripts and their fields, 2D/3D physics, animation, particles, UI, audio, navigation and AI, project
+settings, player settings, editor logic (the parts without panels), math and the helper libraries. The full list is
+below, in the [appendix](#appendix-all-unit-tests).
 
 ```bash
-./build/bin/ZaminTests                         # hammasi; oxirgi qator: "628 tests, 0 failures"
-./build/bin/ZaminTests Prefab*                 # glob (katta-kichik harf farqsiz); *, ? siz - nomning bir qismi
-./build/bin/ZaminTests --filter "Scene*:-*Fuzz*"   # bir nechta namuna (: yoki ,), '-' bilan chiqarib tashlash
-./build/bin/ZaminTests Prefab* -Physics*       # xuddi shunday alohida argumentlar bilan ("-x" kabi bitta harf - parametr)
-./build/bin/ZaminTests --list                  # faqat nomlar
-./build/bin/ZaminTests --quick                 # SLOW_TEST larsiz (butun slice o'tishlari): tez tekshiruv; --slow - faqat ular
-./build/bin/ZaminTests --timing --slowest 20   # vaqt hisoboti: jami, o'rtacha, mediana, eng sekinlari, taqsimot
+./build/bin/ZaminTests                         # everything; the last line: "628 tests, 0 failures"
+./build/bin/ZaminTests Prefab*                 # a glob (case-insensitive); without *, ? - a part of the name
+./build/bin/ZaminTests --filter "Scene*:-*Fuzz*"   # several patterns (: or ,), '-' excludes
+./build/bin/ZaminTests Prefab* -Physics*       # the same with separate arguments (a single letter like "-x" is an option)
+./build/bin/ZaminTests --list                  # the names only
+./build/bin/ZaminTests --quick                 # without the SLOW_TESTs (whole slice playthroughs): a quick check; --slow - only those
+./build/bin/ZaminTests --timing --slowest 20   # the timing report: total, mean, median, the slowest, the distribution
 ./build/bin/ZaminTests --report r.json --junit r.xml --fail-fast
-ZAMIN_TESTS=Physics ./build/bin/ZaminTests     # muhit o'zgaruvchisi bilan filtr (eski usul)
+ZAMIN_TESTS=Physics ./build/bin/ZaminTests     # a filter through the environment variable (the old way)
 ```
 
-Yangi test yozish:
+Writing a new test:
 
 ```cpp
 TEST(MyFeatureWorks)
@@ -57,334 +57,332 @@ TEST(MyFeatureWorks)
 }
 ```
 
-- Testlar GPU'siz: tekstura, mesh, shrift, shader yaratmang. Asosiy kamerasi (`Primary`) bo'lmagan sahna chizilmaydi,
-  shuning uchun `OnUpdateRuntime` (`UpdateRuntime` + `RenderRuntime`) headless xavfsiz. Tahrir rejimi kadri
-  `OnUpdateEditor` editor kamerasidan chizadi; testlarda uning chizmaydigan yarmi `UpdateEditorAnimation` ishlatiladi.
-- `CHECK` xatosi testni yiqitadi, qolgan testlar ishlayveradi; testdan chiqib ketgan istisno ham testni yiqitadi.
-- Tasodifiy sonlar uchun belgilangan seed; vaqtga bog'liq tekshiruvlar (tezlanish, chiziqli o'sish) ehtiyot chegarasi
-  bilan va coverage build'da (`ZAMIN_COVERAGE_BUILD`) o'tkazib yuboriladi.
-- Fayl yozadigan testlar `std::filesystem::temp_directory_path()` ostida o'z papkasini ishlatadi va uni o'chiradi.
-- Namuna loyihalarni (`Projects/*`) o'qiydigan testlar bor (`ZAMIN_SOURCE_DIR`): namunalar assetlari yaroqli qolishi kerak.
-- Yangi test qo'shilgandan keyin ro'yxatni yangilang: `Tests/test_catalog.py --update docs/Testing.md`.
-- Butun o'yinni o'ynaydigan test (o'nlab soniya: slice'larning oracle, mag'lubiyat, determinizm, resume testlari)
-  `TEST` emas, `SLOW_TEST` bilan yoziladi: to'liq run va CI ularni ishlatadi, `--quick` qoldiradi, `--slow` faqat
-  ularni ishlatadi.
+- The tests have no GPU: do not create textures, meshes, fonts or shaders. A scene without a primary camera
+  (`Primary`) is not drawn, so `OnUpdateRuntime` (`UpdateRuntime` + `RenderRuntime`) is safe headless. The edit-mode
+  frame `OnUpdateEditor` draws from the editor camera; tests use its non-drawing half, `UpdateEditorAnimation`.
+- A failed `CHECK` fails the test and the other tests keep running; an exception that escapes a test fails it too.
+- Random numbers use a fixed seed; timing-dependent checks (speed-ups, linear growth) have a safety margin and are
+  skipped in a coverage build (`ZAMIN_COVERAGE_BUILD`).
+- Tests that write files use their own folder under `std::filesystem::temp_directory_path()` and delete it.
+- Some tests read the sample projects (`Projects/*`, `ZAMIN_SOURCE_DIR`): the samples' assets have to stay valid.
+- After adding a test, update the list: `Tests/test_catalog.py --update docs/Testing.md`.
+- A test that plays a whole game (tens of seconds: the slices' oracle, defeat, determinism and resume tests) is
+  written with `SLOW_TEST`, not `TEST`: a full run and CI run them, `--quick` leaves them out, `--slow` runs only
+  them.
 
-`ctest` ikki yozuvni ishga tushiradi: `ZaminTests` (`--quick --timing --report build/TestResults/ZaminTests.json --junit
-build/TestResults/ZaminTests.xml`, label `unit`) va `ZaminSliceTests` (`--slow`, `ZaminSliceTests.json/.xml`, label
-`slices;slow`) — `ctest -j2` ularni yonma-yon ishlatadi, `-LE gui` ikkalasini ham oladi; CI bu fayllarni
-`unit-tests-<kompilyator>` artefakti qilib yuklaydi.
+`ctest` runs two entries: `ZaminTests` (`--quick --timing --report build/TestResults/ZaminTests.json --junit
+build/TestResults/ZaminTests.xml`, label `unit`) and `ZaminSliceTests` (`--slow`, `ZaminSliceTests.json/.xml`, label
+`slices;slow`) — `ctest -j2` runs them side by side, `-LE gui` takes both; CI uploads these files as the
+`unit-tests-<compiler>` artifact.
 
-## 2. Rendering regressiya testi - `ZaminRenderTests`
+## 2. Rendering regression test - `ZaminRenderTests`
 
-`Tests/RenderTests.cpp`: etalon sahnalar 480x270 o'lchamda offscreen chiziladi va `Tests/Reference/*.png` bilan
-solishtiriladi. Piksel kanali farqi `--threshold` (8) dan katta piksellar `--max-percent` (0.5 %) dan ko'p bo'lsa holat
-yiqiladi va `build/RenderTests/` ga yangi rasm, farq rasmi (`<nom>.diff.png`) va `<nom>.compare.png` (etalon | yangi |
-farq) yoziladi; har ishga tushishda `report.json` va `summary.md`.
+`Tests/RenderTests.cpp`: reference scenes are drawn offscreen at 480x270 and compared with `Tests/Reference/*.png`.
+A case fails when more than `--max-percent` (0.5 %) of the pixels differ by more than `--threshold` (8) in a
+channel; then the new picture, the difference picture (`<name>.diff.png`) and `<name>.compare.png` (reference | new |
+difference) are written to `build/RenderTests/`; every run writes `report.json` and `summary.md`.
 
-| Holat | Nimani qo'riqlaydi |
+| Case | What it guards |
 |---|---|
-| `Lit3D` | PBR primitivlar, quyosh soyasi (kaskadlar), nuqtali va spot yorug'lik, gradient osmon |
-| `Lit3D_NoCulling` | frustum culling va instancing o'chiq - `Lit3D` bilan bir xil chiqishi kerak |
-| `Materials` | shaffof (saralangan), emissive + bloom, unlit, ikki tomonlama, instanced qator, tuman |
-| `Sky` | bir nechta quyosh (faqat biri soya beradi), osmon gradienti egriligi, katta quyosh diski |
-| `PostEffects` | SSAO, bloom rangi va linza changi, xromatik aberratsiya, vinyetka, plyonka donasi, FXAA |
-| `DebugNormals` | debug ko'rinish: normallar |
-| `Sprites2D` | Renderer2D: sprite'lar (aylangan, shaffof, saralangan), doira va halqalar, matn |
-| `Particles` | additive doiralar, shaffof quadlar, flipbook, lokal fazo, izlar (GPU instancing) |
-| `Particles_NoInstancing` | instancing o'chiq - `Particles` bilan bir xil chiqishi kerak |
-| `Showcase3D` | Showcase3D namunasi: modellar, teksturalar, HDRI, skinned mesh |
-| `Platformer2D` | Platformer2D namunasi: tilemap, sprite'lar, matn |
-| `SelectionOutline` | editor tanlash konturi: skinned model, to'silgan obyekt, ko'p tanlov, hover |
+| `Lit3D` | PBR primitives, the sun's shadow (cascades), point and spot lights, the gradient sky |
+| `Lit3D_NoCulling` | frustum culling and instancing off - has to come out the same as `Lit3D` |
+| `Materials` | transparent (sorted), emissive + bloom, unlit, double-sided, an instanced row, fog |
+| `Sky` | several suns (only one casts a shadow), the curvature of the sky gradient, a large sun disc |
+| `PostEffects` | SSAO, bloom tint and lens dirt, chromatic aberration, vignette, film grain, FXAA |
+| `DebugNormals` | the debug view: normals |
+| `Sprites2D` | Renderer2D: sprites (rotated, transparent, sorted), circles and rings, text |
+| `Particles` | additive circles, transparent quads, a flipbook, local space, trails (GPU instancing) |
+| `Particles_NoInstancing` | instancing off - has to come out the same as `Particles` |
+| `Showcase3D` | the Showcase3D sample: models, textures, HDRI, a skinned mesh |
+| `Platformer2D` | the Platformer2D sample: tilemap, sprites, text |
+| `SelectionOutline` | the editor's selection outline: a skinned model, an occluded entity, multi-selection, hover |
 
 ```bash
-Tests/render_tests.sh                    # hammasi (llvmpipe, displey bo'lmasa 1280x720x24 xvfb)
+Tests/render_tests.sh                    # everything (llvmpipe, a 1280x720x24 xvfb when there is no display)
 Tests/render_tests.sh --filter Sky --save-all --out /tmp/rt
-Tests/render_tests.sh --update           # ko'rinish ataylab o'zgarganda etalonlarni qayta yozish
+Tests/render_tests.sh --update           # rewrite the references when the look changed on purpose
 ZAMIN_BUILD_DIR=build-clang Tests/render_tests.sh
 ```
 
-Skript har doim Mesa'ning dasturiy rasterizatorini (llvmpipe) ishlatadi - etalonlar shu bilan olingan. CMake
-target'lari: `render_tests`, `update_render_references`.
+The script always uses Mesa's software rasterizer (llvmpipe) - the references were made with it. CMake targets:
+`render_tests`, `update_render_references`.
 
-## 3. Editor smoke testi - barcha oynalar
+## 3. Editor smoke test - all the windows
 
-`ZAMIN_EDITOR_OPEN_ALL_PANELS=1` (`Editor/src/EditorSmokeTest.cpp`), skript: `Tests/editor_smoke.sh`. Editor namuna
-loyihaning nusxasida har bir oynani (alohida va hammasini birga), har bir sozlamalar sahifasini, har bir menyu va ichki
-menyuni, viewport popup'larini, so'rov oynalarini, har bir asset turining inspektorini, sahnadagi har bir obyektni va
-vaqtinchalik obyektga navbat bilan qo'shilgan har bir komponent inspektorini, sprite muharririni, prefab rejimini,
-tayyor joylashuvlarni, Play / Pauza / Stop / Simulate'ni bir necha kadrdan ochadi (Showcase3D - 221 qadam,
-Platformer2D - 263 qadam). Logdagi xato (OpenGL debug chiqishi ham, `ZAMIN_GL_DEBUG=1`), OpenGL xato bayrog'i,
-bajarilmagan ImGui tekshiruvi (`IM_ASSERT` har bir build'da yoqiq) yoki oxirgi qadamga yetmagan ishga tushish testni
-yiqitadi (chiqish kodi 1).
+`ZAMIN_EDITOR_OPEN_ALL_PANELS=1` (`Editor/src/EditorSmokeTest.cpp`), script: `Tests/editor_smoke.sh`. On a copy of a
+sample project the editor opens, for a few frames each, every window (alone and all together), every settings page,
+every menu and submenu, the viewport popups, the prompt dialogs, the inspector of every asset type, every entity of
+the scene and the inspector of every component added in turn to a temporary entity, the sprite editor, prefab mode,
+the built-in layouts, and Play / Pause / Stop / Simulate (Showcase3D - 221 steps, Platformer2D - 263 steps). An error
+in the log (OpenGL debug output too, `ZAMIN_GL_DEBUG=1`), the OpenGL error flag, a failed ImGui check (`IM_ASSERT` is
+on in every build) or a run that does not reach the last step fails the test (exit code 1).
 
 ```bash
-Tests/editor_smoke.sh                        # Showcase3D va Platformer2D
+Tests/editor_smoke.sh                        # Showcase3D and Platformer2D
 Tests/editor_smoke.sh Projects/Adventure3D --shots --out /tmp/smoke
 ```
 
-## 4. Skript hot reload testi
+## 4. Script hot reload test
 
-`Tests/hot_reload_test.sh` (`Tests/Fixtures/HotReload`, hook `ZAMIN_EDITOR_HOT_RELOAD_TEST`): editor yo'q modulni o'zi
-build qilib 1-versiyani o'ynaydi; test manbani o'zgartirib, modulni editor ishlab turganda tashqarida qayta build
-qiladi; editor yangi modulni yuklaydi va 2-versiyani o'ynaydi. Tekshiriladi: sahnadagi maydon qiymatlari saqlanadi
-(`Speed=7.5`, `Label`, `Count`), yangi maydon standart qiymatini oladi (`Extra=42`), yangi kod ishlaydi, logda xato
-yo'q, sahna fayli o'zgarmagan. Jarayon ichidagi varianti - `ScriptReloadKeepsFieldValues` unit testi.
+`Tests/hot_reload_test.sh` (`Tests/Fixtures/HotReload`, hook `ZAMIN_EDITOR_HOT_RELOAD_TEST`): the editor builds the
+missing module itself and plays version 1; the test changes the source and rebuilds the module outside while the
+editor is running; the editor loads the new module and plays version 2. Checked: the field values of the scene are
+kept (`Speed=7.5`, `Label`, `Count`), a new field gets its default value (`Extra=42`), the new code runs, the log has
+no error, the scene file is unchanged. The in-process variant is the `ScriptReloadKeepsFieldValues` unit test.
 
-## 5. Eksport testi va o'yin build'lari
+## 5. Export test and game builds
 
-`Tests/export_test.sh` namuna o'yinni editor bilan eksport qiladi (`ZAMIN_EDITOR_EXPORT`, xvfb) va o'yinchi oladigan
-holatda tekshiradi: `export-report.json` muvaffaqiyatli; `<O'yin>.sh --version`; eksport qilingan o'yin `--benchmark`
-bilan N kadr (chiqish kodi 0, logda xato yo'q, skript moduli yuklandi); headless skrinshot bilan yana bir bor
-(`Tests/png_check.py`: 1280x720, bir xil rang emas); boshqa papkaga ko'chirilgandan keyin ham ishga tushadi va
-`.desktop` ikonkasi yangi joyni ko'rsatadi.
+`Tests/export_test.sh` exports a sample game with the editor (`ZAMIN_EDITOR_EXPORT`, xvfb) and checks it in the state
+a player receives it: `export-report.json` reports success; `<Game>.sh --version`; the exported game runs N frames
+with `--benchmark` (exit code 0, no error in the log, the script module loaded); once more with a headless screenshot
+(`Tests/png_check.py`: 1280x720, not a single color); it still starts after being moved to another folder and the
+`.desktop` icon points to the new place.
 
-`Tests/package_games.sh` buni uchala namuna o'yin (Platformer2D, Showcase3D, Adventure3D) uchun bajaradi va faqat
-hamma tekshiruvi o'tgan eksportni **o'yin build'i** sifatida paketlaydi: `<Nom>-<versiya>-linux-x86_64.tar.gz` +
-`.sha256`, `packages.md`, `summary.md`. Paket yana ochilib, ishga tushirish skripti u yerdan chaqiriladi (tar.gz
-fayllarning bajariladigan bitlarini saqlaydi; CI artefaktining zip'i ularni yo'qotardi). CI bu paketlarni
-`player-builds-<kompilyator>` artefakti qilib yuklaydi (14 kun saqlanadi).
+`Tests/package_games.sh` does this for all three sample games (Platformer2D, Showcase3D, Adventure3D) and packages
+only an export that passed every check as a **game build**: `<Name>-<version>-linux-x86_64.tar.gz` + `.sha256`,
+`packages.md`, `summary.md`. The package is unpacked again and the launch script is called from there (tar.gz keeps
+the files' executable bits; the zip of a CI artifact used to lose them). CI uploads these packages as the
+`player-builds-<compiler>` artifact (kept for 14 days).
 
 ```bash
 Tests/export_test.sh                                   # Platformer2D
 Tests/export_test.sh --project Projects/Adventure3D --frames 60 --keep
-Tests/package_games.sh --out dist                      # uchala o'yin -> dist/*.tar.gz
+Tests/package_games.sh --out dist                      # all three games -> dist/*.tar.gz
 ```
 
-## 5a. Namuna o'yinlar testi
+## 5a. Sample games test
 
-`Tests/samples_test.py` to'qqizala namunani `ZaminPlayer` da headless ishga tushiradi (displey bo'lmasa xvfb) va
-logiga qarab tekshiradi:
+`Tests/samples_test.py` runs all nine samples headless in `ZaminPlayer` (xvfb when there is no display) and checks
+them by their logs:
 
-- **demo**: oltita M24 o'yini `ZAMIN_DEMO=1` bilan ishga tushadi va ularni bot o'ynaydi. Jurnaldagi `Demo: ...`
-  qatorlari natija bo'lishini ko'rsatishi kerak:
-  - Neon Arena: hisob, o'ldirilgan dushmanlar, 2-to'lqin, kombo;
-  - Breakout: 1-daraja tugab, 2-daraja boshlanadi (`level6` holati: `ZAMIN_START_LEVEL=6` bilan oxirgi daraja);
-  - FPS Arena: parkur aylanasi, nazorat nuqtalari, urilgan nishonlar;
-  - Warehouse Keeper: kamida 3 ta yechilgan daraja va undo;
-  - Silk Road: kamida 400 m masofa, bot hech narsaga urilmaydi;
-  - Valley Race: birinchi aylana tugaydi.
-- **menus**: bot yo'q, tugmalarni `ZAMIN_PLAYER_INPUT` bosadi. Bosh menyuda Enter ("O'ynash" tanlangan bo'ladi),
-  so'ng Esc — pauza, yana Esc — o'yin davom etadi, keyin pauza menyusidan "Bosh menyu". Warehouse Keeper va Silk Road
-  holatlarida natija oynasi ham ochiladi. Warehouse Keeper'ning `menuwait` holati bosh menyuda 10 s kutadi (orqadagi bot
-  keyingi darajaga o'tadi), so'ng "O'ynash" o'yinchining 1-darajasini ochishini va qadam animatsiyasi paytida tez
-  bosilgan ikkinchi qadam yo'qolmasligini tekshiradi. O'yinlar har panel uchun jurnalga `Menu: main menu` / `pause` /
-  `pause closed` / `results` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
-  yuklanish ekrani orqali 1-darajaga o'tiladi.
-- **smoke**: uchta eski namuna (Platformer2D, Showcase3D, Adventure3D) ishga tushadi va sahnasi yuklanadi.
-- **rekord** (har `demo` dan keyin): demo `ZAMIN_DEMO_RECORDS=1` bilan o'ynaydi, ya'ni botning natijasi ham rekord
-  bo'ladi. Jurnalda `New record: ...` bo'lishi va o'yinning SaveData fayli (`savedata.json`, ishga tushirishning
-  `HOME` ida) rekord kalitlarini saqlashi kerak. So'ng o'sha `HOME` bilan qisqa ikkinchi ishga tushirish (botsiz)
-  `Records: ...` qatorida xuddi shu qiymatni o'qiydi va bosh menyuni ochadi (`--no-records` — o'tkazib yuborish).
-- **gamepad**: oltita o'yin faqat simulyatsiya qilingan gamepad bilan (`ZAMIN_PLAYER_INPUT`: `pad=A`, `padhold=` /
-  `padrelease=`, `stick=LeftX,0.8`). Bosh menyuda A, o'yinning o'z boshqaruvi (stiklar, tugmalar, triggerlar), Start —
-  pauza va qaytish, D-pad pastga + A — bosh menyu. Ishoralar gamepad'ga o'tishi (`Input device: gamepad`,
-  klaviaturaga qaytmasdan) va o'yinda natija bo'lishi tekshiriladi: Neon Arena'da RT bilan o'q otilgan, Breakout'da
-  g'isht singan, Warehouse Keeper'da 1-daraja D-pad bilan yechilgan, Silk Road'da masofa — rekord bo'lib yozilgan.
+- **demo**: the six M24 games start with `ZAMIN_DEMO=1` and a bot plays them. The `Demo: ...` lines of the log have
+  to show a result:
+  - Neon Arena: the score, killed enemies, wave 2, a combo;
+  - Breakout: level 1 is finished and level 2 starts (the `level6` case: the last level with `ZAMIN_START_LEVEL=6`);
+  - FPS Arena: a parkour lap, checkpoints, targets hit;
+  - Warehouse Keeper: at least 3 solved levels and an undo;
+  - Silk Road: a distance of at least 400 m, the bot hits nothing;
+  - Valley Race: the first lap is finished.
+- **menus**: no bot, `ZAMIN_PLAYER_INPUT` presses the keys. Enter in the main menu ("Play" is selected), then Esc —
+  pause, Esc again — the game continues, then "Main menu" from the pause menu. In the Warehouse Keeper and Silk Road
+  cases the results panel opens too. Warehouse Keeper's `menuwait` case waits 10 s in the main menu (the bot behind
+  it moves on to the next level), then checks that "Play" opens the player's level 1 and that a second step pressed
+  quickly during the step animation is not lost. The games write `Menu: main menu` / `pause` / `pause closed` /
+  `results` to the log for each panel, and the test checks the order of these lines. In Platformer2D the game goes
+  from `Menu.zscene` through the loading screen to level 1.
+- **smoke**: the three older samples (Platformer2D, Showcase3D, Adventure3D) start and their scene loads.
+- **record** (after every `demo`): the demo plays with `ZAMIN_DEMO_RECORDS=1`, so the bot's result becomes a record
+  too. The log has to contain `New record: ...` and the game's SaveData file (`savedata.json`, in the run's `HOME`)
+  has to keep the record keys. Then a short second run with the same `HOME` (without the bot) reads the same value
+  in its `Records: ...` line and opens the main menu (`--no-records` — skip this).
+- **gamepad**: the six games with a simulated gamepad only (`ZAMIN_PLAYER_INPUT`: `pad=A`, `padhold=` /
+  `padrelease=`, `stick=LeftX,0.8`). A in the main menu, the game's own controls (sticks, buttons, triggers), Start —
+  pause and back, D-pad down + A — the main menu. Checked: the hints switch to the gamepad (`Input device: gamepad`,
+  without going back to the keyboard) and the game shows a result: in Neon Arena a shot fired with RT, in Breakout a
+  broken brick, in Warehouse Keeper level 1 solved with the D-pad, in Silk Road the distance — written as a record.
 
-Har bir ishga tushirishda yana quyidagilar tekshiriladi:
+Every run also checks the following:
 
-- chiqish kodi 0;
-- logda `ERROR` / `CRITICAL` qatori yo'q;
-- skript moduli yuklangan;
-- oxirgi kadr rasmi bir xil rangdan iborat emas (`Tests/png_check.py`).
+- exit code 0;
+- no `ERROR` / `CRITICAL` line in the log;
+- the script module loaded;
+- the picture of the last frame is not a single color (`Tests/png_check.py`).
 
-O'yin soati qat'iy: `ZAMIN_CAPTURE_FPS=20` (`--capture-fps`) bilan har kadr aniq 1/20 s
-(`Time::SetCaptureFrameRate`), shuning uchun N kadr har kompyuterda bir xil o'yin vaqtiga teng. Botlar
-urug'langan tasodifiy sonlar bilan o'ynaydi, demak natija sekin yoki tez kompyuterda bir xil chiqadi. Har ishga
-tushirish yangi `HOME` bilan bo'ladi (saqlangan rekord va sozlamalar yo'q). Hisobot `report.json` ga yoziladi,
-`--out` papkasida loglar va rasmlar qoladi.
+The game clock is fixed: with `ZAMIN_CAPTURE_FPS=20` (`--capture-fps`) every frame is exactly 1/20 s
+(`Time::SetCaptureFrameRate`), so N frames are the same game time on every machine. The bots play with seeded random
+numbers, so the result is the same on a slow and on a fast machine. Every run gets a fresh `HOME` (no saved records
+or settings). The report is written to `report.json`; the logs and pictures stay in the `--out` folder.
 
-`Tests/samples_assets.py` (displeysiz, ~1 s) oltita M24 o'yinining protsedurali assetlarini tekshiradi:
+`Tests/samples_assets.py` (no display, ~1 s) checks the procedural assets of the six M24 games:
 
-- `Assets/` hajmi 2 MiB dan oshmaydi;
-- har asset `.zmeta` ga ega, UUID'lar takrorlanmaydi;
-- PNG va WAV fayllar to'g'ri: 16-bit PCM, jim emas, kesilmagan;
-- sahna, loyiha fayli va skriptlar nomlagan har bir fayl mavjud, har ovoz va tekstura biror joyda ishlatiladi.
+- `Assets/` is no larger than 2 MiB;
+- every asset has a `.zmeta`, no UUID repeats;
+- the PNG and WAV files are correct: 16-bit PCM, not silent, not clipped;
+- every file named by a scene, the project file or the scripts exists, every sound and texture is used somewhere.
 
-`--regen` bilan har generator (`Tools/samples/gen_*.py`) vaqtinchalik papkaga (`ZAMIN_SAMPLES_OUT`) ishga tushiriladi
-va natija repozitoriydagi fayllar bilan baytma-bayt solishtiriladi. Bu assetlar haqiqatan generatordan chiqqanini
-va qayta hosil qilinishini isbotlaydi (numpy kerak).
+With `--regen` every generator (`Tools/samples/gen_*.py`) is run into a temporary folder (`ZAMIN_SAMPLES_OUT`) and
+the result is compared byte for byte with the files of the repository. This proves that the assets really come from
+the generator and can be regenerated (needs numpy).
 
 ```bash
-Tests/samples_test.py                              # hammasi (~20 daqiqa, llvmpipe)
-Tests/samples_test.py --game Racing --kind menus   # bitta o'yinning bitta holati
-Tests/samples_test.py --list                       # holatlar va tekshiruvlar
+Tests/samples_test.py                              # everything (~20 minutes, llvmpipe)
+Tests/samples_test.py --game Racing --kind menus   # one case of one game
+Tests/samples_test.py --list                       # the cases and checks
 Tests/samples_test.py --out build/SampleTests --frames-scale 2
-Tests/samples_assets.py --regen --verbose          # assetlar jadvali + generatorlar bilan solishtirish
-Tests/samples_export.py --game Breakout            # eksport qilib, eksportdagi o'yinni o'ynatib tekshirish
-ZAMIN_BUILD_DIR=build-release Tests/samples_bench.py   # ishlash tezligi (Release, llvmpipe)
+Tests/samples_assets.py --regen --verbose          # the asset table + the comparison with the generators
+Tests/samples_export.py --game Breakout            # export, then check by playing the exported game
+ZAMIN_BUILD_DIR=build-release Tests/samples_bench.py   # performance (Release, llvmpipe)
 ```
 
-`Tests/samples_assets.py` input xaritasini ham tekshiradi: har harakatning klaviatura / sichqoncha va gamepad
-bog'lanishi bor, skriptlar o'qiydigan har harakat / o'q / vektor xaritada bor va xaritadagi har biri o'qiladi,
-skriptlar klaviatura yoki gamepad'ni to'g'ridan-to'g'ri so'ramaydi, bosh menyudagi boshqaruv ishorasi faqat
-xaritadagi nomlarni ishlatadi.
+`Tests/samples_assets.py` checks the input map as well: every action has a keyboard / mouse and a gamepad binding,
+every action / axis / vector the scripts read is in the map and every one in the map is read, the scripts never
+query the keyboard or the gamepad directly, and the control hint of the main menu uses only names from the map.
 
-`Tests/samples_export.py` (ctest `SampleExports`) to'qqiz namunani editor bilan eksport qiladi (`Tests/export_test.sh`)
-va eksport qilingan o'yinlarni (`<eksport>/<O'yin>.sh`) `samples_test.py --exported` bilan o'ynatadi: olti o'yinning
-demo + rekord holatlari va eski namunalarning smoke'i. `Tests/samples_bench.py` har namunaning kadr vaqtini, sahnadagi
-obyektlar sonini va eng qimmat qismlarini o'lchaydi ([Samples.md](Samples.md#ishlash-tezligi)).
+`Tests/samples_export.py` (ctest `SampleExports`) exports the nine samples with the editor (`Tests/export_test.sh`)
+and plays the exported games (`<export>/<Game>.sh`) with `samples_test.py --exported`: the demo + record cases of the
+six games and the smoke of the older samples. `Tests/samples_bench.py` measures each sample's frame time, the number
+of entities in the scene and its most expensive parts ([Samples.md](Samples.md#ishlash-tezligi)).
 
-## 6. Sanitizerlar
+## 6. Sanitizers
 
-`Tests/sanitize.sh <address|undefined|leak|thread>` alohida papkada (`build-asan`, `build-ubsan`, ...) sanitizer bilan
-build qiladi (`-DZAMIN_SANITIZE=...`, `cmake/Sanitizers.cmake`) va `ZaminTests` ni ishga tushiradi; testlar o'tsa ham
-har qanday sanitizer xabarida yiqiladi. Uchinchi tomon kodining shovqini izohlari bilan `Tests/sanitizers/*.supp` da.
+`Tests/sanitize.sh <address|undefined|leak|thread>` builds with a sanitizer in a separate folder (`build-asan`,
+`build-ubsan`, ...; `-DZAMIN_SANITIZE=...`, `cmake/Sanitizers.cmake`) and runs `ZaminTests`; it fails on any
+sanitizer report even when the tests pass. The noise of third-party code is in `Tests/sanitizers/*.supp`, with
+comments.
 
 ```bash
-Tests/sanitize.sh address --smoke --editor-smoke   # ASan + LSan: testlar, 3 o'yin, editor, editor smoke testi
-Tests/sanitize.sh undefined --compiler clang       # UBSan (bizning koddagi har xabar fatal: -fno-sanitize-recover=all), Clang
-Tests/sanitize.sh leak                             # alohida LeakSanitizer
-Tests/sanitize.sh address --filter Prefab --clean  # faqat ba'zi testlar; build papkasi oxirida o'chiriladi
+Tests/sanitize.sh address --smoke --editor-smoke   # ASan + LSan: the tests, 3 games, the editor, the editor smoke test
+Tests/sanitize.sh undefined --compiler clang       # UBSan (every report in our code is fatal: -fno-sanitize-recover=all), Clang
+Tests/sanitize.sh leak                             # LeakSanitizer alone
+Tests/sanitize.sh address --filter Prefab --clean  # some tests only; the build folder is deleted at the end
 ```
 
-`<log papka>/summary.md` har bir ishga tushirishni (natija, vaqt, log) sanaydi. CI'da `sanitizers` job: `asan`
-(`--smoke --editor-smoke`) va `ubsan-clang`. Clang bilan sanitizer runtime'lari alohida paket:
-`sudo apt-get install libclang-rt-18-dev` (skript u yo'qligini aytadi).
+`<log folder>/summary.md` lists every run (result, time, log). In CI the `sanitizers` job: `asan`
+(`--smoke --editor-smoke`) and `ubsan-clang`. With Clang the sanitizer runtimes are a separate package:
+`sudo apt-get install libclang-rt-18-dev` (the script says when it is missing).
 
-Uchinchi tomon kodining implementatsiyasi bizning target ichida kompilyatsiya qilinsa (masalan miniaudio -
-`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`), u o'z translation unit'ida turadi va sanitizer build'da vendor kutubxona kabi
-tiklanadigan (`-fsanitize-recover=all`, `Zamin/CMakeLists.txt`) - shunda uning xabari `ubsan.supp` da izohi bilan
-bostiriladi, engine kodining har xabari esa fatal qoladi.
+When the implementation of third-party code is compiled inside one of our targets (miniaudio for example -
+`Zamin/src/Zamin/Audio/MiniaudioImpl.cpp`), it lives in its own translation unit and is recoverable in a sanitizer
+build like a vendor library (`-fsanitize-recover=all`, `Zamin/CMakeLists.txt`) - so its report is suppressed in
+`ubsan.supp` with a comment, while every report of the engine's code stays fatal.
 
-## 7. Benchmarklar regressiya sifatida
+## 7. Benchmarks as regression tests
 
-| Buyruq | Nima | Chegara |
+| Command | What | Limit |
 |---|---|---|
-| `ctest --test-dir build -L bench` | `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke`: kichik o'lchamda; stress benchmarklarining invariantlari (tunnel, NaN, oyoq relyef ostida, determinizm, blend og'irligi, event'lar har chastotada, ajratmasiz kadr, graf xatosi) buzilsa xato kodi 3 | xato kodi |
-| `Tests/bench.sh --compare` | ECS, serializatsiya, prefab, combat, fizika, animatsiya va slice stress benchmarklari; `Tests/Baselines/*-release.json` bilan solishtirish (`Tests/bench_compare.py`) | sezilarli sekinlashish |
-| `python3 Tests/slice_bench.py --build build-release --check --compare Tests/Baselines/slices-release.json` | vertical slice sahnalari (Menu, Orchards, Yertola, Dovon) ZaminPlayer `--benchmark` da, demo pilot o'ynaydi: 284x160 Low (o'yin kodi darvozasi) va 1280x720 (baseline bilan solishtirish); `--soak 18000` attract loop'da xotira o'sishi ([VerticalSlices.md](VerticalSlices.md#resume-export-and-profiling)) | kadr ≤ 16.6 ms (2D) / 33.3 ms (3D, llvmpipe), o'yin kodi ≤ 3 / 4 ms (p95 ≤ 6), +15 %, RAM o'sishi ≤ 32 MiB |
-| `python3 Tests/slice_ui_test.py` | vertical slice'larning UI darvozasi Player'da: klaviatura / gamepad / sichqoncha turlari, UI o'lchami 80–120 % va uning yangi jarayonda qayta qo'llanishi, 6 o'lchamdagi audit (`ZAMIN_UI_AUDIT`), seed'li fuzz, 2560x1080 menyu ([VerticalSlices.md](VerticalSlices.md#gates)) | audit qoidalari, invariantlar |
-| `Tests/render_bench.sh --max-avg 200` | 10 000 sprite, 1 000 mesh (instancing bilan / siz), ikkalasi | ms / kadr |
-| `Tests/player_bench.sh --max-avg 50 --max-p95 80` | namuna o'yinlarning boshlang'ich sahnalari ZaminPlayer'da | ms / kadr |
-| `Tests/startup_bench.py` | editor va player ishga tushish vaqti (birinchi kadrgacha, qismlari bilan), ikki build'ni solishtirish | ms (mediana) |
+| `ctest --test-dir build -L bench` | `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke`: at a small size; exit code 3 when an invariant of the stress benchmarks breaks (tunnelling, NaN, a foot under the terrain, determinism, blend weight, events at every rate, an allocation-free frame, a graph error) | exit code |
+| `Tests/bench.sh --compare` | the ECS, serialization, prefab, combat, physics, animation and slice stress benchmarks; compared with `Tests/Baselines/*-release.json` (`Tests/bench_compare.py`) | a noticeable slowdown |
+| `python3 Tests/slice_bench.py --build build-release --check --compare Tests/Baselines/slices-release.json` | the vertical slice scenes (Menu, Orchards, Crypt, Pass) in ZaminPlayer `--benchmark`, played by the demo pilot: 284x160 Low (the game code gate) and 1280x720 (compared with the baseline); `--soak 18000` memory growth in the attract loop ([VerticalSlices.md](VerticalSlices.md#resume-export-and-profiling)) | frame ≤ 16.6 ms (2D) / 33.3 ms (3D, llvmpipe), game code ≤ 3 / 4 ms (p95 ≤ 6), +15 %, RAM growth ≤ 32 MiB |
+| `python3 Tests/slice_ui_test.py` | the UI gate of the vertical slices in the Player: keyboard / gamepad / mouse runs, UI scale 80–120 % and its being applied again in a new process, the audit at 6 sizes (`ZAMIN_UI_AUDIT`), seeded fuzz, the 2560x1080 menu ([VerticalSlices.md](VerticalSlices.md#gates)) | the audit rules, invariants |
+| `Tests/render_bench.sh --max-avg 200` | 10 000 sprites, 1 000 meshes (with / without instancing), both | ms / frame |
+| `Tests/player_bench.sh --max-avg 50 --max-p95 80` | the start scenes of the sample games in ZaminPlayer | ms / frame |
+| `Tests/startup_bench.py` | editor and player startup time (to the first frame, with its parts), comparing two builds | ms (median) |
 
-Boshlang'ich natijalar: [Benchmarks.md](Benchmarks.md).
+Baseline results: [Benchmarks.md](Benchmarks.md).
 
-## 8. Kod qamrovi
+## 8. Code coverage
 
-`Tests/coverage.sh [--gui] [--html]` (`-DZAMIN_COVERAGE=ON`, `build-cov`), hisobot modullar bo'yicha
+`Tests/coverage.sh [--gui] [--html]` (`-DZAMIN_COVERAGE=ON`, `build-cov`), the report by module
 (`Tests/coverage_report.py`): [Coverage.md](Coverage.md).
 
-## 9. Formatlash - `clang-format`
+## 9. Formatting - `clang-format`
 
-`.clang-format` mavjud kod uslubini tasvirlaydi (4 bo'shliq, qavslar yangi qatorda, `namespace Zamin {` ichi
-chekinish bilan, ustun chegarasi yo'q - qo'lda bo'lingan qatorlar saqlanadi). Kod bazasi butunlay qayta
-formatlanmaydi: `Tests/format_check.sh` faqat o'zgargan qatorlarni tekshiradi (`git clang-format`).
+`.clang-format` describes the existing code style (4 spaces, braces on a new line, the inside of `namespace Zamin {`
+indented, no column limit - lines broken by hand are kept). The code base is not reformatted as a whole:
+`Tests/format_check.sh` checks only the changed lines (`git clang-format`).
 
 ```bash
-Tests/format_check.sh                     # commit qilinmagan o'zgarishlar (HEAD ga nisbatan)
-Tests/format_check.sh --base main         # tarmoq main'dan ajralgandan beri
-Tests/format_check.sh --fix --base main   # o'sha qatorlarni joyida formatlash
-Tests/format_check.sh --files A.cpp       # butun fayl
-Tests/format_check.sh --stats --top 20    # butun kod baza .clang-format dan qanchalik farq qiladi (Tests/format_stats.py)
+Tests/format_check.sh                     # uncommitted changes (relative to HEAD)
+Tests/format_check.sh --base main         # since the branch left main
+Tests/format_check.sh --fix --base main   # format those lines in place
+Tests/format_check.sh --files A.cpp       # a whole file
+Tests/format_check.sh --stats --top 20    # how far the whole code base is from .clang-format (Tests/format_stats.py)
 ```
 
-CI'dagi `format` job ogohlantiruvchi (har bo'lakka annotatsiya, farq ish sahifasida) va `.clang-format` ning o'zini
-qo'riqlaydi: butun kod bazada o'zgaradigan qatorlar 3.5 % dan oshmasligi kerak (`--stats --max-percent 3.5`).
+The `format` job of CI is advisory (an annotation per hunk, the diff on the job page) and guards `.clang-format`
+itself: the lines that would change in the whole code base must not exceed 3.5 % (`--stats --max-percent 3.5`).
 
-## 10. Kompilyatsiya tekshiruvlari
+## 10. Compile-time checks
 
-- **Ogohlantirishlar:** bizning target'lar (engine, editor, player, testlar va benchmarklar, namuna o'yin modullari)
-  `-Wall -Wextra -Wpedantic` bilan (`zamin_target_settings`, `cmake/ZaminGame.cmake`), vendor sarlavhalari `-isystem`
-  orqali ulanadi; build GCC va Clang bilan ogohlantirishsiz bo'lishi shart. `-ffp-contract=off`: GCC va Clang build'lari
-  bir xil float natija beradi (FMA qisqartirish yo'q — Jolt barcha bog'langan target'larga `-mfma` beradi; Clang avval
-  qisqartirardi).
-- **Skript shablonlari:** `ZaminScriptTemplateGen` editorning "Yangi skript" shablonlarini yaratadi va ular engine bilan
-  birga kompilyatsiya qilinadi (`ZaminScriptTemplateCheck`) - shablon buzilsa build yiqiladi.
-- **Shipping DebugDraw:** `Tests/DebugDrawShippingCheck.cpp` DebugDraw API'sini `ZM_DEBUG_DRAW 0` bilan kompilyatsiya
-  qiladi (Shipping build'dagi bo'sh funksiyalar) va `ZaminTests` uni chaqiradi.
-- **Namuna o'yinlar** (`Projects/*`) asosiy build'ning bir qismi: engine API'si o'zgarsa ular ham kompilyatsiya qilinadi.
-- **Hujjatlar** (`Tests/docs_check.py`, ctest: `DocsCheck`): Markdown fayllardagi har bir nisbiy havola va rasm
-  mavjud (`#bo'lim` havolalari — GitHub sarlavha langarlari bilan), `AllComponents` dagi har bir komponent
-  [Components.md](Components.md) da hujjatlangan va uning manbadan yaratilgan jadvallari yangi
-  (`Tests/docs_components.py`), `ScriptableEntity` ning har bir ommaviy funksiyasi [Scripting.md](Scripting.md) da
-  tilga olingan, player `--help` dagi har bir variant [Runtime.md](Runtime.md) yoki
-  [BuildAndExport.md](BuildAndExport.md) da bor, [FAQ.md](FAQ.md) da keltirilgan har bir log / UI xabari (`` > `...` ``
-  ko'rinishidagi qator; `<...>` - formatlanadigan qiymat) manba kodda aynan shunday yozilgan, har bir `ZAMIN_*` CMake
-  varianti [BuildAndExport.md](BuildAndExport.md) da hujjatlangan va `Doxyfile` dagi `PROJECT_NUMBER` dvigatel
-  versiyasiga teng. Shuningdek: shu hujjat oxiridagi unit testlar katalogi yangi (`Tests/test_catalog.py`),
-  [CHANGELOG.md](../CHANGELOG.md) git tarixiga mos — tarixdagi va vazifasi bajarilgan har bir milestone'ning bo'limi
-  bor, bo'lim ostidagi qator (sana, vazifalar, commit'lar soni va oralig'i) `Tests/changelog.py` chiqargani bilan bir
-  xil, tilga olingan har bir commit mavjud —, [hujjatlar indeksi](README.md) `docs/` dagi har bir hujjatga va
-  `CONTRIBUTING.md`, `CHANGELOG.md` ga havola beradi, `docs/images/` dagi har bir rasm biror hujjatda ishlatilgan,
-  400 KB dan va 1280 px kenglikdan oshmaydi.
-- **Hujjatlardagi kod** (`Tests/docs_snippets.py`, ctest: `DocsSnippets`): `README.md` va `docs/*.md` dagi butun skript
-  klasslari (`class X : public ScriptableEntity` ... `};` bo'lgan ```` ```cpp ```` bloklari) namuna o'yinlar skriptlari
-  bilan bir xil kompilyator va bayroqlar bilan (`build/compile_commands.json`) `-fsyntax-only` kompilyatsiya qilinadi;
-  ogohlantirish ham xato hisoblanadi, xabar Markdown fayl va qatoriga ko'rsatiladi. Kod bo'laklari (butun klass
-  emas) tekshirilmaydi.
+- **Warnings:** our targets (engine, editor, player, tests and benchmarks, the sample game modules) are built with
+  `-Wall -Wextra -Wpedantic` (`zamin_target_settings`, `cmake/ZaminGame.cmake`), vendor headers are included through
+  `-isystem`; the build has to be free of warnings with GCC and Clang. `-ffp-contract=off`: GCC and Clang builds give
+  the same float results (no FMA contraction — Jolt passes `-mfma` to every target linked with it; Clang used to
+  contract).
+- **Script templates:** `ZaminScriptTemplateGen` generates the editor's "New script" templates and they are compiled
+  together with the engine (`ZaminScriptTemplateCheck`) - a broken template fails the build.
+- **Shipping DebugDraw:** `Tests/DebugDrawShippingCheck.cpp` compiles the DebugDraw API with `ZM_DEBUG_DRAW 0` (the
+  empty functions of a Shipping build) and `ZaminTests` calls it.
+- **The sample games** (`Projects/*`) are part of the main build: when the engine API changes they are compiled too.
+- **Documentation** (`Tests/docs_check.py`, ctest: `DocsCheck`): every relative link and image of the Markdown files
+  exists (`#section` links — against GitHub's heading anchors), every component of `AllComponents` is documented in
+  [Components.md](Components.md) and its tables generated from the source are current
+  (`Tests/docs_components.py`), every public function of `ScriptableEntity` is mentioned in
+  [Scripting.md](Scripting.md), every option of the player's `--help` is in [Runtime.md](Runtime.md) or
+  [BuildAndExport.md](BuildAndExport.md), every log / UI message quoted in [FAQ.md](FAQ.md) (a line of the form
+  `` > `...` ``; `<...>` - a formatted value) is written exactly so in the source code, every `ZAMIN_*` CMake option
+  is documented in [BuildAndExport.md](BuildAndExport.md) and `PROJECT_NUMBER` of the `Doxyfile` equals the engine
+  version. Also: the unit test catalogue at the end of this document is current (`Tests/test_catalog.py`),
+  [CHANGELOG.md](../CHANGELOG.md) matches the git history — every milestone that is in the history and has a
+  finished task has a section, the line under the section (date, tasks, the number and range of commits) is the same
+  as the one `Tests/changelog.py` prints, every commit mentioned exists —, the [documentation index](README.md)
+  links to every document of `docs/` and to `CONTRIBUTING.md` and `CHANGELOG.md`, and every image of `docs/images/`
+  is used in some document and is no larger than 400 KB and 1280 px wide.
+- **Code in the documentation** (`Tests/docs_snippets.py`, ctest: `DocsSnippets`): the whole script classes of
+  `README.md` and `docs/*.md` (```` ```cpp ```` blocks with `class X : public ScriptableEntity` ... `};`) are
+  compiled with `-fsyntax-only`, with the same compiler and flags as the sample games' scripts
+  (`build/compile_commands.json`); a warning counts as an error and the message points to the Markdown file and
+  line. Code fragments (not a whole class) are not checked.
 
 ## ctest
 
-| Test | Label | Nima |
+| Test | Label | What |
 |---|---|---|
-| `ZaminTests` | - | unit testlar (vaqt hisoboti, JSON va JUnit natijalari `build/TestResults` da) |
-| `DocsCheck` | `docs` | `Tests/docs_check.py` - hujjatlar kod bilan mosligi (10-bo'lim) |
-| `DocsSnippets` | `docs` | `Tests/docs_snippets.py` - hujjatlardagi skript klasslari kompilyatsiya bo'ladi |
-| `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke` | `bench` | benchmarklar kichik o'lchamda (stress benchmarklari invariantlari bilan) |
+| `ZaminTests` | - | the unit tests (timing report, JSON and JUnit results in `build/TestResults`) |
+| `DocsCheck` | `docs` | `Tests/docs_check.py` - the documentation agrees with the code (section 10) |
+| `DocsSnippets` | `docs` | `Tests/docs_snippets.py` - the script classes of the documentation compile |
+| `BenchEcsSmoke`, `BenchSerializeSmoke`, `BenchCombatSmoke`, `BenchPhysicsSmoke`, `BenchAnimationSmoke`, `BenchSliceStressSmoke` | `bench` | the benchmarks at a small size (with the invariants of the stress benchmarks) |
 | `EditorSmoke` | `gui;slow` | `Tests/editor_smoke.sh` |
 | `ScriptHotReload` | `gui;slow` | `Tests/hot_reload_test.sh` |
 | `ExportTest` | `gui;slow` | `Tests/export_test.sh` (Platformer2D) |
-| `SampleAssets` | `samples` | `Tests/samples_assets.py` - namuna o'yinlarning protsedurali assetlari |
-| `Sample<O'yin>` (9 ta: `SampleTopDownShooter` ... `SampleAdventure3D`) | `samples;gui;slow` | `Tests/samples_test.py --game <O'yin>` (loglar va rasmlar `build/SampleTests/<O'yin>`) |
-| `SampleExports` | `samples;gui;slow` | `Tests/samples_export.py` - har namuna eksport qilinadi va eksportdagi o'yin headless o'ynatiladi (`build/SampleExports`) |
+| `SampleAssets` | `samples` | `Tests/samples_assets.py` - the procedural assets of the sample games |
+| `Sample<Game>` (9 of them: `SampleTopDownShooter` ... `SampleAdventure3D`) | `samples;gui;slow` | `Tests/samples_test.py --game <Game>` (logs and pictures in `build/SampleTests/<Game>`) |
+| `SampleExports` | `samples;gui;slow` | `Tests/samples_export.py` - every sample is exported and the exported game is played headless (`build/SampleExports`) |
 
-`ctest --test-dir build -LE gui` - tezkorlari (CI'dagi "Unit tests" qadami), `ctest --test-dir build -L gui` - GUI
-testlari (ketma-ket, displey yoki xvfb kerak), `ctest --test-dir build -L samples` - namuna o'yinlar (yoki
+`ctest --test-dir build -LE gui` - the quick ones (the "Unit tests" step of CI), `ctest --test-dir build -L gui` -
+the GUI tests (sequential, need a display or xvfb), `ctest --test-dir build -L samples` - the sample games (or
 `cmake --build build --target samples_test`).
 
 ## CI (`.github/workflows/linux.yml`)
 
-| Job / qadam | Skript | Artefakt |
+| Job / step | Script | Artifact |
 |---|---|---|
 | `build` (gcc, clang; Release): Unit tests | `ctest -LE gui` | `unit-tests-<cc>` |
-| `build`: Rendering regressiya testi | `Tests/render_tests.sh --save-all` | `render-tests-<cc>` |
-| `build`: Editor smoke testi | `Tests/editor_smoke.sh --shots` | `editor-smoke-<cc>` |
-| `build`: Skript hot reload testi | `Tests/hot_reload_test.sh` | - |
-| `build`: Eksport testi + o'yin build'lari | `Tests/package_games.sh --out player-builds` | `export-test-<cc>`, `player-builds-<cc>` |
-| `build`: headless skrinshotlar | `ZaminPlayer` / `ZaminEditor` (`ZAMIN_MAX_FRAMES`, `ZAMIN_SCREENSHOT`) | `screenshots-<cc>` |
-| `sanitizers` (`asan`, `ubsan-clang`) | `Tests/sanitize.sh address --smoke --editor-smoke`, `Tests/sanitize.sh undefined --compiler clang` | `sanitizer-<nom>` |
-| `format` | `Tests/format_check.sh --base <oldingi commit> --github`, `--stats --max-percent 3.5` | - |
+| `build`: Rendering regression test | `Tests/render_tests.sh --save-all` | `render-tests-<cc>` |
+| `build`: Editor smoke test | `Tests/editor_smoke.sh --shots` | `editor-smoke-<cc>` |
+| `build`: Script hot reload test | `Tests/hot_reload_test.sh` | - |
+| `build`: Export test + game builds | `Tests/package_games.sh --out player-builds` | `export-test-<cc>`, `player-builds-<cc>` |
+| `build`: headless screenshots | `ZaminPlayer` / `ZaminEditor` (`ZAMIN_MAX_FRAMES`, `ZAMIN_SCREENSHOT`) | `screenshots-<cc>` |
+| `sanitizers` (`asan`, `ubsan-clang`) | `Tests/sanitize.sh address --smoke --editor-smoke`, `Tests/sanitize.sh undefined --compiler clang` | `sanitizer-<name>` |
+| `format` | `Tests/format_check.sh --base <previous commit> --github`, `--stats --max-percent 3.5` | - |
 | `coverage` | `Tests/coverage.sh --html` | `coverage-report` |
 
-## Topilgan xatolarni qo'riqlovchi testlar
+## Tests that guard found bugs
 
-Har biri bir marta topilgan (ko'pincha shu milestone'dagi vositalar bilan) va tuzatilgan xatoni qaytib kelishdan
-saqlaydi: tuzatish olib tashlansa test yiqiladi.
+Each of them keeps a bug that was found once (often with the tools of this very milestone) and fixed from coming
+back: with the fix removed the test fails.
 
-| Test | Xato | Qanday topilgan |
+| Test | Bug | How it was found |
 |---|---|---|
-| `AudioMixerGroupTeardown` | bir nechta bola guruhli mixer guruhi o'chirilganda miniaudio faqat birinchi kiruvchi tugunni ajratardi, qolganlari o'chirilgan xotirani o'qirdi (`AudioEngine::Shutdown` da yiqilish) | AddressSanitizer |
-| `PhysicsDeterminism2D`, `PhysicsDeterminism3D` | Box2D / Jolt jismlari komponent hovuzi tartibida yaratilardi: editorda o'ynalgan sahna va fayldan yuklangan (eksport qilingan) xuddi shu sahna boshqacha simulyatsiya qilinardi | determinizm testi (bit darajasida taqqoslash) |
-| `PlayCopyRunsScriptsInFileOrder`, `PhysicsDeterminism2D/3D` (o'yindagidek, nusxasiz) | `Scene::Copy` komponent hovuzlarini view orqali (eng yangisidan) ko'chirardi: editorda Play bosilganda skriptlar (`OnCreate` ... `OnLateUpdate`), animator va agentlar eksport qilingan o'yindagiga teskari tartibda ishlardi | review (testlar fayldan o'qilgan sahnani ham nusxa orqali o'ynardi) |
-| `DeferredDestroyOnceEachAndLinear` | `DestroyEntityDeferred` takrorni butun navbatdan qidirardi: bir kadrda minglab `Destroy` kvadratik (10 000 ta - 525 ms) | ECS benchmark |
-| `ScriptReloadKeepsFieldValues` | hot reload'dan keyin sahnadagi skript maydonlari qiymatlari saqlanishi | hot reload testi |
-| `StaleModuleCopiesRemoved` | yiqilgan / to'xtatilgan jarayonlar skript moduli nusxalari `/tmp/zamin-modules` da to'planardi (423 MB) | hot reload testi |
-| `ParticleSimulationUnchanged` | GCC va Clang bir emitter uchun tasodifiy sonlarni boshqa tartibda olardi (bitta ifodadagi bir nechta chaqiriq) | Clang Release build |
-| `Kinematic3DFollowsTransformAtLowFPS` | kadr boshiga bir nechta fizika qadami bo'lganda kinematik jism tezligi noto'g'ri | regressiya |
-| `DestroyKeepsOtherScriptsAlive` | EnTT o'chirilgan komponent o'rniga oxirgisini ko'chiradi - boshqa obyektning skripti yo'qolardi | regressiya |
-| `DestroyEntityReentrant` | `OnDestroy` ichidan o'chirish eskirgan ko'rsatkich bilan ishlardi | regressiya |
-| `EntitySetPartialLoad`, `SceneSalvage` | bitta buzilgan yozuv butun sahnani yo'qotardi; yozish o'rtasida uzilgan fayl | buzilgan fayllar |
-| `SerializationFuzz` | tasodifiy / buzilgan JSON (cheksiz float'lar - `Tests/Fixtures/Fuzz`) yuklovchini yiqitmasligi | fuzz test |
-| `SceneSaveDeterministic`, `SceneCopyIsIndependent` | sahna fayli har saqlashda bir xil; Play nusxasi asl sahnaga ta'sir qilmaydi | regressiya |
-| `MemoryStatsProcess` | Clang sinovdagi ajratilgan xotirani optimallashtirib yuborardi (volatile yozuv) | Clang Release build |
-| `CrashHandlerReports` | backtrace 0-kadrni taxmin qilardi - sanitizer build'da noto'g'ri | sanitizer build |
+| `AudioMixerGroupTeardown` | when a mixer group with several child groups was deleted, miniaudio detached only the first input node and the others read freed memory (a crash in `AudioEngine::Shutdown`) | AddressSanitizer |
+| `PhysicsDeterminism2D`, `PhysicsDeterminism3D` | Box2D / Jolt bodies were created in component pool order: a scene played in the editor and the same scene loaded from a file (exported) simulated differently | the determinism test (bit-level comparison) |
+| `PlayCopyRunsScriptsInFileOrder`, `PhysicsDeterminism2D/3D` (as in the game, without a copy) | `Scene::Copy` copied the component pools through a view (newest first): on Play in the editor the scripts (`OnCreate` ... `OnLateUpdate`), animators and agents ran in the reverse of the exported game's order | review (the tests played a scene read from a file through a copy too) |
+| `DeferredDestroyOnceEachAndLinear` | `DestroyEntityDeferred` searched the whole queue for a duplicate: thousands of `Destroy` calls in a frame were quadratic (10 000 - 525 ms) | the ECS benchmark |
+| `ScriptReloadKeepsFieldValues` | the script field values of a scene survive a hot reload | the hot reload test |
+| `StaleModuleCopiesRemoved` | the script module copies of crashed / killed processes piled up in `/tmp/zamin-modules` (423 MB) | the hot reload test |
+| `ParticleSimulationUnchanged` | GCC and Clang took the random numbers of an emitter in a different order (several calls in one expression) | the Clang Release build |
+| `Kinematic3DFollowsTransformAtLowFPS` | a kinematic body's velocity was wrong with several physics steps per frame | regression |
+| `DestroyKeepsOtherScriptsAlive` | EnTT moves the last component into the place of a removed one - another entity's script was lost | regression |
+| `DestroyEntityReentrant` | destroying from inside `OnDestroy` worked with a stale pointer | regression |
+| `EntitySetPartialLoad`, `SceneSalvage` | one broken record lost the whole scene; a file cut off in the middle of a write | broken files |
+| `SerializationFuzz` | random / broken JSON (infinite floats - `Tests/Fixtures/Fuzz`) does not crash the loader | the fuzz test |
+| `SceneSaveDeterministic`, `SceneCopyIsIndependent` | the scene file is the same on every save; the Play copy does not affect the original scene | regression |
+| `MemoryStatsProcess` | Clang optimized away the memory allocated by the test (a volatile write) | the Clang Release build |
+| `CrashHandlerReports` | the backtrace guessed frame 0 - wrong in a sanitizer build | the sanitizer build |
 
-GUI testlari ham topgan xatolar: editor tashqarida build qilinayotgan modulni linker hali yozayotganda yuklardi (endi
-vaqti va hajmi bir so'rov davomida o'zgarmaguncha kutadi - hot reload testi); terminal logi quvurga to'liq
-buferlanardi va yiqilishda yo'qolardi (endi qator bo'yicha); editor smoke testi Inspektor tab'ini ko'rmasdi (kod
-qamrovi topdi).
+Bugs the GUI tests found as well: the editor loaded a module being built outside while the linker was still writing
+it (now it waits until the time and size stop changing for one poll - the hot reload test); the terminal log was
+fully buffered into a pipe and lost on a crash (now line by line); the editor smoke test did not see the Inspector
+tab (found by code coverage).
 
-## Ilova: barcha unit testlar
+## Appendix: all unit tests
 
-Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
+The section name is the section heading in `Tests/ZaminTests.cpp` (a code comment, in English).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 1370 ta unit test, 143 ta bo'lim (`ZaminTests` targetidagi fayllar tartibida). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_Generated by `Tests/test_catalog.py --update docs/Testing.md`: 1370 unit tests, 143 sections (in the order of the files of the `ZaminTests` target). To run one test: `./build/bin/ZaminTests <Name>`._
 
-| # | Bo'lim | Testlar | Nomlari |
+| # | Section | Tests | Names |
 |---|---|---|---|
 | 1 | SliceUILayoutTests.cpp | 6 | `UIAuditRulesNameEachLayoutDefect`, `UIAuditLaysOutAtAnyViewSizeAndKeepsTheScenesOwn`, `SliceMenuLayoutLanternKeeper`, `SliceMenuLayoutBeaconPass`, `SliceMenuLayoutCatchesABrokenLinkAndTinyText`, `SliceMenuSettingsKeptOnEveryCloseAndLanguagePersists` |
 | 2 | LoadoutModelTests.cpp | 6 | `LoadoutModelValidatesStatsAndDefinitions`, `LoadoutModelEquipmentMovesOwnershipWithoutDuplication`, `LoadoutModelFullBagUnequipAndSwapRollback`, `LoadoutModelClampBonusesAndEnergyOnRemoval`, `LoadoutModelTickRegenerationCooldownAndInvalidDelta`, `LoadoutModelRestoreRejectsDefinitionAndProgressMismatch` |
@@ -420,7 +418,7 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 1370 ta unit test, 1
 | 32 | NavQueryQueueTests.cpp | 10 | `NavQueryQueueStartAndPublicationBudgetsAreSeparate`, `NavQueryQueueLatestRequestReplacesQueuedWorkWithinCapacity`, `NavQueryQueueSharesSnapshotAccountingAndReleasesCancelledPayloads`, `NavQueryQueueSnapshotBudgetRejectsWithoutDestroyingPreviousRequest`, `NavQueryQueueResultByteBudgetFailsExplicitlyAndDoesNotLeak`, `NavQueryQueuePointAndExpansionLimitsAreEnforced`, `NavQueryQueueCancelsRunningSearchAndRetainsCapacityUntilAcknowledged`, `NavQueryQueueShutdownJoinsAnActiveCancelledSearch`, `NavQueryQueueRejectsInvalidInputAndPrecancelledAtlasSearch`, `NavQueryQueueMixedReplacementCyclesStayBounded` |
 | 33 | NavAtlasTests.cpp | 16 | `NavAtlasSparseGapsUseOnlyLoadedCells`, `NavAtlasAdjacentTilesMatchDensePathCost`, `NavAtlasOneWayLinksAndInactiveEndpoints`, `NavAtlasCheapPortalAwayFromGoalRemainsOptimal`, `NavAtlasBuildIsTransactionalAndCopiesSources`, `NavAtlasRejectsInvalidTilesAndLinks`, `NavAtlasClimbCostsAndCornerRulesCrossTiles`, `NavAtlasSnapHeightBoundsAndExpansionLimit`, `NavAtlasCarvesAndRetainedSnapshots`, `NavAtlasDeterministicParallelQueries`, `NavRouteFollowerRequiresExplicitTraversalAndRejectsStale`, `NavRouteFollowerPartialDistanceAndInvalidInput`, `NavAtlasRandomizedDenseCostOracle`, `NavAtlasSourceOrderingAndBudgetedLargeWorld`, `NavAtlasRejectsCollapsedFloatCellCentres`, `NavAtlasAndFollowerLargeFiniteHeightDoesNotOverflow` |
 | 34 | the framework itself (TestFramework.h) | 3 | `TestFrameworkPatterns`, `TestFrameworkOptions`, `TestFrameworkReports` |
-| 35 | Asosiy (sahna, skriptlar, fizika, prefab, particle) | 25 | `UUIDsAreUnique`, `UUIDTextAndHashing`, `EntityLifecycle`, `SerializerRoundTrip`, `SceneCopyIsIndependent`, `ScriptLifecycleAndFields`, `PhysicsGravityAndCollision`, `InstantiateAndDeferredDestroy`, `DecomposeTransform`, `ProjectTemplate`, `HierarchyWorldTransforms`, `PrefabsAndClipboard`, `SpriteAnimationFrames`, `Physics3D`, `Raycast2DAndSceneRequests`, `Kinematic3DFollowsTransformAtLowFPS`, `TilemapCollisionAndResize`, `ParticlesSimulate`, `ParticleSimulationUnchanged`, `ParticleGradientStops`, `ParticleCurvesAndSize`, `ParticleVelocityOverLifetime`, `ParticleTextureSheetFrames`, `ParticleConeAndEdgeShapes`, `ParticleModulesSerialization` |
+| 35 | Main (scene, scripts, physics, prefabs, particles) | 25 | `UUIDsAreUnique`, `UUIDTextAndHashing`, `EntityLifecycle`, `SerializerRoundTrip`, `SceneCopyIsIndependent`, `ScriptLifecycleAndFields`, `PhysicsGravityAndCollision`, `InstantiateAndDeferredDestroy`, `DecomposeTransform`, `ProjectTemplate`, `HierarchyWorldTransforms`, `PrefabsAndClipboard`, `SpriteAnimationFrames`, `Physics3D`, `Raycast2DAndSceneRequests`, `Kinematic3DFollowsTransformAtLowFPS`, `TilemapCollisionAndResize`, `ParticlesSimulate`, `ParticleSimulationUnchanged`, `ParticleGradientStops`, `ParticleCurvesAndSize`, `ParticleVelocityOverLifetime`, `ParticleTextureSheetFrames`, `ParticleConeAndEdgeShapes`, `ParticleModulesSerialization` |
 | 36 | M14 Particle II: mesh shape, sub-emitters, collisions, noise, trails | 29 | `ParticleMeshEmitterSampling`, `ParticleSubEmitters`, `ParticleCollisionPlane`, `ParticleCollisionWorld`, `ParticleNoise`, `ParticleTrails`, `ParticleModulesSerializationII`, `ParticleBurstsList`, `ParticleDurationDelayAndSpeed`, `ParticlePrewarm`, `ParticleSortOrder`, `ParticleSimulationSpaces`, `ParticleStopActions`, `ParticleStopActionWaitsForSubEmitters`, `ParticleStartBurstWaitsForDelay`, `ParticlePlayOnStart`, `ParticleMainSerialization`, `ParticleModuleSwitchesAndPlayback`, `ParticleNearFadeAndStretchedBounds`, `ParticleFollowCameraWeather`, `ParticleBuiltinPresets`, `ParticlePresetFiles`, `ParticleSerializationEverything`, `ParticleSampleScenesRoundTrip`, `ParticlePerformance`, `SkeletalPoseEvaluation`, `CharacterController3D`, `AnimatorStateMachine`, `IrradianceSH` |
 | 37 | EntityRef fields | 2 | `EntityRefSerialization`, `EntityRefRemapOnCopy` |
 | 38 | timers (Invoke) | 1 | `InvokeTimers` |
@@ -532,157 +530,162 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 1370 ta unit test, 1
 <!-- test-catalog:end -->
 
 
-## Terrain map regressiyasi
+## Terrain map regression
 
-`Tests/TerrainTests.cpp`: `TerrainBrushesAndNormalizedPaint`, `TerrainGeometryRaycastAndSeeds`, `TerrainSerializationCopyAndHeightmap`, `TerrainJoltCollisionAndPlayCopy`, `TerrainSceneWriteFailurePreservesOriginal`. Cho'tka cheklovlari, CCW mesh, sirtga mos raycast, mustaqil copy/cache, saqlash, R16 va Jolt to'qnashuvi tekshiriladi.
-
-
-SDK va profiling tekshiruvlari: `ctest --test-dir build-review -R 'ModuleABILoad|SDKManifest' --output-on-failure`; GL kontekstida `ZaminGPUProfilerTests` va `ZaminTerrainSurfaceTests`. `Tests/sdk_manifest_test.py --build build-review` engine source'ini o'zgartirmay ko'chirilgan SDK headerlari va compiler mismatch'ini tekshiradi. `ZAMIN_EDITOR_TERRAIN=foliage-test` faqat test loyiha nusxasida reproject/Undo/Redo tekshiruvini bajaradi.
+`Tests/TerrainTests.cpp`: `TerrainBrushesAndNormalizedPaint`, `TerrainGeometryRaycastAndSeeds`, `TerrainSerializationCopyAndHeightmap`, `TerrainJoltCollisionAndPlayCopy`, `TerrainSceneWriteFailurePreservesOriginal`. They check the brush limits, the CCW mesh, a raycast that matches the surface, independent copies / caches, saving, R16 and the Jolt collision.
 
 
-Packed foliage qo'shimcha GL oracle'i: `ZaminFoliageRenderTests --require-gpu` (GL 4.3+) va `MESA_GL_VERSION_OVERRIDE=4.1 MESA_GLSL_VERSION_OVERRIDE=410 ZaminFoliageRenderTests` (CPU fallback). Har birini `LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 xvfb-run -a` ostida ishga tushiring. 4096 instance va 5 kamera: CPU/GPU count/pixel, LOD hysteresis, input upload cache, multi-part indirect command, backend switch, shadow/picking/wire va noto'g'ri winding/LOD'ni rad etish. [Foliage namunasi](../Projects/FoliageWorkshop/README.md) va [cheklovlar](Terrain.md#packed-foliage-va-ikki-model-lod).
+SDK and profiling checks: `ctest --test-dir build-review -R 'ModuleABILoad|SDKManifest' --output-on-failure`; in a GL context `ZaminGPUProfilerTests` and `ZaminTerrainSurfaceTests`. `Tests/sdk_manifest_test.py --build build-review` checks relocated SDK headers and a compiler mismatch without changing the engine source. `ZAMIN_EDITOR_TERRAIN=foliage-test` runs the reproject / Undo / Redo check on a copy of the test project only.
 
 
-`SanitizerSharedLink` (Linux + Clang/compiler-rt) production CMake shared-library siyosatini
-kichik alohida loyihada tekshiradi: Clang ASan, UBSan va ikkalasi bilan DSO/consumer link,
-normal ishga tushish, haqiqiy signed overflow aniqlanishi va oddiy Clang build'da yo'q
-application symbol rad etilishi. Clang/compiler-rt yo'q bo'lsa skip; `ctest -R SanitizerSharedLink`
-yoki `python3 Tests/sanitizer_link_test.py --compiler /usr/bin/clang++-18`.
+The extra GL oracle of packed foliage: `ZaminFoliageRenderTests --require-gpu` (GL 4.3+) and `MESA_GL_VERSION_OVERRIDE=4.1 MESA_GLSL_VERSION_OVERRIDE=410 ZaminFoliageRenderTests` (the CPU fallback). Run each under `LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=2 xvfb-run -a`. 4096 instances and 5 cameras: CPU/GPU count / pixels, LOD hysteresis, the input upload cache, the multi-part indirect command, the backend switch, shadow / picking / wire and the rejection of wrong winding / LOD. [The foliage sample](../Projects/FoliageWorkshop/README.md) and [the limits](Terrain.md#packed-foliage-va-ikki-model-lod).
 
 
-### World streaming paketi regressiyasi
+`SanitizerSharedLink` (Linux + Clang/compiler-rt) checks the production CMake shared-library policy
+in a small separate project: the DSO / consumer link with Clang ASan, UBSan and both,
+a normal start, the detection of a real signed overflow and the rejection of an
+application symbol that a plain Clang build lacks. Skipped without Clang/compiler-rt; `ctest -R SanitizerSharedLink`
+or `python3 Tests/sanitizer_link_test.py --compiler /usr/bin/clang++-18`.
+
+
+### World streaming package regression
 
 `ZAMIN_BUILD_DIR=build-review ctest --test-dir build-review -R WorldStreamingRuntime --output-on-failure`
-yoki `python3 Tests/world_streaming_test.py --build build-review --out build-review/WorldPackage/Runtime`:
-WorldWorkshop3D/2D Player kamera yo‘li, bo‘sh hududga unload va qaytish, admission limiti, 0 failed katak,
-haqiqiy framebuffer screenshot va editor world paneli. Test `gui;world` label’da; odatiy GUI’siz CTest’dan alohida.
-CPU suite shared 2D/3D physics, bulk import lifecycle, radius/hysteresis, dependency/declared admission,
-UUID to‘qnashuvi/retry, Stop/Single, export closure va 4096 katakli manifestda juda kichik byudjet progress’ini tekshiradi.
+or `python3 Tests/world_streaming_test.py --build build-review --out build-review/WorldPackage/Runtime`:
+the WorldWorkshop3D/2D Player camera path, unloading into an empty region and returning, the admission limit, 0
+failed cells, a real framebuffer screenshot and the editor's world panel. The test has the `gui;world` label,
+separate from the usual CTest run without a GUI. The CPU suite checks shared 2D/3D physics, the bulk import
+lifecycle, radius / hysteresis, dependency / declared admission, UUID collision / retry, Stop / Single, the export
+closure and the progress of a very small budget on a manifest of 4096 cells.
 
 
-### World asset streaming: byudjet, limit va demo
+### World asset streaming: budget, limit and demo
 
 `Tests/WorldAssetStreamingTests.cpp` (`ZaminTests "AsyncLoaderUpload*" "WorldAssetStager*" "WorldStreamingAsset*"
-"WorldStreamingResidencyLimit*" "WorldTour*" "WorldGalleryDemo*"`, GL’siz): `AsyncLoader` upload byudjeti
-(bayt/chaqiruv, navbat tartibi, bo‘laklangan upload, byudjetdan katta birlik yolg‘iz), `WorldAssetStager`
-(worker’da decode, sarlavhadan rad etish, fayl/katak/jami byudjet, yo‘q/buzilgan fayl, tez submit/cancel,
-model/material), siyosat round-trip va eski fayl default’lari, limit bo‘yicha eng uzoq katakni chiqarish va
-dependency tartibi, `.ztour` baholash/round-trip/noto‘g‘ri fayllar, hisobot percentillari, WorldGallery3D
-save/reload/export rejasi.
+"WorldStreamingResidencyLimit*" "WorldTour*" "WorldGalleryDemo*"`, without GL): the `AsyncLoader` upload budget
+(bytes / calls, queue order, chunked upload, a unit larger than the budget on its own), `WorldAssetStager`
+(decoding on a worker, rejection from the header, the file / cell / total budget, a missing / broken file, quick
+submit / cancel, model / material), the policy round trip and the defaults of an old file, evicting the farthest
+cell on a limit and the dependency order, `.ztour` evaluation / round trip / invalid files, the report's
+percentiles, the WorldGallery3D save / reload / export plan.
 
-`ctest -R AssetResidencyGPU` (`ZaminResidencyGPUTests`, haqiqiy GL): qatorlab upload’ning bayt byudjeti va
-byudjetsiz texture bilan tengligi (worker mip zanjiri drayver `glGenerateMipmap` idan 0 farq), yarim
-yuklangan texture’ning ko‘rinmasligi, majburiy tugatish, bekor qilishda GPU allocation’ning qaytishi; real
-katak (sprite + OBJ + `.zmat`): asosiy oqimda 0 decode/parse, kadr byudjeti, qaytish, bekor qilish, tez kamera,
-bo‘shatish byudjeti, byudjetdan oshgan fayl va Retry; `AssetStreaming` o‘chiq yo‘lda hisoblagichlar > 0.
+`ctest -R AssetResidencyGPU` (`ZaminResidencyGPUTests`, real GL): the byte budget of a row-by-row upload and its
+equality with a texture uploaded without a budget (the worker's mip chain differs by 0 from the driver's
+`glGenerateMipmap`), a half-uploaded texture staying invisible, forced completion, the GPU allocation being
+returned on cancel; a real cell (sprite + OBJ + `.zmat`): 0 decode / parse on the main thread, the frame budget,
+returning, cancelling, a fast camera, the release budget, a file over the budget and Retry; on the path with
+`AssetStreaming` off the counters are > 0.
 
-`ctest -R WorldAssetStreaming` (`gui;world;slow`, uch bosqich, har biri alohida:
+`ctest -R WorldAssetStreaming` (`gui;world;slow`, three stages, each on its own:
 `python3 Tests/world_asset_streaming_test.py --stage budget|residency|demo [--out DIR] [--keep DIR]`) —
-haqiqiy Player, `ZAMIN_WORLD_TOUR` kamera yo‘li va `ZAMIN_WORLD_REPORT` hisoboti:
+the real Player, the `ZAMIN_WORLD_TOUR` camera path and the `ZAMIN_WORLD_REPORT` report:
 
-- **budget** — yaratilgan og‘ir world (24 katak, 2048 px texture, 5184 uchburchakli model, 640×360) byudjet bilan
-  va `--legacy` (asosiy oqim) yo‘lida. Qat’iy gate’lar: asosiy oqimda 0 decode/parse; har kadrda upload baytlari
-  ≤ `MaxAssetUploadBytesPerFrame`, chaqiruvlar ≤ limit, byudjetdan katta birlik 0; staging ≤ `MaxStagedAssetBytes`;
-  **bir kadrdagi streaming ishi (world update + upload) ≤ 30 ms** (`ZAMIN_WORLD_HARD_MS`) va legacy’ning yarmidan
-  kam, legacy esa 30 ms dan yuqori bo‘lishi shart (gate o‘zgarishsiz yiqilishini isbotlaydi); medianadan 40 ms
-  uzun kadrlarning hech biri streaming ishi (> 5 ms) bilan bog‘liq emas, p99 − p50 ≤ 40 ms; katak byudjeti
-  8 MiB bo‘lganda kataklar nom bilan rad etiladi va hech narsa yuklanmaydi.
-- **residency** — ikki davrali limitsiz tur (tez kamera, bo‘sh hudud, qaytish: bo‘sh hududdagi GPU/RSS va
-  davra cho‘qqilari o‘smaydi), so‘ralgan GPU limiti (hech qachon yetib bormaydi, world ishlashda davom etadi),
-  RSS limiti (bosim, OS’ga qaytarish/chiqarish, cheklangan oshib ketish) va buzilgan world (yo‘q katak, buzilgan
-  katak JSON, buzilgan va yo‘q texture, buzilgan model: aynan 2 failed katak, qolganlari ishlaydi).
-- **demo** — `Projects/WorldGallery3D` generator chiqishi bilan bayt-bayt bir xil; ikki tur bir xil kamera yo‘li
-  va tinch nuqtalarda bir xil faol kataklar; editor world paneli; eksport, papkani ko‘chirish va eksportda
-  shu tur.
+- **budget** — a generated heavy world (24 cells, 2048 px textures, a model of 5184 triangles, 640×360) with the
+  budget and on the `--legacy` (main thread) path. Hard gates: 0 decode / parse on the main thread; upload bytes
+  per frame ≤ `MaxAssetUploadBytesPerFrame`, calls ≤ the limit, 0 units larger than the budget; staging ≤
+  `MaxStagedAssetBytes`; **the streaming work of one frame (world update + upload) ≤ 30 ms**
+  (`ZAMIN_WORLD_HARD_MS`) and less than half of legacy's, while legacy has to be above 30 ms (which proves that the
+  gate fails without the change); none of the frames 40 ms longer than the median is tied to streaming work
+  (> 5 ms), p99 − p50 ≤ 40 ms; with a cell budget of 8 MiB the cells are rejected by name and nothing is loaded.
+- **residency** — a two-lap tour without limits (a fast camera, an empty region, returning: the GPU / RSS in the
+  empty region and the lap peaks do not grow), the requested GPU limit (never reached, the world keeps working),
+  the RSS limit (pressure, returning to the OS / eviction, a bounded overshoot) and a broken world (a missing cell,
+  broken cell JSON, a broken and a missing texture, a broken model: exactly 2 failed cells, the rest work).
+- **demo** — `Projects/WorldGallery3D` is byte for byte the generator's output; two tours have the same camera path
+  and the same active cells at the rest points; the editor's world panel; export, moving the folder and the same
+  tour in the export.
 
-Kadr vaqti Mesa llvmpipe’da o‘lchanadi: bu to‘g‘rilik va byudjet tekshiruvi, jismoniy GPU tezlik bahosi emas.
-Bitta kadrning uzun bo‘lishi (300 ms gacha) renderer’ning birinchi marta ishlatilgan shader variantini
-kompilyatsiya qilishi — o‘sha kadrda streaming ishi 0.2 ms; hisobotda alohida sanaladi.
+Frame time is measured on Mesa llvmpipe: this is a correctness and budget check, not an estimate of the speed of a
+physical GPU. A single long frame (up to 300 ms) is the renderer compiling a shader variant used for the first
+time — the streaming work in that frame is 0.2 ms; the report counts it separately.
 
-### Residency / world terrain / grid mosaic paketi
+### Residency / world terrain / grid mosaic package
 
-`ZaminTests --filter "Residency:NavMosaic:WorldTerrain:WorldStreaming"` LRU va jonli/loading pin,
-byte overflow, pressure hysteresis, transactional seam, cross-cell path va unloaded hole, observed memory gate,
-source topology xatosida stale mosaic yo‘qolishi, explicit grid tanlovi va world close lifecycle’ni tekshiradi.
-`xvfb-run -a build/bin/ZaminResidencyGPUTests` haqiqiy GPU allocation hisobi bilan texture/model/material/mesh
-ownership, deferred upload, async load va 32 eviction cycle’ni tekshiradi. CI normal GL 4.1 va ASan smoke’da ishlaydi.
-`python3 Tests/world_streaming_test.py --build build --out world-streaming` ikki kattalashtirilgan demo’da
-camera tour, cross-cell path, residency metrics, world panel va terrain pair edit Undo/Redo screenshot/log’larini
-saqlaydi. `WorldModuleLocations` headless CTest default, isolated va custom module output yo‘llarini tekshiradi.
+`ZaminTests --filter "Residency:NavMosaic:WorldTerrain:WorldStreaming"` checks the LRU and the live / loading pin,
+byte overflow, pressure hysteresis, the transactional seam, a cross-cell path and an unloaded hole, the observed
+memory gate, a stale mosaic disappearing on a source topology error, the explicit grid choice and the world close
+lifecycle. `xvfb-run -a build/bin/ZaminResidencyGPUTests` checks texture / model / material / mesh ownership,
+deferred upload, async load and 32 eviction cycles with real GPU allocation accounting. In CI it runs on normal GL
+4.1 and in the ASan smoke. `python3 Tests/world_streaming_test.py --build build --out world-streaming` saves the
+screenshots / logs of the camera tour, the cross-cell path, the residency metrics, the world panel and the terrain
+pair edit Undo / Redo in the two enlarged demos. The headless `WorldModuleLocations` CTest checks the default,
+isolated and custom module output paths.
 
-### World checkpoint va authoring
+### World checkpoint and authoring
 
 `ZaminTests --filter "WorldCheckpoint:WorldGridAuthoring:WorldCellOverride:WorldStreamingCellPreview"`:
-atomic snapshot roundtrip, immutable writer, exit join, IO failure, UUID/hierarchy va malformed preflight,
-parent/child ownership, deleted/adopted subtree, origin offset, cold-session restore, bounded FIFO command,
-override generation, template clone/remap, no-overwrite staging cleanup va anchor/cell preview tekshiruvlari.
-`python3 Tests/world_checkpoint_test.py --build build --out world-checkpoint` 2D/3D Player va editor
-workflow’larini, checkpoint JSON, screenshot va generated export loyiha nusxasini saqlaydi. Bu GUI CTest
-`WorldCheckpointRuntime`, normal GCC/Clang CI matritsasida ham ishlaydi.
+checks of the atomic snapshot round trip, the immutable writer, exit join, IO failure, UUID / hierarchy and
+malformed preflight, parent / child ownership, a deleted / adopted subtree, the origin offset, cold-session restore,
+the bounded FIFO command, override generation, template clone / remap, no-overwrite staging cleanup and the anchor /
+cell preview. `python3 Tests/world_checkpoint_test.py --build build --out world-checkpoint` saves the 2D/3D Player
+and editor workflows, the checkpoint JSON, a screenshot and a copy of the generated export project. This is the GUI
+CTest `WorldCheckpointRuntime`; it also runs in the normal GCC/Clang CI matrix.
 
-### Sparse atlas va traversal workflow
+### Sparse atlas and traversal workflow
 
 `ZaminTests --filter "NavAtlas:NavRouteFollower:WorldStreamingSparse:WorldStreamingNavigationLink"`
-loaded-only allocation, dense path cost oracle, random cost/obstacle maps, height/climb/corner rules,
-directed/disabled/missing/carved links, immutable copies, deterministic parallel query, expansion cap,
-float precision/overflow, explicit traversal completion va stale route stop'ni tekshiradi.
-World fixture `.zworld` link roundtrip/malformed input va far-apart tile unload/return'ni qamrab oladi.
-`python3 Tests/world_navigation_test.py --build build --out navigation` haqiqiy 2D/3D Player'da
-420 kadrdan portal completion, disable, stale stop, empty unload va return replan oracle'larini,
-keyin har editor'da route preview va framebuffer PNG'ni tekshiradi. GUI CTest nomi
-`WorldNavigationRuntime`; GCC/Clang CI shu runner'dan foydalanadi. `--no-editor` Player qismi uchun.
-Native export testida `ZAMIN_WORLD_NAVIGATION_TEST=1` va `--frames 420` exported Player'da ham shu
-workflow'ni ishlatadi. ASan/UBSan leaf probe butun engine sanitizer natijasi sifatida talqin qilinmaydi.
+checks loaded-only allocation, the dense path cost oracle, random cost / obstacle maps, the height / climb / corner
+rules, directed / disabled / missing / carved links, immutable copies, a deterministic parallel query, the expansion
+cap, float precision / overflow, explicit traversal completion and the stale route stop.
+The world fixture covers the `.zworld` link round trip / malformed input and far-apart tile unload / return.
+`python3 Tests/world_navigation_test.py --build build --out navigation` checks, in the real 2D/3D Player over
+420 frames, the portal completion, disable, stale stop, empty unload and return replan oracles,
+then the route preview and the framebuffer PNG in each editor. The GUI CTest is named
+`WorldNavigationRuntime`; the GCC/Clang CI uses the same runner. `--no-editor` is for the Player part.
+In the native export test `ZAMIN_WORLD_NAVIGATION_TEST=1` and `--frames 420` run the same
+workflow in the exported Player too. The ASan/UBSan leaf probe is not to be read as a sanitizer result for the whole
+engine.
 
-### NavAgent / controller / Visual Graph integratsiyasi
+### NavAgent / controller / Visual Graph integration
 
-`ZaminTests --filter "WorldNavAgent:VisualGraphTraversal:VisualGraphWorldDestination"` haqiqiy world
-fixture'da distant tile'lar, portal entry va completion token, cancel/stale/retry, scene ownership,
-controller devori va band exit, BaseOffset, runtime reset/copy/serialize, periodic replan va exact goal,
-built-in graph destination/completion, String uint64 precision hamda Success outputs'ni tekshiradi.
-`python3 Tests/world_agent_test.py --build build --out agents` ZAMIN_CAPTURE_FPS=30 bilan har bir
-2D/3D Player'da 420 kadrdan uchta haqiqiy traversal/arrival, disable/unload/return va 120-frame graph
-editor screenshot'ini tekshiradi. CTest `WorldAgentRuntime`, Linux normal GCC/Clang CI'ga ulangan.
-Native export uchun `ZAMIN_WORLD_AGENT_TEST=1 ZAMIN_CAPTURE_FPS=30 Tests/export_test.sh ... --frames 420`.
-Targeted sanitizer probe agent/VM TU va testlar bilan linklanadi; umumiy shared engine unda normal
-build, shuning uchun bu to‘liq engine sanitizer run'i sifatida talqin qilinmaydi.
+`ZaminTests --filter "WorldNavAgent:VisualGraphTraversal:VisualGraphWorldDestination"` checks, on a real world
+fixture, distant tiles, portal entry and the completion token, cancel / stale / retry, scene ownership,
+a controller wall and an occupied exit, BaseOffset, runtime reset / copy / serialize, the periodic replan and the
+exact goal, the built-in graph destination / completion, String uint64 precision and the Success outputs.
+`python3 Tests/world_agent_test.py --build build --out agents` checks, with ZAMIN_CAPTURE_FPS=30, three real
+traversals / arrivals, disable / unload / return over 420 frames in each 2D/3D Player and a 120-frame graph
+editor screenshot. The CTest `WorldAgentRuntime` is wired into the normal Linux GCC/Clang CI.
+For a native export: `ZAMIN_WORLD_AGENT_TEST=1 ZAMIN_CAPTURE_FPS=30 Tests/export_test.sh ... --frames 420`.
+The targeted sanitizer probe is linked with the agent / VM TUs and the tests; the shared engine is a normal
+build in it, so it is not to be read as a full engine sanitizer run.
 
 ### Async navigation queue
 
 `NavQueryQueueTests.cpp`: independent start/publication budgets, queued replacement, unique snapshot accounting,
 capacity/byte limits, oversized result failure, expansion/point cap, active cancellation, joined shutdown,
-pre-cancelled path va mixed replacement cycles. Pure queue/atlas/grid ASan/UBSan probe engine'siz linklanadi.
-`WorldAsyncNavigation*`: policy, pending motion, actor destruction/cancel, same UUID/new generation, changed goal,
-crossed start cell, backpressure fairness, controller wall/occupied exit, graph pending state, empty atlas/return.
-`Tests/world_agent_test.py` async demo'da uchta delivered query va haqiqiy portal arrival'ni tekshiradi;
-editor graph'ni actor instance'ga ulaydi. Worker scratch payload budgets'dan alohida, TSan natijasi da’vo qilinmaydi.
+a pre-cancelled path and mixed replacement cycles. The pure queue/atlas/grid ASan/UBSan probe is linked without the
+engine. `WorldAsyncNavigation*`: policy, pending motion, actor destruction/cancel, same UUID/new generation, changed
+goal, crossed start cell, backpressure fairness, controller wall/occupied exit, graph pending state, empty
+atlas/return. `Tests/world_agent_test.py` checks three delivered queries and a real portal arrival in the async
+demo; the editor attaches the graph to the actor instance. Worker scratch is separate from the payload budgets; no
+TSan result is claimed.
 
 World crowd runtime: `python3 Tests/world_crowd_test.py --build build --out build/WorldCrowdRuntime`.
-Har 2D/3D Player 450 kadrda to‘rt yo‘nalish kesishuvi, ikki manzil bosqichi, Stop/reverse,
-minimal separation va haqiqiy VisualGraph telemetry oracle’idan o‘tadi. Editor 130 kadrda
-5-node/6-link CrowdMonitor graph’i va scene instance screenshot’ini oladi (`--no-editor`: Player).
-`ZAMIN_WORLD_CROWD_TEST=1 ZAMIN_CAPTURE_FPS=30` native export’da ham shu oracle’ni ishlatadi.
-Leaf testlar crowd snapshot determinism, head-on/crossing, cap/invalid input va sparse segment/
-weighted smoothing/portal/floor/budget qoidalarini tekshiradi. Scene regressionlar haqiqiy 2D/3D
-controller, serialization/reset, async option o‘zgarishi va unloaded gap movement guard’ini tekshiradi.
+Each 2D/3D Player passes, in 450 frames, the oracle of a four-way crossing, two destination stages, Stop / reverse,
+minimal separation and real VisualGraph telemetry. The editor takes, in 130 frames,
+a screenshot of the 5-node / 6-link CrowdMonitor graph and of the scene instance (`--no-editor`: Player).
+`ZAMIN_WORLD_CROWD_TEST=1 ZAMIN_CAPTURE_FPS=30` runs the same oracle in a native export too.
+The leaf tests check crowd snapshot determinism, head-on / crossing, cap / invalid input and the sparse segment /
+weighted smoothing / portal / floor / budget rules. The scene regressions check a real 2D/3D
+controller, serialization / reset, a change of the async option and the unloaded gap movement guard.
 
-CI dependency installer `Tests/install_linux_dependencies.sh` Azure Ubuntu mirror DNS’ini
-cheklangan vaqtda tekshiradi; DNS yoki apt xatosida signed rasmiy archive mirror’ga o‘tadi.
-Download retry/timeout cheklangan, fallback ham muvaffaqiyatsiz bo‘lsa job xato bilan tugaydi.
-Bu engine testlarini almashtirmaydi; dependency bosqichi o‘tmaganda C++ tekshiruvlari hali bajarilmagan.
+The CI dependency installer `Tests/install_linux_dependencies.sh` checks the DNS of the Azure Ubuntu mirror
+within a bounded time; on a DNS or apt error it switches to the signed official archive mirror.
+Download retries / timeouts are bounded, and if the fallback fails too the job ends with an error.
+This does not replace the engine tests; when the dependency stage has not passed, the C++ checks have not run yet.
 
-`Tests/world_recovery_test.py --build build --out build/WorldRecoveryRuntime`: 2D/3D Player 420 kadr,
-live blocker, bounded exhaustion, stable source carving (mosaic feedback yo‘q), graph telemetry,
-eshik ochilgandan keyin destination’ni qayta bermasdan arrival. Editor 160 kadrda 8-node/9-link
-RecoveryMonitor graph’i va scene instance’ni oladi. `ZAMIN_WORLD_RECOVERY_TEST=1 ZAMIN_CAPTURE_FPS=30`
-native export’da ham oracle’ni ishlatadi. Unit regressionlar same-frame publication, queued stale
-result, portal-exit revocation, physical controller stall va serialize/copy reset’ni tekshiradi.
+`Tests/world_recovery_test.py --build build --out build/WorldRecoveryRuntime`: the 2D/3D Player for 420 frames,
+a live blocker, bounded exhaustion, stable source carving (no mosaic feedback), graph telemetry,
+and arrival after the door opens without giving the destination again. The editor takes, in 160 frames, the
+8-node / 9-link RecoveryMonitor graph and the scene instance. `ZAMIN_WORLD_RECOVERY_TEST=1 ZAMIN_CAPTURE_FPS=30`
+runs the oracle in a native export too. The unit regressions check same-frame publication, a queued stale
+result, portal-exit revocation, a physical controller stall and the serialize / copy reset.
 
-Installer regressioni `Tests/install_linux_dependencies_test.py` haqiqiy apt/sudo’ni ishlatmaydi:
-DNS fail-fast, mirror fallback, bounded retry hamda butun apt command uchun timeout argumentlarini
-mock’lar bilan tekshiradi. HTTP timeout DNS’ning har package uchun kutishini cheklamagani uchun
-butun update/install ham 120/240 soniya (+10 soniya kill grace) bilan cheklangan.
+The installer regression `Tests/install_linux_dependencies_test.py` does not run the real apt / sudo:
+it checks DNS fail-fast, the mirror fallback, the bounded retry and the timeout arguments of the whole apt command
+with mocks. Because the HTTP timeout did not bound the DNS wait per package,
+the whole update / install is also limited to 120 / 240 seconds (+10 seconds of kill grace).
 
-Recovery runner `--editor-only` bilan avval o‘tgan Player sinovini qaytarmasdan editor diagnostikasini
-alohida tekshiradi (`--no-editor` bilan birga ishlatilmaydi). Installer’da barcha paketlar runner’da
-allaqachon o‘rnatilgan bo‘lsa DNS/apt bosqichi o‘tkazib yuboriladi; mock regression shu holatni ham qoplaydi.
+With `--editor-only` the recovery runner checks the editor diagnostics on their own, without repeating a Player run
+that already passed (not to be combined with `--no-editor`). In the installer, when all the packages are already
+installed on the runner, the DNS / apt stage is skipped; the mock regression covers this case too.

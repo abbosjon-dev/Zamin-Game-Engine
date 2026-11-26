@@ -27,7 +27,7 @@ ALWAYS = ["IDComponent", "TagComponent"]
 # Scene-file keys that are not written as e["Key"] right after the component's TryGetComponent.
 SCENE_KEYS = {
     "IDComponent": '"Entity"',
-    "TagComponent": '"Tag"` (nom) va `"Active"',
+    "TagComponent": '"Tag"` (name) and `"Active"',
     "RelationshipComponent": '"Parent"',
     "TagsComponent": '"Tags"',
     "TransformComponent": '"Transform"',
@@ -276,22 +276,35 @@ def members(body):
     return result
 
 
+def editor_english():
+    """The editor's English texts by their keys (the table of Zamin/src/Zamin/Editor/EditorLanguage.cpp): the names
+    the inspector shows in English, the editor's default language."""
+    table = {}
+    path = os.path.join(ROOT, "Zamin", "src", "Zamin", "Editor", "EditorLanguage.cpp")
+    if os.path.exists(path):
+        for m in re.finditer(r'\{\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*\}', read(path)):
+            table.setdefault(m.group(1), m.group(2))
+    return table
+
+
 def inspector_info():
     sections, menu = {}, {}
+    english = editor_english()
+    tr = lambda key: english.get(key, key)
     for path in INSPECTOR_CPP:
         if not os.path.exists(path):
             continue
         text = read(path)
         for m in re.finditer(r"AddSection<(\w+)>\(\s*\w+\s*,\s*(?:Tr\()?\"([^\"]+)\"", text):
-            sections.setdefault(m.group(1), m.group(2))
+            sections.setdefault(m.group(1), tr(m.group(2)))
         category = ""
         for line in text.splitlines():
             c = re.search(r"SeparatorText\(Tr\(\"([^\"]+)\"\)\)", line)
             if c:
-                category = c.group(1)
+                category = tr(c.group(1))
             d = re.search(r"DisplayAddComponentEntry<(\w+)>\((?:Tr\()?\"([^\"]+)\"", line)
             if d:
-                menu.setdefault(d.group(1), (category, d.group(2)))
+                menu.setdefault(d.group(1), (category, tr(d.group(2))))
     return sections, menu
 
 
@@ -335,16 +348,16 @@ def block(name, struct_body, sections, menu, keys, serialized):
     lines = [f"<!-- gen:{name} -->"]
     facts = []
     if name in sections:
-        facts.append(f"Inspektorda: **{sections[name]}**")
+        facts.append(f"In the inspector: **{sections[name]}**")
     if name in menu:
         cat, entry = menu[name]
-        facts.append(f"qo'shish: **+ Komponent → {cat} → {entry}**")
+        facts.append(f"add with: **+ Component → {cat} → {entry}**")
     elif name in ALWAYS or name in ("TransformComponent", "RelationshipComponent"):
-        facts.append("har bir obyektda bor")
+        facts.append("on every entity")
     else:
-        facts.append("inspektor menyusida yo'q (editor / tizim o'zi qo'shadi)")
+        facts.append("not in the inspector menu (the editor / a system adds it)")
     if name in keys:
-        facts.append(f"sahna faylida: `{keys[name]}`")
+        facts.append(f"in the scene file: `{keys[name]}`")
     lines.append("_" + "; ".join(facts) + "._")
     lines.append("")
     fields = []
@@ -353,7 +366,7 @@ def block(name, struct_body, sections, menu, keys, serialized):
             f["owner"] = owner
             fields.append(f)
     if fields:
-        lines.append("| Maydon | Tur | Standart |")
+        lines.append("| Field | Type | Default |")
         lines.append("|---|---|---|")
         bases = sorted({f["owner"] for f in fields if f["owner"] != name})
         for f in fields:
@@ -361,16 +374,16 @@ def block(name, struct_body, sections, menu, keys, serialized):
             # Runtime-only: the header says so and the serializer never touches it.
             saved = re.search(r"(->|\.)" + re.escape(f["name"]) + r"\b", serialized)
             runtime = f["runtime"] or f["type"].endswith("*")
-            mark = " _(faqat o'yin paytida)_" if runtime and not saved else ""
+            mark = " _(runtime only)_" if runtime and not saved else ""
             lines.append(f"| `{f['name']}`{mark} | `{md_cell(f['type'])}` | {default} |")
         if bases:
             own = sum(1 for f in fields if f["owner"] == name)
             names = ", ".join(f"`{b}`" for b in bases)
             lines.append("")
-            lines.append(f"_Barcha maydonlar {names} dan meros._" if own == 0
-                         else f"_Jadval boshidagi maydonlar {names} dan meros._")
+            lines.append(f"_All fields are inherited from {names}._" if own == 0
+                         else f"_The fields at the top of the table are inherited from {names}._")
     else:
-        lines.append("_Ma'lumot maydonlari yo'q._")
+        lines.append("_No data fields._")
     lines.append(f"<!-- /gen:{name} -->")
     return "\n".join(lines)
 

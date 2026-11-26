@@ -417,7 +417,7 @@ Debug build'da (yoki `-DZAMIN_ASSERTS=ON`) `ZM_ASSERT` sharti yolg'on bo'lsa log
 
 - Log darajasini oshiring: `--log-level trace` yoki `ZAMIN_LOG_LEVEL=trace` ([Runtime.md, 6](Runtime.md#6-log-fayllari)).
 - OpenGL xatolari: `--gl-debug` (player) yoki `ZAMIN_GL_DEBUG=1`.
-- Xotira xatolari: AddressSanitizer build'i - `Tests/sanitize.sh address --smoke` ([Testing.md, 6](Testing.md#6-sanitizerlar)).
+- Xotira xatolari: AddressSanitizer build'i - `Tests/sanitize.sh address --smoke` ([Testing.md, 6](Testing.md#6-sanitizers)).
 - Fizika: `--debug-contacts`, `--debug-raycasts`; navigatsiya: `--debug-nav`.
 
 ## 12. Hech narsa yordam bermasa

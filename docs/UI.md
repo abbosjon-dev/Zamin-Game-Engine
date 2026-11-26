@@ -5,7 +5,7 @@ moslashuvchi Canvas, layout guruhlari, vidjetlar (tugma, rasm, slayder, belgilas
 tekislash va o'rash, sichqoncha hodisalari, klaviatura / gamepad navigatsiyasi, UI animatsiyalari, maska va scroll view,
 editorda UI bilan ishlash va pauza menyusi namunasi — C++ skript misollari bilan.
 
-Komponentlarning to'liq maydonlari: [Components.md](Components.md#8-ui-ekran-interfeysi). Misollar `#include <Zamin/Zamin.h>`
+Komponentlarning to'liq maydonlari: [Components.md](Components.md#8-ui-screen-interface). Misollar `#include <Zamin/Zamin.h>`
 va `using namespace Zamin;` bilan.
 
 ![UI Layout sahnasi editorda](images/ui-layout-editor.jpg)

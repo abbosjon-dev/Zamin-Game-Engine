@@ -380,7 +380,7 @@ P3 "dunyo va asset streaming" yo'nalishining uch bandi: texture/model decode va 
 byudjetlar bilan kadr vaqti gate'i, RAM/VRAM rezidentlik limitlari va ularning regressiyalari, ko'p katakli
 asset demo bilan takrorlanadigan kamera yo'li va hisobotlar. Tuzilishi va chegaralari —
 [Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli), sinovlar —
-[Testing.md](Testing.md#world-asset-streaming-byudjet-limit-va-demo).
+[Testing.md](Testing.md#world-asset-streaming-budget-limit-and-demo).
 
 Nima qo'shildi:
 

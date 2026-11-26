@@ -1,6 +1,6 @@
 {
   "Format": "Zamin.VisualGraph",
-  "Version": 1,
+  "Version": 2,
   "Nodes": [
     {
       "ID": 1,
@@ -160,6 +160,147 @@
       "Inputs": {
         "Name": "Award"
       }
+    },
+    {
+      "ID": 30,
+      "Kind": "Function.Call",
+      "X": 1080,
+      "Y": 720,
+      "Inputs": {
+        "Name": "RankOf"
+      }
+    },
+    {
+      "ID": 31,
+      "Kind": "Enum.ToText",
+      "X": 1340,
+      "Y": 860,
+      "Inputs": {
+        "Enum": "Rank"
+      }
+    },
+    {
+      "ID": 32,
+      "Kind": "Concat",
+      "X": 1600,
+      "Y": 860,
+      "Inputs": {
+        "A": "BLUEPRINT_RANK rank="
+      }
+    },
+    {
+      "ID": 34,
+      "Kind": "Set.Enum",
+      "X": 1340,
+      "Y": 720,
+      "Inputs": {
+        "Name": "FinalRank"
+      }
+    },
+    {
+      "ID": 33,
+      "Kind": "Print",
+      "X": 1860,
+      "Y": 720,
+      "Inputs": {}
+    },
+    {
+      "ID": 40,
+      "Kind": "Function.Entry",
+      "X": 30,
+      "Y": 1500,
+      "Inputs": {
+        "Name": "RankOf"
+      }
+    },
+    {
+      "ID": 41,
+      "Kind": "Greater",
+      "X": 280,
+      "Y": 1650,
+      "Inputs": {
+        "B": 14
+      }
+    },
+    {
+      "ID": 42,
+      "Kind": "Branch",
+      "X": 560,
+      "Y": 1500,
+      "Inputs": {}
+    },
+    {
+      "ID": 43,
+      "Kind": "Greater",
+      "X": 560,
+      "Y": 1700,
+      "Inputs": {
+        "B": 10
+      }
+    },
+    {
+      "ID": 44,
+      "Kind": "Branch",
+      "X": 820,
+      "Y": 1600,
+      "Inputs": {}
+    },
+    {
+      "ID": 45,
+      "Kind": "Constant.Enum",
+      "X": 1080,
+      "Y": 1520,
+      "Inputs": {
+        "Enum": "Rank",
+        "Value": 2
+      }
+    },
+    {
+      "ID": 46,
+      "Kind": "Function.Return",
+      "X": 1340,
+      "Y": 1400,
+      "Inputs": {
+        "Name": "RankOf"
+      }
+    },
+    {
+      "ID": 47,
+      "Kind": "Constant.Enum",
+      "X": 1080,
+      "Y": 1720,
+      "Inputs": {
+        "Enum": "Rank",
+        "Value": 1
+      }
+    },
+    {
+      "ID": 48,
+      "Kind": "Function.Return",
+      "X": 1340,
+      "Y": 1600,
+      "Inputs": {
+        "Name": "RankOf"
+      }
+    },
+    {
+      "ID": 49,
+      "Kind": "Constant.Enum",
+      "X": 1080,
+      "Y": 1920,
+      "Inputs": {
+        "Enum": "Rank",
+        "Value": 0
+      }
+    },
+    {
+      "ID": 50,
+      "Kind": "Function.Return",
+      "X": 1340,
+      "Y": 1800,
+      "Inputs": {
+        "Name": "RankOf"
+      }
     }
   ],
   "Links": [
@@ -294,6 +435,126 @@
       "Output": "Value",
       "To": 25,
       "Input": "Score"
+    },
+    {
+      "From": 13,
+      "Output": "Then",
+      "To": 30,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Number",
+      "To": 30,
+      "Input": "Total"
+    },
+    {
+      "From": 30,
+      "Output": "Then",
+      "To": 34,
+      "Input": "In"
+    },
+    {
+      "From": 30,
+      "Output": "Rank",
+      "To": 31,
+      "Input": "Value"
+    },
+    {
+      "From": 31,
+      "Output": "Value",
+      "To": 32,
+      "Input": "B"
+    },
+    {
+      "From": 32,
+      "Output": "Value",
+      "To": 33,
+      "Input": "Text"
+    },
+    {
+      "From": 45,
+      "Output": "Value",
+      "To": 46,
+      "Input": "Rank"
+    },
+    {
+      "From": 47,
+      "Output": "Value",
+      "To": 48,
+      "Input": "Rank"
+    },
+    {
+      "From": 49,
+      "Output": "Value",
+      "To": 50,
+      "Input": "Rank"
+    },
+    {
+      "From": 40,
+      "Output": "Then",
+      "To": 42,
+      "Input": "In"
+    },
+    {
+      "From": 40,
+      "Output": "Total",
+      "To": 41,
+      "Input": "A"
+    },
+    {
+      "From": 41,
+      "Output": "Value",
+      "To": 42,
+      "Input": "Condition"
+    },
+    {
+      "From": 42,
+      "Output": "True",
+      "To": 46,
+      "Input": "In"
+    },
+    {
+      "From": 42,
+      "Output": "False",
+      "To": 44,
+      "Input": "In"
+    },
+    {
+      "From": 40,
+      "Output": "Total",
+      "To": 43,
+      "Input": "A"
+    },
+    {
+      "From": 43,
+      "Output": "Value",
+      "To": 44,
+      "Input": "Condition"
+    },
+    {
+      "From": 44,
+      "Output": "True",
+      "To": 48,
+      "Input": "In"
+    },
+    {
+      "From": 44,
+      "Output": "False",
+      "To": 50,
+      "Input": "In"
+    },
+    {
+      "From": 30,
+      "Output": "Rank",
+      "To": 34,
+      "Input": "Value"
+    },
+    {
+      "From": 34,
+      "Output": "Then",
+      "To": 33,
+      "Input": "In"
     }
   ],
   "Variables": {
@@ -312,6 +573,11 @@
     "Total": {
       "Type": "Number",
       "Default": 0
+    },
+    "FinalRank": {
+      "Type": "Enum",
+      "Default": 0,
+      "Enum": "Rank"
     }
   },
   "Functions": {
@@ -341,6 +607,43 @@
           "Default": 0
         }
       }
+    },
+    "RankOf": {
+      "Inputs": [
+        {
+          "Name": "Total",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Rank",
+          "Type": "Enum",
+          "Default": 0,
+          "Enum": "Rank"
+        }
+      ],
+      "Locals": {}
+    }
+  },
+  "Enums": {
+    "Rank": {
+      "Entries": [
+        {
+          "Name": "Bronze",
+          "Value": 0
+        },
+        {
+          "Name": "Silver",
+          "Value": 1
+        },
+        {
+          "Name": "Gold",
+          "Value": 2
+        }
+      ],
+      "Source": ""
     }
   }
 }

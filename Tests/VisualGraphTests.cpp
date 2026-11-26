@@ -545,7 +545,8 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
     auto prior = Project::GetActive();
     const auto root = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects/VisualWorkshop";
     CHECK(Project::Load(root / "VisualWorkshop.zproject") != nullptr);
-    for (const auto& [name, expected] : std::vector<std::pair<std::string, double>>{ { "Visual2D", 12. }, { "Visual3D", 18. } })
+    // RankOf(Total) returns the Rank enum (Bronze 0 / Silver 1 / Gold 2) through one of three Returns.
+    for (const auto& [name, expected, rank] : std::vector<std::tuple<std::string, double, int>>{ { "Visual2D", 12., 1 }, { "Visual3D", 18., 2 } })
     {
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(root / "Assets/Scenes" / (name + ".zscene")));
@@ -561,6 +562,7 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
             {
                 CHECK(host->VM.Error().empty());
                 CHECK(host->VM.Variables().at("Total") == expected);
+                CHECK(host->VM.Variables().at("FinalRank") == rank);
                 CHECK(host->VM.Pending() == 0);
             }
         }

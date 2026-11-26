@@ -396,6 +396,7 @@ namespace Zamin {
             if (m_Path.empty() || !FileSystem::IsSubPathOnDisk(m_Path, Project::GetAssetDirectory())) m_Error = "Choose a path inside Assets.";
             else if (m_Graph.Save(m_Path))
             {
+                m_Graph.SourceVersion = Visual::Graph::FormatVersion; // the file now holds the current format
                 m_Dirty = false;
                 m_Error.clear();
                 if (auto* r = Project::GetAssetRegistry()) r->OnFileAdded(m_Path);

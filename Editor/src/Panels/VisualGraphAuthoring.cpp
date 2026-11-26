@@ -200,7 +200,7 @@ namespace Zamin {
                         }
                         auto value = list[i].Default;
                         // Defaults use the same strongly typed literal editor as node pins.
-                        if (EditLiteral(Tr("Boshlang'ich qiymat###Default"), list[i].Kind, value, FindEnum(list[i].Enum)))
+                        if (EditLiteral(Tr("Boshlang'ich qiymat"), list[i].Kind, value, FindEnum(list[i].Enum)))
                         {
                             list[i].Default = std::move(value);
                             changed = true;
@@ -243,7 +243,7 @@ namespace Zamin {
                         ImGui::PushID(key.c_str());
                         ImGui::Text("%s (%s%s%s)", key.c_str(), TypeName(local.Kind), local.Enum.empty() ? "" : " ", local.Enum.c_str());
                         auto value = local.Default;
-                        if (EditLiteral(Tr("Boshlang'ich qiymat###Default"), local.Kind, value, FindEnum(local.Enum)))
+                        if (EditLiteral(Tr("Boshlang'ich qiymat"), local.Kind, value, FindEnum(local.Enum)))
                         {
                             draft.Locals.at(key).Default = std::move(value);
                             changed = true;

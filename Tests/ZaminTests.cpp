@@ -9211,14 +9211,16 @@ TEST(AssetSearchByPath)
     CHECK(match("*.png", "Assets/a.png") && !match("*.png", "Assets/a.jpg") && match("c*n", "Assets/coin.png"));
     CHECK(match("tex coin", "Assets/Textures/coin.png") && !match("tex gold", "Assets/Textures/coin.png"));
     CHECK(match("*", "anything") && AssetSearch::MatchPattern("abc", "a*c") && !AssetSearch::MatchPattern("abc", "c*a"));
-    // Types by key or name; several t: words = any of them.
-    CHECK(match("t:rasm", "a.png") && match("t:texture", "a.png") && match("t:TEX", "a.png") && !match("t:model", "a.png"));
+    // Types by key or a common English word; several t: words = any of them.
+    CHECK(match("t:image", "a.png") && match("t:texture", "a.png") && match("t:TEX", "a.png") && !match("t:model", "a.png"));
     CHECK(match("t:model robot", "Models/Robot.gltf", AssetType::Model) && !match("t:model robot", "Models/Robot.png"));
-    CHECK(match("t:audio t:model", "x.wav", AssetType::Audio) && match("tur:sahna", "L.zscene", AssetType::Scene));
-    CHECK(match("t:skript", "P.cpp", AssetType::Script) && match("t:hdr", "sky.hdr", AssetType::Environment) && match("t:muhit", "s.hdr", AssetType::Environment));
-    AssetSearch many("t:s");
+    CHECK(match("t:audio t:model", "x.wav", AssetType::Audio) && match("type:scene", "L.zscene", AssetType::Scene) && match("t:sound", "x.ogg", AssetType::Audio));
+    CHECK(match("t:script", "P.cpp", AssetType::Script) && match("t:hdr", "sky.hdr", AssetType::Environment) && match("t:environment", "s.hdr", AssetType::Environment));
+    // Searches written with the editor's older Uzbek type names keep working.
+    CHECK(match("t:rasm", "a.png") && match("tur:sahna", "L.zscene", AssetType::Scene) && match("t:skript", "P.cpp", AssetType::Script) && match("t:muhit", "s.hdr", AssetType::Environment));
+    AssetSearch many("t:sc");
     CHECK(many.HasTypeFilter() && std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Scene) != many.GetTypes().end() &&
-          std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Font) != many.GetTypes().end()); // "Shrift"
+          std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Script) != many.GetTypes().end());
     CHECK(!match("t:xyz", "a.png") && AssetSearch("t:").IsEmpty() && AssetSearch("   ").IsEmpty() && !AssetSearch("a").IsEmpty());
     // Skipping the top folder (paths from the project folder): plain words do not match "Assets/"
     // or "Source/", words with '/' and the top folder's own name still do.
@@ -9256,11 +9258,11 @@ TEST(AssetSearchByPath)
     CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "Items", "coin.png", "gold_coin.png" }));
     options.Search = "Textures/Items/";
     CHECK(names(AssetFiles::List(root / "Assets", options)) == std::vector<std::string>({ "gold_coin.png" }));
-    options.Search = "t:rasm";
+    options.Search = "t:image";
     CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "coin.png", "gold_coin.png" }));
-    options.Search = "src/coin t:skript";
+    options.Search = "src/coin t:script";
     CHECK(names(AssetFiles::List(root, options)).empty()); // "Source" does not contain "src"
-    options.Search = "sou/coin t:skript";
+    options.Search = "sou/coin t:script";
     CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "CoinScript.cpp" }));
     std::vector<AssetEntry> found = AssetFiles::List(root, options);
     CHECK(found.size() == 1 && found[0].Path == root / "Source" / "CoinScript.cpp" && found[0].Type == AssetType::Script);
@@ -38066,7 +38068,8 @@ TEST(StringUtilsBasics)
     CHECK(ParseFloat<float>("1.5") == 1.5f && ParseFloat<double>("  -2 ") == -2.0 && ParseFloat<double>("1e3") == 1000.0 && ParseFloat<float>(".5") == 0.5f);
     CHECK(!ParseFloat<float>("1,5") && !ParseFloat<float>("abc") && !ParseFloat<float>("") && !ParseFloat<float>("1e999") && !ParseFloat<double>("2.5x"));
     CHECK(ParseFloat<double>("+0.25") == 0.25 && !ParseFloat<double>("+-1"));
-    CHECK(ParseBool("true") == true && ParseBool(" Ha ") == true && ParseBool("OFF") == false && ParseBool("yo'q") == false && !ParseBool("balki"));
+    CHECK(ParseBool("true") == true && ParseBool(" Yes ") == true && ParseBool("OFF") == false && ParseBool("no") == false && !ParseBool("maybe"));
+    CHECK(ParseBool(" Ha ") == true && ParseBool("yo'q") == false); // the Uzbek words older files may hold
     CHECK(ToString(0.1f) == "0.1" && ToString(3) == "3" && ToString(true) == "true" && ToString(-2.5) == "-2.5" && ToString(1e20) == "1e+20");
     RandomGenerator random(7);
     for (int i = 0; i < 1000; i++)

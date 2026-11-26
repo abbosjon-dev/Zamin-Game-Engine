@@ -146,13 +146,18 @@ namespace Zamin {
             std::string word = StringUtils::ToLower(std::string(text.substr(start, i - start)));
             std::replace(word.begin(), word.end(), '\\', '/');
 
-            // t:<type> / tur:<type>
+            // t:<type> / type:<type> (and the older Uzbek tur:<type>)
             std::string_view typeName;
+            bool typeWord = true;
             if (word.starts_with("t:"))
                 typeName = std::string_view(word).substr(2);
+            else if (word.starts_with("type:"))
+                typeName = std::string_view(word).substr(5);
             else if (word.starts_with("tur:"))
                 typeName = std::string_view(word).substr(4);
-            if (word.starts_with("t:") || word.starts_with("tur:"))
+            else
+                typeWord = false;
+            if (typeWord)
             {
                 if (typeName.empty())
                     continue; // still being typed
@@ -160,8 +165,16 @@ namespace Zamin {
                 for (size_t t = 0; t < (size_t)AssetType::Count; t++)
                 {
                     AssetType type = (AssetType)t;
-                    // The key or a word of the name ("t:skript" finds "C++ skript", "t:hdr" "HDRI muhit").
+                    // The key, a common English word for it, or a word of the editor's Uzbek name, which older
+                    // searches use ("t:texture" / "t:image" / "t:rasm", "t:hdr" finds "HDRI muhit").
                     bool matches = StringUtils::ToLower(AssetTypes::GetKey(type)).starts_with(typeName);
+                    static const std::pair<std::string_view, AssetType> s_EnglishWords[] = {
+                        { "image", AssetType::Texture }, { "picture", AssetType::Texture }, { "sound", AssetType::Audio },
+                        { "music", AssetType::Audio }, { "hdri", AssetType::Environment }, { "clip", AssetType::Animation },
+                        { "clip", AssetType::SpriteAnimation }, { "graph", AssetType::VisualGraph },
+                    };
+                    for (const auto& [english, englishType] : s_EnglishWords)
+                        matches = matches || (englishType == type && english.starts_with(typeName));
                     std::string name = StringUtils::ToLower(AssetTypes::GetName(type));
                     for (size_t w = 0; !matches && w < name.size(); w++)
                         if (w == 0 || name[w - 1] == ' ')

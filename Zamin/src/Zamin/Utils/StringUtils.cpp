@@ -371,6 +371,7 @@ namespace Zamin::StringUtils {
     std::optional<bool> ParseBool(std::string_view text)
     {
         text = Trim(text);
+        // "ha" / "yo'q": the Uzbek words, still read from older files and settings.
         for (std::string_view yes : { "true", "1", "yes", "on", "ha" })
             if (EqualsIgnoreCase(text, yes))
                 return true;

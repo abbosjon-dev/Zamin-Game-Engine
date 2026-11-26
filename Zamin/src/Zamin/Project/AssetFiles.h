@@ -49,7 +49,8 @@ namespace Zamin {
     //   tex/coin    '/' separated parts that match folders and the name in this order
     //               ("Assets/Textures/Items/coin.png"); "Textures/" = everything inside a "...Textures" folder
     //   *.png  a*b  '*' stands for anything
-    //   t:model     files of a type, by key or name (t:texture, t:rasm, t:sahna, t:audio...); several = any
+    //   t:model     files of a type, by key or a common word (t:texture, t:image, t:scene, t:audio...); the older
+    //               Uzbek forms (t:rasm, t:sahna, tur:...) still work; several = any
     class AssetSearch
     {
     public:

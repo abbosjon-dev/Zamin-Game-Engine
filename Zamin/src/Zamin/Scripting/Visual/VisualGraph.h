@@ -21,6 +21,9 @@ namespace Zamin::Visual {
         Vec3,
         Vec4,
         Entity,
+        // A value of a named enum (Graph::Enums): an integer that must be one of the enum's entry values.
+        // The pin/variable names its enum in Pin::Enum / Variable::Enum.
+        Enum,
         ArrayBool,
         ArrayNumber,
         ArrayString,
@@ -35,6 +38,7 @@ namespace Zamin::Visual {
         std::string Name;
         Type Kind;
         Value Default;
+        std::string Enum; // the enum's name when Kind == Type::Enum
     };
     struct Definition
     {
@@ -61,6 +65,23 @@ namespace Zamin::Visual {
     {
         Type Kind = Type::Number;
         Value Default = 0.0;
+        std::string Enum; // the enum's name when Kind == Type::Enum
+    };
+    // One named value of an enum. Values are integers within +-2^53 (exact in JSON); names and values are unique.
+    struct EnumEntry
+    {
+        std::string Name;
+        int64_t Value = 0;
+        bool operator==(const EnumEntry&) const = default;
+    };
+    // A graph-local enum, or one imported from a reflected C++ enum field (Source "Class.Field").
+    struct EnumDefinition
+    {
+        std::vector<EnumEntry> Entries;
+        std::string Source;
+        const EnumEntry* Find(int64_t value) const;
+        const EnumEntry* Find(const std::string& name) const;
+        bool operator==(const EnumDefinition&) const = default;
     };
     struct Diagnostic
     {
@@ -78,6 +99,8 @@ namespace Zamin::Visual {
     Value DefaultValue(Type type);
     size_t ValueBytes(const Value& value);
     bool Matches(Type type, const Value& value);
+    // Same pin type: the kind, and for an Enum pin the same enum.
+    bool SameType(const Pin& a, const Pin& b);
     struct FunctionSignature
     {
         std::vector<Pin> Inputs, Outputs;
@@ -85,11 +108,22 @@ namespace Zamin::Visual {
     };
     struct Graph
     {
+        // Version 2 added enums (Type::Enum, "Enums", the "Enum" key of pins/variables). Version 1 files load
+        // unchanged (they cannot hold enums) and are written back as version 2.
+        static constexpr int FormatVersion = 2;
+        int SourceVersion = FormatVersion; // the version the graph was parsed from
         std::vector<Node> Nodes;
         std::vector<Link> Links;
         std::map<std::string, Variable> Variables;
         std::map<std::string, FunctionSignature> Functions;
+        std::map<std::string, EnumDefinition> Enums;
         Definition Describe(const Node& node) const;
+        // Type check with enum membership: an Enum value must be an entry of the named enum.
+        bool Fits(Type type, const std::string& enumName, const Value& value) const;
+        bool Fits(const Pin& pin, const Value& value) const { return Fits(pin.Kind, pin.Enum, value); }
+        bool RenameEnum(const std::string& from, const std::string& to);
+        // How many nodes, variables and signature pins name this enum.
+        size_t EnumUses(const std::string& name) const;
         bool RenameVariable(const std::string& from, const std::string& to);
         bool RenameFunction(const std::string& from, const std::string& to);
         size_t PruneInvalidPins();
@@ -98,6 +132,11 @@ namespace Zamin::Visual {
         const Node* Find(uint32_t id) const;
         std::vector<Diagnostic> Validate() const;
         std::vector<Diagnostic> ValidateFunctions() const;
+        // Non-blocking findings (the graph still loads): e.g. a function with results where some execution
+        // paths end without a Return (the VM stops with an error if such a path runs).
+        std::vector<Diagnostic> Warnings() const;
+        // The nodes of a typed function: its entry, everything its execution reaches, and their data sources.
+        std::set<uint32_t> FunctionNodes(const std::string& name) const;
         Value Serialize() const;
         static Graph Parse(const Value& json);
         static Graph Load(const std::filesystem::path& path);

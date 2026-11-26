@@ -1,5 +1,6 @@
 #include "VisualGraph.h"
 #include <algorithm>
+#include <functional>
 #include <stdexcept>
 namespace Zamin::Visual {
     namespace {
@@ -13,6 +14,74 @@ namespace Zamin::Visual {
             return it != node.Inputs.end() && it->second.is_string() ? it->second.get<std::string>() : (node.Kind == "Function" || node.Kind == "Call" || node.Kind.starts_with("Function.")) ? "MyFunction"
                                                                                                    : node.Kind == "Event.Custom"                                                              ? "MyEvent"
                                                                                                                                                                                               : "";
+        }
+        struct Coverage
+        {
+            uint32_t Entry = 0;
+            bool Reachable = false; // a Return of the function can be reached from its entry
+            bool AllPaths = true;   // every execution path from the entry ends in a Return
+        };
+        // Static return-path analysis of a typed function. A loop's Body may run zero times, so only Completed
+        // counts; a Sequence returns when one of its outputs returns on every path; any other node with several
+        // execution outputs (Branch, Enum.Switch ...) needs all of them. A wire back into a node being visited
+        // (a loop) and Break are not reported.
+        Coverage ReturnCoverage(const Graph& graph, const std::string& function)
+        {
+            Coverage coverage;
+            std::map<uint32_t, const Node*> nodes;
+            for (const auto& n : graph.Nodes)
+            {
+                nodes[n.ID] = &n;
+                if (n.Kind == "Function.Entry" && Name(n) == function) coverage.Entry = n.ID;
+            }
+            if (!coverage.Entry) return coverage;
+            std::map<std::pair<uint32_t, std::string>, uint32_t> next;
+            for (const auto& link : graph.Links)
+            {
+                auto to = nodes.find(link.To);
+                if (to == nodes.end() || !nodes.contains(link.From)) continue;
+                const auto def = graph.Describe(*to->second);
+                auto pin = std::find_if(def.Inputs.begin(), def.Inputs.end(), [&](const Pin& p) { return p.Name == link.Input; });
+                if (pin != def.Inputs.end() && pin->Kind == Type::Exec) next[{ link.From, link.Output }] = link.To;
+            }
+            std::map<uint32_t, bool> memo;
+            std::set<uint32_t> visiting;
+            std::function<bool(uint32_t, int)> returns = [&](uint32_t id, int depth) -> bool {
+                if (auto known = memo.find(id); known != memo.end()) return known->second;
+                if (depth > 4096 || visiting.contains(id)) return true;
+                const auto& n = *nodes.at(id);
+                if (n.Kind == "Function.Return")
+                {
+                    coverage.Reachable |= Name(n) == function;
+                    return memo[id] = true;
+                }
+                if (n.Kind == "Break") return memo[id] = true;
+                visiting.insert(id);
+                auto follow = [&](const std::string& pin) {
+                    auto it = next.find({ id, pin });
+                    return it != next.end() && returns(it->second, depth + 1);
+                };
+                std::vector<std::string> outputs;
+                for (const auto& pin : graph.Describe(n).Outputs)
+                    if (pin.Kind == Type::Exec) outputs.push_back(pin.Name);
+                bool result = false;
+                if (n.Kind == "For" || n.Kind == "While" || n.Kind.starts_with("ForEach."))
+                {
+                    follow("Body");
+                    result = follow("Completed");
+                }
+                else if (n.Kind == "Sequence")
+                    for (const auto& pin : outputs) result |= follow(pin);
+                else
+                {
+                    result = !outputs.empty();
+                    for (const auto& pin : outputs) result &= follow(pin);
+                }
+                visiting.erase(id);
+                return memo[id] = result;
+            };
+            coverage.AllPaths = returns(coverage.Entry, 0);
+            return coverage;
         }
         size_t ResultBytes(const std::map<uint32_t, Value>& results)
         {
@@ -70,7 +139,7 @@ namespace Zamin::Visual {
         for (const auto& pin : signature.Inputs)
         {
             auto value = Input(node, pin.Name, task, active);
-            Need(Matches(pin.Kind, value), "Function argument type mismatch");
+            Need(m_Graph.Fits(pin, value), "Function argument type mismatch");
             call.Arguments[pin.Name] = std::move(value);
         }
         for (const auto& [key, var] : signature.Locals) call.Locals[key] = var.Default;
@@ -89,7 +158,7 @@ namespace Zamin::Visual {
     {
         Need(!task.Calls.empty(), "Return outside a typed function");
         const auto& signature = m_Graph.Functions.at(task.Calls.back().Name);
-        for (const auto& pin : signature.Outputs) Need(values.contains(pin.Name) && Matches(pin.Kind, values.at(pin.Name)), "Function return type/value mismatch");
+        for (const auto& pin : signature.Outputs) Need(values.contains(pin.Name) && m_Graph.Fits(pin, values.at(pin.Name)), "Function return type/value mismatch");
         auto call = std::move(task.Calls.back());
         task.Calls.pop_back();
         task.Stack.resize(call.ReturnDepth);
@@ -123,13 +192,13 @@ namespace Zamin::Visual {
                 for (const auto& pin : *pins)
                 {
                     bytes += pin.Name.size() + ValueBytes(pin.Default);
-                    if (pin.Name.empty() || pin.Name.size() > 128 || pin.Name == "Name" || pin.Name == "In" || pin.Name == "Then" || !names.insert(pin.Name).second || pin.Kind == Type::Exec || !Matches(pin.Kind, pin.Default)) error(0, "Invalid/duplicate/reserved function pin in " + name);
+                    if (pin.Name.empty() || pin.Name.size() > 128 || pin.Name == "Name" || pin.Name == "In" || pin.Name == "Then" || !names.insert(pin.Name).second || pin.Kind == Type::Exec || !Fits(pin, pin.Default)) error(0, "Invalid/duplicate/reserved function pin in " + name);
                 }
             }
             for (const auto& [key, var] : signature.Locals)
             {
                 bytes += key.size() + ValueBytes(var.Default);
-                if (key.empty() || key.size() > 128 || var.Kind == Type::Exec || !Matches(var.Kind, var.Default)) error(0, "Invalid local variable in " + name);
+                if (key.empty() || key.size() > 128 || var.Kind == Type::Exec || !Fits(var.Kind, var.Enum, var.Default)) error(0, "Invalid local variable in " + name);
             }
             if (bytes > 65536) error(0, "Function defaults exceed 64 KiB in " + name);
         }
@@ -151,6 +220,11 @@ namespace Zamin::Visual {
         }
         for (const auto& [name, sig] : Functions)
             if (entries[name] != 1) error(0, "Typed function needs exactly one entry: " + name);
+            else if (!sig.Outputs.empty())
+            {
+                const auto coverage = ReturnCoverage(*this, name);
+                if (!coverage.Reachable) error(coverage.Entry, "Function " + name + " has results but no reachable Return");
+            }
         for (const auto& link : Links)
         {
             if (!nodes.contains(link.From) || !nodes.contains(link.To)) continue;
@@ -222,7 +296,8 @@ namespace Zamin::Visual {
                         {
                             const auto& def = defs.at(n.ID);
                             auto type = n.Kind.starts_with("Local.Get.") ? def.Outputs.back().Kind : def.Inputs.back().Kind;
-                            if (type != locals.at(key).Kind) error(n.ID, "Local variable type differs from node");
+                            const auto& pin = n.Kind.starts_with("Local.Get.") ? def.Outputs.back() : def.Inputs.back();
+                            if (type != locals.at(key).Kind || (type == Type::Enum && pin.Enum != locals.at(key).Enum)) error(n.ID, "Local variable type differs from node");
                         }
                     }
                 }
@@ -237,5 +312,60 @@ namespace Zamin::Visual {
                         if (Functions.contains(scope)) error(consumer, "Pass event data through a function argument");
         }
         return errors;
+    }
+    std::vector<Diagnostic> Graph::Warnings() const
+    {
+        std::vector<Diagnostic> warnings;
+        for (const auto& [name, signature] : Functions)
+        {
+            if (signature.Outputs.empty()) continue;
+            const auto coverage = ReturnCoverage(*this, name);
+            if (coverage.Entry && coverage.Reachable && !coverage.AllPaths) warnings.push_back({ coverage.Entry, "Some execution paths of " + name + " end without Return" });
+        }
+        return warnings;
+    }
+    std::set<uint32_t> Graph::FunctionNodes(const std::string& name) const
+    {
+        std::set<uint32_t> result;
+        std::map<uint32_t, const Node*> nodes;
+        uint32_t entry = 0;
+        for (const auto& n : Nodes)
+        {
+            nodes[n.ID] = &n;
+            if (n.Kind == "Function.Entry" && Name(n) == name) entry = n.ID;
+        }
+        if (!entry) return result;
+        std::map<uint32_t, std::vector<uint32_t>> execution, sources;
+        for (const auto& link : Links)
+        {
+            auto to = nodes.find(link.To);
+            if (to == nodes.end() || !nodes.contains(link.From)) continue;
+            const auto def = Describe(*to->second);
+            auto pin = std::find_if(def.Inputs.begin(), def.Inputs.end(), [&](const Pin& p) { return p.Name == link.Input; });
+            if (pin != def.Inputs.end() && pin->Kind == Type::Exec) execution[link.From].push_back(link.To);
+            else sources[link.To].push_back(link.From);
+        }
+        std::vector<uint32_t> todo{ entry };
+        while (!todo.empty())
+        {
+            const auto id = todo.back();
+            todo.pop_back();
+            if (!result.insert(id).second) continue;
+            for (auto to : execution[id]) todo.push_back(to);
+        }
+        // Data sources of the body (pure helpers, locals), not other entries or events.
+        todo.assign(result.begin(), result.end());
+        while (!todo.empty())
+        {
+            const auto id = todo.back();
+            todo.pop_back();
+            for (auto from : sources[id])
+            {
+                const auto& kind = nodes.at(from)->Kind;
+                if (kind.starts_with("Event.") || (kind == "Function.Entry" && from != entry)) continue;
+                if (result.insert(from).second) todo.push_back(from);
+            }
+        }
+        return result;
     }
 }

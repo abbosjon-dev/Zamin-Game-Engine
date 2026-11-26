@@ -64,4 +64,8 @@ namespace Zamin {
         uint64_t m_TraversalLink = 0, m_TraversalRevision = 0;
     };
     ScriptClassInfo MakeVisualGraphClassInfo();
+    // A graph enum made from a reflected C++ enum field's named options (ZM_FIELD_ENUM / Options): the entries keep
+    // the C++ names and values, Source is "Class.Field". False with a reason when the class or field is missing,
+    // the field is not an Enum, or its options cannot be graph entries.
+    bool ReflectedEnum(const std::string& className, const std::string& field, Visual::EnumDefinition& out, std::string& error);
 }

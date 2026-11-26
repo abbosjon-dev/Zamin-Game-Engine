@@ -15,6 +15,7 @@ namespace Zamin::Visual {
         Pin V(const char* n, int dims = 3) { return { n, dims == 2 ? Type::Vec2 : dims == 3 ? Type::Vec3
                                                                                             : Type::Vec4,
                                                       Value(std::vector<double>(dims, 0)) }; }
+        Pin En(const char* n) { return { n, Type::Enum, Value(0) }; }
         Pin EntityPin(const char* n = "Target") { return { n, Type::Entity, std::string(n) == "Target" ? UINT64_MAX : 0ull }; }
         const Pin* FindPin(const std::vector<Pin>& pins, const std::string& name)
         {
@@ -38,7 +39,7 @@ namespace Zamin::Visual {
     }
     const char* TypeName(Type t)
     {
-        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
+        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity" };
         return t >= Type::Exec && t < Type::Count ? names[int(t)] : "Invalid";
     }
     bool Matches(Type t, const Value& v)
@@ -52,11 +53,14 @@ namespace Zamin::Visual {
             case Type::Number: return v.is_number() && std::isfinite(v.get<double>());
             case Type::String: return v.is_string() && v.get_ref<const std::string&>().size() <= 65536;
             case Type::Entity: return v.is_number_unsigned() || (v.is_number_integer() && v.get<int64_t>() >= 0);
+            case Type::Enum:   return v.is_number_integer() && !v.is_number_unsigned() ? std::abs(v.get<int64_t>()) <= (int64_t(1) << 53) : v.is_number_unsigned() && v.get<uint64_t>() <= (uint64_t(1) << 53);
             default:
                 if (!v.is_array() || v.size() != size_t(int(t) - int(Type::Vec2) + 2)) return false;
                 return std::all_of(v.begin(), v.end(), [](const auto& item) { return Matches(Type::Number, item); });
         }
     }
+
+    bool SameType(const Pin& a, const Pin& b) { return a.Kind == b.Kind && (a.Kind != Type::Enum || a.Enum == b.Enum); }
 
     const std::vector<const char*>* PinChoices(const std::string& kind, const std::string& pin)
     {
@@ -117,8 +121,16 @@ for (int ti = 1; ti < int(Type::Count); ++ti)
     auto type = Type(ti);
     auto value = DefaultValue(type);
     std::string name = TypeName(type);
-    add("Local.Get." + name, "Function locals", { S("Name") }, { { "Value", type, value } }, true);
-    add("Local.Set." + name, "Function locals", { E("In"), S("Name"), { "Value", type, value } }, { E("Then") });
+    // An Enum local names its enum (empty: the type of the local with that name).
+    std::vector<Pin> getInputs{ S("Name") }, setInputs{ E("In"), S("Name") };
+    if (type == Type::Enum)
+    {
+        getInputs.push_back(S("Enum"));
+        setInputs.push_back(S("Enum"));
+    }
+    setInputs.push_back({ "Value", type, value });
+    add("Local.Get." + name, "Function locals", getInputs, { { "Value", type, value } }, true);
+    add("Local.Set." + name, "Function locals", setInputs, { E("Then") });
     if (IsArray(type))
     {
         auto element = ElementType(type);
@@ -140,6 +152,19 @@ for (int ti = 1; ti < int(Type::Count); ++ti)
         add("ForEach." + suffix, "Collections", { E("In"), { "Array", type, value } }, { E("Body"), E("Completed"), N("Index", -1), { "Value", element, item } });
     }
 }
+// Enums: every node names its enum in the literal Enum input (Get/Set.Enum may leave it empty: the variable's enum).
+add("Constant.Enum", "Enums", { S("Enum"), En("Value") }, { En("Value") }, true);
+add("Get.Enum", "Variables", { S("Name"), S("Enum") }, { En("Value") }, true);
+add("Set.Enum", "Variables", { E("In"), S("Name"), S("Enum"), En("Value") }, { E("Then") });
+add("Enum.Equal", "Enums", { S("Enum"), En("A"), En("B") }, { B("Value") }, true);
+add("Enum.ToNumber", "Enums", { S("Enum"), En("Value") }, { N("Value") }, true);
+add("Enum.ToText", "Enums", { S("Enum"), En("Value") }, { S("Value") }, true);
+add("Enum.FromNumber", "Enums", { S("Enum"), N("Number") }, { En("Value") }, true);
+add("Enum.FromText", "Enums", { S("Enum"), S("Text") }, { En("Value") }, true);
+// One execution output per entry, named after it (Graph::Describe).
+add("Enum.Switch", "Enums", { E("In"), S("Enum"), En("Value") }, {});
+add("ReadField.Enum", "C++ bridge", { EntityPin(), S("Name"), S("Enum") }, { En("Value") }, true);
+add("WriteField.Enum", "C++ bridge", { E("In"), EntityPin(), S("Name"), S("Enum"), En("Value") }, { E("Then") });
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
 add("Call","Functions",{E("In"),S("Name","MyFunction")},{E("Then")});
 add("Branch","Flow",{E("In"),B("Condition")},{E("True"),E("False")});
@@ -424,6 +449,20 @@ return c; }();
         std::vector<Diagnostic> d;
         auto error = [&](uint32_t n, std::string s) { d.push_back({ n, std::move(s) }); };
         if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256) error(0, "Graph size limit exceeded");
+        if (Enums.size() > 64) error(0, "Enum definition limit exceeds 64");
+        for (const auto& [name, definition] : Enums)
+        {
+            if (name.empty() || name.size() > 64) error(0, "Invalid enum name");
+            if (definition.Entries.empty() || definition.Entries.size() > 256) error(0, "Enum " + name + " needs 1..256 entries");
+            if (definition.Source.size() > 256) error(0, "Enum " + name + " source is too long");
+            std::set<std::string> names;
+            std::set<int64_t> values;
+            for (const auto& entry : definition.Entries)
+            {
+                if (entry.Name.empty() || entry.Name.size() > 64 || !names.insert(entry.Name).second) error(0, "Enum " + name + " has an empty, long or duplicate entry name");
+                if (!values.insert(entry.Value).second || std::abs(entry.Value) > (int64_t(1) << 53)) error(0, "Enum " + name + " has a duplicate or out-of-range value");
+            }
+        }
         auto extra = ValidateFunctions();
         d.insert(d.end(), extra.begin(), extra.end());
         std::map<uint32_t, const Node*> nodeMap;
@@ -463,10 +502,21 @@ return c; }();
                 continue;
             }
             if (!std::isfinite(n.X) || !std::isfinite(n.Y)) error(n.ID, "Invalid position");
+            const bool typed = n.Kind == "Function.Call" || n.Kind == "Function.Entry" || n.Kind == "Function.Return";
             for (auto& [key, value] : n.Inputs)
             {
                 auto* p = FindPin(definitions.at(n.ID).Inputs, key);
-                if (!p || p->Kind == Type::Exec || !Matches(p->Kind, value)) error(n.ID, "Invalid input: " + key);
+                if (!p && typed) error(n.ID, "Argument " + key + " is not in the signature of " + (n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Inputs.at("Name").get<std::string>() : std::string("MyFunction")));
+                else if (!p || p->Kind == Type::Exec || !Fits(*p, value)) error(n.ID, "Invalid input: " + key);
+            }
+            for (const auto* pins : { &definitions.at(n.ID).Inputs, &definitions.at(n.ID).Outputs })
+            {
+                auto unknown = std::find_if(pins->begin(), pins->end(), [&](const Pin& p) { return p.Kind == Type::Enum && !Enums.contains(p.Enum); });
+                if (unknown != pins->end())
+                {
+                    error(n.ID, "Unknown enum: " + unknown->Enum);
+                    break;
+                }
             }
             if (n.Kind.starts_with("Get.") || n.Kind.starts_with("Set."))
             {
@@ -477,12 +527,12 @@ return c; }();
                 else
                 {
                     auto& p = n.Kind.starts_with("Get.") ? definitions.at(n.ID).Outputs.back() : definitions.at(n.ID).Inputs.back();
-                    if (v->second.Kind != p.Kind) error(n.ID, "Variable type differs from node");
+                    if (v->second.Kind != p.Kind || (p.Kind == Type::Enum && v->second.Enum != p.Enum)) error(n.ID, "Variable type differs from node");
                 }
             }
         }
         for (auto& [name, v] : Variables)
-            if (name.empty() || name.size() > 128 || v.Kind == Type::Exec || !Matches(v.Kind, v.Default)) error(0, "Invalid variable: " + name);
+            if (name.empty() || name.size() > 128 || v.Kind == Type::Exec || !Fits(v.Kind, v.Enum, v.Default)) error(0, "Invalid variable: " + name);
         std::set<std::pair<uint32_t, std::string>> inputs, execOutputs;
         std::map<uint32_t, std::vector<uint32_t>> dependencies;
         for (auto& l : Links)
@@ -498,7 +548,12 @@ return c; }();
             if (ai == Catalog().end() || bi == Catalog().end()) continue;
             auto* o = FindPin(definitions.at(a->ID).Outputs, l.Output);
             auto* i = FindPin(definitions.at(b->ID).Inputs, l.Input);
-            if (!o || !i || o->Kind != i->Kind)
+            if ((!o && (a->Kind == "Function.Call" || a->Kind == "Function.Entry")) || (!i && (b->Kind == "Function.Call" || b->Kind == "Function.Return")))
+            {
+                error(!o ? l.From : l.To, "Pin " + (!o ? l.Output : l.Input) + " is not in the function signature");
+                continue;
+            }
+            if (!o || !i || !SameType(*o, *i))
             {
                 error(l.To, "Link pin types differ or pin missing");
                 continue;
@@ -506,6 +561,7 @@ return c; }();
             if (i->Kind != Type::Exec && !inputs.insert({ l.To, l.Input }).second) error(l.To, "Data input already linked");
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
             if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
+            if (l.Input == "Enum" && i->Kind == Type::String && b->Kind.find("Enum") != std::string::npos) error(l.To, "Enum type must be a literal");
             if (i->Kind != Type::Exec) dependencies[l.To].push_back(l.From);
         }
         std::map<uint32_t, int> color;
@@ -515,25 +571,47 @@ return c; }();
     }
     Value Graph::Serialize() const
     {
-        Value j = { { "Format", "Zamin.VisualGraph" }, { "Version", 1 }, { "Nodes", Value::array() }, { "Links", Value::array() }, { "Variables", Value::object() } };
+        Value j = { { "Format", "Zamin.VisualGraph" }, { "Version", FormatVersion }, { "Nodes", Value::array() }, { "Links", Value::array() }, { "Variables", Value::object() } };
+        auto typed = [](Type kind, const std::string& enumName, Value entry) {
+            if (kind == Type::Enum) entry["Enum"] = enumName;
+            return entry;
+        };
         for (auto& n : Nodes) j["Nodes"].push_back({ { "ID", n.ID }, { "Kind", n.Kind }, { "X", n.X }, { "Y", n.Y }, { "Inputs", n.Inputs }, { "Breakpoint", n.Breakpoint } });
         for (auto& l : Links) j["Links"].push_back({ { "From", l.From }, { "Output", l.Output }, { "To", l.To }, { "Input", l.Input } });
-        for (auto& [name, v] : Variables) j["Variables"][name] = { { "Type", TypeName(v.Kind) }, { "Default", v.Default } };
+        for (auto& [name, v] : Variables) j["Variables"][name] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
+        j["Enums"] = Value::object();
+        for (const auto& [name, definition] : Enums)
+        {
+            Value entries = Value::array();
+            for (const auto& entry : definition.Entries) entries.push_back({ { "Name", entry.Name }, { "Value", entry.Value } });
+            j["Enums"][name] = { { "Entries", std::move(entries) }, { "Source", definition.Source } };
+        }
         j["Functions"] = Value::object();
         for (const auto& [name, signature] : Functions)
         {
             Value function = { { "Inputs", Value::array() }, { "Outputs", Value::array() }, { "Locals", Value::object() } };
-            for (const auto& p : signature.Inputs) function["Inputs"].push_back({ { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } });
-            for (const auto& p : signature.Outputs) function["Outputs"].push_back({ { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } });
-            for (const auto& [key, v] : signature.Locals) function["Locals"][key] = { { "Type", TypeName(v.Kind) }, { "Default", v.Default } };
+            for (const auto& p : signature.Inputs) function["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            for (const auto& p : signature.Outputs) function["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            for (const auto& [key, v] : signature.Locals) function["Locals"][key] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
             j["Functions"][name] = std::move(function);
         }
         return j;
     }
     Graph Graph::Parse(const Value& j)
     {
-        Require(j.value("Format", "") == "Zamin.VisualGraph" && j.value("Version", 0) == 1, "Unsupported graph format/version");
+        Require(j.is_object() && j.value("Format", "") == "Zamin.VisualGraph", "Unsupported graph format/version");
+        const auto version = j.contains("Version") && j.at("Version").is_number_integer() ? j.at("Version").get<int64_t>() : 0;
+        Require(version >= 1 && version <= FormatVersion, "Unsupported graph format/version");
         Graph g;
+        g.SourceVersion = int(version);
+        // Version 1 -> 2 migration: version 1 has no enum type, so its types, nodes, legacy Function/Call and typed
+        // functions read unchanged; an enum in a version 1 file is rejected rather than guessed.
+        auto enumName = [&](Type kind, const Value& entry) {
+            if (kind != Type::Enum) return std::string();
+            Require(version >= 2, "Enum types need graph format version 2");
+            Require(entry.contains("Enum") && entry.at("Enum").is_string(), "Enum type without an enum name");
+            return entry.at("Enum").get<std::string>();
+        };
         auto readID = [](const Value& v) {Require(v.is_number_integer()&&(!v.is_number_integer()||v.is_number_unsigned()||v.get<int64_t>()>=0),"Node ID must be unsigned integer");uint64_t id=v.get<uint64_t>();Require(id>0&&id<=UINT32_MAX,"Node ID outside 1..UINT32_MAX");return (uint32_t)id; };
         auto& ns = j.at("Nodes");
         auto& ls = j.at("Links");
@@ -547,7 +625,7 @@ return c; }();
             for (int i = 1; i < int(Type::Count); ++i)
                 if (it.value().at("Type") == TypeName((Type)i))
                 {
-                    g.Variables[it.key()] = { (Type)i, it.value().at("Default") };
+                    g.Variables[it.key()] = { (Type)i, it.value().at("Default"), enumName(Type(i), it.value()) };
                     found = true;
                 }
             Require(found, "Unknown variable type");
@@ -564,12 +642,39 @@ return c; }();
                 {
                     const auto& pins = it.value().at(side);
                     Require(pins.is_array() && pins.size() <= 32, "Function pin limit/type");
-                    for (const auto& pin : pins) (std::string(side) == "Inputs" ? signature.Inputs : signature.Outputs).push_back({ pin.at("Name").get<std::string>(), type(pin.at("Type")), pin.at("Default") });
+                    for (const auto& pin : pins)
+                    {
+                        const auto kind = type(pin.at("Type"));
+                        (std::string(side) == "Inputs" ? signature.Inputs : signature.Outputs).push_back({ pin.at("Name").get<std::string>(), kind, pin.at("Default"), enumName(kind, pin) });
+                    }
                 }
                 const auto locals = it.value().value("Locals", Value::object());
                 Require(locals.is_object() && locals.size() <= 32, "Local variable limit/type");
-                for (auto v = locals.begin(); v != locals.end(); ++v) signature.Locals[v.key()] = { type(v.value().at("Type")), v.value().at("Default") };
+                for (auto v = locals.begin(); v != locals.end(); ++v)
+                {
+                    const auto kind = type(v.value().at("Type"));
+                    signature.Locals[v.key()] = { kind, v.value().at("Default"), enumName(kind, v.value()) };
+                }
                 g.Functions[it.key()] = std::move(signature);
+            }
+        }
+        if (j.contains("Enums"))
+        {
+            Require(version >= 2, "Enums need graph format version 2");
+            const auto& enums = j.at("Enums");
+            Require(enums.is_object() && enums.size() <= 64, "Enum definition limit/type");
+            for (auto it = enums.begin(); it != enums.end(); ++it)
+            {
+                EnumDefinition definition;
+                const auto& entries = it.value().at("Entries");
+                Require(entries.is_array() && entries.size() <= 256, "Enum entry limit/type");
+                for (const auto& entry : entries)
+                {
+                    Require(entry.at("Value").is_number_integer(), "Enum value must be an integer");
+                    definition.Entries.push_back({ entry.at("Name").get<std::string>(), entry.at("Value").get<int64_t>() });
+                }
+                definition.Source = it.value().value("Source", "");
+                g.Enums[it.key()] = std::move(definition);
             }
         }
         return g;
@@ -584,7 +689,7 @@ return c; }();
     }
     bool Graph::Save(const std::filesystem::path& p) const
     {
-        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64) return false;
+        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64) return false;
         auto text = Serialize().dump(2);
         return text.size() <= 4 * 1024 * 1024 && FileSystem::WriteTextFileAtomic(p, text);
     }
@@ -625,7 +730,9 @@ return c; }();
             m_NodeIndex[n.ID] = i;
             std::string descriptionKey = n.Kind;
             std::string functionName = n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Inputs.at("Name").get<std::string>() : "MyFunction";
-            descriptionKey = n.Kind + (n.Kind.starts_with("Function.") ? ":" + functionName : "");
+            // Typed function and enum nodes take their pins from the graph (signature, enum): one description each.
+            descriptionKey = n.Kind + (n.Kind.starts_with("Function.") || n.Kind.find("Enum") != std::string::npos ? ":" + functionName : "");
+            if (n.Kind.find("Enum") != std::string::npos && n.Inputs.contains("Enum") && n.Inputs.at("Enum").is_string()) descriptionKey += ":" + n.Inputs.at("Enum").get<std::string>();
             if (!descriptions.contains(descriptionKey)) descriptions[descriptionKey] = std::make_shared<Definition>(m_Graph.Describe(n));
             m_Definitions[n.ID] = descriptions.at(descriptionKey);
             if (n.Kind == "Function.Entry") m_TypedEntries[functionName] = n.ID;
@@ -643,7 +750,7 @@ return c; }();
         for (auto& [name, v] : m_Graph.Variables)
         {
             auto it = overrides.is_object() ? overrides.find(name) : overrides.end();
-            m_Variables[name] = it != overrides.end() && Matches(v.Kind, *it) ? *it : v.Default;
+            m_Variables[name] = it != overrides.end() && m_Graph.Fits(v.Kind, v.Enum, *it) ? *it : v.Default;
         }
         try
         {
@@ -755,6 +862,33 @@ return c; }();
                 auto value = in("Value");
                 auto it = std::find(array.begin(), array.end(), value);
                 r = part == "Contains" ? Value(it != array.end()) : Value(it == array.end() ? -1 : int(it - array.begin()));
+            }
+        }
+        else if (k.starts_with("Enum."))
+        {
+            const auto& def = Def(*n);
+            const auto& enumName = (k == "Enum.FromNumber" || k == "Enum.FromText" ? def.Outputs : def.Inputs).back().Enum;
+            const auto& definition = m_Graph.Enums.at(enumName);
+            if (k == "Enum.Equal") r = in("A") == in("B");
+            else if (k == "Enum.ToNumber") r = double(in("Value").get<int64_t>());
+            else if (k == "Enum.ToText")
+            {
+                const auto* entry = definition.Find(in("Value").get<int64_t>());
+                Require(entry, "Value is not an entry of enum " + enumName);
+                r = entry->Name;
+            }
+            else if (k == "Enum.FromNumber")
+            {
+                const double number = num("Number");
+                const auto* entry = std::floor(number) == number && std::abs(number) <= 9007199254740992.0 ? definition.Find(int64_t(number)) : nullptr;
+                Require(entry, "Number is not a value of enum " + enumName);
+                r = entry->Value;
+            }
+            else
+            {
+                const auto* entry = definition.Find(in("Text").get<std::string>());
+                Require(entry, "Text is not an entry of enum " + enumName);
+                r = entry->Value;
             }
         }
         else if (k.starts_with("Constant.")) r = in("Value");
@@ -910,7 +1044,7 @@ return c; }();
             }
         }
         auto* p = FindPin(Def(*n).Outputs, output);
-        Require(p && Matches(p->Kind, r) && SafeValue(r), "Invalid result from " + k + "." + output);
+        Require(p && m_Graph.Fits(*p, r) && SafeValue(r), "Invalid result from " + k + "." + output);
         return r;
     }
     void Machine::Push(Task& t, uint32_t from, const std::string& pin)
@@ -1047,7 +1181,8 @@ return c; }();
                         Require(!t.Calls.empty(), "Local write outside a typed function");
                         auto name = in("Name").get<std::string>();
                         auto value = in("Value");
-                        Require(Matches(m_Graph.Functions.at(t.Calls.back().Name).Locals.at(name).Kind, value), "Local variable type mismatch");
+                        const auto& local = m_Graph.Functions.at(t.Calls.back().Name).Locals.at(name);
+                        Require(m_Graph.Fits(local.Kind, local.Enum, value), "Local variable type mismatch");
                         t.Calls.back().Locals.at(name) = std::move(value);
                         CheckStorage();
                         Push(t, n->ID, "Then");
@@ -1144,6 +1279,13 @@ return c; }();
                         Push(t, n->ID, "First");
                     }
                     else if (k == "Branch") Push(t, n->ID, in("Condition").get<bool>() ? "True" : "False");
+                    else if (k == "Enum.Switch")
+                    {
+                        const auto& pin = Def(*n).Inputs.back();
+                        const auto* entry = m_Graph.Enums.at(pin.Enum).Find(in("Value").get<int64_t>());
+                        Require(entry, "Value is not an entry of enum " + pin.Enum);
+                        Push(t, n->ID, entry->Name);
+                    }
                     else if (k == "Delay")
                     {
                         double v = in("Seconds").get<double>();
@@ -1155,7 +1297,8 @@ return c; }();
                     {
                         std::string name = in("Name").get<std::string>();
                         Value value = in("Value");
-                        Require(Matches(m_Graph.Variables.at(name).Kind, value), "Variable type mismatch");
+                        const auto& variable = m_Graph.Variables.at(name);
+                        Require(m_Graph.Fits(variable.Kind, variable.Enum, value), "Variable type mismatch");
                         m_Variables.at(name) = value;
                         CheckStorage();
                         Push(t, n->ID, "Then");

@@ -316,6 +316,59 @@ TEST(VisualGraphWritesAndReadsReflectedCppFields)
     Project::SetActive(prior);
     std::filesystem::remove_all(root);
 }
+namespace {
+    enum class ProbeMood : uint8_t { Calm = 0, Alert = 1, Boss = 10 };
+    class GraphEnumProbe : public ScriptableEntity
+    {
+    public:
+        ProbeMood Mood = ProbeMood::Calm;
+        int Plain = 0;
+    };
+}
+TEST(VisualGraphReadsAndWritesReflectedCppEnums)
+{
+    auto prior = Project::GetActive();
+    auto root = std::filesystem::temp_directory_path() / "zamin-visual-enum-bridge";
+    std::filesystem::create_directories(root / "Assets/Scripts");
+    Project::New();
+    CHECK(Project::SaveActive(root / "Bridge.zproject"));
+    ScriptRegistry::Register({ "GraphEnumProbe", []() -> ScriptableEntity* { return new GraphEnumProbe; },
+                               { ZM_FIELD_ENUM(GraphEnumProbe, Mood, "Calm", "Alert", { "Boss", ProbeMood::Boss }), ZM_FIELD(GraphEnumProbe, Plain) } });
+    // The reflected enum becomes a graph enum with the C++ names and values.
+    EnumDefinition mood;
+    std::string error;
+    CHECK(ReflectedEnum("GraphEnumProbe", "Mood", mood, error));
+    CHECK(mood.Source == "GraphEnumProbe.Mood" && mood.Entries.size() == 3 && (mood.Entries[2] == EnumEntry{ "Boss", 10 }));
+    CHECK(!ReflectedEnum("GraphEnumProbe", "Plain", mood, error) && error.find("enum field") != std::string::npos);
+    CHECK(!ReflectedEnum("MissingProbe", "Mood", mood, error) && error.find("not registered") != std::string::npos);
+    CHECK(ReflectedEnum("GraphEnumProbe", "Mood", mood, error));
+    Graph g;
+    g.Enums["Mood"] = mood;
+    g.Variables["Observed"] = { Type::String, "" };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "FindEntity", 0, 0, { { "Name", "Native target" } } }, { 3, "WriteField.Enum", 0, 0, { { "Name", "Mood" }, { "Enum", "Mood" }, { "Value", 10 } } },
+                { 4, "ReadField.Enum", 0, 0, { { "Name", "Mood" }, { "Enum", "Mood" } } }, { 5, "Enum.ToText", 0, 0, { { "Enum", "Mood" } } }, { 6, "Set.String", 0, 0, { { "Name", "Observed" } } } };
+    g.Links = { { 1, "Then", 3, "In" }, { 2, "Value", 3, "Target" }, { 3, "Then", 6, "In" }, { 2, "Value", 4, "Target" }, { 4, "Value", 5, "Value" }, { 5, "Value", 6, "Value" } };
+    CHECK(g.Validate().empty());
+    CHECK(g.Save(root / "Assets/Scripts/EnumBridge.zgraph"));
+    Scene scene;
+    auto target = scene.CreateEntity("Native target");
+    target.AddComponent<NativeScriptComponent>().ClassName = "GraphEnumProbe";
+    auto e = scene.CreateEntity("Visual controller");
+    auto& c = e.AddComponent<NativeScriptComponent>();
+    c.ClassName = "Zamin.VisualGraph";
+    c.Fields["Graph"].Set(std::string("Scripts/EnumBridge.zgraph"));
+    scene.OnRuntimeStart();
+    scene.UpdateRuntime(.01f);
+    auto* host = dynamic_cast<VisualGraphHost*>(c.Instance);
+    CHECK(host && host->VM.Error().empty());
+    CHECK(host && host->VM.Variables().at("Observed") == "Boss");
+    auto* probe = dynamic_cast<GraphEnumProbe*>(target.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe && probe->Mood == ProbeMood::Boss);
+    scene.OnRuntimeStop();
+    ScriptRegistry::Unregister("GraphEnumProbe");
+    Project::SetActive(prior);
+    std::filesystem::remove_all(root);
+}
 TEST(VisualGraphPendingWorkIsBoundedAndStopCancelsDelay)
 {
     Graph g;

@@ -24,6 +24,34 @@ namespace Zamin {
     {
         return { "Zamin.VisualGraph", []() -> ScriptableEntity* { return new VisualGraphHost; }, { ZM_FIELD(VisualGraphHost, Graph), ZM_FIELD(VisualGraphHost, Overrides) } };
     }
+    bool ReflectedEnum(const std::string& className, const std::string& fieldName, Visual::EnumDefinition& out, std::string& error)
+    {
+        const auto* info = ScriptRegistry::Find(className);
+        if (!info)
+        {
+            error = "C++ script class not registered: " + className;
+            return false;
+        }
+        auto field = std::find_if(info->Fields.begin(), info->Fields.end(), [&](const ScriptFieldInfo& f) { return f.Name == fieldName; });
+        if (field == info->Fields.end() || field->Type != ScriptFieldType::Enum || field->EnumOptions.empty() || field->EnumOptions.size() > 256)
+        {
+            error = "Not a C++ enum field with 1..256 named options: " + className + "." + fieldName;
+            return false;
+        }
+        Visual::EnumDefinition definition;
+        definition.Source = className + "." + fieldName;
+        for (const auto& option : field->EnumOptions)
+        {
+            if (option.Name.empty() || option.Name.size() > 64 || definition.Find(option.Name) || definition.Find(option.Value) || std::abs(option.Value) > (int64_t(1) << 53))
+            {
+                error = "C++ enum option cannot become a graph enum entry: " + option.Name;
+                return false;
+            }
+            definition.Entries.push_back({ option.Name, option.Value });
+        }
+        out = std::move(definition);
+        return true;
+    }
     void VisualGraphHost::OnCreate()
     {
         m_Gameplay.Reset();
@@ -272,6 +300,13 @@ namespace Zamin {
                     case ScriptFieldType::Vec2:   fieldValue.Set(glm::vec2(vec("Value"))); break;
                     case ScriptFieldType::Vec3:   fieldValue.Set(vec("Value")); break;
                     case ScriptFieldType::Vec4:   fieldValue.Set(glm::vec4(scalar(v[0]), scalar(v[1]), scalar(v[2]), scalar(v[3]))); break;
+                    case ScriptFieldType::Enum:
+                    {
+                        const int64_t n = v.get<int64_t>();
+                        if (!field->EnumOptions.empty() && !field->FindOption(n)) throw std::runtime_error("Value is not an option of the C++ enum field");
+                        fieldValue.SetEnum(n);
+                        break;
+                    }
                     default:                      throw std::runtime_error("Unsupported reflected field type");
                 }
                 field->ClampToRange(fieldValue);
@@ -293,6 +328,7 @@ namespace Zamin {
                 case ScriptFieldType::Bool:   return fieldValue.Get<bool>();
                 case ScriptFieldType::String: return fieldValue.StringValue;
                 case ScriptFieldType::Entity: return fieldValue.Get<EntityRef>().ID;
+                case ScriptFieldType::Enum:   return fieldValue.GetEnum();
                 case ScriptFieldType::Vec2:   return value(fieldValue.Get<glm::vec2>());
                 case ScriptFieldType::Vec3:   return value(fieldValue.Get<glm::vec3>());
                 case ScriptFieldType::Vec4:

@@ -23,7 +23,7 @@ namespace Zamin::GraphLayout {
     // ImGui::SameLine() when an item of the given width still fits this row (else the item starts a new row).
     void SameLineIfFits(float width);
     float ButtonWidth(const char* label, bool small = false);
-    // A button / small button that wraps to a new row when it does not fit, recorded for automation.
+    // A button / small button recorded for automation (SameLineIfFits before it keeps a row from overflowing).
     bool Button(const char* label);
     bool SmallButton(const char* label);
     // Text cut with "..." (whole UTF-8 characters) to fit the width; cut tells whether it was.
@@ -36,6 +36,8 @@ namespace Zamin::GraphLayout {
     // Records the last item under the scope and the label's id.
     void Record(const char* label);
     void RecordKey(const std::string& key);
+    // Records a drawn (not ImGui item) rectangle, e.g. a canvas node header or pin; never counted as clipped.
+    void RecordRect(const std::string& key, ImVec2 min, ImVec2 max);
     bool Recording();
     // Writes the frame's rectangles (and the named region rectangle) to the automation file and starts a new frame.
     void Flush();

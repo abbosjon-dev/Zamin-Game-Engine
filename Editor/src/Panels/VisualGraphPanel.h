@@ -29,14 +29,16 @@ namespace Zamin {
         std::vector<Visual::Diagnostic> m_Diagnostics;
         std::map<uint32_t, Visual::Definition> m_Descriptions;
         const Visual::Definition& Describe(const Visual::Node& node);
-        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" }, m_EnumName[65]{ "Mode" };
-        // A literal editor; an Enum value shows its enum's entries (enumeration) as a combo.
-        static bool EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const Visual::EnumDefinition* enumeration = nullptr);
-        // A pin/variable type picker: the value types, and for Enum a second combo of the graph's enums.
-        bool TypeCombo(const char* label, Visual::Type& type, std::string& enumName);
-        const Visual::EnumDefinition* FindEnum(const std::string& name) const;
+        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" }, m_EnumName[65]{ "Mode" }, m_StructName[65]{ "Stats" };
+        // A literal editor; an Enum value shows its enum's entries as a combo, a Struct value one editor per field
+        // (named: the enum/struct name).
+        bool EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const std::string& named = {});
+        // A pin/variable type picker: the value types, and for Enum/Struct/ArrayStruct a second combo of the graph's
+        // enums/structs (structs: false for struct fields, which cannot hold structs).
+        bool TypeCombo(const char* label, Visual::Type& type, std::string& enumName, bool structs = true);
         void Functions();
         void Enums();
+        void Structs();
         // Collapse the selection into a typed function (Graph::CollapseToFunction), undoable.
         void CollapseSelection();
         // "Opens" a typed function: frames its body (Graph::FunctionNodes), selects its entry, dims other nodes.

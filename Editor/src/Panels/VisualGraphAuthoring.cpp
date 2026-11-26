@@ -12,12 +12,7 @@ namespace Zamin {
         if (!m_Descriptions.contains(node.ID)) m_Descriptions[node.ID] = m_Graph.Describe(node);
         return m_Descriptions.at(node.ID);
     }
-    const Visual::EnumDefinition* VisualGraphPanel::FindEnum(const std::string& name) const
-    {
-        auto it = m_Graph.Enums.find(name);
-        return it == m_Graph.Enums.end() ? nullptr : &it->second;
-    }
-    bool VisualGraphPanel::TypeCombo(const char* label, Visual::Type& type, std::string& enumName)
+    bool VisualGraphPanel::TypeCombo(const char* label, Visual::Type& type, std::string& enumName, bool structs)
     {
         using namespace Visual;
         bool changed = false;
@@ -27,15 +22,17 @@ namespace Zamin {
         {
             for (int i = 1; i < int(Type::Count); ++i)
             {
-                if (Type(i) == Type::Struct || Type(i) == Type::ArrayStruct) continue; // no struct editor yet
+                const bool structured = Type(i) == Type::Struct || Type(i) == Type::ArrayStruct;
+                if (structured && !structs) continue; // a struct field cannot hold a struct
                 ImGui::PushID(i);
                 if (ImGui::Selectable(TypeName(Type(i)), Type(i) == type) && Type(i) != type)
                 {
                     if (Type(i) == Type::Enum && m_Graph.Enums.empty()) m_Error = Tr("Avval enum yarating");
+                    else if (structured && m_Graph.Structs.empty()) m_Error = Tr("Avval struktura yarating");
                     else
                     {
                         type = Type(i);
-                        if (type == Type::Enum) enumName = m_Graph.Enums.begin()->first;
+                        enumName = type == Type::Enum ? m_Graph.Enums.begin()->first : structured ? m_Graph.Structs.begin()->first : "";
                         changed = true;
                     }
                 }
@@ -43,14 +40,14 @@ namespace Zamin {
             }
             ImGui::EndCombo();
         }
-        if (type == Type::Enum)
-        {
+        // The second combo picks the enum / struct the type names.
+        auto pick = [&](const char* title, const auto& definitions) {
             ImGui::PushID(label);
-            const bool enumOpen = ImGui::BeginCombo(GraphLayout::Field(Tr("Enum turi###Enum type")).c_str(), enumName.c_str());
-            GraphLayout::Record(Tr("Enum turi###Enum type"));
-            if (enumOpen)
+            const bool pickOpen = ImGui::BeginCombo(GraphLayout::Field(title).c_str(), enumName.c_str());
+            GraphLayout::Record(title);
+            if (pickOpen)
             {
-                for (const auto& [name, definition] : m_Graph.Enums)
+                for (const auto& [name, definition] : definitions)
                     if (ImGui::Selectable(name.c_str(), name == enumName) && name != enumName)
                     {
                         enumName = name;
@@ -59,7 +56,9 @@ namespace Zamin {
                 ImGui::EndCombo();
             }
             ImGui::PopID();
-        }
+        };
+        if (type == Type::Enum) pick(Tr("Enum turi###Enum type"), m_Graph.Enums);
+        if (type == Type::Struct || type == Type::ArrayStruct) pick(Tr("Struktura turi###Struct type"), m_Graph.Structs);
         return changed;
     }
     void VisualGraphPanel::CopySelection()
@@ -218,13 +217,13 @@ namespace Zamin {
                         if (TypeCombo(Tr("Pin turi###Pin type"), type, enumName))
                         {
                             list[i].Kind = type;
-                            list[i].Enum = type == Type::Enum ? enumName : "";
-                            list[i].Default = type == Type::Enum && FindEnum(enumName) ? Value(FindEnum(enumName)->Entries.front().Value) : DefaultValue(type);
+                            list[i].Enum = IsNamed(type) ? enumName : "";
+                            list[i].Default = m_Graph.DefaultFor(type, list[i].Enum);
                             changed = true;
                         }
                         auto value = list[i].Default;
                         // Defaults use the same strongly typed literal editor as node pins.
-                        if (EditLiteral(Tr("Boshlang'ich qiymat"), list[i].Kind, value, FindEnum(list[i].Enum)))
+                        if (EditLiteral(Tr("Boshlang'ich qiymat"), list[i].Kind, value, list[i].Enum))
                         {
                             list[i].Default = std::move(value);
                             changed = true;
@@ -260,10 +259,11 @@ namespace Zamin {
                     TypeCombo(Tr("Lokal turi###Local type"), m_NewLocalType, m_NewLocalEnum);
                     if (m_MemberName[0] && draft.Locals.size() < 32 && GraphLayout::Button(Tr("Lokal qo'shish###Add local")))
                     {
-                        const auto* enumeration = m_NewLocalType == Type::Enum ? FindEnum(m_NewLocalEnum) : nullptr;
-                        if (m_NewLocalType != Type::Enum || enumeration)
+                        const std::string named = IsNamed(m_NewLocalType) ? m_NewLocalEnum : "";
+                        const auto initial = m_Graph.DefaultFor(m_NewLocalType, named);
+                        if (m_Graph.Fits(m_NewLocalType, named, initial))
                         {
-                            draft.Locals[m_MemberName] = { m_NewLocalType, enumeration ? Value(enumeration->Entries.front().Value) : DefaultValue(m_NewLocalType), enumeration ? m_NewLocalEnum : "" };
+                            draft.Locals[m_MemberName] = { m_NewLocalType, initial, named };
                             changed = true;
                         }
                     }
@@ -275,7 +275,7 @@ namespace Zamin {
                         ImGui::Separator();
                         GraphLayout::FitText((key + " (" + TypeName(local.Kind) + (local.Enum.empty() ? "" : " " + local.Enum) + ")").c_str());
                         auto value = local.Default;
-                        if (EditLiteral(Tr("Boshlang'ich qiymat"), local.Kind, value, FindEnum(local.Enum)))
+                        if (EditLiteral(Tr("Boshlang'ich qiymat"), local.Kind, value, local.Enum))
                         {
                             draft.Locals.at(key).Default = std::move(value);
                             changed = true;
@@ -484,6 +484,129 @@ namespace Zamin {
             {
                 Snapshot();
                 m_Graph.Enums.erase(erase);
+            }
+        }
+    }
+}
+namespace Zamin {
+    void VisualGraphPanel::Structs()
+    {
+        using namespace Visual;
+        const bool sectionOpen = ImGui::CollapsingHeader(Tr("Strukturalar###Graph structs"));
+        GraphLayout::Record(Tr("Strukturalar###Graph structs"));
+        if (!sectionOpen) return;
+        GraphLayout::PushScope("structs");
+        struct ScopeGuard
+        {
+            ~ScopeGuard() { GraphLayout::PopScope(); }
+        } scopeGuard;
+        ImGui::InputText(GraphLayout::Field(Tr("Struktura nomi###Struct name")).c_str(), m_StructName, sizeof(m_StructName));
+        GraphLayout::Record(Tr("Struktura nomi###Struct name"));
+        if (GraphLayout::Button(Tr("Struktura yaratish###Create struct")))
+        {
+            if (!m_StructName[0] || m_Graph.Structs.contains(m_StructName) || m_Graph.Structs.size() >= 64) m_Error = Tr("Struktura nomi band yoki bo'sh");
+            else
+            {
+                Snapshot();
+                m_Graph.Structs[m_StructName] = { { { "Value", Type::Number, 0. } } };
+            }
+        }
+        std::string erase, renameFrom, renameTo;
+        for (auto& [name, definition] : m_Graph.Structs)
+        {
+            ImGui::PushID(name.c_str());
+            const bool treeOpen = GraphLayout::TreeNode("struct", name + " {" + std::to_string(definition.Fields.size()) + "}", name);
+            GraphLayout::PushScope(name);
+            if (treeOpen)
+            {
+                char renamed[65]{};
+                std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
+                if (ImGui::InputText(GraphLayout::Field(Tr("Strukturani qayta nomlash###Rename struct")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    renameFrom = name;
+                    renameTo = renamed;
+                }
+                GraphLayout::Record(Tr("Strukturani qayta nomlash###Rename struct"));
+                auto draft = definition;
+                bool changed = false;
+                size_t remove = SIZE_MAX;
+                std::pair<std::string, std::string> fieldRename;
+                for (size_t i = 0; i < draft.Fields.size(); ++i)
+                {
+                    auto& field = draft.Fields[i];
+                    ImGui::PushID(int(i));
+                    GraphLayout::PushScope(std::to_string(i));
+                    if (i) ImGui::Separator();
+                    char key[65]{};
+                    std::snprintf(key, sizeof(key), "%s", field.Name.c_str());
+                    // Enter renames; Make/Break wires, GetField/SetField literals and stored values follow (Graph::RenameStructField).
+                    const bool renamedField = ImGui::InputText(GraphLayout::Field(Tr("Maydon nomi###Field name")).c_str(), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue);
+                    GraphLayout::Record(Tr("Maydon nomi###Field name"));
+                    if (renamedField && field.Name != key) fieldRename = { field.Name, key };
+                    auto type = field.Kind;
+                    auto named = field.Enum;
+                    if (TypeCombo(Tr("Maydon turi###Field type"), type, named, false))
+                    {
+                        field.Kind = type;
+                        field.Enum = IsNamed(type) ? named : "";
+                        field.Default = m_Graph.DefaultFor(type, field.Enum);
+                        changed = true;
+                    }
+                    auto value = field.Default;
+                    if (EditLiteral(Tr("Boshlang'ich qiymat"), field.Kind, value, field.Enum))
+                    {
+                        field.Default = std::move(value);
+                        changed = true;
+                    }
+                    if (draft.Fields.size() > 1 && GraphLayout::SmallButton(Tr("Maydonni olib tashlash###Remove field"))) remove = i;
+                    GraphLayout::PopScope();
+                    ImGui::PopID();
+                }
+                if (remove != SIZE_MAX)
+                {
+                    draft.Fields.erase(draft.Fields.begin() + remove);
+                    changed = true;
+                }
+                if (draft.Fields.size() < 32 && GraphLayout::Button(Tr("Maydon qo'shish###Add field")))
+                {
+                    std::string fieldName = "Field" + std::to_string(draft.Fields.size() + 1);
+                    while (draft.Find(fieldName)) fieldName += "_";
+                    draft.Fields.push_back({ fieldName, Type::Number, 0. });
+                    changed = true;
+                }
+                if (changed || !fieldRename.first.empty())
+                {
+                    // One undo step: the definition, the renamed field's wires, the conformed values and the pruned pins.
+                    Snapshot();
+                    if (changed) definition = std::move(draft);
+                    if (!fieldRename.first.empty() && !m_Graph.RenameStructField(name, fieldRename.first, fieldRename.second)) m_Error = Tr("Maydon nomi band, bo'sh yoki zaxiralangan");
+                    m_Graph.ConformStructValues();
+                    const auto removed = m_Graph.PruneInvalidPins();
+                    if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
+                }
+                if (GraphLayout::Button(Tr("Strukturani o'chirish###Delete struct"))) erase = name;
+                ImGui::TreePop();
+            }
+            GraphLayout::PopScope();
+            ImGui::PopID();
+        }
+        if (!renameFrom.empty())
+        {
+            auto candidate = m_Graph;
+            if (candidate.RenameStruct(renameFrom, renameTo))
+            {
+                Snapshot();
+                m_Graph = std::move(candidate);
+            }
+            else m_Error = Tr("Struktura nomi band yoki bo'sh");
+        }
+        if (!erase.empty())
+        {
+            if (const auto uses = m_Graph.StructUses(erase)) m_Error = std::to_string(uses) + " " + Tr("joyda ishlatilgan struktura o'chirilmaydi");
+            else
+            {
+                Snapshot();
+                m_Graph.Structs.erase(erase);
             }
         }
     }

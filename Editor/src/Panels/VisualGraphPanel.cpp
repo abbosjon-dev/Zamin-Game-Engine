@@ -23,6 +23,8 @@ namespace Zamin {
                 case Visual::Type::Number: return IM_COL32(85, 220, 160, 255);
                 case Visual::Type::String: return IM_COL32(220, 118, 240, 255);
                 case Visual::Type::Entity: return IM_COL32(86, 177, 249, 255);
+                case Visual::Type::Struct:
+                case Visual::Type::ArrayStruct: return IM_COL32(64, 205, 225, 255);
                 default:                   return IM_COL32(255, 194, 85, 255);
             }
         }
@@ -75,19 +77,43 @@ namespace Zamin {
             ImGui::TextDisabled("%s", Tr("Effekt, to'plam, qolgan vaqt"));
             for (size_t i = 0; i < count; ++i) ImGui::Text("%s  x%u  %.2f s", effects[i].Key.c_str(), effects[i].Stacks, effects[i].Remaining);
         }
-        bool EditValue(const char* label, Visual::Type type, Visual::Value& v, const Visual::EnumDefinition* enumeration = nullptr)
+        // A literal editor. graph/named resolve a named type: an Enum value shows its entries as a combo, a Struct
+        // value one editor per field, an ArrayStruct value struct elements.
+        bool EditValue(const char* label, Visual::Type type, Visual::Value& v, const Visual::Graph* graph = nullptr, const std::string& named = {})
         {
             using namespace Visual;
             ImGui::PushID(label);
             GraphLayout::InlineLabel(label);
             bool changed = false;
-            if (!Matches(type, v))
+            const auto* enumeration = type == Type::Enum && graph && graph->Enums.contains(named) ? &graph->Enums.at(named) : nullptr;
+            const auto* structure = (type == Type::Struct || type == Type::ArrayStruct) && graph && graph->Structs.contains(named) ? &graph->Structs.at(named) : nullptr;
+            if (!Matches(type, v) || (structure && !graph->Fits(type, named, v)))
             {
                 ImGui::TextDisabled("%s (%s)", Tr("Yaroqsiz qiymat"), TypeName(type));
-                if (ImGui::Button(Tr("Qiymatni tiklash###Reset literal")))
+                if (GraphLayout::Button(Tr("Qiymatni tiklash###Reset literal")))
                 {
-                    v = DefaultValue(type);
+                    v = graph ? graph->DefaultFor(type, named) : DefaultValue(type);
                     changed = true;
+                }
+                ImGui::PopID();
+                return changed;
+            }
+            if (type == Type::Struct)
+            {
+                // One editor per field, under a tree that names the struct.
+                if (!structure) ImGui::TextDisabled("%s: %s", Tr("Noma'lum struktura"), named.c_str());
+                else if (GraphLayout::TreeNode("##struct", named + " {" + std::to_string(structure->Fields.size()) + "}", std::string(label) + "/fields"))
+                {
+                    for (const auto& field : structure->Fields)
+                    {
+                        auto member = v.at(field.Name);
+                        if (EditValue(field.Name.c_str(), field.Kind, member, graph, field.Enum))
+                        {
+                            v[field.Name] = std::move(member);
+                            changed = true;
+                        }
+                    }
+                    ImGui::TreePop();
                 }
                 ImGui::PopID();
                 return changed;
@@ -107,7 +133,7 @@ namespace Zamin {
                     for (size_t i = size_t(page) * 16; i < std::min(v.size(), size_t(page + 1) * 16); ++i)
                     {
                         ImGui::PushID(int(i));
-                        changed |= EditValue(("[" + std::to_string(i) + "]").c_str(), ElementType(type), v[i]);
+                        changed |= EditValue(("[" + std::to_string(i) + "]").c_str(), ElementType(type), v[i], graph, named);
                         if (ImGui::SmallButton(Tr("Elementni o'chirish###Remove item"))) remove = i;
                         ImGui::PopID();
                     }
@@ -118,7 +144,7 @@ namespace Zamin {
                     }
                     if (v.size() < 1024 && ImGui::Button(Tr("Element qo'shish###Add item")))
                     {
-                        v.push_back(DefaultValue(ElementType(type)));
+                        v.push_back(graph ? graph->DefaultFor(ElementType(type), named) : DefaultValue(ElementType(type)));
                         changed = true;
                     }
                     if (ImGui::Button(Tr("Massiv JSON'ini qo'yish###Paste array JSON")))
@@ -132,7 +158,7 @@ namespace Zamin {
                                     if (depth > 8) throw std::runtime_error("Array nesting limit");
                                     return true;
                                 }, false);
-                                if (!parsed.is_discarded() && Matches(type, parsed))
+                                if (!parsed.is_discarded() && Matches(type, parsed) && (!graph || graph->Fits(type, named, parsed)))
                                 {
                                     v = std::move(parsed);
                                     changed = true;
@@ -251,7 +277,7 @@ namespace Zamin {
             return changed;
         }
     }
-    bool VisualGraphPanel::EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const Visual::EnumDefinition* enumeration) { return EditValue(label, type, value, enumeration); }
+    bool VisualGraphPanel::EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const std::string& named) { return EditValue(label, type, value, &m_Graph, named); }
     void VisualGraphPanel::SetContext(const Ref<Scene>& scene, bool editable, uint64_t selection)
     {
         m_Scene = scene;
@@ -526,6 +552,11 @@ namespace Zamin {
         for (const auto& [name, signature] : m_Graph.Functions)
             if (matches("function.call " + name) && ImGui::Selectable((std::string(Tr("Funksiyalar")) + " / " + Tr("Chaqirish") + " " + name).c_str()))
                 addNode("Function.Call", { { "Name", name } });
+        // Then Make/Break of each struct, found by "make", "break" or the struct's name.
+        for (const auto& [name, definition] : m_Graph.Structs)
+            for (const char* kind : { "Make", "Break" })
+                if (matches(std::string("struct.") + kind + " " + name) && ImGui::Selectable((std::string(Tr("Strukturalar")) + " / " + kind + " " + name).c_str()))
+                    addNode(std::string("Struct.") + kind, { { "Struct", name } });
         for (auto& [key, def] : Visual::Catalog())
         {
             if (!matches(key)) continue;
@@ -536,6 +567,13 @@ namespace Zamin {
                 // An enum node starts with the graph's first enum (Get/Set.Enum take their variable's enum instead).
                 const bool enumInput = std::any_of(def.Inputs.begin(), def.Inputs.end(), [](const Visual::Pin& p) { return p.Name == "Enum"; });
                 if (enumInput && !m_Graph.Enums.empty() && key != "Get.Enum" && key != "Set.Enum") inputs["Enum"] = m_Graph.Enums.begin()->first;
+                // A struct node starts with the graph's first struct (variable/local Get/Set take their own) and field.
+                const bool structInput = std::any_of(def.Inputs.begin(), def.Inputs.end(), [](const Visual::Pin& p) { return p.Name == "Struct"; });
+                if (structInput && !m_Graph.Structs.empty() && !key.starts_with("Get.") && !key.starts_with("Set.") && !key.starts_with("Local."))
+                {
+                    inputs["Struct"] = m_Graph.Structs.begin()->first;
+                    if (key == "Struct.GetField" || key == "Struct.SetField") inputs["Field"] = m_Graph.Structs.begin()->second.Fields.front().Name;
+                }
                 addNode(key, std::move(inputs));
             }
         }
@@ -645,6 +683,7 @@ namespace Zamin {
             if (m_Selection.contains(n.ID) || n.ID == m_Selected) draw->AddRect(a, b, IM_COL32(191, 152, 255, 255), 7, 0, 2);
             if (n.ID == runningNode) draw->AddRect(a, b, IM_COL32(255, 205, 80, 255), 7, 0, 3);
             if (n.Breakpoint) draw->AddCircleFilled({ b.x - 10, a.y + 12 }, 5, IM_COL32(255, 70, 80, 255));
+            if (GraphLayout::Recording()) GraphLayout::RecordRect("canvas/node/" + std::to_string(n.ID), a, { b.x, a.y + 30 * m_Zoom });
             for (int side = 0; side < 2; ++side)
             {
                 auto& ps = side ? d.Outputs : d.Inputs;
@@ -652,6 +691,7 @@ namespace Zamin {
                 {
                     auto pos = pin(n, ps, p.Name, side);
                     draw->AddCircleFilled(pos, 5 * m_Zoom, Color(p.Kind));
+                    if (GraphLayout::Recording()) GraphLayout::RecordRect("canvas/" + std::to_string(n.ID) + (side ? "/out/" : "/in/") + p.Name, { pos.x - 4, pos.y - 4 }, { pos.x + 4, pos.y + 4 });
                     float textWidth = ImGui::CalcTextSize(p.Name.c_str()).x * m_Zoom;
                     draw->AddText(nullptr, ImGui::GetFontSize() * m_Zoom, { pos.x + (side ? -textWidth - 12 * m_Zoom : 12 * m_Zoom), pos.y - 7 * m_Zoom }, Color(p.Kind), p.Name.c_str());
                     float dx = mouse.x - pos.x, dy = mouse.y - pos.y;
@@ -828,6 +868,46 @@ namespace Zamin {
                     ImGui::PopID();
                     continue;
                 }
+                // The Struct literal of a struct node: a combo of the graph's structs; Field: the struct's fields.
+                if ((p.Name == "Struct" || p.Name == "Field") && p.Kind == Type::String && n.Kind.find("Struct") != std::string::npos && v.is_string())
+                {
+                    const bool field = p.Name == "Field";
+                    std::string structName;
+                    for (const auto* pins : { &Describe(n).Inputs, &Describe(n).Outputs })
+                        for (const auto& candidate : *pins)
+                            if ((candidate.Kind == Type::Struct || candidate.Kind == Type::ArrayStruct) && structName.empty()) structName = candidate.Enum;
+                    std::vector<std::string> options;
+                    if (field)
+                    {
+                        if (auto definition = m_Graph.Structs.find(structName); definition != m_Graph.Structs.end())
+                            for (const auto& f : definition->second.Fields) options.push_back(f.Name);
+                    }
+                    else
+                        for (const auto& [name, definition] : m_Graph.Structs) options.push_back(name);
+                    const bool variableType = !field && (n.Kind.starts_with("Get.") || n.Kind.starts_with("Set.") || n.Kind.starts_with("Local."));
+                    ImGui::PushID(p.Name.c_str());
+                    GraphLayout::InlineLabel(p.Name.c_str());
+                    const auto current = v.get<std::string>();
+                    const char* variableLabel = Tr("(o'zgaruvchining strukturasi)");
+                    if (ImGui::BeginCombo("##named", current.empty() && variableType ? variableLabel : current.c_str()))
+                    {
+                        if (variableType && ImGui::Selectable(variableLabel, current.empty()) && !current.empty())
+                        {
+                            Snapshot();
+                            n.Inputs.erase(p.Name);
+                        }
+                        for (const auto& option : options)
+                            if (ImGui::Selectable(option.c_str(), option == current) && option != current)
+                            {
+                                Snapshot();
+                                n.Inputs[p.Name] = option;
+                            }
+                        ImGui::EndCombo();
+                    }
+                    GraphLayout::RecordKey(p.Name);
+                    ImGui::PopID();
+                    continue;
+                }
                 if (const auto* choices = p.Kind == Type::Number ? PinChoices(n.Kind, p.Name) : nullptr; choices && v.is_number())
                 {
                     if (EditChoice(p.Name.c_str(), *choices, v))
@@ -837,7 +917,7 @@ namespace Zamin {
                     }
                     continue;
                 }
-                if (EditValue(p.Name.c_str(), p.Kind, v, p.Kind == Type::Enum ? FindEnum(p.Enum) : nullptr))
+                if (EditValue(p.Name.c_str(), p.Kind, v, &m_Graph, p.Enum))
                 {
                     Snapshot();
                     n.Inputs[p.Name] = v;
@@ -862,6 +942,7 @@ namespace Zamin {
         GraphLayout::PopScope();
         Functions();
         Enums();
+        Structs();
         ImGui::EndDisabled();
         ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
         SceneInstance();
@@ -875,18 +956,19 @@ namespace Zamin {
         TypeCombo(Tr("Turi###Type"), m_NewVariableType, m_NewVariableEnum);
         if (GraphLayout::Button(Tr("O'zgaruvchi qo'shish###Add variable")) && m_Name[0] && !m_Graph.Variables.contains(m_Name))
         {
-            const auto* enumeration = m_NewVariableType == Type::Enum ? FindEnum(m_NewVariableEnum) : nullptr;
-            if (m_NewVariableType != Type::Enum || enumeration)
+            const std::string named = IsNamed(m_NewVariableType) ? m_NewVariableEnum : "";
+            const auto initial = m_Graph.DefaultFor(m_NewVariableType, named);
+            if (m_Graph.Fits(m_NewVariableType, named, initial))
             {
                 Snapshot();
-                m_Graph.Variables[m_Name] = { m_NewVariableType, enumeration ? Value(enumeration->Entries.front().Value) : DefaultValue(m_NewVariableType), enumeration ? m_NewVariableEnum : "" };
+                m_Graph.Variables[m_Name] = { m_NewVariableType, initial, named };
             }
         }
         std::string remove, renameFrom, renameTo;
         for (auto& [name, v] : m_Graph.Variables)
         {
             auto value = v.Default;
-            if (EditValue(name.c_str(), v.Kind, value, FindEnum(v.Enum)))
+            if (EditValue(name.c_str(), v.Kind, value, &m_Graph, v.Enum))
             {
                 Snapshot();
                 v.Default = value;
@@ -957,7 +1039,7 @@ namespace Zamin {
                 {
                     auto value = overrides.contains(name) && m_Graph.Fits(var.Kind, var.Enum, overrides[name]) ? overrides[name] : var.Default;
                     ImGui::PushID("instance");
-                    if (EditValue(name.c_str(), var.Kind, value, FindEnum(var.Enum)))
+                    if (EditValue(name.c_str(), var.Kind, value, &m_Graph, var.Enum))
                     {
                         overrides[name] = value;
                         c->Fields["Overrides"].Set(overrides.dump());

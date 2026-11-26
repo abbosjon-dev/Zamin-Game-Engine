@@ -49,6 +49,10 @@ namespace Zamin::GraphLayout {
         S().Items[key] = { { "Rect", { min.x, min.y, max.x, max.y } }, { "Clipped", max.x > ImGui::GetCurrentWindow()->InnerClipRect.Max.x + 1.f } };
     }
     void Record(const char* label) { RecordKey(Id(label)); }
+    void RecordRect(const std::string& key, ImVec2 min, ImVec2 max)
+    {
+        if (Recording()) S().Items[key] = { { "Rect", { min.x, min.y, max.x, max.y } }, { "Clipped", false } };
+    }
     void RecordRegion(const char* name)
     {
         if (!Recording()) return;

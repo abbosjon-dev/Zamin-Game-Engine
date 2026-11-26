@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real X11/ImGui visual graph edit regression, then a typed function authored in the UI and run in the Player.
+"""Real X11/ImGui visual graph edit regression, then a typed function and a graph struct authored in the UI and run in the Player.
 Run under xvfb-run with a 1600x1000x24 screen. Requires xdotool and ImageMagick.
 ZAMIN_BUILD_DIR chooses the build (default build); the sample is copied to a private temp directory.
 """
@@ -26,9 +26,10 @@ def items():
   except (OSError,ValueError):time.sleep(.3)
  raise RuntimeError('No layout file')
 def find(key):
- # The rectangle of a recorded widget, scrolled into the properties column first.
+ # The rectangle of a recorded widget, scrolled into the properties column first (canvas nodes/pins: as drawn).
  for attempt in range(40):
   data=items();region=data['Regions'].get('properties');match=[v['Rect'] for k,v in data['Items'].items() if k==key or k.endswith('/'+key)]
+  if match and key.startswith('canvas/'):return int((match[0][0]+match[0][2])/2),int((match[0][1]+match[0][3])/2)
   if match and region:
    r=match[0];cx,cy=int((region[0]+region[2])/2),int((region[1]+region[3])/2)
    if r[3]>region[3]-4:x('mousemove',cx,cy);time.sleep(.3);x('click',5);time.sleep(.8);continue
@@ -37,6 +38,17 @@ def find(key):
   time.sleep(.4)
  raise RuntimeError('Widget not found in the properties column: '+key)
 def press(key):click(*find(key))
+def drag(key,dx,dy):
+ # Drags a canvas node by its header by (dx, dy) graph units (the header is 220 units wide at any zoom).
+ r=next(v['Rect'] for k,v in items()['Items'].items() if k==key);zoom=(r[2]-r[0])/220;dx,dy=int(dx*zoom),int(dy*zoom)
+ px,py=find(key);x('mousemove',px,py);time.sleep(.6);x('mousedown',1);time.sleep(.4)
+ # Small steps: the header must stay under the pointer from one (slow, software-rendered) frame to the next.
+ steps=max(abs(dx),abs(dy))//8+1
+ for i in range(1,steps+1):x('mousemove',px+dx*i//steps,py+dy*i//steps);time.sleep(.12)
+ time.sleep(.4);x('mouseup',1);time.sleep(1.2)
+def enter(key,text):
+ # Replaces the text of an input field and commits it with Enter.
+ press(key);x('key','ctrl+a');time.sleep(.4);x('type','--delay','150',text);time.sleep(.4);x('key','Return');time.sleep(1.5)
 def unclipped():
  clipped=[k for k,v in items()['Items'].items() if v['Clipped']]
  assert not clipped,clipped
@@ -118,8 +130,8 @@ try:
  else:raise RuntimeError('Function graph window did not become ready')
  time.sleep(1)
  press('Typed functions');press('functions/Create function');save()
- j=readflow();assert j['Version']==2 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
- print('UI: function created; the format 1 graph saved as format 2',flush=True)
+ j=readflow();assert j['Version']==3 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
+ print('UI: function created; the format 1 graph saved as format 3',flush=True)
  click(160,282);save()
  j=readflow();calls=[n for n in j['Nodes'] if n['Kind']=='Function.Call'];assert len(calls)==1 and calls[0]['Inputs']['Name']=='Calculate',j['Nodes']
  call=calls[0]['ID'];print('UI: call node from the node library passed',flush=True)
@@ -150,6 +162,65 @@ finally:
  except subprocess.TimeoutExpired:app.kill();app.wait()
  log.close()
  shutil.copyfile(work/'editor-functions.log',out/'editor-functions.log')
+# Phase 3: a graph struct authored in the UI - create it, add and rename fields, Make it from the node library with a
+# literal, read a field with GetField, wire it, rename the wired field (the wires stay), undo/redo - and run it in the Player.
+def struct_flow(project,env,build,out,scene):
+ global app
+ flow=project/'Assets/Scripts/StructFlow.zgraph'
+ # A format 2 file (no Structs section): the editor writes format 3 once a struct exists.
+ flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':2,'Nodes':[node(1,'Event.Start',40,60),node(2,'Print',760,60),node(3,'Concat',560,420,{'A':'STRUCT_UI value='}),node(4,'FormatNumber',300,470,{'Decimals':0})],
+  'Links':[{'From':1,'Output':'Then','To':2,'Input':'In'},{'From':3,'Output':'Value','To':2,'Input':'Text'},{'From':4,'Output':'Value','To':3,'Input':'B'}],'Variables':{},'Functions':{},'Enums':{}},indent=2))
+ readstruct=lambda:json.loads(flow.read_text())
+ log=(work/'editor-structs.log').open('w')
+ app=subprocess.Popen([str(build/'bin/ZaminEditor'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/StructFlow.zgraph'),stdout=log,stderr=subprocess.STDOUT)
+ try:
+  for i in range(150):
+   if app.poll() is not None:raise RuntimeError('Editor exited early')
+   if 'Scene opened:' in (work/'editor-structs.log').read_text():break
+   time.sleep(.2)
+  for i in range(60):
+   if '#7D2F4C' in pixel(400,235) or '#7D7D2F2F4C4C' in pixel(400,235):break
+   time.sleep(.4)
+  else:raise RuntimeError('Struct graph window did not become ready')
+  time.sleep(1)
+  press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats');press('Stats/Add field')
+  enter('Stats/0/Field name','Power');save()
+  j=readstruct();assert j['Version']==3 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
+  unclipped();print('UI: struct created, field added and renamed; saved as format 3',flush=True)
+  subprocess.run(['import','-window','root',str(out/'struct-editor.png')],check=True)
+  # Make Stats from the node library (Structs / Make Stats), Power = 7; then a GetField node (struct and field preset).
+  click(150,233);x('key','ctrl+a');time.sleep(.3);x('type','--delay','150','make stats');time.sleep(1.2);click(155,283)
+  drag('canvas/node/5',-75,115);enter('node/Power','7')
+  click(150,233);x('key','ctrl+a');time.sleep(.3);x('type','--delay','150','struct.getfield');time.sleep(1.2);click(155,283)
+  drag('canvas/node/6',215,115);save()
+  j=readstruct();kinds={n['ID']:(n['Kind'],n['Inputs']) for n in j['Nodes']}
+  assert kinds[5]==('Struct.Make',{'Struct':'Stats','Power':7}) and kinds[6]==('Struct.GetField',{'Struct':'Stats','Field':'Power'}),kinds
+  print('UI: Make/GetField from the node library with the struct, field and literal',flush=True)
+  press('canvas/5/out/Value');press('canvas/6/in/Value');press('canvas/6/out/Value');press('canvas/4/in/Number');save()
+  wires=lambda:{(l['From'],l['Output'],l['To'],l['Input']) for l in readstruct()['Links']}
+  assert {(5,'Value',6,'Value'),(6,'Value',4,'Number')}<=wires(),wires()
+  print('UI: struct wires typed and connected',flush=True)
+  # Renaming the wired field keeps both wires and moves the Make literal and the GetField field with it.
+  enter('Stats/0/Field name','Strength');save()
+  j=readstruct();kinds={n['ID']:n['Inputs'] for n in j['Nodes']}
+  assert {(5,'Value',6,'Value'),(6,'Value',4,'Number')}<=wires() and kinds[5].get('Strength')==7 and kinds[6]['Field']=='Strength',(wires(),kinds)
+  click(531,140);save();assert readstruct()['Structs']['Stats']['Fields'][0]['Name']=='Power' and next(n for n in readstruct()['Nodes'] if n['ID']==6)['Inputs']['Field']=='Power'
+  click(585,140);save();assert readstruct()['Structs']['Stats']['Fields'][0]['Name']=='Strength' and {(5,'Value',6,'Value'),(6,'Value',4,'Number')}<=wires()
+  unclipped();print('UI: field rename keeps wires; undo/redo restore it',flush=True)
+  subprocess.run(['import','-window','root',str(out/'struct-graph.png')],check=True)
+ except BaseException:
+  subprocess.run(['import','-window','root',str(out/'editor-structs-failure.png')],check=True);raise
+ finally:
+  app.terminate()
+  try:app.wait(timeout=10)
+  except subprocess.TimeoutExpired:app.kill();app.wait()
+  log.close()
+  shutil.copyfile(work/'editor-structs.log',out/'editor-structs.log')
+ scene.write_text(scene.read_text().replace('Scripts/FunctionFlow.zgraph','Scripts/StructFlow.zgraph'))
+ run=subprocess.run([str(build/'bin/ZaminPlayer'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_MAX_FRAMES='30'),capture_output=True,text=True,timeout=180)
+ (out/'player-structs.log').write_text(run.stdout+run.stderr)
+ assert run.returncode==0 and 'STRUCT_UI value=7' in run.stdout+run.stderr and "Visual graph '" not in run.stdout+run.stderr,run.returncode
+ print('UI: the authored struct graph runs in the Player (value=7)',flush=True)
 try:
  # Run: the Player starts the 2D scene with the authored graph on the Player entity.
  scene=project/'Assets/Scenes/Visual2D.zscene'
@@ -159,5 +230,6 @@ try:
  assert run.returncode==0 and 'FUNCTION_UI result=21' in run.stdout+run.stderr,run.returncode
  assert "Visual graph '" not in run.stdout+run.stderr
  print('UI: the authored function runs in the Player (result=21)',flush=True)
+ struct_flow(project,env,build,out,scene)
 finally:
  temporary.cleanup()

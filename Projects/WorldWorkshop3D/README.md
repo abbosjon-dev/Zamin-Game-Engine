@@ -2,7 +2,7 @@
 
 36 authored cells, a persistent camera/physics anchor and a streaming manifest.
 
-Open the project, press Play and use WASD to move the camera. Open **Oyna → World Streaming** for state, policy and retry controls. The orange physics probe shares the loaded ground’s physics world. Set `ZAMIN_WORLD_AUTOTOUR=1` for the deterministic camera route (120 frames per stop, including an empty region and a return).
+Open the project, press Play and use WASD to move the camera. Open **Window → World Streaming** for state, policy and retry controls. The orange physics probe shares the loaded ground’s physics world. Set `ZAMIN_WORLD_AUTOTOUR=1` for the deterministic camera route (120 frames per stop, including an empty region and a return).
 
 Continuous world-space terrain (3D), primitives and colours are procedural; no external assets are required. The manifest declares memory reservations; these are not measured RSS/VRAM. The runtime uses soft frame budgets.
 
@@ -26,28 +26,28 @@ not arbitrary C++ heap or physics replay. Queued writes use a bounded background
 The world wizard creates a new 2D/3D bundle with terrain/ground, navigation and anchor, or clones a
 cell scene template with fresh entity UUIDs. A published bundle is never overwritten by the wizard.
 
-### Sparse navigation va portal
+### Sparse navigation and the portal
 
-**N** — yashil route nuqtalari, binafsha portal chiqishi va sariq kinematic actor.
-Actor portal oldida kutadi, demo explicit teleport completion qiladi; bu physics controller emas.
-Topology o‘zgarsa actor to‘xtaydi va route qayta olinadi. Portal faqat loaded walkable endpoint bilan faol.
-`Tests/world_navigation_test.py` disable, unload/return va qayta rejalashni ikkala demoda tekshiradi.
+**N** — the green route points, the purple portal exit and the yellow kinematic actor.
+The actor waits in front of the portal and the demo does an explicit teleport completion; this is not a physics controller.
+When the topology changes the actor stops and the route is requested again. The portal is active only with a loaded walkable endpoint.
+`Tests/world_navigation_test.py` checks disabling, unload/return and replanning in both demos.
 
-### NavAgent va Visual Graph
+### NavAgent and Visual Graph
 
-**B** — haqiqiy NavAgent + built-in Visual Graph demo. 3D actor CharacterController bilan yuradi.
+**B** — a real NavAgent + the built-in Visual Graph demo. The 3D actor walks with a CharacterController.
 `Scripts/WorldTraversal.zgraph`: Message → SetWorldDestination, NavTraversalRequested → Delay →
-CompleteNavTraversal → Success/Cancel. UUID tokenlar String; link, revision va yangi ticket kerak.
-Band controller exit yoki eski token teleport qilmaydi. Unloaded maydonda namuna driver'i actor
-gravity'sini muzlatadi; return'da boshlang‘ich nuqtadan yangi graph destination boshlaydi.
-`Tests/world_agent_test.py` fixed capture time bilan 2D/3D Player va graph editor screenshot'larini tekshiradi.
+CompleteNavTraversal → Success/Cancel. UUID tokens are Strings; a link, a revision and a new ticket are required.
+A busy controller exit or an old token does not teleport. In an unloaded area the sample's driver freezes the actor's
+gravity; on return it starts a new graph destination from the starting point.
+`Tests/world_agent_test.py` checks the 2D/3D Player and the graph editor screenshots with a fixed capture time.
 
-### Async yo‘l qidiruvi
+### Async path finding
 
-World policy AsyncNavigation=true: 2 worker, 64 outstanding request, tick'da 4 start / 8 publication.
-Graph'dagi Searching = NavQueryPending. Worker hech qanday Scene/physics reference olmaydi; owner stale
-resultni tekshirib keyin o‘rnatadi. B demo'da har uch faza async delivered query bilan tekshiriladi.
-World Streaming panelida queue va retained payload MiB diagnostikasi mavjud.
+World policy AsyncNavigation=true: 2 workers, 64 outstanding requests, 4 starts / 8 publications per tick.
+Searching in the graph = NavQueryPending. A worker takes no Scene/physics reference; the owner checks a stale
+result before installing it. In the B demo each of the three phases is checked with an async delivered query.
+The World Streaming panel has diagnostics for the queue and the retained payload in MiB.
 
 
 **C — crowd workshop:** four real world agents cross, stop and return to their starting side.

@@ -307,13 +307,13 @@ when the owner disappears. See [Gameplay UI](GameplayUI.md#hud-and-inventory-vie
 ## Editor authoring
 
 `Visual::PinChoices(kind, pin)` names the values of the enumerated Number pins; the Blueprint node inspector
-shows them as a combo and stores the index (Undo/Save as any literal; the file stays a number). Names are
-Uzbek with English pairs in the editor table: Kind of AbilityDefine (Zarar / Davolash / Qalqon / Holat
-effekti), ProjectileDefine and AreaDefine (the first three), EffectDefine Tick (Tik yo'q, Zarar, Davolash,
-Qalqon) and Stacking (Yangilash, Uzaytirish, Mustaqil, Eng kuchlisi), AreaDefine Falloff (Kamaymaydi,
-Chiziqli kamayish), UIBindHUD Kind (Sog'liq … Effekt, Zarba belgisi) and the equipment Slot pins (Qurol,
-Qo'shimcha qo'l, Badan, Tumor). A wired pin, or a value outside the list ("Noma'lum qiymat"), is shown as
-before. During Play the inspector's "Jang holati" block shows projectiles in flight (of 128), pooled visuals
+shows them as a combo and stores the index (Undo/Save as any literal; the file stays a number). The names
+shown come from the editor's string table (English by default): Kind of AbilityDefine (Damage / Heal / Shield / Status
+effect), ProjectileDefine and AreaDefine (the first three), EffectDefine Tick (No tick, Damage, Heal,
+Shield) and Stacking (Refresh, Extend, Independent, Highest wins), AreaDefine Falloff (No falloff,
+Linear falloff), UIBindHUD Kind (Health … Effect, Hit marker) and the equipment Slot pins (Weapon,
+Offhand, Body, Trinket). A wired pin, or a value outside the list ("Unknown value"), is shown as
+before. During Play the inspector's "Combat state" block shows projectiles in flight (of 128), pooled visuals
 shown/created, this frame's fixed steps, the scene's effect instances (of 1,024) and the selected actor's
 effects (key, stacks, time left; at most 16).
 
@@ -375,9 +375,9 @@ A scene with combat (a definition, an effect or a projectile) writes [save v4](G
 each bound entity's effect instances and every projectile in flight in its slot and generation, plus the
 definition `Signature()`. Restore stages them with the rest of the snapshot (effects before the loadout,
 for MaxEnergy), replaces bound actors' books and all projectiles, hides the pooled visuals (reacquired
-lazily), clears events, hit records and the accumulator, and logs `Jang holati tiklandi: N effekt, M
-snaryad`. A different definition set is rejected (`Combat definitions changed`); older saves leave bound
-actors with no effects and nothing in flight (`Eski save vN yuklandi: ...`). Scenes without combat keep
+lazily), clears events, hit records and the accumulator, and logs `Combat state restored: N effects, M
+projectiles`. A different definition set is rejected (`Combat definitions changed`); older saves leave bound
+actors with no effects and nothing in flight (`Old save vN loaded: ...`). Scenes without combat keep
 their v1/v2/v3 bytes.
 
 ## Playable slice: CombatWorkshop

@@ -1,17 +1,17 @@
 # 🌍 Zamin Engine
 
-**Zamin** — C++20 da yozilgan 2D/3D o'yin dvigateli (game engine). Editor'i Unity/Unreal uslubida, o'yin mantiqi esa
-**C++ skriptlarda** yoziladi: editor skriptlarni o'zi kompilyatsiya qiladi va editorni qayta ishga tushirmasdan
-qayta yuklaydi (hot reload). Interfeys va hujjatlar o'zbek tilida.
+**Zamin** is a 2D/3D game engine written in C++20. Its editor is in the style of Unity/Unreal, and game logic is
+written in **C++ scripts**: the editor compiles the scripts itself and reloads them without restarting the editor
+(hot reload). The interface and the documentation are in English.
 
-Hozircha **Linux** qo'llab-quvvatlanadi (OpenGL 4.1 core). Windows, macOS, Android va iOS keyingi bosqichlarda:
-renderer RHI interfeyslari orqasida, platformaga xos kod `Platform/` papkasida ([Architecture.md](docs/Architecture.md)).
+For now **Linux** is supported (OpenGL 4.1 core). Windows, macOS, Android and iOS come in later stages:
+the renderer sits behind RHI interfaces and platform-specific code lives in the `Platform/` folder ([Architecture.md](docs/Architecture.md)).
 
-Standart x86-64 build uchun **SSE2** yetarli; AVX2/FMA majburiy emas. `-DZAMIN_ENABLE_AVX2=ON` bilan
-tezlashtirilgan build tanlansa, CPU AVX2, FMA, BMI1, LZCNT, POPCNT va F16C'ni qo'llashi kerak.
-Bunday build eski CPU uchun tarqatilmaydi. [Build va runtime sozlamalari](docs/BuildAndExport.md).
+**SSE2** is enough for the standard x86-64 build; AVX2/FMA are not required. When the accelerated build is chosen
+with `-DZAMIN_ENABLE_AVX2=ON`, the CPU must support AVX2, FMA, BMI1, LZCNT, POPCNT and F16C.
+Such a build is not distributed for older CPUs. [Build and runtime settings](docs/BuildAndExport.md).
 
-![Zamin Editor: Showcase3D sahnasi, tanlangan obyekt va inspektor](docs/images/editor-showcase3d.jpg)
+![Zamin Editor: the Showcase3D scene, a selected entity and the inspector](docs/images/editor-showcase3d.jpg)
 
 | Platformer2D | Showcase3D | Adventure3D |
 |---|---|---|
@@ -21,9 +21,9 @@ Bunday build eski CPU uchun tarqatilmaydi. [Build va runtime sozlamalari](docs/B
 |---|---|---|
 | ![Neon Arena](docs/images/sample-topdownshooter.jpg) | ![Valley Race](docs/images/sample-racing.jpg) | ![Silk Road](docs/images/sample-endlessrunner.jpg) |
 
-*Namuna o'yinlar `Projects/` papkasida; rasmlar `ZaminPlayer` dan headless olingan. Hammasi bir sahifada:
-**[namuna o'yinlar galereyasi](docs/Samples.md)**. Har bir namunaning README'si bor (boshqaruv, ko'rsatilgan
-imkoniyatlar, kod bo'ylab sayohat):*
+*The sample games are in the `Projects/` folder; the pictures were taken headless from `ZaminPlayer`. All of them on one page:
+**[the sample games gallery](docs/Samples.md)**. Every sample has a README (controls, the features it shows,
+a tour of the code):*
 [Neon Arena](Projects/TopDownShooter/README.md) ·
 [Zamin Breakout](Projects/Breakout/README.md) ·
 [FPS Arena](Projects/FPSArena/README.md) ·
@@ -39,60 +39,60 @@ imkoniyatlar, kod bo'ylab sayohat):*
 
 ---
 
-## ✨ Imkoniyatlar
+## ✨ Features
 
-- **Editor** — docking oynalar, ierarxiya va inspektor, gizmo'lar va snapping, undo tarixi, prefab rejimi, kontent
-  brauzer (UUID'li assetlar, qidiruv, thumbnail'lar), bir nechta sahna ko'rinishi, profiler, o'zbek / ingliz interfeysi
+- **Editor** — docking windows, the hierarchy and the inspector, gizmos and snapping, undo history, prefab mode, the content
+  browser (assets with UUIDs, search, thumbnails), several scene views, the profiler, an English interface with an optional Uzbek translation
   — [Editor.md](docs/Editor.md)
-- **C++ skriptlar** — `ScriptableEntity`, inspektorda tahrirlanadigan maydonlar (`ZM_FIELD`), hayot sikli va hodisalar,
-  taymerlar, tween'lar, xabarlar, hot reload — [Scripting.md](docs/Scripting.md)
-- **Rendering** — 2D batch renderer (sprite atlas, 9-slice, tilemap, 2D yorug'lik, pixel-perfect) va PBR 3D (glTF,
-  `.zmat` materiallar, cascaded soyalar, HDRI osmon va IBL, SSAO, bloom, avto ekspozitsiya), particle tizimi —
+- **C++ scripts** — `ScriptableEntity`, fields edited in the inspector (`ZM_FIELD`), the life cycle and events,
+  timers, tweens, messages, hot reload — [Scripting.md](docs/Scripting.md)
+- **Rendering** — a 2D batch renderer (sprite atlas, 9-slice, tilemap, 2D lighting, pixel-perfect) and PBR 3D (glTF,
+  `.zmat` materials, cascaded shadows, HDRI sky and IBL, SSAO, bloom, auto exposure), a particle system —
   [Rendering.md](docs/Rendering.md)
-- **Terrain / map** — sculpt va bo'yash, to'rtta GPU albedo/normal/ORM qatlami, metrga bog'liq tiling, patch LOD,
-  heightmap va Jolt collision; `MapWorkshop` namunasi — [Terrain.md](docs/Terrain.md)
-- **Packed foliage** — 65536 tagacha statik instance/komponent, ikki model LOD, GPU compute culling (GL 4.3)
-  va CPU fallback (GL 4.1); [4096 daraxtli FoliageWorkshop](Projects/FoliageWorkshop/README.md). GPU shadow culling va haqiqiy asset residency hali rejada.
-- **World streaming v1:** kamera radiusi/hysteresis, umumiy 2D/3D fizika, lifecycle/unload, editor grid/policy va eksport;
-  [16 katakli 3D](Projects/WorldWorkshop3D/README.md) va [12 katakli 2D](Projects/WorldWorkshop2D/README.md) demo.
-  [Chegaralar va sozlash](docs/Terrain.md).
-- **World asset streaming:** katak texture/modellari worker'larda decode/parse qilinadi, GPU'ga kadr boshiga bayt
-  byudjeti bilan qatorlab yuklanadi; RSS / so'ralgan GPU limitlari uzoq kataklarni chiqaradi; `.ztour` kamera yo'li
-  kadr vaqti va RSS hisobotini beradi — [24 katakli WorldGallery3D](Projects/WorldGallery3D/README.md),
-  [tafsilotlar](docs/Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
-- **Fizika** — 2D (Box2D) va 3D (Jolt): collider'lar, joint'lar, effektorlar, Character Controller, so'rovlar,
-  to'qnashuv qatlamlari, determinizm — [Physics.md](docs/Physics.md)
-- **Quest/progression** — [objective, prerequisite, bir martalik reward, XP va save v2](docs/GameplayQuest.md), compiler-free QuestWorkshop.
-- **Equipment va abilities** — [4 jihoz sloti, combat statlar, energiya, cooldown, potion va save v3](docs/GameplayLoadout.md), compiler-free [LoadoutWorkshop](Projects/LoadoutWorkshop/README.md).
-- **Snaryadlar va effektlar** — [2D/3D snaryadlar, hudud zarari, stacking status effektlar, jang HUD va save v4](docs/GameplayCombat.md), compiler-free [CombatWorkshop](Projects/CombatWorkshop/README.md).
-- **Gameplay UI** — [live HUD, inventory sahifalari, modal fokus va pause](docs/GameplayUI.md), compiler-free UIWorkshop.
-- **Gameplay save/load** — [barqaror kalitli snapshot, atomik slot va backup](docs/GameplaySave.md), compiler-free SaveWorkshop.
-- **Gameplay AI** — [patrol/chase/attack/investigate/return, LOS va nav recovery](docs/GameplayAI.md), compiler-free 2D/3D AIWorkshop.
-- **Combat va interaction** — [health/shield, inventory, kalit/collectible va respawn](docs/GameplayRules.md), compiler-free RulesWorkshop.
-- **Gameplay** — [2D/3D motor, kamera va checkpoint](docs/Gameplay.md), compiler-free GameplayWorkshop kurslari.
-- **Animatsiya** — property kliplar va timeline, skelet animatsiya, Animator (ustuvor holatlar, 1D/2D blend, typed parametr/damping, qatlamlar),
-  root motion, sprite kliplar — [Animation.md](docs/Animation.md)
-- **Audio** — miniaudio: mixer guruhlari, musiqa crossfade, 3D ovoz, filtrlar, ambient zonalar —
+- **Terrain / map** — sculpting and painting, four GPU albedo/normal/ORM layers, tiling tied to metres, patch LOD,
+  heightmap and Jolt collision; the `MapWorkshop` sample — [Terrain.md](docs/Terrain.md)
+- **Packed foliage** — up to 65536 static instances per component, two model LODs, GPU compute culling (GL 4.3)
+  and a CPU fallback (GL 4.1); [FoliageWorkshop with 4096 trees](Projects/FoliageWorkshop/README.md). GPU shadow culling and real asset residency are still planned.
+- **World streaming v1:** camera radius/hysteresis, shared 2D/3D physics, lifecycle/unload, the editor grid/policy and export;
+  the [16-cell 3D](Projects/WorldWorkshop3D/README.md) and [12-cell 2D](Projects/WorldWorkshop2D/README.md) demos.
+  [Limits and tuning](docs/Terrain.md).
+- **World asset streaming:** a cell's textures/models are decoded/parsed on workers and uploaded to the GPU in a queue
+  under a per-frame byte budget; RSS / requested GPU limits evict far cells; a `.ztour` camera path
+  gives a frame-time and RSS report — [the 24-cell WorldGallery3D](Projects/WorldGallery3D/README.md),
+  [details](docs/Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
+- **Physics** — 2D (Box2D) and 3D (Jolt): colliders, joints, effectors, the Character Controller, queries,
+  collision layers, determinism — [Physics.md](docs/Physics.md)
+- **Quest/progression** — [objectives, prerequisites, one-time rewards, XP and save v2](docs/GameplayQuest.md), the compiler-free QuestWorkshop.
+- **Equipment and abilities** — [4 equipment slots, combat stats, energy, cooldowns, potions and save v3](docs/GameplayLoadout.md), the compiler-free [LoadoutWorkshop](Projects/LoadoutWorkshop/README.md).
+- **Projectiles and effects** — [2D/3D projectiles, area damage, stacking status effects, the combat HUD and save v4](docs/GameplayCombat.md), the compiler-free [CombatWorkshop](Projects/CombatWorkshop/README.md).
+- **Gameplay UI** — [live HUD, inventory pages, modal focus and pause](docs/GameplayUI.md), the compiler-free UIWorkshop.
+- **Gameplay save/load** — [stable-key snapshots, atomic slots and backups](docs/GameplaySave.md), the compiler-free SaveWorkshop.
+- **Gameplay AI** — [patrol/chase/attack/investigate/return, LOS and nav recovery](docs/GameplayAI.md), the compiler-free 2D/3D AIWorkshop.
+- **Combat and interaction** — [health/shield, inventory, keys/collectibles and respawn](docs/GameplayRules.md), the compiler-free RulesWorkshop.
+- **Gameplay** — [2D/3D motor, camera and checkpoints](docs/Gameplay.md), the compiler-free GameplayWorkshop courses.
+- **Animation** — property clips and the timeline, skeletal animation, the Animator (prioritized states, 1D/2D blends, typed parameters/damping, layers),
+  root motion, sprite clips — [Animation.md](docs/Animation.md)
+- **Audio** — miniaudio: mixer groups, music crossfade, 3D sound, filters, ambient zones —
   [Audio.md](docs/Audio.md)
-- **UI** — ekran interfeysi: langarlar, layout guruhlari, vidjetlar, navigatsiya, UI animatsiyalari — [UI.md](docs/UI.md)
-- **Sahnalar va prefab'lar** — additive yuklash, fonda yuklash, o'tishlar, sub-sahnalar; bog'langan prefab nusxalari,
-  override'lar, variantlar — [Scenes.md](docs/Scenes.md), [Prefabs.md](docs/Prefabs.md)
-- **AI** — NavGrid 2D / 3D va A*, Nav Agent, steering, ko'rish, patrul, formatsiya, behavior tree — [AI.md](docs/AI.md)
-- **Player va eksport** — bitta tugma bilan mustaqil o'yin papkasi (`.sh`, `.desktop`, ikonkalar), log, crash hisoboti,
-  buyruq qatori — [Runtime.md](docs/Runtime.md), [BuildAndExport.md](docs/BuildAndExport.md)
-- **Sifat** — headless unit testlar, rendering regressiya testi, editor smoke testi, sanitizerlar, kod qamrovi,
-  benchmarklar, hujjatlar tekshiruvi — [Testing.md](docs/Testing.md), [Quality.md](docs/Quality.md)
-- **Ishlash tezligi** — batching, keshlar, fonda yuklash, shader keshi, parallel particle / animatsiya, ishga
-  tushish vaqti va xotira o'lchovlari — [Performance.md](docs/Performance.md), [Benchmarks.md](docs/Benchmarks.md)
+- **UI** — the screen interface: anchors, layout groups, widgets, navigation, UI animations — [UI.md](docs/UI.md)
+- **Scenes and prefabs** — additive loading, background loading, transitions, sub-scenes; linked prefab instances,
+  overrides, variants — [Scenes.md](docs/Scenes.md), [Prefabs.md](docs/Prefabs.md)
+- **AI** — NavGrid 2D / 3D and A*, the Nav Agent, steering, sight, patrol, formations, behavior trees — [AI.md](docs/AI.md)
+- **Player and export** — a standalone game folder with one button (`.sh`, `.desktop`, icons), the log, the crash report,
+  the command line — [Runtime.md](docs/Runtime.md), [BuildAndExport.md](docs/BuildAndExport.md)
+- **Quality** — headless unit tests, the rendering regression test, the editor smoke test, sanitizers, code coverage,
+  benchmarks, the documentation check — [Testing.md](docs/Testing.md), [Quality.md](docs/Quality.md)
+- **Performance** — batching, caches, background loading, the shader cache, parallel particles / animation, start-up
+  time and memory measurements — [Performance.md](docs/Performance.md), [Benchmarks.md](docs/Benchmarks.md)
 
-**To'liq ro'yxat** (har bir imkoniyat tafsilotlari bilan): [docs/Features.md](docs/Features.md).
+**The full list** (with the details of every feature): [docs/Features.md](docs/Features.md).
 
 ---
 
-## 🚀 Tez boshlash
+## 🚀 Quick start
 
-Talablar: C++20 kompilyator (GCC 13+ yoki Clang 17+), CMake 3.20+, Ninja (ixtiyoriy), OpenGL 4.1+ drayveri, X11 /
-Wayland dev paketlari. Ubuntu / Debian:
+Requirements: a C++20 compiler (GCC 13+ or Clang 17+), CMake 3.20+, Ninja (optional), an OpenGL 4.1+ driver, the X11 /
+Wayland dev packages. Ubuntu / Debian:
 
 ```bash
 sudo apt install build-essential cmake ninja-build git \
@@ -100,8 +100,8 @@ sudo apt install build-essential cmake ninja-build git \
     libwayland-dev libxkbcommon-dev wayland-protocols zenity
 ```
 
-Fedora, Arch, CMake variantlari, presetlar va o'yinni eksport qilish: [BuildAndExport.md](docs/BuildAndExport.md).
-Qolgan kutubxonalar (GLFW, EnTT, ImGui, Box2D, Jolt ...) CMake orqali o'zi yuklab olinadi.
+Fedora, Arch, the CMake options, presets and exporting a game: [BuildAndExport.md](docs/BuildAndExport.md).
+The other libraries (GLFW, EnTT, ImGui, Box2D, Jolt ...) are downloaded by CMake itself.
 
 ```bash
 git clone https://github.com/abbosjon-dev/zamin-game-engine.git
@@ -109,41 +109,41 @@ cd zamin-game-engine
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 
-./build/bin/ZaminEditor                          # launcher: yangi loyiha, so'nggi loyihalar, namunalar
-./build/bin/ZaminEditor Projects/Platformer2D    # namuna 2D o'yin (Showcase3D, Adventure3D ham)
-./build/bin/ZaminPlayer Projects/Adventure3D     # o'yinni editorsiz (variantlar: --help)
-ctest --test-dir build -LE gui                   # tezkor testlar
+./build/bin/ZaminEditor                          # the launcher: a new project, recent projects, samples
+./build/bin/ZaminEditor Projects/Platformer2D    # the sample 2D game (Showcase3D and Adventure3D too)
+./build/bin/ZaminPlayer Projects/Adventure3D     # the game without the editor (options: --help)
+ctest --test-dir build -LE gui                   # the quick tests
 ```
 
-**Birinchi o'yin**: [2D qo'llanma](docs/Tutorial-2D.md) va [3D qo'llanma](docs/Tutorial-3D.md) — editorda qadam-baqadam,
-to'liq kod bilan. Qisqasi:
+**Your first game**: the [2D tutorial](docs/Tutorial-2D.md) and the [3D tutorial](docs/Tutorial-3D.md) — step by step in the editor,
+with the complete code. In short:
 
-1. `ZaminEditor` → **Yangi loyiha** → nom va joy → **Yaratish** (C++ skriptlar shablondan yaratilib kompilyatsiya qilinadi).
-2. Ierarxiyada `+` → obyekt yarating (masalan *2D → Fizik quti*).
-3. Inspektorda **+ Komponent → C++ Script** → klassni tanlang.
-4. **▶ O'ynash** (`Ctrl+P`).
-5. **Fayl → O'yinni build qilish** — tayyor o'yin papkasi va `.sh` launcher.
+1. `ZaminEditor` → **New project** → a name and a location → **Create** (the C++ scripts are created from a template and compiled).
+2. In the hierarchy `+` → create an entity (for example *2D → Physics box*).
+3. In the inspector **+ Component → C++ Script** → choose the class.
+4. **▶ Play** (`Ctrl+P`).
+5. **File → Build game** — a finished game folder and a `.sh` launcher.
 
-Loyiha tuzilmasi:
+The project layout:
 
 ```
-MeningOyinim/
-├── MeningOyinim.zproject     # loyiha sozlamalari
-├── CMakeLists.txt            # skript modulini build qilish (editor yaratadi)
-├── Source/                   # C++ o'yin skriptlari
+MyGame/
+├── MyGame.zproject           # the project settings
+├── CMakeLists.txt            # builds the script module (the editor creates it)
+├── Source/                   # the game's C++ scripts
 │   └── Scripts.cpp
-├── Assets/                   # sahnalar, teksturalar, ovozlar, modellar
+├── Assets/                   # scenes, textures, sounds, models
 │   ├── Scenes/Main.zscene
-│   └── Scenes/Main.zscene.zmeta  # asset UUID'si va import sozlamalari (versiya nazoratiga qo'shing)
-├── .zamin/                   # editor keshi: AssetRegistry.json, Thumbnails/ (qayta yasaladi, .gitignore'da)
-└── Binaries/libMeningOyinim.so   # kompilyatsiya qilingan skriptlar (avtomatik)
+│   └── Scenes/Main.zscene.zmeta  # the asset's UUID and import settings (add it to version control)
+├── .zamin/                   # the editor's cache: AssetRegistry.json, Thumbnails/ (rebuilt, in .gitignore)
+└── Binaries/libMyGame.so     # the compiled scripts (automatic)
 ```
 
 ---
 
-## 🧑‍💻 C++ skript
+## 🧑‍💻 A C++ script
 
-![Skript maydonlari inspektorda](docs/images/scripting-inspector-fields.jpg)
+![Script fields in the inspector](docs/images/scripting-inspector-fields.jpg)
 
 ```cpp
 #include <Zamin/Zamin.h>
@@ -152,72 +152,72 @@ using namespace Zamin;
 class Player : public ScriptableEntity
 {
 public:
-    float Speed = 6.0f;          // inspektorda ko'rinadi
+    float Speed = 6.0f;          // shown in the inspector
     float JumpImpulse = 9.0f;
 
-    void OnCreate() override { ZM_INFO("Salom, {}!", GetName()); }
+    void OnCreate() override { ZM_INFO("Hello, {}!", GetName()); }
 
     void OnUpdate(Timestep) override
     {
         glm::vec2 v = GetVelocity();                 // Rigidbody2D
-        v.x = Input::GetAxis("Horizontal") * Speed;  // A/D, strelkalar, gamepad
+        v.x = Input::GetAxis("Horizontal") * Speed;  // A/D, arrows, gamepad
         SetVelocity(v);
 
-        if (Input::IsActionJustPressed("Jump"))      // Space / gamepad A, bir marta
+        if (Input::IsActionJustPressed("Jump"))      // Space / gamepad A, once
             ApplyImpulse({ 0.0f, JumpImpulse });
     }
 
-    void OnTriggerBegin(Entity other) override       // tanganing collider'i - sensor
+    void OnTriggerBegin(Entity other) override       // the coin's collider is a sensor
     {
         if (other.HasTag("Coin"))
         {
-            SaveData::SetInt("Coins", SaveData::GetInt("Coins") + 1); // o'yinlar orasida saqlanadi
+            SaveData::SetInt("Coins", SaveData::GetInt("Coins") + 1); // kept between runs of the game
             PlaySound("Audio/coin.wav");
-            Destroy(other);                          // kadr oxirida o'chiriladi
+            Destroy(other);                          // destroyed at the end of the frame
         }
     }
 };
 
 ZM_REGISTER_SCRIPT(Player,
-    ZM_FIELD_RANGE(Player, Speed, 0.0f, 20.0f).Tooltip("Yurish tezligi"),
+    ZM_FIELD_RANGE(Player, Speed, 0.0f, 20.0f).Tooltip("Movement speed"),
     ZM_FIELD(Player, JumpImpulse))
 ```
 
-Skriptni o'zgartirgach **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) — modul editorni yopmasdan qayta
-yuklanadi. O'yin rejimi (Play) bo'lsa, u avval to'xtatiladi; inspektordagi maydon qiymatlari saqlanadi va yangi kod ular
-bilan ishlaydi. Hayot sikli, barcha callback'lar va API ma'lumotnomasi: [Scripting.md](docs/Scripting.md); komponentlar:
+After changing a script, **Scripts → Compile + reload** (`Ctrl+B`) — the module is reloaded without closing the editor.
+If the game is running (Play), it is stopped first; the field values in the inspector are kept and the new code works
+with them. The life cycle, all the callbacks and the API reference: [Scripting.md](docs/Scripting.md); the components:
 [Components.md](docs/Components.md).
 
 ---
 
-## 📚 Hujjatlar
+## 📚 Documentation
 
-To'liq ro'yxat: **[docs/README.md](docs/README.md)** (hujjatlar indeksi).
+The full list: **[docs/README.md](docs/README.md)** (the documentation index).
 
-| Boshlash | Qo'llanmalar | Ma'lumotnoma va ichki tuzilma |
+| Getting started | Guides | Reference and internals |
 |---|---|---|
-| [2D qo'llanma](docs/Tutorial-2D.md), [3D qo'llanma](docs/Tutorial-3D.md) | [Rendering](docs/Rendering.md), [Fizika](docs/Physics.md), [Animatsiya](docs/Animation.md) | [Komponentlar](docs/Components.md), [Imkoniyatlar](docs/Features.md) |
-| [Editor](docs/Editor.md), [Namuna o'yinlar](docs/Samples.md) | [Audio](docs/Audio.md), [UI](docs/UI.md), [Sahnalar](docs/Scenes.md), [Prefab'lar](docs/Prefabs.md) | [Arxitektura](docs/Architecture.md), [Core](docs/Core.md) |
-| [C++ skriptlar](docs/Scripting.md) | [AI](docs/AI.md), [Loyiha sozlamalari](docs/ProjectSettings.md), [Player](docs/Runtime.md) | [Build va eksport](docs/BuildAndExport.md), [FAQ](docs/FAQ.md) |
+| [2D tutorial](docs/Tutorial-2D.md), [3D tutorial](docs/Tutorial-3D.md) | [Rendering](docs/Rendering.md), [Physics](docs/Physics.md), [Animation](docs/Animation.md) | [Components](docs/Components.md), [Features](docs/Features.md) |
+| [Editor](docs/Editor.md), [Sample games](docs/Samples.md) | [Audio](docs/Audio.md), [UI](docs/UI.md), [Scenes](docs/Scenes.md), [Prefabs](docs/Prefabs.md) | [Architecture](docs/Architecture.md), [Core](docs/Core.md) |
+| [C++ scripts](docs/Scripting.md) | [AI](docs/AI.md), [Project settings](docs/ProjectSettings.md), [Player](docs/Runtime.md) | [Build and export](docs/BuildAndExport.md), [FAQ](docs/FAQ.md) |
 
-API ma'lumotnomasi (Doxygen): `cmake --build build --target docs` → `build/docs/html/index.html`
+The API reference (Doxygen): `cmake --build build --target docs` → `build/docs/html/index.html`
 ([BuildAndExport.md](docs/BuildAndExport.md#7-api-malumotnomasi-doxygen)).
 
 ---
 
-## 🤝 Hissa qo'shish
+## 🤝 Contributing
 
-Build, kod uslubi, testlar, commit qoidalari va hujjatlar: [CONTRIBUTING.md](CONTRIBUTING.md). O'zgarishlar tarixi
-milestone'lar bo'yicha: [CHANGELOG.md](CHANGELOG.md); reja: [docs/TASKS.md](docs/TASKS.md).
+Building, code style, tests, commit rules and documentation: [CONTRIBUTING.md](CONTRIBUTING.md). The history of changes
+by milestone: [CHANGELOG.md](CHANGELOG.md); the plan: [docs/TASKS.md](docs/TASKS.md).
 
-**Holat:** rejadagi 500 ta vazifaning hammasi (25 milestone, M01–M25) bajarilgan — [docs/TASKS.md](docs/TASKS.md).
-Yakuniy regressiya (gcc Debug / Release, clang, unit va render testlari, namunalar, editor smoke, hot reload, eksport,
-ASan + UBSan) natijalari: [docs/Quality.md](docs/Quality.md).
+**Status:** all 500 tasks of the plan (25 milestones, M01–M25) are done — [docs/TASKS.md](docs/TASKS.md).
+The results of the final regression (gcc Debug / Release, clang, unit and render tests, samples, editor smoke, hot reload, export,
+ASan + UBSan): [docs/Quality.md](docs/Quality.md).
 
-## 📦 Uchinchi tomon kutubxonalari
+## 📦 Third-party libraries
 
-GLFW (zlib), glad (MIT/Public), GLM (MIT), EnTT (MIT), Dear ImGui (MIT), ImGuizmo (MIT), Box2D (MIT), Jolt Physics (MIT), nlohmann/json (MIT), cgltf (MIT), stb (Public Domain/MIT), miniaudio (Public Domain/MIT-0), tinyobjloader (MIT). Shriftlar: Inter (SIL OFL 1.1), Font Awesome Free (SIL OFL 1.1) — litsenziyalar `Resources/fonts/` ichida.
+GLFW (zlib), glad (MIT/Public), GLM (MIT), EnTT (MIT), Dear ImGui (MIT), ImGuizmo (MIT), Box2D (MIT), Jolt Physics (MIT), nlohmann/json (MIT), cgltf (MIT), stb (Public Domain/MIT), miniaudio (Public Domain/MIT-0), tinyobjloader (MIT). Fonts: Inter (SIL OFL 1.1), Font Awesome Free (SIL OFL 1.1) — the licences are in `Resources/fonts/`.
 
-## Litsenziya
+## License
 
 MIT — [LICENSE](LICENSE).

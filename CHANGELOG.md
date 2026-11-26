@@ -9,7 +9,7 @@ milestone'iga tegishli; 500 vazifalik rejadan oldingi commit'lar — **M00**, dv
 
 Dvigatel versiyasi: **0.1.0** (`project(Zamin VERSION ...)`, hali reliz qilinmagan). Rejadagi milestone — M25
 "Optimallashtirish va sayqal" — [docs/TASKS.md](docs/TASKS.md) da. Yangi milestone'ning
-vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBUTING.md#9-vazifalar-royxati-va-changelog)).
+vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBUTING.md#9-the-task-list-and-the-changelog)).
 
 ## M25 Optimallashtirish va sayqal
 

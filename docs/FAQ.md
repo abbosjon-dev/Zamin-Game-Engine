@@ -55,7 +55,7 @@ O'yinning o'z tillari alohida - Project settings > Localization ([ProjectSetting
 
 ### Litsenziya qanday? O'yinimni sotsam bo'ladimi?
 
-Dvigatel - MIT ([LICENSE](../LICENSE)). Uchinchi tomon kutubxonalari va shriftlarning litsenziyalari [README](../README.md#-uchinchi-tomon-kutubxonalari)'ning
+Dvigatel - MIT ([LICENSE](../LICENSE)). Uchinchi tomon kutubxonalari va shriftlarning litsenziyalari [README](../README.md#-third-party-libraries)'ning
 oxirida (MIT, zlib, Public Domain, SIL OFL); o'yiningiz bilan birga tarqatiladigan shriftlar litsenziyalari
 `Resources/fonts/` da.
 

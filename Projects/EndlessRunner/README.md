@@ -1,75 +1,75 @@
-# Silk Road — 3D cheksiz yuguruvchi
+# Silk Road — a 3D endless runner
 
 ![Silk Road](Thumbnail.jpg)
 
-Ipak yo'li bo'ylab savdogar yuguradi. Yo'lning uch yo'lagi bor; aravalar, to'siqlar, gilam osilgan darvozalar,
-devorlar va karvonlar ustidan sakraysiz, tagidan sirpanib o'tasiz yoki yonidan aylanib o'tasiz. Yo'lda tangalar
-terasiz. Masofa oshgan sari tezlik ham oshadi. Dunyo oldinda protsedurali quriladi, yo'l esa hech qachon tugamaydi.
+A merchant runs along the Silk Road. The road has three lanes; you jump over carts, barriers, gates hung with carpets,
+walls and caravans, slide under them or go around them. You pick up coins on the way.
+The speed grows with the distance. The world is built procedurally ahead, and the road never ends.
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/EndlessRunner`, keyin Play |
-| O'yin | `./build/bin/ZaminPlayer Projects/EndlessRunner` |
-| Demo (bot yuguradi) | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/EndlessRunner` |
+| Editor | `./build/bin/ZaminEditor Projects/EndlessRunner`, then Play |
+| Game | `./build/bin/ZaminPlayer Projects/EndlessRunner` |
+| Demo (the bot runs) | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/EndlessRunner` |
 | Headless test | `Tests/samples_test.py --game EndlessRunner` |
 
-## Boshqaruv
+## Controls
 
-| Harakat | Klaviatura | Gamepad |
+| Action | Keyboard | Gamepad |
 |---|---|---|
-| Chap / o'ng yo'lak (`Left`, `Right`) | A / D, strelkalar | D-pad, LB / RB, chap stikni siltash (`Steer`) |
-| Sakrash (`Jump`) | Space, W, yuqori strelka | A |
-| Sirpanish (`Slide`; havoda bosilsa tez tushadi) | S, pastki strelka | B |
-| Pauza (`Pause`) | Esc, P | Start |
+| Left / right lane (`Left`, `Right`) | A / D, arrows | D-pad, LB / RB, a flick of the left stick (`Steer`) |
+| Jump (`Jump`) | Space, W, up arrow | A |
+| Slide (`Slide`; pressed in the air it drops fast) | S, down arrow | B |
+| Pause (`Pause`) | Esc, P | Start |
 
-## O'yin
+## The game
 
-- **To'siqlar** (har segmentda bitta naqsh, har doim kamida bitta o'tish yo'li qoladi): arava (ustidan sakrash yoki
-  aylanib o'tish), past to'siq (butun yo'l bo'ylab — sakrash), gilamli darvoza (tagidan sirpanish), baland devor va
-  uzun karvon (yo'lakni almashtirish kerak).
-- **Tangalar** qator yoki yoy bo'lib turadi. **Bonuslar**: magnit yaqin tangalarni o'ziga tortadi, qalqon bitta
-  urilishdan saqlaydi (to'siq parchalanib ketadi).
-- **Tezlik** masofa bilan oshadi: `StartSpeed` 11 m/s dan `MaxSpeed` 30 m/s gacha. Har 500 m'da e'lon chiqadi.
-- **Hisob**: masofa + tanga x 10. Rekord SaveData'da (`EndlessRunner.Best`, `EndlessRunner.BestDistance`).
-- **Urilish**: yuguruvchi yiqiladi, kamera silkinadi, parchalar sochiladi. So'ng natija oynasi chiqadi.
-- **Menyular**: bosh menyu (orqada bot yuguradi), pauza, natija oynasi (ochko, masofa, tangalar, rekord).
+- **Obstacles** (one pattern per segment, at least one way through always remains): a cart (jump over it or
+  go around), a low barrier (across the whole road — jump), a gate with a carpet (slide under it), a tall wall and
+  a long caravan (you have to change lanes).
+- **Coins** stand in a row or an arc. **Power-ups**: the magnet pulls nearby coins in, the shield saves you from one
+  crash (the obstacle falls apart).
+- **Speed** grows with the distance: from `StartSpeed` 11 m/s to `MaxSpeed` 30 m/s. An announcement comes every 500 m.
+- **Score**: distance + coins x 10. The record is in SaveData (`EndlessRunner.Best`, `EndlessRunner.BestDistance`).
+- **A crash**: the runner falls, the camera shakes, debris flies. Then the results window comes up.
+- **Menus**: the main menu (a bot runs behind it), pause, the results window (points, distance, coins, record).
 
-## Dvigatelning qaysi imkoniyatlari ko'rsatiladi
+## Which engine features it shows
 
-- Cheksiz dunyo: oldinda `SpawnAhead` metrgacha shablonlardan `Instantiate`, orqada qolganini o'chirish. Yo'l va qum
-  tekisliklari yuguruvchi bilan birga siljiydi, teksturasi esa joyida turadi (materialning UV siljishi). Shu tufayli
-  yo'l uzilmaydi.
-- To'qnashuvlar fizikasiz, oddiy qutilar bilan tekshiriladi: yugurish kichik qadamlarda hisoblanadi va har qadamdan
-  keyin tekshiriladi, shuning uchun sekin kadrda ham ingichka to'siqdan "sakrab o'tib" ketilmaydi.
-- Protsedurali animatsiya: yugurish fazasiga qarab qo'l-oyoqlar tebranadi, sakrashda oyoqlar yig'iladi, sirpanishda
-  tana orqaga yotadi, oyoq ostidan chang ko'tariladi.
-- 3D: quyoshli osmon, tuman, soyalar, bloom, PBR (g'isht va yo'l normal map'lari), zarralar
-  ([Rendering.md](../../docs/Rendering.md)); UI va lokalizatsiya ([UI.md](../../docs/UI.md)).
+- An endless world: `Instantiate` from templates up to `SpawnAhead` metres ahead, destroying what is left behind. The road
+  and sand planes move along with the runner while their texture stays in place (the material's UV offset). That is
+  why the road never breaks.
+- Collisions are checked without physics, with plain boxes: the run is computed in small steps and checked after
+  every step, so even in a slow frame a thin obstacle is never "jumped through".
+- Procedural animation: arms and legs swing with the run phase, the legs tuck in a jump, the body leans back in a
+  slide, dust rises from under the feet.
+- 3D: a sunny sky, fog, shadows, bloom, PBR (brick and road normal maps), particles
+  ([Rendering.md](../../docs/Rendering.md)); UI and localization ([UI.md](../../docs/UI.md)).
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Runner.h` | `RunnerGame`, `Runner`; to'siq va bonus turlari (`ObstacleKind`, `PickupKind`); bot uchun `Hazard` qidiruvi |
-| `RunnerGame.cpp` | Dunyo: segmentlar va to'siq naqshlari (`SpawnSegment`), tangalar, bonuslar, manzara (minoralar, palmalar, qum tepalari, uylar, ravoqlar), tezlik, kichik qadamli simulyatsiya va to'qnashuvlar, hisob, rekord, HUD, menyular, demo |
-| `Runner.cpp` | Yuguruvchi: yo'laklar orasida silliq o'tish, sakrash va gravitatsiya, sirpanish, animatsiya. Bot (`ThinkBot`) har yo'lakning bo'sh masofasini va tangalarini baholaydi. Sakrash nuqtasini tezlik va to'siq uzunligidan hisoblaydi, darvoza tagidan sirpanib o'tadi |
+| `Runner.h` | `RunnerGame`, `Runner`; the obstacle and power-up kinds (`ObstacleKind`, `PickupKind`); the `Hazard` lookup for the bot |
+| `RunnerGame.cpp` | The world: segments and obstacle patterns (`SpawnSegment`), coins, power-ups, scenery (minarets, palms, dunes, houses, arches), speed, the small-step simulation and collisions, score, the record, the HUD, menus, the demo |
+| `Runner.cpp` | The runner: smooth moves between lanes, jumping and gravity, sliding, animation. The bot (`ThinkBot`) rates every lane's free distance and coins. It works out the jump point from the speed and the obstacle's length, and slides under a gate |
 
-Inspektorda sozlanadigan maydonlar: `RunnerGame.StartSpeed`, `MaxSpeed`, `SpeedGain`, `SegmentLength`,
+Fields that can be tuned in the inspector: `RunnerGame.StartSpeed`, `MaxSpeed`, `SpeedGain`, `SegmentLength`,
 `SpawnAhead`, `AutoDemo`; `Runner.LaneWidth`, `JumpSpeed`, `Gravity`, `SlideTime`.
 
-## Assetlar va ovozlar
+## Assets and sounds
 
-`python3 Tools/samples/gen_endlessrunner.py` (numpy kerak) yo'l, g'isht, qum, koshin, gilam, mato va yog'och
-teksturalarini (yo'l va g'isht normal map'lari bilan), 11 ta WAV ovozni (tanga, sakrash, qo'nish, sirpanish,
-urilish, bonus, qalqon, shamol, musiqa ...), sahnani va loyiha faylini yaratadi. Assetlar ~1.3 MB.
-`Tests/samples_assets.py --regen` ularni generator natijasi bilan solishtiradi.
+`python3 Tools/samples/gen_endlessrunner.py` (needs numpy) makes the road, brick, sand, tile, carpet, cloth and wood
+textures (with the road and brick normal maps), 11 WAV sounds (coin, jump, landing, slide,
+crash, power-up, shield, wind, music ...), the scene and the project file. The assets are ~1.3 MB.
+`Tests/samples_assets.py --regen` compares them with the generator's output.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game EndlessRunner` ikki holatni tekshiradi:
+`Tests/samples_test.py --game EndlessRunner` checks two cases:
 
-- demo: bot 700 kadrda urilmasdan kamida 400 m yuguradi, tangalar yig'adi, tezlik oshadi;
-- menyular: hech kim boshqarmasa yuguruvchi birinchi to'siqqa urilib, natija oynasi chiqadi, so'ng bosh menyuga
-  qaytiladi.
+- demo: in 700 frames the bot runs at least 400 m without a crash, collects coins, and the speed grows;
+- menus: with nobody steering the runner hits the first obstacle and the results window comes up, then it goes back
+  to the main menu.

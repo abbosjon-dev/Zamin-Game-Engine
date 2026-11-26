@@ -1,65 +1,64 @@
-# Namuna o'yinlarning generatorlari (`Tools/samples`)
+# Generators of the sample games (`Tools/samples`)
 
-M24 dagi oltita namuna o'yinda (`Projects/TopDownShooter`, `Breakout`, `FPSArena`, `Sokoban`, `EndlessRunner`,
-`Racing`) qo'lda chizilgan rasm ham, yozib olingan ovoz ham yo'q. Teksturalar, sprite atlaslar, normal map'lar,
-`.obj` mesh'lar, WAV ovozlar, sahna (`.zscene`), `.zmeta` fayllar, `.zproject` va modulning `CMakeLists.txt` fayli
-shu papkadagi Python skriptlari bilan yaratiladi. Repozitoriyda retsept (skript) va undan chiqqan kichik fayllar
-saqlanadi. C++ skriptlar (`Projects/<O'yin>/Source`) esa qo'lda yoziladi va generatorlar ularga tegmaydi.
+The six sample games of M24 (`Projects/TopDownShooter`, `Breakout`, `FPSArena`, `Sokoban`, `EndlessRunner`,
+`Racing`) contain no hand-drawn picture and no recorded sound. The textures, sprite atlases, normal maps,
+`.obj` meshes, WAV sounds, the scene (`.zscene`), the `.zmeta` files, the `.zproject` and the module's `CMakeLists.txt`
+are made by the Python scripts in this folder. The repository keeps the recipe (the script) and the small files it
+produces. The C++ scripts (`Projects/<Game>/Source`) are written by hand and the generators do not touch them.
 
-| Fayl | Nima qiladi |
+| File | What it does |
 |---|---|
-| `samplekit.py` | Umumiy vositalar: PNG va WAV yozish (`zlib`, `wave` modullari), barqaror UUID'li `.zmeta`, signed-distance shakllar (yumshoq chet, nur sochish), tikiladigan qiymat shovqini, balandlikdan normal map; ovoz uchun oscillator'lar, ADSR, shovqin, filtrlar, notalar; `SceneBuilder` (engine o'qiydigan `.zscene` JSON) va komponent yordamchilari (`ui_backdrop` — menyu matni ostidagi to'q plastinka); `write_project` |
-| `gen_topdownshooter.py` | Neon Maydon: neon sprite atlas, pol va kosmos foni, 15 ta ovoz, sahna |
-| `gen_breakout.py` | Zamin Breakout: g'isht va bonus atlasi, maydon va fon, 15 ta ovoz, sahna |
-| `gen_fpsarena.py` | FPS Arena: beton, metall va quti teksturalari normal map'lari bilan, 22 ta ovoz, arena sahnasi |
-| `gen_sokoban.py` | Omborchi: g'isht, quti, pol teksturalari, 10 ta ovoz, sahna; `Levels.cpp` dagi har bir darajani yechib ko'radi |
-| `gen_endlessrunner.py` | Ipak Yo'li: yo'l, g'isht, qum, koshin, gilam teksturalari, 11 ta ovoz, sahna |
-| `gen_terrain_materials.py` | MapWorkshop uchun 12 ta seamless albedo/normal/ORM test xaritasi; Python standard library, sahna UUID havolalari |
-| `gen_racing.py` | Vodiy Poygasi: Catmull-Rom trassa va undan yasalgan `road.obj`, `kerbs.obj`, `barriers.obj`, teksturalar, 10 ta ovoz, sahna |
-| `gen_combat_workshop.py` | CombatWorkshop: compiler-free 2D/3D jang kursi — sahnalar, Blueprint graflari, vizual snaryad prefablari, manifest va QA oracle (baytma-bayt deterministik; LoadoutWorkshop sahnasidan) |
-| `gen_lantern_keeper.py` | LanternKeeper (Lantern Keeper): kompilyatorsiz 2D vertical slice — menyu, Bog'lar va Yertola darajalari, qahramon/dushman/boss, vazifalar, jihozlar, HUD, musiqa; `lantern_graphs.py` (sahnalar va graflar), `slicekit.py` (personajlar, tile'lar, ovoz, A* marshrut), `graphkit.py` (graf quruvchi); deterministik |
-| `gen_beacon_pass.py` | BeaconPass (Beacon Pass): kompilyatorsiz 3D vertical slice — menyu va Dovon darajasi (relyef, karvonsaroy, minora, qarag'aylar), odam modellari va Animator lokomotsiyasi, qorovullar/kamonchilar/boss, vazifalar, jihozlar, ziyoratgohlarda saqlash, musiqa; `beacon_graphs.py` (sahnalar va graflar), `gltfkit.py` (skinned glTF odamlar, kliplar, buyumlar), `slicekit.py`, `graphkit.py`; deterministik |
-| `make_thumbnails.py` | Launcher rasmlari (`Projects/*/Thumbnail.jpg`): o'yinlarning headless skrinshotlaridan |
+| `samplekit.py` | Shared tools: writing PNG and WAV (the `zlib` and `wave` modules), `.zmeta` with stable UUIDs, signed-distance shapes (soft edges, glow), tileable value noise, a normal map from a height map; for sound, oscillators, ADSR, noise, filters, notes; `SceneBuilder` (the `.zscene` JSON the engine reads) and component helpers (`ui_backdrop` — the dark plate under menu text); `write_project` |
+| `gen_topdownshooter.py` | Neon Arena: a neon sprite atlas, the floor and the space backdrop, 15 sounds, the scene |
+| `gen_breakout.py` | Zamin Breakout: the brick and power-up atlas, the field and the backdrop, 15 sounds, the scene |
+| `gen_fpsarena.py` | FPS Arena: concrete, metal and crate textures with their normal maps, 22 sounds, the arena scene |
+| `gen_sokoban.py` | Warehouse Keeper: brick, crate and floor textures, 10 sounds, the scene; solves every level of `Levels.cpp` |
+| `gen_endlessrunner.py` | Silk Road: road, brick, sand, tile and carpet textures, 11 sounds, the scene |
+| `gen_terrain_materials.py` | 12 seamless albedo/normal/ORM test maps for MapWorkshop; the Python standard library, the scene's UUID references |
+| `gen_racing.py` | Valley Race: a Catmull-Rom track and the `road.obj`, `kerbs.obj`, `barriers.obj` built from it, textures, 10 sounds, the scene |
+| `gen_combat_workshop.py` | CombatWorkshop: the compiler-free 2D/3D combat course — scenes, Blueprint graphs, visual projectile prefabs, the manifest and the QA oracle (byte-for-byte deterministic; from the LoadoutWorkshop scene) |
+| `gen_lantern_keeper.py` | LanternKeeper (Lantern Keeper): the compiler-free 2D vertical slice — the menu, the Orchards and Crypt levels, the hero/enemies/boss, quests, equipment, the HUD, music; `lantern_graphs.py` (scenes and graphs), `slicekit.py` (characters, tiles, sound, the A* route), `graphkit.py` (the graph builder); deterministic |
+| `gen_beacon_pass.py` | BeaconPass (Beacon Pass): the compiler-free 3D vertical slice — the menu and the Pass level (terrain, caravanserai, tower, pines), humanoid models and Animator locomotion, guards/archers/boss, quests, equipment, saving at shrines, music; `beacon_graphs.py` (scenes and graphs), `gltfkit.py` (skinned glTF humanoids, clips, props), `slicekit.py`, `graphkit.py`; deterministic |
+| `make_thumbnails.py` | The launcher pictures (`Projects/*/Thumbnail.jpg`): from headless screenshots of the games |
 
-## Qayta yaratish
+## Regenerating
 
 ```bash
-python3 Tools/samples/gen_racing.py            # bitta o'yin (numpy kerak)
+python3 Tools/samples/gen_racing.py            # one game (needs numpy)
 for g in topdownshooter breakout fpsarena sokoban endlessrunner racing; do python3 Tools/samples/gen_$g.py; done
-ZAMIN_SAMPLES_OUT=/tmp/out python3 Tools/samples/gen_breakout.py   # repozitoriyga emas, /tmp/out/Breakout ga
-python3 Tools/samples/make_thumbnails.py Racing                     # launcher rasmi (build, xvfb-run, Pillow kerak)
+ZAMIN_SAMPLES_OUT=/tmp/out python3 Tools/samples/gen_breakout.py   # into /tmp/out/Breakout, not the repository
+python3 Tools/samples/make_thumbnails.py Racing                     # the launcher picture (needs a build, xvfb-run, Pillow)
 ```
 
-Generatorlar deterministik: tasodifiy sonlarning urug'i qat'iy, UUID'lar asset yo'lidan hosil qilinadi. Shuning
-uchun bir xil skript har safar baytma-bayt bir xil fayllarni yozadi. Sahnalar engine'ning JSON formatida, faqat
-raqamlar ro'yxati bir qatorda yoziladi (`dumps_compact`). Natijada fayl ~20% kichikroq bo'ladi, engine uni oddiy
-JSON kabi o'qiydi.
+The generators are deterministic: the random seeds are fixed and the UUIDs are derived from the asset paths. So the
+same script writes byte-for-byte the same files every time. The scenes are in the engine's JSON format, only lists of
+numbers are written on one line (`dumps_compact`). That makes a file ~20% smaller, and the engine reads it like plain
+JSON.
 
-## Ovozlar qanday yasaladi
+## How the sounds are made
 
-Har bir ovoz numpy massivida bir necha qatlamdan quriladi:
+Every sound is built from a few layers in a numpy array:
 
-- oscillator (sinus, kvadrat, arra, uchburchak) tovush balandligi o'zgarib turadi (masalan, otish 1500 Hz dan
-  420 Hz gacha tushadi);
-- shovqin past yoki yuqori chastota filtridan o'tkaziladi (portlashda filtr chastotasi 5 kHz dan 180 Hz gacha
-  pasayadi);
-- konvert: tez ko'tarilish va eksponensial so'nish;
-- musiqa notalardan yig'iladi: baraban, xet, bas va kuy takti bo'yicha joylanadi, oxiri boshiga qo'shiladi, shuning
-  uchun takrorlanganda chok sezilmaydi.
+- an oscillator (sine, square, saw, triangle) whose pitch changes over time (a shot, for example, falls from 1500 Hz
+  to 420 Hz);
+- noise passed through a low-pass or high-pass filter (in an explosion the filter frequency drops from 5 kHz to
+  180 Hz);
+- an envelope: a fast attack and an exponential decay;
+- music is assembled from notes: drum, hat, bass and melody are placed by bars and the end is mixed into the start,
+  so no seam is heard when it loops.
 
-`write_wav` ovozni 22 050 Hz, mono, 16-bit qilib yozadi, cho'qqisini 0.89 ga normallashtiradi va boshi-oxiriga 3 ms
-so'nish qo'yadi (chertish eshitilmaydi). Effekt ovozlar 0.05–1.5 s, musiqa (FPS Arena'da muhit shovqini) 15–17 s
-davom etadi.
+`write_wav` writes the sound at 22 050 Hz, mono, 16-bit, normalizes its peak to 0.89 and puts a 3 ms fade at the start
+and the end (no click is heard). Effect sounds last 0.05–1.5 s, music (the ambience in FPS Arena) 15–17 s.
 
-## Budjet va tekshiruv
+## Budget and checks
 
-`Tests/samples_assets.py` (ctest: `SampleAssets`) har o'yin uchun quyidagilarni tekshiradi:
+`Tests/samples_assets.py` (ctest: `SampleAssets`) checks the following for every game:
 
-- `Assets/` hajmi 2 MiB dan oshmaydi (hozir 1.2–1.9 MiB);
-- tekstura 512 KB va 2048 px dan, ovoz 800 KB va 20 s dan, sahna 700 KB dan katta emas;
-- har asset `.zmeta` ga ega;
-- WAV fayllar jim emas va kesilmagan;
-- sahnalar va skriptlar nomlagan har bir fayl mavjud, har bir ovoz va tekstura biror joyda ishlatiladi.
+- `Assets/` is no larger than 2 MiB (1.2–1.9 MiB now);
+- a texture is no larger than 512 KB and 2048 px, a sound than 800 KB and 20 s, a scene than 700 KB;
+- every asset has a `.zmeta`;
+- the WAV files are neither silent nor clipped;
+- every file the scenes and scripts name exists, and every sound and texture is used somewhere.
 
-`--regen` varianti generatorlarni vaqtinchalik papkaga ishga tushiradi va natijani repozitoriydagi fayllar bilan
-solishtiradi. Generatorni o'zgartirsangiz, uni qayta ishga tushiring va yangi fayllarni ham commit qiling.
+The `--regen` variant runs the generators into a temporary folder and compares the result with the files in the
+repository. When you change a generator, run it again and commit the new files as well.

@@ -1,44 +1,44 @@
-# Zamin Engine'ga hissa qo'shish
+# Contributing to Zamin Engine
 
-Zamin'ga o'zgarish kiritmoqchi bo'lsangiz — xato tuzatish, yangi imkoniyat, namuna yoki hujjat — bu qo'llanma
-build, kod uslubi, testlar, matnlar tili, hujjatlar va commit qoidalarini tushuntiradi. Ichki tuzilma:
-[docs/Architecture.md](docs/Architecture.md); barcha hujjatlar: [docs/README.md](docs/README.md).
+If you want to change Zamin — a bug fix, a new feature, a sample or documentation — this guide explains
+building, code style, tests, the language of texts, documentation and the commit rules. The internals:
+[docs/Architecture.md](docs/Architecture.md); all the documents: [docs/README.md](docs/README.md).
 
-Mundarija:
+Contents:
 
-1. [Build va ishga tushirish](#1-build-va-ishga-tushirish)
-2. [Kod uslubi](#2-kod-uslubi)
-3. [Matnlar: o'zbekcha, `Tr()` va lokalizatsiya](#3-matnlar-ozbekcha-tr-va-lokalizatsiya)
-4. [Testlar](#4-testlar)
-5. [Sanitizerlar, qamrov, benchmarklar](#5-sanitizerlar-qamrov-benchmarklar)
-6. [Yangi komponent yoki skript API](#6-yangi-komponent-yoki-skript-api)
-7. [Hujjatlar va rasmlar](#7-hujjatlar-va-rasmlar)
-8. [Commit qoidalari](#8-commit-qoidalari)
-9. [Vazifalar ro'yxati va CHANGELOG](#9-vazifalar-royxati-va-changelog)
-10. [Pull request oldidan](#10-pull-request-oldidan)
+1. [Building and running](#1-building-and-running)
+2. [Code style](#2-code-style)
+3. [Texts: English, `Tr()` and localization](#3-texts-english-tr-and-localization)
+4. [Tests](#4-tests)
+5. [Sanitizers, coverage, benchmarks](#5-sanitizers-coverage-benchmarks)
+6. [A new component or script API](#6-a-new-component-or-script-api)
+7. [Documentation and pictures](#7-documentation-and-pictures)
+8. [Commit rules](#8-commit-rules)
+9. [The task list and the CHANGELOG](#9-the-task-list-and-the-changelog)
+10. [Before a pull request](#10-before-a-pull-request)
 
 ---
 
-## 1. Build va ishga tushirish
+## 1. Building and running
 
-Talablar va boshqa distributivlar: [BuildAndExport.md](docs/BuildAndExport.md#1-talablar). Ishlab chiqish uchun Debug
-build qulay (assert'lar yoqiq):
+Requirements and other distributions: [BuildAndExport.md](docs/BuildAndExport.md#1-talablar). A Debug build is
+convenient for development (asserts are on):
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug   # yoki: cmake --preset debug
-cmake --build build 2>&1 | grep -E "error|warning"       # bo'sh chiqishi kerak
-./build/bin/ZaminTests                                   # oxirgi qator: "N test, 0 xato"
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug   # or: cmake --preset debug
+cmake --build build 2>&1 | grep -E "error|warning"       # must print nothing
+./build/bin/ZaminTests                                   # the last line: "N tests, 0 failures"
 ```
 
-- Manba fayllar glob bilan yig'iladi: **yangi** `.cpp` / `.h` qo'shgandan keyin `cmake -S . -B build` ni qayta
-  ishga tushiring.
-- Namuna o'yinlar (`Projects/Platformer2D`, `Showcase3D`, `Adventure3D`) asosiy build'ning bir qismi: dvigatel API'si
-  o'zgarsa ularning skriptlari ham kompilyatsiya qilinadi — ular ham buzilmasligi kerak.
-- Presetlar (`CMakePresets.json`): `debug`, `release`, `clang`, `asan`, `ubsan`, `lsan`, `tsan`, `coverage`.
-  CMake variantlari: [BuildAndExport.md, 3-bo'lim](docs/BuildAndExport.md#3-cmake-variantlari).
-- Editor va player'ni displeysiz tekshirish (headless, `xvfb-run`; editor va player avtomatlashtirish o'zgaruvchilari
-  — [Editor.md, 15-bo'lim](docs/Editor.md#15-avtomatlashtirish-skrinshotlar-ci) va
-  [Runtime.md, 14-bo'lim](docs/Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari)):
+- Source files are collected with a glob: after adding a **new** `.cpp` / `.h`, run `cmake -S . -B build`
+  again.
+- The sample games (`Projects/Platformer2D`, `Showcase3D`, `Adventure3D`) are part of the main build: when the engine API
+  changes their scripts are compiled too — they must not break either.
+- Presets (`CMakePresets.json`): `debug`, `release`, `clang`, `asan`, `ubsan`, `lsan`, `tsan`, `coverage`.
+  The CMake options: [BuildAndExport.md, section 3](docs/BuildAndExport.md#3-cmake-variantlari).
+- Checking the editor and the player without a display (headless, `xvfb-run`; the automation variables of the editor
+  and the player — [Editor.md, section 15](docs/Editor.md#15-avtomatlashtirish-skrinshotlar-ci) and
+  [Runtime.md, section 14](docs/Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari)):
 
 ```bash
 ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=/tmp/editor.png xvfb-run -a -s "-screen 0 1600x900x24" \
@@ -47,177 +47,179 @@ ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=/tmp/game.png xvfb-run -a -s "-screen 0 160
     ./build/bin/ZaminPlayer Projects/Adventure3D 2>&1 | grep -iE "error|assert"
 ```
 
-## 2. Kod uslubi
+## 2. Code style
 
-Uslub `.clang-format` faylida (clang-format 17+): u **mavjud** uslubni tasvirlaydi, kod bazasini qayta formatlash
-uchun emas.
+The style is in the `.clang-format` file (clang-format 17+): it describes the **existing** style and is not meant for
+reformatting the code base.
 
-- C++20, hamma narsa `namespace Zamin` ichida; 4 bo'shliq, tab yo'q; qavslar yangi qatorda (Allman) —
-  `namespace Zamin {` bundan mustasno, ichi chekinish bilan.
-- `Type* name`, `Type& name`; `template<typename T>`; `{ 1.0f, 2.0f }` (qavs ichida bo'shliq).
-- Ustun chegarasi yo'q: qo'lda bo'lingan qatorlar saqlanadi (odatda ~120–160 ustun); include tartibi o'zgartirilmaydi.
-- Nomlar: klasslar, funksiyalar, komponent maydonlari — `PascalCase` (`TransformComponent::Translation`,
-  `Scene::OnUpdateRuntime`); a'zo o'zgaruvchilar — `m_` (`m_ActiveScene`), statik — `s_`; makroslar — `ZM_`.
+- C++20, everything inside `namespace Zamin`; 4 spaces, no tabs; braces on a new line (Allman) —
+  except `namespace Zamin {`, whose body is indented.
+- `Type* name`, `Type& name`; `template<typename T>`; `{ 1.0f, 2.0f }` (a space inside the braces).
+- No column limit: lines broken by hand are kept (usually ~120–160 columns); the include order is not changed.
+- Names: classes, functions, component fields — `PascalCase` (`TransformComponent::Translation`,
+  `Scene::OnUpdateRuntime`); member variables — `m_` (`m_ActiveScene`), statics — `s_`; macros — `ZM_`.
 - `Ref<T>` = `std::shared_ptr<T>`, `Scope<T>` = `std::unique_ptr<T>` (`Core/Base.h`).
-- Log: dvigatelda `ZM_CORE_INFO` / `ZM_CORE_WARN` / `ZM_CORE_ERROR`, editor, player va o'yinlarda `ZM_INFO` /
-  `ZM_WARN` / `ZM_ERROR` — `std::format` sintaksisi bilan (`ZM_WARN("Fayl topilmadi: {}", path)`). Tekshiruvlar:
-  `ZM_ASSERT` / `ZM_CORE_ASSERT` (faqat assert'lar yoqiq build'da) va `ZM_VERIFY` (doim bajariladi) — xabar bilan
-  ([Core.md, 12-bo'lim](docs/Core.md#12-assert-va-verify)).
-- Kod izohlari — **inglizcha**. Ommaviy header'larda Doxygen izohlari (`///`, `///<`): yangi ommaviy klass yoki
-  funksiyaga qisqa, aniq izoh yozing — `cmake --build build --target docs` ogohlantirishsiz bo'lishi kerak
+- Logging: `ZM_CORE_INFO` / `ZM_CORE_WARN` / `ZM_CORE_ERROR` in the engine, `ZM_INFO` /
+  `ZM_WARN` / `ZM_ERROR` in the editor, the player and games — with `std::format` syntax (`ZM_WARN("File not found: {}", path)`). Checks:
+  `ZM_ASSERT` / `ZM_CORE_ASSERT` (only in builds with asserts on) and `ZM_VERIFY` (always evaluated) — with a message
+  ([Core.md, section 12](docs/Core.md#12-assert-va-verify)).
+- Code comments are in **English**. Public headers carry Doxygen comments (`///`, `///<`): write a short, precise
+  comment for a new public class or function — `cmake --build build --target docs` must stay free of warnings
   (`build/docs/doxygen-warnings.log`).
-- Build **ogohlantirishsiz**: bizning target'lar `-Wall -Wextra -Wpedantic` bilan GCC va Clang'da
+- The build has **no warnings**: our targets use `-Wall -Wextra -Wpedantic` with GCC and Clang
   (`zamin_target_settings`, `cmake/ZaminGame.cmake`).
 
-Faqat o'zingiz o'zgartirgan qatorlarni tekshiring:
+Check only the lines you changed yourself:
 
 ```bash
-Tests/format_check.sh                 # commit qilinmagan o'zgarishlar (HEAD ga nisbatan)
-Tests/format_check.sh --base main     # tarmoq main'dan ajralgandan beri
+Tests/format_check.sh                 # uncommitted changes (against HEAD)
+Tests/format_check.sh --base main     # since the branch left main
 Tests/format_check.sh --fix --base main
 ```
 
-Yangi fayllar git'ga qo'shilgan bo'lishi kerak (`git add` yoki `git add -N`). `vendor/` hech qachon formatlanmaydi.
-clang-format ifodalay olmaydigan uy odatlari bor — bir qatordagi bir nechta qisqa ifoda (`a.X = 1; a.Y = 2;`), bir
-qatorli qisqa `enum` — shunday qatordagi taklifni e'tiborsiz qoldirish mumkin; shuning uchun CI'dagi `format` job
-faqat ogohlantiradi. Butun kod bazaning farqi: `Tests/format_check.sh --stats` ([Quality.md](docs/Quality.md#formatlash)).
+New files must be added to git (`git add` or `git add -N`). `vendor/` is never formatted.
+There are house habits clang-format cannot express — several short statements on one line (`a.X = 1; a.Y = 2;`), a
+short one-line `enum` — a suggestion on such a line may be ignored; that is why the `format` job in CI
+only warns. The difference for the whole code base: `Tests/format_check.sh --stats` ([Quality.md](docs/Quality.md#formatlash)).
 
-## 3. Matnlar: o'zbekcha, `Tr()` va lokalizatsiya
+## 3. Texts: English, `Tr()` and localization
 
-- Foydalanuvchi ko'radigan **hamma** matn — editor interfeysi, log va xato xabarlari, player oynalari — o'zbek tilida,
-  lotin yozuvida (`o'` / `g'` va tutuq belgisi oddiy `'` bilan). Kod izohlari va identifikatorlar — inglizcha.
-- **Editor matnlari** `Tr()` orqali o'tadi (`Zamin/Editor/EditorLanguage.h`): o'zbekcha matnning o'zi kalit, inglizcha
-  tarjimasi `Zamin/src/Zamin/Editor/EditorLanguage.cpp` dagi `s_English` jadvalida. Boshidagi ikonka (`ICON_FA_...`),
-  oxiridagi `...` / `:` va ImGui id'si (`##id`, `###id`) tarjimaga kirmaydi:
+- **Every** text a user or a developer sees — the editor interface, log and error messages, the player's windows, the
+  output of tests and tools, documentation — is in English. Code comments and identifiers are in English too.
+- **Editor texts** go through `Tr()` (`Zamin/Editor/EditorLanguage.h`): for historical reasons the key is the Uzbek
+  text, and its English text — what the editor shows by default — is in the `s_English` table of
+  `Zamin/src/Zamin/Editor/EditorLanguage.cpp`. Uzbek remains an optional translation that can be selected in the
+  preferences. A leading icon (`ICON_FA_...`), a trailing `...` / `:` and an ImGui id (`##id`, `###id`) are not part of
+  the key:
 
   ```cpp
-  if (ImGui::MenuItem(Tr(ICON_FA_GEAR "  Loyiha sozlamalari...")))   // jadvalda: { "Loyiha sozlamalari", "Project settings" }
+  if (ImGui::MenuItem(Tr(ICON_FA_GEAR "  Loyiha sozlamalari...")))   // in the table: { "Loyiha sozlamalari", "Project settings" }
       m_ShowProjectSettings = true;
-  ImGui::Begin(Tr(ICON_FA_STOPWATCH "  Profiler###Profiler"));       // ### - til o'zgarsa ham oyna id'si bir xil
+  ImGui::Begin(Tr(ICON_FA_STOPWATCH "  Profiler###Profiler"));       // ### - the window id stays the same when the language changes
   ```
 
-  `UI::PropertyLabel`, `UI::PropertyHeader` kabi yordamchilar (`Editor/src/UI.h`) `Tr()` ni o'zi chaqiradi. Bir xil
-  o'zbekcha so'z ikki ma'noda bo'lsa — `EditorText::Choose("Bekor qilish", "Undo")`. Jadvalda tarjimasi yo'q matn
-  o'zbekcha ko'rinadi (xato emas), lekin menyu, oyna sarlavhasi va umumiy tugmalar uchun tarjima qo'shing. Inglizcha
-  interfeysni tekshirish: `ZAMIN_EDITOR_LANGUAGE=en`. `EditorLanguageStrings` testi jadvalda takroriy yoki bo'sh
-  yozuv yo'qligini tekshiradi.
-- **Log xabarlari** tarjima qilinmaydi — to'g'ridan-to'g'ri o'zbekcha: `ZM_CORE_ERROR("Sahna yuklanmadi: {}", path)`.
-  [FAQ.md](docs/FAQ.md) dagi xabarni o'zgartirsangiz, FAQ'ni ham yangilang (`DocsCheck` tekshiradi).
-- **O'yin matnlari** (o'yinchi ko'radigani) — dvigatel emas, o'yinning ishi: `Assets/Localization/<til>.json` va
-  skriptdagi lokalizatsiya API ([ProjectSettings.md](docs/ProjectSettings.md), [Scripting.md](docs/Scripting.md)).
+  Helpers such as `UI::PropertyLabel` and `UI::PropertyHeader` (`Editor/src/UI.h`) call `Tr()` themselves. When the same
+  Uzbek word has two meanings — `EditorText::Choose("Bekor qilish", "Undo")`. A key with no pair in the table
+  is shown as it is, in Uzbek — so **every new key needs its English pair in the table**. The interface language can be
+  forced with `ZAMIN_EDITOR_LANGUAGE=en` / `uz`. The `EditorLanguageStrings` test checks that the table has no duplicate
+  or empty entries.
+- **Log messages** are not translated — they are written directly in English: `ZM_CORE_ERROR("The scene could not be loaded: {}", path)`.
+  If you change a message quoted in [FAQ.md](docs/FAQ.md), update the FAQ too (`DocsCheck` checks it).
+- **Game texts** (what the player sees) are the game's business, not the engine's: `Assets/Localization/<language>.json` and
+  the localization API in scripts ([ProjectSettings.md](docs/ProjectSettings.md), [Scripting.md](docs/Scripting.md)).
 
-## 4. Testlar
+## 4. Tests
 
-| Nima o'zgardi | Nimani ishga tushirish |
+| What changed | What to run |
 |---|---|
-| Har qanday o'zgarish | `cmake --build build` (ogohlantirishsiz) va `./build/bin/ZaminTests` (`N test, 0 xato`) |
-| Dvigatel mantig'i | Yangi yoki kengaytirilgan unit test `Tests/ZaminTests.cpp` da |
-| Hujjatlar, komponentlar, skript API, player variantlari | `ctest --test-dir build -L docs` |
-| Rendering | `Tests/render_tests.sh` (ko'rinish ataylab o'zgargan bo'lsa `--update`) |
-| Editor | Editor smoke testi: `Tests/editor_smoke.sh` (yoki `ctest --test-dir build -L gui`) |
-| Skript moduli, eksport | `Tests/hot_reload_test.sh`, `Tests/export_test.sh` |
+| Any change | `cmake --build build` (no warnings) and `./build/bin/ZaminTests` (`N tests, 0 failures`) |
+| Engine logic | A new or extended unit test in `Tests/ZaminTests.cpp` |
+| Documentation, components, the script API, player options | `ctest --test-dir build -L docs` |
+| Rendering | `Tests/render_tests.sh` (`--update` when the look changed on purpose) |
+| Editor | The editor smoke test: `Tests/editor_smoke.sh` (or `ctest --test-dir build -L gui`) |
+| The script module, export | `Tests/hot_reload_test.sh`, `Tests/export_test.sh` |
 
-Unit testlar headless (GPU va oyna yo'q) — **tekstura, mesh, shrift yoki shader yaratmang**. Asosiy kamerasi yo'q
-sahna chizilmaydi, shuning uchun uning runtime yangilanishini testda bemalol chaqirish mumkin. Test yozilishi:
+Unit tests are headless (no GPU and no window) — **do not create textures, meshes, fonts or shaders**. A scene with no
+primary camera is not drawn, so its runtime update can be called freely in a test. How a test is written:
 
 ```cpp
 TEST(MyFeatureRoundTrip)
 {
     Ref<Scene> scene = CreateRef<Scene>();
-    Entity e = scene->CreateEntity("Quti");
+    Entity e = scene->CreateEntity("Crate");
     e.GetComponent<TransformComponent>().Translation = { 1.0f, 2.0f, 3.0f };
     CHECK(e.GetComponent<TransformComponent>().Translation.y == 2.0f);
     CHECK_NEAR(e.GetComponent<TransformComponent>().Translation.z, 3.0f, 1e-5f);
 }
 ```
 
-- Testni mavzusiga mos bo'lim izohi (`// ---------- ...`) ostiga qo'ying, keyin ro'yxatni yangilang:
-  `Tests/test_catalog.py --update docs/Testing.md` (`DocsCheck` eskirgan ro'yxatni topadi).
-- Tuzatilgan har bir xatoga uni qaytarmaydigan test yozing ([Testing.md](docs/Testing.md#topilgan-xatolarni-qoriqlovchi-testlar)).
-- Bitta testni ishga tushirish: `./build/bin/ZaminTests MyFeature*` (glob, `-` bilan chiqarib tashlash, `--list`,
-  `--timing`) — [Testing.md, 1-bo'lim](docs/Testing.md#1-unit-testlar---zamintests).
+- Put the test under the section comment (`// ---------- ...`) that fits its subject, then update the list:
+  `Tests/test_catalog.py --update docs/Testing.md` (`DocsCheck` finds a stale list).
+- For every bug you fix, write a test that keeps it from coming back ([Testing.md](docs/Testing.md#topilgan-xatolarni-qoriqlovchi-testlar)).
+- Running one test: `./build/bin/ZaminTests MyFeature*` (a glob, `-` to exclude, `--list`,
+  `--timing`) — [Testing.md, section 1](docs/Testing.md#1-unit-testlar---zamintests).
 
-## 5. Sanitizerlar, qamrov, benchmarklar
+## 5. Sanitizers, coverage, benchmarks
 
-- Xotira bilan ishlaydigan, ko'p oqimli yoki fizika / audio kodini o'zgartirsangiz — sanitizerlar:
-  `Tests/sanitize.sh address --smoke --editor-smoke` (ASan + LSan) va `Tests/sanitize.sh undefined --compiler clang`.
-  Ular alohida `build-asan` / `build-ubsan` papkalarida build qiladi. Bizning koddagi xato hech qachon
-  `Tests/sanitizers/*.supp` ga yozilmaydi — tuzatiladi; u yerda faqat uchinchi tomon kodining shovqini (izohi bilan).
-- Kod qamrovi: `Tests/coverage.sh [--gui] [--html]` ([Coverage.md](docs/Coverage.md)).
-- Tezlikka ta'sir qiladigan o'zgarishda: `Tests/bench.sh --compare` (Release boshlang'ich natijasi bilan) va kerak
-  bo'lsa `Tests/render_bench.sh` ([Benchmarks.md](docs/Benchmarks.md)).
+- If you change code that deals with memory, threads or physics / audio — the sanitizers:
+  `Tests/sanitize.sh address --smoke --editor-smoke` (ASan + LSan) and `Tests/sanitize.sh undefined --compiler clang`.
+  They build in separate `build-asan` / `build-ubsan` folders. A bug in our own code is never written into
+  `Tests/sanitizers/*.supp` — it is fixed; only the noise of third-party code goes there (with a comment).
+- Code coverage: `Tests/coverage.sh [--gui] [--html]` ([Coverage.md](docs/Coverage.md)).
+- For a change that affects speed: `Tests/bench.sh --compare` (against the Release baseline) and, when needed,
+  `Tests/render_bench.sh` ([Benchmarks.md](docs/Benchmarks.md)).
 
-## 6. Yangi komponent yoki skript API
+## 6. A new component or script API
 
-Yangi komponent — [Architecture.md, 17-bo'lim](docs/Architecture.md#17-yangi-komponent-qoshish) dagi ro'yxat:
-`Components.h` (struct + `AllComponents`), `ComponentRegistry`, `SceneSerializer.cpp` (yozish va o'qish),
-`SceneHierarchyPanel.cpp` (`AddSection<T>` inspektor bo'limi va `DisplayAddComponentEntry<T>`), runtime maydonlari
-bo'lsa `Scene.cpp` dagi `ResetRuntimeData` ning ikkala varianti, unit test, so'ng hujjat:
-[Components.md](docs/Components.md) da `### NomComponent` bo'limi va qo'lda yozilgan tavsif, keyin
-`python3 Tests/docs_components.py --update docs/Components.md` (maydonlar jadvali koddan yaratiladi).
+A new component — the list in [Architecture.md, section 17](docs/Architecture.md#17-yangi-komponent-qoshish):
+`Components.h` (the struct + `AllComponents`), `ComponentRegistry`, `SceneSerializer.cpp` (writing and reading),
+`SceneHierarchyPanel.cpp` (the `AddSection<T>` inspector section and `DisplayAddComponentEntry<T>`), both variants of
+`ResetRuntimeData` in `Scene.cpp` if it has runtime fields, a unit test, then the documentation:
+a `### NameComponent` section with a hand-written description in [Components.md](docs/Components.md), then
+`python3 Tests/docs_components.py --update docs/Components.md` (the field table is generated from the code).
 
-`ScriptableEntity` ga yangi ommaviy funksiya — [Scripting.md](docs/Scripting.md) da tilga oling (API ma'lumotnomasi
-jadvali). Player'ga yangi buyruq qatori varianti — [Runtime.md](docs/Runtime.md) da; yangi `ZAMIN_*` CMake varianti —
-[BuildAndExport.md](docs/BuildAndExport.md) da. Bularni `DocsCheck` tekshiradi.
+A new public function of `ScriptableEntity` — mention it in [Scripting.md](docs/Scripting.md) (the API reference
+table). A new command line option of the player — in [Runtime.md](docs/Runtime.md); a new `ZAMIN_*` CMake option —
+in [BuildAndExport.md](docs/BuildAndExport.md). `DocsCheck` checks these.
 
-## 7. Hujjatlar va rasmlar
+## 7. Documentation and pictures
 
-- Hujjatlar `docs/` da, **o'zbekcha**, fayl nomlari PascalCase (`Scripting.md`, `BuildAndExport.md`). Yangi hujjatni
-  [docs/README.md](docs/README.md) indeksiga qo'shing. Mavjud hujjatni takrorlamang — havola bering.
-- Har bir klass, funksiya, maydon, makros, menyu yo'li, muhit o'zgaruvchisi va fayl nomi kodda **haqiqatan bor**
-  bo'lishi kerak — yozishdan oldin `grep` bilan tekshiring. Kod misollari ishlaydigan bo'lsin: hujjatdagi butun skript
-  klasslari (`class X : public ScriptableEntity`) `DocsSnippets` testida kompilyatsiya qilinadi.
-- Tekshiruvlar: `ctest --test-dir build -L docs` — `DocsCheck` (`Tests/docs_check.py`: havolalar va `#langar`lar,
-  komponentlar, skript API, player variantlari, FAQ xabarlari, CMake variantlari, testlar katalogi, CHANGELOG,
-  indeks, rasmlar) va `DocsSnippets` (`Tests/docs_snippets.py`).
-- **Rasmlar** `docs/images/` da: haqiqiy editor / player skrinshotlari (headless, yuqoridagi buyruqlar va
-  `ZAMIN_EDITOR_*` o'zgaruvchilari bilan), kengligi **1280 px** dan oshmaydi, har biri **400 KB** gacha (`DocsCheck`
-  tekshiradi), har biri biror hujjatda ishlatilgan. Tavsiya etilgan aylantirish:
-
-  ```bash
-  convert shot.png -resize '1280x>' -strip -interlace JPEG -quality 85 docs/images/mavzu-nima.jpg
-  ```
-
-  Rasm ostiga kursiv izoh yozing: qaysi loyiha / sahna, nima ko'rinyapti.
-
-## 8. Commit qoidalari
-
-- Commit sarlavhasi **o'zbekcha**, qisqa xulosa; milestone raqami bilan boshlanadi
-  ([docs/TASKS.md](docs/TASKS.md)): `M22: 436-440 bajarildi - .clang-format, CI sanitizers job ...`. Ish tugamagan
-  bo'lsa — `M22 (jarayonda): ...`, oldingi ishni tuzatsa — `M22 tuzatishlar: ...`. `Tests/changelog.py` commit'larni
-  shu prefiks bo'yicha milestone'larga ajratadi (prefikssiz commit oldingisiga qo'shiladi).
-- Har bir commit build qilinadi va testlardan o'tadi (bisect uchun); build natijalari (`build/`,
-  `Projects/*/Binaries/`, `Projects/*/.zamin/`) commit qilinmaydi — `.gitignore` ularni chetlatadi.
-- Bir commit — bitta mantiqiy o'zgarish (katta milestone bir nechta commit'ga bo'linadi). Tarix qayta yozilmaydi
-  (`push --force` yo'q).
-- Kod bilan birga uning testi va hujjati bitta commit'da.
-
-## 9. Vazifalar ro'yxati va CHANGELOG
-
-- Vazifa bajarilib **tekshirilgandan** keyin [docs/TASKS.md](docs/TASKS.md) da `- [ ] NNN.` ni `- [x] NNN.` ga
-  o'zgartiring. Qisman bajarilganini belgilamang.
-- [CHANGELOG.md](CHANGELOG.md) — milestone'lar bo'yicha, eng yangisi tepada. Milestone'ning birinchi vazifasi
-  bajarilganda unga `## Mnn Nomi` bo'limini qo'shing va asosiy o'zgarishlarni qisqa ro'yxat qilib yozing. Bo'lim
-  ostidagi birinchi qator git tarixidan olinadi:
+- The documents are in `docs/`, in **English**, with PascalCase file names (`Scripting.md`, `BuildAndExport.md`). Add a new
+  document to the [docs/README.md](docs/README.md) index. Do not repeat an existing document — link to it.
+- Every class, function, field, macro, menu path, environment variable and file name must **really exist** in the
+  code — check with `grep` before writing. Code examples must work: whole script classes in the documents
+  (`class X : public ScriptableEntity`) are compiled by the `DocsSnippets` test.
+- The checks: `ctest --test-dir build -L docs` — `DocsCheck` (`Tests/docs_check.py`: links and `#anchor`s,
+  components, the script API, player options, FAQ messages, CMake options, the test catalog, the CHANGELOG,
+  the index, pictures) and `DocsSnippets` (`Tests/docs_snippets.py`).
+- **Pictures** are in `docs/images/`: real editor / player screenshots (headless, with the commands above and the
+  `ZAMIN_EDITOR_*` variables), no wider than **1280 px**, each up to **400 KB** (`DocsCheck`
+  checks this), each used in some document. The recommended conversion:
 
   ```bash
-  python3 Tests/changelog.py               # har milestone uchun to'g'ri qator (sana, vazifalar, commit'lar)
-  python3 Tests/changelog.py --commits M23 # milestone commit'lari - xulosa yozish uchun
-  python3 Tests/changelog.py --check       # CHANGELOG.md tarixga mosmi (DocsCheck ham shuni qiladi)
+  convert shot.png -resize '1280x>' -strip -interlace JPEG -quality 85 docs/images/topic-what.jpg
   ```
 
-  Eng so'nggi milestone qatorida faqat birinchi commit tekshiriladi (u har commit bilan o'sadi); keyingi milestone
-  boshlanganda oldingisining qatorini to'liq (commit'lar soni va oralig'i) yangilang.
+  Write a caption in italics under a picture: which project / scene, what is shown.
 
-## 10. Pull request oldidan
+## 8. Commit rules
 
-- [ ] `cmake --build build` — xato va ogohlantirishsiz (GCC; imkon bo'lsa Clang ham: `cmake --preset clang`).
-- [ ] `./build/bin/ZaminTests` — `0 xato`; `ctest --test-dir build -LE gui` — hammasi o'tdi.
-- [ ] Editor, rendering yoki player o'zgargan bo'lsa — headless smoke (1-bo'lim) yoki `ctest --test-dir build -L gui`.
-- [ ] `Tests/format_check.sh --base main` — yangi qatorlar uslubda.
-- [ ] Yangi foydalanuvchi matnlari o'zbekcha, editor matnlari `Tr()` bilan (va tarjimasi jadvalda).
-- [ ] Hujjatlar yangilandi (`ctest --test-dir build -L docs`), kerak bo'lsa rasm; TASKS.md va CHANGELOG.md.
+- The commit title is a short summary in **English**. Through M25 titles started with the milestone number
+  ([docs/TASKS.md](docs/TASKS.md)) and were in Uzbek: `M22: 436-440 bajarildi - .clang-format, CI sanitizers job ...`;
+  unfinished work was `M22 (jarayonda): ...`, a fix of earlier work `M22 tuzatishlar: ...`. `Tests/changelog.py` splits the
+  commits into milestones by this prefix (a commit without a prefix joins the previous one).
+- Every commit builds and passes the tests (for bisecting); build output (`build/`,
+  `Projects/*/Binaries/`, `Projects/*/.zamin/`) is not committed — `.gitignore` keeps it out.
+- One commit — one logical change (a big milestone is split into several commits). History is not rewritten
+  (no `push --force`).
+- Code goes in one commit together with its test and its documentation.
 
-CI (`.github/workflows/linux.yml`) har push va pull request'da GCC va Clang build'ini, unit testlarni, rendering,
-editor smoke, hot reload va eksport testlarini, sanitizer, format va coverage job'larini ishga tushiradi
+## 9. The task list and the CHANGELOG
+
+- After a task is done **and checked**, change `- [ ] NNN.` to `- [x] NNN.` in [docs/TASKS.md](docs/TASKS.md).
+  Do not mark what is only partly done.
+- [CHANGELOG.md](CHANGELOG.md) — by milestone, the newest at the top. When a milestone's first task is
+  done, add its `## Mnn Name` section and write the main changes as a short list. The first line under
+  the section comes from the git history:
+
+  ```bash
+  python3 Tests/changelog.py               # the right line for every milestone (date, tasks, commits)
+  python3 Tests/changelog.py --commits M23 # a milestone's commits - for writing the summary
+  python3 Tests/changelog.py --check       # does CHANGELOG.md match the history (DocsCheck does the same)
+  ```
+
+  In the newest milestone's line only the first commit is checked (it grows with every commit); when the next
+  milestone starts, update the previous one's line in full (the number and the range of commits).
+
+## 10. Before a pull request
+
+- [ ] `cmake --build build` — no errors and no warnings (GCC; Clang too if you can: `cmake --preset clang`).
+- [ ] `./build/bin/ZaminTests` — `0 failures`; `ctest --test-dir build -LE gui` — everything passed.
+- [ ] If the editor, rendering or the player changed — the headless smoke (section 1) or `ctest --test-dir build -L gui`.
+- [ ] `Tests/format_check.sh --base main` — the new lines follow the style.
+- [ ] New user texts are in English; editor texts go through `Tr()` (with their English pair in the table).
+- [ ] The documentation is updated (`ctest --test-dir build -L docs`), a picture if needed; TASKS.md and CHANGELOG.md.
+
+CI (`.github/workflows/linux.yml`) runs the GCC and Clang builds, the unit tests, the rendering,
+editor smoke, hot reload and export tests, and the sanitizer, format and coverage jobs on every push and pull request
 ([Testing.md](docs/Testing.md#ci-githubworkflowslinuxyml)).

@@ -2,76 +2,76 @@
 
 ![Zamin Breakout](Thumbnail.jpg)
 
-Klassik g'isht sindirish o'yini. Raketka bilan to'pni qaytarib, maydondagi g'ishtlarni sindirasiz. G'ishtlarning besh
-turi, oltita bonus va oltita daraja bor (Kamalak, Piramida, Qal'a, Shaxmat, Yurak, Labirint). Oltinchi daraja
-tugagach, o'yin birinchidan tezroq aylanadi. Gameplay C++ skriptlarda, rasm va ovozlar
-`Tools/samples/gen_breakout.py` generatorida yaratilgan.
+The classic brick-breaking game. You bounce the ball with the paddle and break the bricks on the field. There are five
+kinds of brick, six power-ups and six levels (Rainbow, Pyramid, Castle, Chessboard, Heart, Labyrinth). After the sixth
+level the game loops from the first one, faster. The gameplay is in C++ scripts; the pictures and sounds are made by
+the `Tools/samples/gen_breakout.py` generator.
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/Breakout`, keyin Play |
-| O'yin | `./build/bin/ZaminPlayer Projects/Breakout` |
-| Demo (bot o'ynaydi) | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Breakout` |
-| Darajani sinash | `ZAMIN_START_LEVEL=4 ./build/bin/ZaminPlayer Projects/Breakout` (yoki `BreakoutGame.StartLevel` maydoni) |
+| Editor | `./build/bin/ZaminEditor Projects/Breakout`, then Play |
+| Game | `./build/bin/ZaminPlayer Projects/Breakout` |
+| Demo (the bot plays) | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/Breakout` |
+| Trying a level | `ZAMIN_START_LEVEL=4 ./build/bin/ZaminPlayer Projects/Breakout` (or the `BreakoutGame.StartLevel` field) |
 | Headless test | `Tests/samples_test.py --game Breakout` |
 
-## Boshqaruv
+## Controls
 
-| Harakat | Klaviatura / sichqoncha | Gamepad |
+| Action | Keyboard / mouse | Gamepad |
 |---|---|---|
-| Raketka (`MoveX`) | sichqoncha, A / D, strelkalar | chap stik, D-pad |
-| To'pni otish, lazer (`Action`) | Space, sichqoncha chap tugmasi, W, yuqori strelka | A, RT |
-| Pauza (`Pause`) | Esc, P | Start |
+| Paddle (`MoveX`) | mouse, A / D, arrows | left stick, D-pad |
+| Launch the ball, laser (`Action`) | Space, left mouse button, W, up arrow | A, RT |
+| Pause (`Pause`) | Esc, P | Start |
 
-## O'yin
+## The game
 
-- **To'p**: devor va g'ishtlardan Box2D bilan qaytadi (restitution 1, ishqalanishsiz). Skript har kadr tezlikni
-  darajaga mos holda ushlab turadi va to'pning juda yotiq uchishiga yo'l qo'ymaydi. Raketkaga tegishni skriptning
-  o'zi hisoblaydi: o'rtaga tegsa to'p tik ketadi, chetiga tegsa 62 darajagacha qiyshayadi.
-- **G'ishtlar**: oddiy (bir zarba), qattiq (ikki zarba, birinchisidan keyin yoriladi), po'lat (uch zarba), oltin
-  (sinmaydi), bomba (sinsa, atrofdagilarni ham zanjir bo'lib portlatadi).
-- **Bonuslar** (taxminan har 7-g'ishtdan tushadi): keng raketka, uchta to'p, sekin to'p, olov to'pi (g'ishtlarni
-  teshib o'tadi), lazer (raycast nurlari) va +1 jon.
-- **Hisob**: g'isht ochkosi kombo bilan ko'paytiriladi (raketkaga tegmasdan ketma-ket singan g'ishtlar), daraja
-  tugaganda bonus qo'shiladi. Rekord SaveData'da (`Breakout.BestScore`, `Breakout.BestLevel`).
-- **Menyular**: bosh menyu (orqada bot 1-darajani o'ynaydi), pauza, o'yin tugadi / g'alaba oynasi.
+- **The ball**: bounces off the walls and bricks with Box2D (restitution 1, no friction). Every frame the script keeps
+  the speed at the level's value and never lets the ball fly too flat. The script itself works out a paddle
+  hit: in the middle the ball goes straight up, at the edge it tilts up to 62 degrees.
+- **Bricks**: plain (one hit), hard (two hits, it cracks after the first), steel (three hits), gold
+  (unbreakable), bomb (when it breaks it blows up the ones around it in a chain).
+- **Power-ups** (dropped by about every 7th brick): wide paddle, three balls, slow ball, fireball (goes through
+  bricks), laser (raycast beams) and +1 life.
+- **Score**: a brick's points are multiplied by the combo (bricks broken in a row without touching the paddle), and a
+  bonus is added when a level is cleared. The record is in SaveData (`Breakout.BestScore`, `Breakout.BestLevel`).
+- **Menus**: the main menu (a bot plays level 1 behind it), pause, the game over / victory window.
 
-## Dvigatelning qaysi imkoniyatlari ko'rsatiladi
+## Which engine features it shows
 
-- Box2D: dinamik to'p (`Bullet` — tez jism devordan o'tib ketmaydi), statik devor va g'ishtlar, fizika qatlamlari
-  (`LayerMask`), to'qnashuv callback'lari (`OnCollisionBegin`), lazer uchun `Raycast2D`
-  ([Physics.md](../../docs/Physics.md)). Raketka fizika jismisiz: unga tegishni skript hisoblaydi.
-- `Instantiate` bilan darajani shablondan qurish: g'ishtlar `Levels.cpp` dagi matndan qatorma-qator "paydo bo'ladi"
-  (tween bilan).
-- 2D yorug'lik, bloom, zarralar (g'isht parchalari, uchqunlar), kamera silkinishi
+- Box2D: a dynamic ball (`Bullet` — a fast body does not tunnel through a wall), static walls and bricks, physics layers
+  (`LayerMask`), collision callbacks (`OnCollisionBegin`), `Raycast2D` for the laser
+  ([Physics.md](../../docs/Physics.md)). The paddle has no physics body: the script works out its hits.
+- Building a level from a template with `Instantiate`: the bricks "appear" row by row from the text in `Levels.cpp`
+  (with a tween).
+- 2D lighting, bloom, particles (brick debris, sparks), camera shake
   ([Rendering.md](../../docs/Rendering.md)).
-- UI menyular va HUD, lokalizatsiya (uz / en), SaveData, ovozlar ([UI.md](../../docs/UI.md),
+- UI menus and the HUD, localization (uz / en), SaveData, sounds ([UI.md](../../docs/UI.md),
   [Audio.md](../../docs/Audio.md)).
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Breakout.h` | Skript klasslari: `BreakoutGame`, `PaddleController`, `Ball`, `Brick`, `PowerUp`, `FxAnimator`; `LevelLayout`, `PowerKind` |
-| `BreakoutGame.cpp` | O'yin oqimi (bosh menyu, o'yin, pauza, daraja tugashi, o'yin tugashi / g'alaba), darajani qurish (`LoadLevel`), jonlar, hisob va kombo, bonuslarni qo'llash (`OnPowerUpCaught`), lazer (`FireLasers`), HUD, bot (`UpdateBot` — to'p qayerga tushishini oldindan hisoblab, qolgan g'ishtlarga qaratadi) |
-| `Pieces.cpp` | Raketka (input xaritasi, sichqoncha), to'p (tezlikni to'g'rilash, raketkadan qaytish burchagi), g'isht (zarbalar, yorilish), bonus kapsulasi, effektlar |
-| `Levels.cpp` | Olti daraja — 13 ustunli matn qatorlari: `r o y g c b p k w` oddiy, katta harflar qattiq, `S` po'lat, `#` oltin, `X` bomba |
+| `Breakout.h` | The script classes: `BreakoutGame`, `PaddleController`, `Ball`, `Brick`, `PowerUp`, `FxAnimator`; `LevelLayout`, `PowerKind` |
+| `BreakoutGame.cpp` | The game flow (main menu, game, pause, level clear, game over / victory), building a level (`LoadLevel`), lives, score and combo, applying power-ups (`OnPowerUpCaught`), the laser (`FireLasers`), the HUD, the bot (`UpdateBot` — works out ahead where the ball will land and aims it at the remaining bricks) |
+| `Pieces.cpp` | The paddle (input map, mouse), the ball (speed correction, the bounce angle off the paddle), the brick (hits, cracking), the power-up capsule, effects |
+| `Levels.cpp` | Six levels — rows of text 13 columns wide: `r o y g c b p k w` plain, capitals hard, `S` steel, `#` gold, `X` bomb |
 
-Yangi daraja qo'shish: `Levels.cpp` ga yana bitta `LevelLayout` yozing va lokalizatsiya fayllariga
-(`Assets/Localization/uz.json`, `en.json`) `level.7` nomini qo'shing.
+Adding a level: write one more `LevelLayout` in `Levels.cpp` and add the `level.7` name to the localization files
+(`Assets/Localization/uz.json`, `en.json`).
 
-Inspektorda sozlanadigan maydonlar: `BreakoutGame.StartLives`, `PowerUpChance`, `FieldHalfWidth`, `StartLevel`,
+Fields that can be tuned in the inspector: `BreakoutGame.StartLives`, `PowerUpChance`, `FieldHalfWidth`, `StartLevel`,
 `AutoDemo`; `PaddleController.Speed`, `Width`; `Ball.Speed`, `MaxSpeed`; `Brick.HitPoints`, `Points`.
 
-## Assetlar va ovozlar
+## Assets and sounds
 
-`python3 Tools/samples/gen_breakout.py` (numpy kerak) sprite atlas, maydon va fon teksturalari, 15 ta WAV ovoz
-(raketka, g'isht, po'lat, bomba, lazer, bonus, daraja tugashi, musiqa ...), sahna va loyiha faylini qayta yozadi.
-Assetlar ~1.2 MB. `Tests/samples_assets.py --regen` ularni generator natijasi bilan solishtiradi.
+`python3 Tools/samples/gen_breakout.py` (needs numpy) rewrites the sprite atlas, the field and backdrop textures, 15 WAV sounds
+(paddle, brick, steel, bomb, laser, power-up, level clear, music ...), the scene and the project file.
+The assets are ~1.2 MB. `Tests/samples_assets.py --regen` compares them with the generator's output.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game Breakout`: demo (bot 1-darajani tugatib, 2-darajaga o'tadi), `level6`
-(`ZAMIN_START_LEVEL=6` bilan oxirgi daraja quriladi va o'ynaladi) va menyular.
+`Tests/samples_test.py --game Breakout`: demo (the bot clears level 1 and moves on to level 2), `level6`
+(with `ZAMIN_START_LEVEL=6` the last level is built and played) and menus.

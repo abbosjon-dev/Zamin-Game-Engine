@@ -1,52 +1,52 @@
 # WorldGallery3D
 
-24 ta katak (6×4), har birida o'z ground texture'i va teksturali monument modeli bor streaming demo:
-world streaming'ning **asset byudjeti**, **rezidentlik limitlari** va **takrorlanadigan kamera yo'li** shu
-yerda ko'rinadi. Loyihada skript moduli yo'q — hammasi ma'lumot: `Worlds/Main.zworld`, `Worlds/Gallery.ztour`,
-24 ta katak sahnasi, 32 ta PNG, 8 ta OBJ va 8 ta `.zmat`.
+A streaming demo of 24 cells (6×4), each with its own ground texture and a textured monument model:
+world streaming's **asset budget**, **residency limits** and **repeatable camera path** are shown
+here. The project has no script module — everything is data: `Worlds/Main.zworld`, `Worlds/Gallery.ztour`,
+24 cell scenes, 32 PNGs, 8 OBJs and 8 `.zmat` files.
 
-Loyihani editor'da oching va **Play** bosing; **Window → World Streaming** panelida kataklar gridi,
-*Asset streaming and residency limits* bo'limi (tayyorlangan fayllar, yuklash navbati, kadr cho'qqisi,
-asosiy oqimdagi decode/parse soni, limit hisoblagichlari) va siyosat maydonlari bor.
+Open the project in the editor and press **Play**; the **Window → World Streaming** panel has the grid of cells,
+the *Asset streaming and residency limits* section (staged files, the upload queue, the frame peak,
+the number of decodes/parses on the main thread, the limit counters) and the policy fields.
 
-## Kamera yo'li va hisobot
+## The camera path and the report
 
 ```bash
 ZAMIN_WORLD_TOUR=Worlds/Gallery.ztour ZAMIN_WORLD_REPORT=/tmp/gallery.json \
 ZAMIN_MAX_FRAMES=1350 build/bin/ZaminPlayer Projects/WorldGallery3D
 ```
 
-`Gallery.ztour` — kadr raqami bo'yicha kamera pozitsiyalari (vaqtga bog'liq emas): 240 kadr isinish, so'ng
-1080 kadr — uch tomon bo'ylab sekin yurish, har 6 kadrda burchakdan burchakka sakrash (tez kamera, yuklashlar
-bekor bo'ladi), bo'sh hudud (hamma katak unload) va boshlang'ich joyga qaytish. Hisobot har kadr uchun
-kadr vaqti, streaming va upload ishi (ms), yuborilgan baytlar, RSS, so'ralgan GPU baytlari va faol
-kataklar sonini, yakunida p50/p95/p99/max ni beradi. Ikki ishga tushirish bir xil kamera yo'li va bir xil
-"tinch" nuqtalardagi faol kataklarni beradi.
+`Gallery.ztour` — camera positions by frame number (independent of time): 240 frames of warm-up, then
+1080 frames — a slow walk along three sides, a jump from corner to corner every 6 frames (a fast camera, loads
+are cancelled), an empty area (every cell unloaded) and the return to the starting place. For every frame the report
+gives the frame time, the streaming and upload work (ms), the bytes sent, RSS, the requested GPU bytes and the number
+of active cells, and at the end p50/p95/p99/max. Two runs give the same camera path and the same
+active cells at the "quiet" points.
 
-## Byudjetlar (`Main.zworld` → `Streaming`)
+## Budgets (`Main.zworld` → `Streaming`)
 
-| Maydon | Qiymat | Ma'nosi |
+| Field | Value | Meaning |
 |---|---|---|
-| `AssetStreaming` | `true` | texture decode / model parse — worker'larda, GPU upload — byudjet bilan |
-| `MaxAssetUploadBytesPerFrame` | 2 MiB | bir kadrda GPU'ga yuboriladigan baytlar (texture qatorlab yuklanadi) |
-| `MaxAssetUploadsPerFrame` | 8 | bir kadrdagi upload chaqiruvlari |
-| `MaxAssetReleaseBytesPerFrame` | 16 MiB | kesh tozalashda bir kadrda bo'shatiladigan GPU baytlari |
-| `MaxAssetFileBytes` / `MaxAssetBytesPerCell` / `MaxStagedAssetBytes` | 32 / 128 / 256 MiB | fayl, katak va jami tayyorlangan baytlar |
-| `EvictOnPressure` | `true` | RSS/GPU limiti yoqilsa, uzoq kataklar chiqariladi (limitlar bu demoda 0 = o'chiq) |
+| `AssetStreaming` | `true` | texture decode / model parse on workers, GPU upload under a budget |
+| `MaxAssetUploadBytesPerFrame` | 2 MiB | the bytes sent to the GPU in one frame (textures are uploaded row by row) |
+| `MaxAssetUploadsPerFrame` | 8 | upload calls in one frame |
+| `MaxAssetReleaseBytesPerFrame` | 16 MiB | the GPU bytes freed in one frame when the cache is cleaned |
+| `MaxAssetFileBytes` / `MaxAssetBytesPerCell` / `MaxStagedAssetBytes` | 32 / 128 / 256 MiB | per file, per cell and total staged bytes |
+| `EvictOnPressure` | `true` | when an RSS/GPU limit is on, far cells are evicted (the limits are 0 = off in this demo) |
 
-Limitlarni sinash uchun panelda `Observed RSS limit bytes` yoki `Requested GPU limit bytes` ni kiriting,
-saqlang va runtime'ni qayta ulang.
+To try the limits, enter `Observed RSS limit bytes` or `Requested GPU limit bytes` in the panel,
+save and reconnect the runtime.
 
-## Qayta yaratish
+## Regenerating
 
 ```bash
-python3 Tools/make_world_gallery.py Projects/WorldGallery3D                      # shu loyiha (bit-bit bir xil)
-python3 Tools/make_world_gallery.py /tmp/heavy --texture-size 2048 --model-detail 3   # og'ir nusxa (testlar)
-python3 Tools/make_world_gallery.py /tmp/legacy --legacy                         # AssetStreaming o'chiq
+python3 Tools/make_world_gallery.py Projects/WorldGallery3D                      # this project (bit for bit the same)
+python3 Tools/make_world_gallery.py /tmp/heavy --texture-size 2048 --model-detail 3   # a heavy copy (tests)
+python3 Tools/make_world_gallery.py /tmp/legacy --legacy                         # AssetStreaming off
 ```
 
-Mavjud `.zmeta` fayllar saqlanadi (UUID'lar o'zgarmaydi). Sinovlar: `ctest -R WorldAssetStreaming`
+Existing `.zmeta` files are kept (the UUIDs do not change). Tests: `ctest -R WorldAssetStreaming`
 (`Tests/world_asset_streaming_test.py --stage budget|residency|demo`).
 
-Chegaralar: so'ralgan GPU baytlari va kuzatilgan RSS — jismoniy VRAM emas; terrain qatlam texture'lari,
-shriftlar va animatsiya kliplari asset byudjetiga kirmaydi (ular avvalgidek yuklanadi).
+Limits: the requested GPU bytes and the observed RSS are not physical VRAM; terrain layer textures,
+fonts and animation clips are not part of the asset budget (they load as before).

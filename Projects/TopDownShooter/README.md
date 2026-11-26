@@ -2,91 +2,91 @@
 
 ![Neon Arena](Thumbnail.jpg)
 
-Neon chiroqli maydonda kema boshqariladi. Dushmanlar to'lqin-to'lqin bo'lib portallardan chiqadi, siz esa ularni
-otib, ochko va kombo yig'asiz. Har 5-to'lqinda tank keladi. O'yindagi hamma narsa C++ skriptlarda yozilgan, rasm va
-ovozlar esa koddan yaratilgan (`Tools/samples/gen_topdownshooter.py`).
+You fly a ship in a neon-lit arena. Enemies come out of portals wave after wave, and you shoot them
+for points and combos. A tank comes every 5th wave. Everything in the game is written in C++ scripts, and the pictures
+and sounds are made from code (`Tools/samples/gen_topdownshooter.py`).
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/TopDownShooter`, keyin Play (yoki launcher'dagi "Namuna o'yinlar" kartasi) |
-| O'yin | `./build/bin/ZaminPlayer Projects/TopDownShooter` |
-| Demo (bot o'ynaydi) | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/TopDownShooter` |
-| Headless test | `Tests/samples_test.py --game TopDownShooter` (yoki `ctest -R SampleTopDownShooter`) |
+| Editor | `./build/bin/ZaminEditor Projects/TopDownShooter`, then Play (or the "Sample games" card in the launcher) |
+| Game | `./build/bin/ZaminPlayer Projects/TopDownShooter` |
+| Demo (the bot plays) | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/TopDownShooter` |
+| Headless test | `Tests/samples_test.py --game TopDownShooter` (or `ctest -R SampleTopDownShooter`) |
 
-Bosh menyu orqasida ham bot o'ynab turadi ("attract" rejimi).
+A bot keeps playing behind the main menu too ("attract" mode).
 
-## Boshqaruv
+## Controls
 
-Bog'lashlar loyiha input xaritasida (Project settings > Input), ularni o'yinni qayta build qilmasdan o'zgartirish
-mumkin.
+The bindings are in the project's input map (Project settings > Input); they can be changed without rebuilding
+the game.
 
-| Harakat | Klaviatura / sichqoncha | Gamepad |
+| Action | Keyboard / mouse | Gamepad |
 |---|---|---|
-| Yurish (`MoveX`, `MoveY`) | W A S D | chap stik, D-pad |
-| Nishon olish (`AimX`, `AimY`) | sichqoncha yoki strelkalar | o'ng stik (og'dirilsa o'zi otadi) |
-| Otish (`Fire`) | sichqoncha chap tugmasi, J | RT, RB |
-| Siltanish (`Dash`) | Space, chap Shift | A, LB |
-| Pauza (`Pause`) | Esc, P | Start |
-| Menyularda | strelkalar + Enter, sichqoncha | D-pad + A |
+| Move (`MoveX`, `MoveY`) | W A S D | left stick, D-pad |
+| Aim (`AimX`, `AimY`) | mouse or arrows | right stick (it fires by itself when tilted) |
+| Fire (`Fire`) | left mouse button, J | RT, RB |
+| Dash (`Dash`) | Space, left Shift | A, LB |
+| Pause (`Pause`) | Esc, P | Start |
+| In menus | arrows + Enter, mouse | D-pad + A |
 
-## O'yin
+## The game
 
-- **Kema**: 5 ta jon, siltanish paytida o'q tegmaydi (qisqa vaqt, keyin qayta tiklanadi), sichqoncha bilan aniq
-  nishon olinadi.
-- **Dushmanlar** (bitta `Enemy` klassi, `Kind` maydoni): quvg'in (kemaga qarab yuguradi va tegsa portlaydi), to'da
-  (kichik, tez, guruh bo'lib keladi), o'qchi (masofa saqlab otadi), hujumchi (kuch yig'ib to'g'ri chiziqda
-  otiladi), tank (sekin va qalin, halqa shaklida o'q sochadi, o'lganda to'daga bo'linadi).
-- **To'lqinlar**: har to'lqinning "budjeti" oldingisidan katta. Dushmanlar portaldan "o'sib" chiqadi, hammasi
-  o'ldirilganda "to'lqin tozalandi" va bonus beriladi.
-- **Hisob va kombo**: dushman ochkosi kombo ko'paytuvchisiga ko'paytiriladi. Ketma-ket o'ldirishlar `ComboWindow`
-  (2.6 s) ichida bo'lsa kombo davom etadi; HUD'da kombo taymeri chizig'i ko'rinadi, ochko ekranga "+ochko" bo'lib
-  chiqadi.
-- **Bonuslar**: +1 jon, tez otish, uchtalik o'q (vaqtinchalik).
-- **Rekord**: eng yaxshi hisob va to'lqin SaveData'da saqlanadi (`Neon.BestScore`, `Neon.BestWave`).
-- **Menyular**: bosh menyu (o'ynash, til, chiqish), pauza (davom etish, qaytadan, bosh menyu), o'yin tugadi oynasi
-  (hisob, to'lqin, yangi rekord).
+- **The ship**: 5 lives, shots do not hit during a dash (a short time, then it recharges), precise aiming
+  with the mouse.
+- **Enemies** (one `Enemy` class, the `Kind` field): the chaser (runs at the ship and explodes on contact), the swarm
+  (small, fast, comes in groups), the shooter (keeps its distance and fires), the charger (winds up and shoots off in
+  a straight line), the tank (slow and thick, sprays shots in a ring, splits into a swarm when it dies).
+- **Waves**: every wave's "budget" is bigger than the one before. Enemies "grow" out of a portal; when all are
+  killed, "wave cleared" and a bonus is given.
+- **Score and combo**: an enemy's points are multiplied by the combo multiplier. The combo goes on while kills in a row
+  fall within `ComboWindow` (2.6 s); the HUD shows the combo timer bar, and points pop up on screen as
+  "+points".
+- **Power-ups**: +1 life, rapid fire, triple shot (temporary).
+- **Record**: the best score and wave are kept in SaveData (`Neon.BestScore`, `Neon.BestWave`).
+- **Menus**: the main menu (play, language, quit), pause (resume, restart, main menu), the game over window
+  (score, wave, new record).
 
-## Dvigatelning qaysi imkoniyatlari ko'rsatiladi
+## Which engine features it shows
 
-- 2D: sprite atlas (`SpriteRenderer` + kadrlar), Box2D jismlar va sensorlar ([Physics.md](../../docs/Physics.md)),
-  `Camera2DFollow`, `Parallax` fon.
-- 2D yorug'lik (`Light2D`, yoritiladigan pol), bloom, vinyetka ([Rendering.md](../../docs/Rendering.md)); portlash
-  zarralari, yorug'lik chaqnashlari, zarb to'lqini halqasi, kamera silkinishi.
-- Skript API: `Instantiate` bilan shablonlardan yaratish, `SendMessage` / xabar ishlovchilari, `SetTimeScale`
-  (o'lim paytidagi sekinlashuv), `PauseGame`, SaveData, lokalizatsiya (`Localize`, uz / en)
+- 2D: a sprite atlas (`SpriteRenderer` + frames), Box2D bodies and sensors ([Physics.md](../../docs/Physics.md)),
+  `Camera2DFollow`, a `Parallax` background.
+- 2D lighting (`Light2D`, a lit floor), bloom, vignette ([Rendering.md](../../docs/Rendering.md)); explosion
+  particles, light flashes, the shockwave ring, camera shake.
+- The script API: creating from templates with `Instantiate`, `SendMessage` / message handlers, `SetTimeScale`
+  (the slow motion at death), `PauseGame`, SaveData, localization (`Localize`, uz / en)
   ([Scripting.md](../../docs/Scripting.md)).
-- UI: `UICanvas`, tugmalar, klaviatura / gamepad navigatsiyasi, `UIAnimation`, `UIProgressBar`
+- UI: `UICanvas`, buttons, keyboard / gamepad navigation, `UIAnimation`, `UIProgressBar`
   ([UI.md](../../docs/UI.md)).
-- Ovoz: `PlaySound` (balandlik va tovush tonini o'zgartirib), musiqa guruhi, pauzada past chastota filtri
+- Sound: `PlaySound` (with varied volume and pitch), the music group, a low-pass filter while paused
   ([Audio.md](../../docs/Audio.md)).
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Shooter.h` | Hamma skript klasslari: `ShooterGame`, `PlayerShip`, `Enemy`, `Projectile`, `Pickup`, `FxAnimator`; dushman va bonus turlari (`EnemyKind`, `PickupKind`) |
-| `ShooterGame.cpp` | O'yin oqimi: holatlar (`Menu`, `Playing`, `Paused`, `GameOver`), to'lqinlar (`BuildWaveQueue` — budjet bo'yicha dushmanlar ro'yxati, `UpdateWaves`, portal joyini tanlash), hisob / kombo (`OnEnemyKilled`), effektlar (`Explode`, `Popup`, chaqnash chiroqlari puli), HUD, menyular, rekord, demo jurnali |
-| `PlayerShip.cpp` | Kema: input xaritasidan yurish va nishon, otish tezligi, siltanish, bonuslar. Shu yerda bot ham bor: dushman va o'qlardan qochadi, devordan uzoqlashadi, eng yaqin dushmanni oldindan mo'ljallab otadi |
-| `Enemies.cpp` | `Enemy` (beshala turning xatti-harakati, o'q tekkanda oq chaqnash va orqaga surilish), `Projectile`, `Pickup`, `FxAnimator` (halqa va ochko yozuvlari animatsiyasi) |
+| `Shooter.h` | All the script classes: `ShooterGame`, `PlayerShip`, `Enemy`, `Projectile`, `Pickup`, `FxAnimator`; the enemy and power-up kinds (`EnemyKind`, `PickupKind`) |
+| `ShooterGame.cpp` | The game flow: states (`Menu`, `Playing`, `Paused`, `GameOver`), waves (`BuildWaveQueue` — the list of enemies by budget, `UpdateWaves`, choosing a portal spot), score / combo (`OnEnemyKilled`), effects (`Explode`, `Popup`, the pool of flash lights), the HUD, menus, the record, the demo log |
+| `PlayerShip.cpp` | The ship: movement and aim from the input map, the fire rate, the dash, power-ups. The bot is here too: it dodges enemies and shots, keeps away from walls, and leads the nearest enemy when firing |
+| `Enemies.cpp` | `Enemy` (the behaviour of all five kinds, the white flash and knock-back when a shot hits), `Projectile`, `Pickup`, `FxAnimator` (the animation of the ring and the score popups) |
 
-Qayerdan boshlash kerak: `ShooterGame::OnStart` (xabar ishlovchilari va menyu) → `ShooterGame::OnUpdate` →
-`StartWave`. Sahna (`Assets/Scenes/Arena.zscene`) generator yozgan oddiy JSON: dushman, o'q va effekt shablonlari
-sahnada o'chirilgan holda turadi, skript ularni `EntityRef` maydonlari orqali topib nusxalaydi.
+Where to start: `ShooterGame::OnStart` (the message handlers and the menu) → `ShooterGame::OnUpdate` →
+`StartWave`. The scene (`Assets/Scenes/Arena.zscene`) is plain JSON written by the generator: the enemy, shot and effect
+templates sit in the scene switched off, and the script finds them through `EntityRef` fields and copies them.
 
-Inspektorda sozlanadigan maydonlar: `ShooterGame.ComboWindow`, `ArenaHalfSize`, `AutoDemo`; `PlayerShip.MoveSpeed`,
+Fields that can be tuned in the inspector: `ShooterGame.ComboWindow`, `ArenaHalfSize`, `AutoDemo`; `PlayerShip.MoveSpeed`,
 `FireRate`, `DashSpeed`, `DashCooldown`, `MaxHealth`; `Enemy.Health`, `Speed`, `Score`.
 
-## Assetlar va ovozlar
+## Assets and sounds
 
-Hech qanday qo'lda chizilgan fayl yo'q: `python3 Tools/samples/gen_topdownshooter.py` (numpy kerak) sprite atlas,
-pol va fon teksturalari, 15 ta WAV ovoz (otish, portlash, to'lqin, bonus, musiqa ...), sahna, `.zproject` va
-`CMakeLists.txt` ni qayta yozadi. Assetlar ~1.5 MB. `Tests/samples_assets.py --regen` generator natijasi
-repozitoriydagi fayllar bilan bir xil ekanini tekshiradi.
+There is no hand-drawn file: `python3 Tools/samples/gen_topdownshooter.py` (needs numpy) rewrites the sprite atlas,
+the floor and background textures, 15 WAV sounds (shot, explosion, wave, power-up, music ...), the scene, the `.zproject` and
+`CMakeLists.txt`. The assets are ~1.5 MB. `Tests/samples_assets.py --regen` checks that the generator's output is
+the same as the files in the repository.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game TopDownShooter`: demo (bot 900 kadrda hisob, o'ldirilgan dushmanlar, ikkinchi to'lqin
-va kombo yig'adi) va menyular (Enter — o'ynash, Esc — pauza, yana Esc — davom, pauzadan bosh menyuga) — jurnaldagi
-`Demo: ...` va `Menyu: ...` qatorlari bo'yicha.
+`Tests/samples_test.py --game TopDownShooter`: demo (in 900 frames the bot gathers score, kills, a second wave
+and a combo) and menus (Enter — play, Esc — pause, Esc again — resume, from pause to the main menu) — by the
+`Demo: ...` and `Menu: ...` lines of the log.

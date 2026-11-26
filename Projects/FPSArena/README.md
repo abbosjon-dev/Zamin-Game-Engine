@@ -1,97 +1,97 @@
-# FPS Arena — birinchi shaxs boshqaruvi va nishonga otish (3D)
+# FPS Arena — a first-person controller and target shooting (3D)
 
 ![FPS Arena](Thumbnail.jpg)
 
-Quyosh botayotgan arenada birinchi shaxsdan yuguriladi va otiladi. O'yinning ikki rejimi bor:
+You run and shoot in first person in an arena at sunset. The game has two modes:
 
-- **Parkur**: oltita yorqin nuqtadan ketma-ket o'tib, aylana vaqtini yaxshilaysiz;
-- **Nishon otish**: 60 soniyalik raund, unda iloji boricha ko'p nishon urish kerak.
+- **Parkour**: pass six bright checkpoints in order and improve your lap time;
+- **Target range**: a 60-second round in which you have to hit as many targets as you can.
 
-Gameplay C++ skriptlarda yozilgan, teksturalar (normal map'lari bilan) va ovozlar esa koddan yaratilgan
+The gameplay is written in C++ scripts, and the textures (with their normal maps) and sounds are made from code
 (`Tools/samples/gen_fpsarena.py`).
 
-## Ishga tushirish
+## Running
 
-| Qanday | Buyruq |
+| How | Command |
 |---|---|
-| Editor | `./build/bin/ZaminEditor Projects/FPSArena`, keyin Play |
-| O'yin | `./build/bin/ZaminPlayer Projects/FPSArena` |
-| Demo: parkur | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/FPSArena` |
-| Demo: nishon otish | `ZAMIN_DEMO=range ./build/bin/ZaminPlayer Projects/FPSArena` |
+| Editor | `./build/bin/ZaminEditor Projects/FPSArena`, then Play |
+| Game | `./build/bin/ZaminPlayer Projects/FPSArena` |
+| Demo: parkour | `ZAMIN_DEMO=1 ./build/bin/ZaminPlayer Projects/FPSArena` |
+| Demo: target range | `ZAMIN_DEMO=range ./build/bin/ZaminPlayer Projects/FPSArena` |
 | Headless test | `Tests/samples_test.py --game FPSArena` |
 
-## Boshqaruv
+## Controls
 
-O'yin paytida kursor qulflanadi va yashiriladi. Menyularda u yana ko'rinadi.
+While playing the cursor is locked and hidden. In menus it is shown again.
 
-| Harakat | Klaviatura / sichqoncha | Gamepad |
+| Action | Keyboard / mouse | Gamepad |
 |---|---|---|
-| Yurish (`MoveX`, `MoveY`) | W A S D, strelkalar | chap stik |
-| Qarash (`LookX`, `LookY`) | sichqoncha | o'ng stik |
-| Sakrash (`Jump`) | Space | A |
-| Yugurish (`Sprint`) | chap Shift | chap stik bosilishi |
-| Cho'kkalash (`Crouch`) | C, chap Ctrl | B |
-| Otish (`Fire`) | sichqoncha chap tugmasi (bosib turilsa ketma-ket otadi) | RT, RB |
-| Qayta o'qlash (`Reload`) | R | X |
-| Pauza (`Pause`) | Esc, P | Start |
+| Move (`MoveX`, `MoveY`) | W A S D, arrows | left stick |
+| Look (`LookX`, `LookY`) | mouse | right stick |
+| Jump (`Jump`) | Space | A |
+| Sprint (`Sprint`) | left Shift | left stick click |
+| Crouch (`Crouch`) | C, left Ctrl | B |
+| Fire (`Fire`) | left mouse button (fires repeatedly while held) | RT, RB |
+| Reload (`Reload`) | R | X |
+| Pause (`Pause`) | Esc, P | Start |
 
-Sichqoncha sezgirligini pauza menyusidagi slayder o'zgartiradi. Qiymat SaveData'da (`FPSArena.Sensitivity`)
-saqlanib qoladi.
+The slider in the pause menu changes the mouse sensitivity. The value is kept in SaveData
+(`FPSArena.Sensitivity`).
 
-## O'yin
+## The game
 
-- **Harakat**: yugurish chidamlilikni sarflaydi (to'liq yugurish 4 s yetadi). Platformadan chiqqandan keyin ham
-  0.12 s ichida sakrash mumkin (coyote time), yerga tushishdan oldinroq bosilgan sakrash ham hisobga olinadi
-  (input buferi). Cho'kkalaganda ko'z balandligi va tezlik pasayadi. Sakratgich o'yinchini yuqoriga otadi.
-- **Kamera hissi**: qadam bilan bosh tebranadi va qadam tovushlari eshitiladi. Yonga yurganda kamera biroz qiyshayadi,
-  yugurganda ko'rish burchagi (FOV) kengayadi. Qattiq qo'nganda kamera pastga cho'kadi va silkinadi.
-- **Qurol** (`Blaster`): sekundiga 7 marta otadi, magazinda 12 ta o'q, qayta o'qlash 1.1 s. Harakatda va havoda
-  o'q ko'proq tarqaladi. Har otishda tepki, nur izi, uchqunlar va yorug'lik chaqnashi bo'ladi; qutilarni o'q itarib
-  yuboradi.
-- **Nishonlar**: turg'un, relsda sirpanuvchi, vaqti-vaqti bilan chiquvchi va aylana bo'ylab uchuvchi dron. Markazga
-  tegish ikki baravar ochko beradi. Urilgan nishon yiqiladi (dron portlaydi) va birozdan keyin qaytadi.
-- **Nishon otish raundi**: ketma-ket tegishlar seriyasi ochkoni x4 gacha oshiradi. Raund oxirida aniqlik va eng
-  uzun seriya ko'rsatiladi. Rekordlar SaveData'da (`FPSArena.BestLap`, `FPSArena.BestRange`).
-- **Menyular**: bosh menyu (orqada bot parkur qilib, nishon otib yuradi), pauza (sezgirlik slayderi bilan),
-  natijalar oynasi.
+- **Movement**: sprinting spends stamina (a full sprint lasts 4 s). A jump is still possible for 0.12 s after
+  leaving a platform (coyote time), and a jump pressed a little before landing counts too
+  (the input buffer). Crouching lowers the eye height and the speed. The jump pad throws the player upwards.
+- **Camera feel**: the head bobs with the steps and footsteps are heard. The camera tilts a little when strafing,
+  the field of view (FOV) widens when sprinting. On a hard landing the camera dips and shakes.
+- **The weapon** (`Blaster`): fires 7 times a second, 12 shots in the magazine, reloading takes 1.1 s. Shots spread
+  more when moving and in the air. Every shot has recoil, a tracer, sparks and a flash of light; shots push
+  crates away.
+- **Targets**: standing, sliding on a rail, popping up from time to time, and a drone flying in a circle. A hit in the
+  centre gives double points. A target that is hit falls (the drone explodes) and comes back a little later.
+- **The target range round**: a streak of hits in a row raises the points up to x4. At the end of the round the accuracy
+  and the longest streak are shown. Records are in SaveData (`FPSArena.BestLap`, `FPSArena.BestRange`).
+- **Menus**: the main menu (a bot does parkour and shoots targets behind it), pause (with the sensitivity slider),
+  the results window.
 
-## Dvigatelning qaysi imkoniyatlari ko'rsatiladi
+## Which engine features it shows
 
-- `CharacterController3D` (Jolt), `Raycast3DAll` (o'yinchining o'z kapsulasi tashlab o'tiladi), dinamik jismlarga
-  impuls ([Physics.md](../../docs/Physics.md)).
-- `Cursor` API (qulflash va yashirish), sichqoncha harakati, gamepad o'qlari va input xaritasi
+- `CharacterController3D` (Jolt), `Raycast3DAll` (the player's own capsule is skipped), impulses on dynamic
+  bodies ([Physics.md](../../docs/Physics.md)).
+- The `Cursor` API (locking and hiding), mouse movement, gamepad axes and the input map
   ([Scripting.md](../../docs/Scripting.md)).
-- PBR materiallar va normal map'lar, quyosh botishi osmoni, tuman, soyalar, SSAO, bloom, emissive chiziqlar, nuqtali
-  yorug'liklar, zarralar ([Rendering.md](../../docs/Rendering.md)).
-- Kamera silkinishi, `OnLateUpdate` (o'q kamera shu kadrda burilganidan keyin otiladi), prujinalarni kichik qat'iy
-  qadamlarda hisoblash (sekin kadrlarda ham barqaror ishlaydi).
-- UI: HUD, `UISlider`, natijalar oynasi, lokalizatsiya (uz / en) ([UI.md](../../docs/UI.md)).
+- PBR materials and normal maps, a sunset sky, fog, shadows, SSAO, bloom, emissive strips, point
+  lights, particles ([Rendering.md](../../docs/Rendering.md)).
+- Camera shake, `OnLateUpdate` (the shot is fired after the camera has turned in this frame), springs computed in small
+  fixed steps (stable in slow frames too).
+- UI: the HUD, `UISlider`, the results window, localization (uz / en) ([UI.md](../../docs/UI.md)).
 
-## Kod bo'ylab sayohat (`Source/`)
+## A tour of the code (`Source/`)
 
-| Fayl | Nima bor |
+| File | What is in it |
 |---|---|
-| `Arena.h` | Skript klasslari: `FirstPersonController`, `Blaster`, `Target`, `TracerFx`, `ArenaGame` |
-| `FirstPersonController.cpp` | Tana (`CharacterController3D`) faqat chapga-o'ngga (yaw) buriladi, bosh / kamera bolasi esa yuqoriga-pastga (pitch) qaraydi. Bu yerda yurish, yugurish, chidamlilik, sakrash (coyote time, bufer), cho'kkalash, sakratgich, bosh tebranishi, FOV, qo'nish va tepki bor. Bot nuqtalar marshruti bo'ylab yuradi |
-| `Weapon.cpp` | `Blaster`: otish, tarqoqlik, o'q-dori, qayta o'qlash, nur izi, uchqunlar, qutilarni itarish. Qurol devorga yaqinlashganda orqaga tortiladi. Botning nishon tanlashi ham shu yerda: yaqin va ko'rinib turgan nishon |
-| `Targets.cpp` | `Target` (to'rt tur, `Hinge` atrofida yiqilish, qaytish, markazga yaqinlikka qarab ochko) va `TracerFx` |
-| `ArenaGame.cpp` | Rejimlar, nazorat nuqtalari va aylana vaqti, raund, ochko va seriya, aniqlik, rekordlar, HUD ("+ochko" yozuvlari, tegish belgisi, tezlik, chidamlilik), menyular, demo |
+| `Arena.h` | The script classes: `FirstPersonController`, `Blaster`, `Target`, `TracerFx`, `ArenaGame` |
+| `FirstPersonController.cpp` | The body (`CharacterController3D`) only turns left and right (yaw), while the head / camera child looks up and down (pitch). Walking, sprinting, stamina, jumping (coyote time, buffer), crouching, the jump pad, head bob, FOV, landing and recoil are here. The bot walks along a route of points |
+| `Weapon.cpp` | `Blaster`: firing, spread, ammo, reloading, the tracer, sparks, pushing crates. The weapon is pulled back close to a wall. The bot's choice of target is here too: a near and visible target |
+| `Targets.cpp` | `Target` (four kinds, falling around the `Hinge`, coming back, points by closeness to the centre) and `TracerFx` |
+| `ArenaGame.cpp` | The modes, checkpoints and lap time, the round, points and streak, accuracy, records, the HUD (the "+points" popups, the hit marker, speed, stamina), menus, the demo |
 
-Qayerdan boshlash kerak: `FirstPersonController::OnUpdate` (input → tezlik → `CharacterController3D::Move`) va
+Where to start: `FirstPersonController::OnUpdate` (input → velocity → `CharacterController3D::Move`) and
 `Blaster::OnLateUpdate`.
 
-Inspektorda sozlanadigan maydonlar: `FirstPersonController.WalkSpeed`, `SprintSpeed`, `JumpHeight`,
+Fields that can be tuned in the inspector: `FirstPersonController.WalkSpeed`, `SprintSpeed`, `JumpHeight`,
 `MouseSensitivity`, `InvertY`, `FieldOfView`, `HeadBob`, `StaminaSeconds`; `Blaster.FireRate`, `MagazineSize`,
 `ReloadTime`, `Spread`, `Recoil`, `PushImpulse`; `Target.Kind`, `Speed`, `RespawnTime`, `Points`;
 `ArenaGame.RangeSeconds`, `AutoDemo`.
 
-## Assetlar va ovozlar
+## Assets and sounds
 
-`python3 Tools/samples/gen_fpsarena.py` (numpy kerak) beton, metall, quti teksturalari va ularning normal map'larini,
-22 ta WAV ovozni (otish, qayta o'qlash, qadamlar, qo'nish, nishonlar, dron, muhit shovqini ...), sahnani va loyiha
-faylini yaratadi. Assetlar ~1.5 MB. `Tests/samples_assets.py --regen` ularni generator natijasi bilan solishtiradi.
+`python3 Tools/samples/gen_fpsarena.py` (needs numpy) makes the concrete, metal and crate textures and their normal maps,
+22 WAV sounds (shot, reload, footsteps, landing, targets, drone, ambience ...), the scene and the project
+file. The assets are ~1.5 MB. `Tests/samples_assets.py --regen` compares them with the generator's output.
 
-## Testlar
+## Tests
 
-`Tests/samples_test.py --game FPSArena`: demo (bot 700 kadrda kamida bir aylana yuguradi, nuqtalardan o'tadi va
-nishonlarni uradi) va menyular (pauzaning sezgirlik slayderidan o'tib bosh menyuga qaytiladi).
+`Tests/samples_test.py --game FPSArena`: demo (in 700 frames the bot runs at least one lap, passes the checkpoints and
+hits the targets) and menus (going past the pause menu's sensitivity slider back to the main menu).

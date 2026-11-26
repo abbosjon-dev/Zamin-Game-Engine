@@ -1,891 +1,916 @@
-# Zamin Engine: imkoniyatlar (to'liq ro'yxat)
+# Zamin Engine: features (the full list)
 
-Dvigatel va editor imkoniyatlarining batafsil ro'yxati — avval bosh [README](../README.md) da edi, endi shu yerda.
-Har bir tizimning qadam-baqadam qo'llanmasi va ma'lumotnomasi [hujjatlar indeksida](README.md); o'zgarishlar tarixi
-milestone'lar bo'yicha — [CHANGELOG.md](../CHANGELOG.md).
+The detailed list of the engine's and the editor's features — it used to be in the main [README](../README.md), now it
+is here. The step-by-step guide and reference for every system is in the [documentation index](README.md); the history
+of changes by milestone — [CHANGELOG.md](../CHANGELOG.md).
 
-Mundarija: [Editor](#editor) · [Dvigatel](#dvigatel) · [Editor boshqaruvi](#editor-boshqaruvi) ·
-[Yo'l xaritasi](#yol-xaritasi)
+Contents: [Editor](#editor) · [Engine](#engine) · [Editor controls](#editor-controls) ·
+[Roadmap](#roadmap)
 
 ## Editor
 
-Batafsil: [Editor.md](Editor.md).
+Details: [Editor.md](Editor.md).
 
-![Editor 2D rejimda: Platformer2D, tanlangan Player va uning komponentlari](images/editor-platformer2d.jpg)
+![The editor in 2D mode: Platformer2D, the selected Player and its components](images/editor-platformer2d.jpg)
 
-*Platformer2D `Level1` sahnasi editorda: 2D rejim, `Player` tanlangan — inspektorda Transform, Teglar, Sprite Renderer ...*
+*The Platformer2D `Level1` scene in the editor: 2D mode, `Player` selected — Transform, Tags, Sprite Renderer ... in the inspector*
 
-- Docking interfeys: Viewport, Ierarxiya, Inspektor, Kontent brauzer, Konsol, Sahna sozlamalari, Statistika
-- **Undo/Redo** (`Ctrl+Z` / `Ctrl+Y`), **Copy/Paste** (`Ctrl+C` / `Ctrl+V`), nusxa olish (`Ctrl+D`)
-- **Parent/child ierarxiya**: daraxt ko'rinishi, drag & drop bilan ota-ona belgilash va tartibni o'zgartirish (qator chetiga — oldiga/ortiga, o'rtasiga — ichiga), bola obyekt yaratish
-- **Ko'p obyekt tanlash**: `Ctrl`+bosish (qo'shish/olib tashlash), `Shift`+bosish (oraliq), `Ctrl+A`; tanlanganlarni birga o'chirish, nusxalash, sudrash va gizmo bilan ko'chirish/aylantirish/masshtablash (pivot: asosiy obyekt yoki tanlov markazi)
-- Inspektorda Transform menyusi (⚙ yoki o'ng tugma): tiklash, nusxalash, joylash (hammasi yoki faqat pozitsiya/aylanish/masshtab) — barcha tanlanganlarga
-- **Komponentlar tartibi**: komponent menyusida (⚙ / o'ng tugma) yuqoriga / pastga / eng yuqoriga / eng pastga yoki sarlavhani sudrab qo'yish; tartib har bir obyekt uchun sahnada saqlanadi (Transform doim tepada)
-- **Komponentni nusxalash va joylash**: ⚙ → *Komponentni nusxalash*, boshqa obyektda ⚙ → *Qiymatlarni joylash* yoki **+ Komponent → Buferdan joylash** (yo'q bo'lsa qo'shiladi) — barcha tanlanganlarga, tizim buferi orqali boshqa editor oynasiga ham
-- Inspektor komponent sarlavhalarining yig'ilgan/ochiq holati eslab qolinadi (komponent turi bo'yicha, skriptlar klass bo'yicha; keyingi ishga tushirishda ham), ⊟/⊞ tugmasi hammasini yig'adi/ochadi
-- Ierarxiyada **ko'z** va **qulf** tugmalari: yashirilgan obyekt (va bolalari) editor sahnasida chizilmaydi — o'yinda (Play, Player) odatdagidek ko'rinadi; qulflangan obyekt viewport'da tanlanmaydi va gizmo bilan surilmaydi (ierarxiya/inspektorda tahrirlash mumkin). `H` — tanlanganlarni yashirish/ko'rsatish, `Alt+H` — hammasini ko'rsatish; holatlar sahna faylida saqlanadi (prefab'ga yozilmaydi)
-- **Faol/nofaol obyektlar** (`TagComponent::Active`, o'yin holati — editordagi ko'zdan farqli): nofaol obyekt va uning butun ierarxiyasi chizilmaydi (mesh, sprite, matn, tilemap, particle, UI, yorug'lik), fizikada qatnashmaydi (2D/3D body, tilemap collision va qahramon olib tashlanadi, qayta yoqilganda joriy transformda yaratiladi; ichida turgan tomon `OnTriggerEnd`/`OnCollisionEnd` oladi), skripti `OnDisable` oladi va `OnUpdate`/`OnLateUpdate`/taymerlar to'xtaydi (yoqilganda `OnEnable`). Shuningdek: particle tizimi to'xtaydi (zarralar tozalanadi, `EmitParticles` ham ishlamaydi; qayta yoqilganda boshidan, burst bilan boshlanadi), audio manba to'xtaydi (qayta yoqilganda "Boshida ijro" belgilangani boshidan chalinadi), Animator va Sprite Animation yangilanmaydi (vaqt, poza va holat mashinasi joyida turadi, keyin davom etadi), UI tugmalar ko'rinmaydi va bosilmaydi (bosib turilgan tugma bekor qilinadi, sichqoncha ostidagi tugmaga o'tadi), kamera asosiy hisoblanmaydi (kameralarni obyektlarini yoqib/o'chirib almashtirish mumkin; tinglovchi va `ScreenToWorld` ham faol kameradan olinadi), yorug'lik hisobga olinmaydi (yoritmaydi, soya tushirmaydi, quyosh o'rnini yoki 32 ta nuqtali/spot yorug'lik o'rnidan birini egallamaydi — keyingi faol yorug'lik oladi; quyosh — sahna tartibidagi birinchi faol Directional Light, boshqalari ishlatilmaydi (inspektorda aytiladi); 32 tadan ko'p bo'lsa kameraga eng ko'p ta'sir qiladiganlari ishlatiladi; `GetScene().CollectLights(...)`, statistika oynasida ham ko'rinadi), tilemap collision o'chadi (qayta yoqilganda joriy plitkalar va transformdan qayta quriladi), Character Controller 3D dunyodan chiqariladi (gravitatsiya yo'q, `Grounded` false, `Jump` ishlamaydi; qayta yoqilganda joriy joyida, tinch holatda yaratiladi). Olib tashlangan jism ustida uxlab yotgan jismlar uyg'onadi va tushadi, qayta paydo bo'lgan jism ichidagilari ham uyg'onadi. Inspektorda bunday komponentlar ostida ⏻ izoh chiqadi. Holat sahna faylida (`"Active": false`, faqat o'chiq bo'lsa), nusxalarda va prefab'larda saqlanadi: prefab nusxasining har bir obyekti saqlangandagidek faol/nofaol boshlanadi; nofaol shablondan `Instantiate` qilingan nusxa ham nofaol (`SetActive(nusxa, true)` bilan yoqiladi), nofaol guruh ichidagi faol shablon nusxasi esa ildiz obyekt sifatida (shablon turgan joyda) faol yaratiladi. Inspektorda nom yonidagi **belgi** (bir nechta tanlangan bo'lsa hammasiga; o'yin davomida ham ishlaydi) yoki `Alt+Shift+A` bilan yoqiladi/o'chiriladi; ierarxiyada nofaol obyektlar (va ota-onasi nofaol bolalar) xira ko'rinadi, o'zi o'chirilganlarda ⏻ belgisi turadi
-- **Prefab'lar** (`.zprefab`): obyektni prefab qilib saqlash, sahnaga/ierarxiyaga sudrab qo'yish (bir nechtasi birga, sichqoncha
-  ostiga, Shift — qo'yish rejimi); nusxalar prefabga **bog'langan** (o'zgarishlar inspektorda belgilanadi, Apply / Revert har
-  darajada, bog'lanishni uzish), ichma-ich prefab'lar va **variantlar**, **prefab rejimi** (alohida tahrirlash), prefab fayli
-  tashqarida o'zgarsa nusxalar yangilanadi (hot reload), undo prefab fayllari bilan, nusxalash buferi bog'lanishni saqlaydi,
-  kontent brauzerda prefab rasmlari, eksportda tekshiruv (R1-R10) — batafsil: [docs/Prefabs.md](Prefabs.md)
-- 2D sahnalar uchun avtomatik ortografik kamera, 3D collider'larni wireframe ko'rinishda chizish
-- Zamonaviy qorong'i tema, Inter shrifti, Font Awesome ikonkalari, o'zbekcha interfeys
-- Gizmo'lar (ko'chirish / aylantirish / masshtab), sichqoncha bilan obyekt tanlash (picking)
-- **Snapping** toolbar'da (magnit): ko'chirish / aylantirish / masshtab qadamlari va tayyor qiymatlar; `Ctrl` bosib turish vaqtincha teskari qiladi
-- **Grid sozlamalari**: katak o'lchami, katta chiziqlar oralig'i, ranglar, o'qlar, ko'rinish masofasi (toolbar'dagi ▾ yoki o'ng tugma)
-- **Kamera xatcho'plari**: `Ctrl+1..5` ko'rinishni saqlaydi, `1..5` unga silliq qaytaradi (har bir sahna uchun alohida)
-- **Hammasini ko'rsatish** (`Shift+F`) va tanlanganlarni ko'rsatish (`F`): kamera obyektlarning chegaralariga moslanadi
-- Viewport'da **nusxalab sudrash**: `Alt` + gizmo'ni sudrash nusxasini sudraydi, sudrash paytida `Ctrl+D` shu joyda nusxa qoldiradi
-- Viewport sozlamalari (snapping, grid, xatcho'plar, inspektor sarlavhalari, kontent brauzer ko'rinishi va filtri) foydalanuvchi uchun `~/.config/zamin/editor-view.json` faylida saqlanadi
-- **Play / Simulate / Pause / Step** — o'yinni editor ichida ishga tushirish (sahna nusxasida, tahrir buzilmaydi)
-- **Sozlamalar oynasi** (`Tahrirlash > Sozlamalar`, `Ctrl+,`): temaning asosiy rangi (8 ta tayyor rang yoki istalgani), shrift o'lchami (12–22 px, butun UI shu nisbatda o'zgaradi, shrift atlasi qayta quriladi), o'yin rejimi rang tusi, konsol va editor kamerasi standartlari (FOV, near/far, uchish tezligi) — `~/.config/zamin/preferences.json`da saqlanadi
-- **O'yin rejimida rang tusi**: Play paytida oyna fonlari, sarlavhalar, tablar, menyu va status bar tanlangan rangga ko'paytiriladi (qizg'ish, ko'kish, yashil ... yoki istalgan; kuchi, simulyatsiyada ham) — o'yin rejimidagi o'zgarishlar yo'qolishini unutmaslik uchun
-- **O'yin oynasi o'lchami** (Play paytida viewport toolbar'ida yoki `Ko'rinish` menyusida): Erkin, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 yoki boshqa (piksel yoki nisbat) — rasm atrofida qora chiziqlar bilan joylanadi, sig'magan katta o'lcham kichraytirib ko'rsatiladi (o'yin baribir to'liq o'lchamda chiziladi), sichqoncha o'yin piksellariga to'g'ri o'tkaziladi
-- **Konsol**: matn bo'yicha qidiruv (katta-kichik harfsiz yoki farqli, regex `.*` — juda uzun xabarning birinchi 16 KB qismi bo'yicha), daraja tugmalari (topilganlar soni bilan), bir xil xabarlarni **guruhlash** (soni nishonchada), vaqtni yoqish/o'chirish, Play'da tozalash, xabarni bosib tanlash (to'liq matni pastda), `Ctrl+C` / o'ng tugma bilan nusxalash, "shu matn bo'yicha filtrlash"
-- **Klaviatura yorliqlari** (`Yordam > Klaviatura yorliqlari`, `F1`): editorning hamma yorliqlari bitta jadvalda (fayl, tahrirlash, tanlov, o'yin, viewport asboblari, kamera, plitka chizish, panellarning o'z tugmalari) — guruhlab ko'rsatiladi, nomi / tugmasi / joyi bo'yicha qidiriladi yoki tugmani bosib topiladi; tugmani bosib **qayta bog'lash** (yoki tugmasiz qoldirish), to'qnashuvlar qizil belgi bilan ko'rsatiladi, menyulardagi yorliqlar ham shu jadvaldan olinadi — o'zgarishlar `preferences.json`da saqlanadi
-- **Avtomatik saqlash**: saqlanmagan o'zgarishlar har N daqiqada (sozlanadi, 1–60) `<loyiha>/.zamin/autosave/` ga nusxa sifatida yoziladi — sahna faylining o'zi o'zgarmaydi; editor kutilmaganda yopilsa (loyiha qulf fayli qoladi), sahna keyingi ochilganda nusxa fayldan yangiroq bo'lsa **tiklash** taklif qilinadi (tiklangandan keyin undo fayldagi holatga qaytaradi); *Keyinroq* nusxani chetga oladi (`<nusxa>.kept`) — bu sessiyadagi avtosaqlash va sahnani saqlash unga tegmaydi, sahna keyingi ochilganda yana so'raladi
-- **So'nggi sahnalar**: `Fayl > So'nggi sahnalar` (shu loyihaning sahnalari, ochig'i belgilangan) va boshlang'ich oynada barcha loyihalarning so'nggi sahnalari (bir bosishda loyiha ham ochiladi); so'nggi loyihalar ham — `~/.config/zamin/recent-*.json`da saqlanadi, ko'chirilgan sahnalar ro'yxatda ham yangilanadi
-- **Undo tarixi** (`Ctrl+H`): har qadam nomi bilan ("Transform.Translation o'zgardi (Player)", "Komponent qo'shildi: Rigidbody2D (Player)", "Nomi o'zgardi: A → B", "Nusxa olindi: ...") — nom sahna suratlarining farqidan avtomatik topiladi; qadamni bosib o'sha holatga o'tish, saqlangan holat belgisi, qaytariladigan qadamlar xira; **tanlov ham undo qilinadi** (har tanlash o'z qadami, `Ctrl+Z` oldingi tanlovni qaytaradi; o'chirilsa ham o'zgarishning undo'si o'sha paytdagi tanlovni tiklaydi); undo bilan faylga teng holatga qaytilsa sahna "saqlangan" bo'ladi
-- **Oyna joylashuvlari** (`Oyna > Joylashuv`): editorning o'z joylashuvlari — *Standart*, *2D* (ierarxiya ostida plitka palitrasi, viewport 2D rejimda), *Animatsiya* (pastda katta Animatsiya va Animator grafi), *4 ko'rinish* (viewport + yuqoridan / old / o'ng ortografik ko'rinishlar, 2x2, viewport kattaroq; ierarxiya inspektor ustida) — va o'zingiz saqlagan joylashuvlar (oynalarning joyi va qaysilari ochiqligi, `~/.config/zamin/layouts/*.zlayout`): saqlash, qo'llash, nomini o'zgartirish, yangilash, o'chirish (`Joylashuvlar` oynasi); `Joylashuvni tiklash` standartga qaytaradi
-- **Bir nechta sahna ko'rinishi** (`Oyna > Ko'rinishlar`): viewport'dan tashqari yana 3 ta ko'rinish oynasi, har biri o'z kamerasi bilan (standart: yuqoridan, old, o'ng — ortografik): grid, tanlov konturi, transform gizmo, ikonkalar, bosib tanlash, o'yin rejimida ham sahnani o'z kamerasidan ko'rsatadi; ochilganda viewport yoniga joylanadi, kameralar keyingi sessiyada ham saqlanadi
-- **Ortografik o'q ko'rinishlari**: har ko'rinish burchagidagi o'q navigatori (X / Y / Z doirachalarini bosish — shu tomondan ko'rinish, markazi — perspektiv / ortografik), toolbar menyusi va numpad tugmalari (`Num 7` yuqoridan, `Num 1` old, `Num 3` o'ng, `Ctrl` bilan teskari tomon, `Num 5` proyeksiya, `Num 0` erkin perspektiv) — kamera silliq aylanib boradi; o'q ko'rinishini aylantirish (Alt + chap tugma) perspektivga qaytaradi, gridning tekisligi ko'rinishga qarab tanlanadi (XZ / XY / YZ)
-- **Kamera sozlamalari** (viewport toolbaridagi kamera tugmasi, `Ko'rinish > Editor kamerasi`): uchish tezligi (o'ng tugma bosilganda g'ildirak bilan ham — hamma ko'rinishlarga va keyingi sessiyaga saqlanadi), tezlanish (uzoq uchganda tezlik oshib boradi, ko'pi bilan 4x), sichqoncha sezgirligi, Y o'qini teskari qilish, FOV, near / far
-- **Obyekt nomlari viewport'da** (toolbardagi teg tugmasi, `Ko'rinish > Obyekt nomlari`): tanlanganlar yoki hamma obyektlar nomi ustida — kameradan uzoqlashganda xiralashadi (masofa sozlanadi), ustma-ust tushganda tanlangan / sichqoncha ostidagi / eng yaqini qoladi, nomni bosib obyektni tanlash; o'lcham, fon, soni sozlanadi, xohlasa o'yin rejimida ham
-- **Sahna statistikasi** (`Oyna > Sahna statistikasi`): obyektlar (faol / nofaol, ildizlar, ierarxiya chuqurligi), komponentlar turi bo'yicha, C++ skriptlar klassi bo'yicha, prefab nusxalari (editorda prefabdan qo'yilgan obyektlar buni eslab qoladi), sahna nomlagan assetlar (rasmlar, modellar, audio, materiallar va ularning rasmlari) — o'lchami, vertex / indeks soni, davomiyligi va **taxminiy xotirasi** (tekstura mip'lari bilan, mesh buferlari, ochilgan tovush); jadvallar istalgan ustun bo'yicha saralanadi, qatorni bosish shu obyektlarni tanlaydi (`Ctrl` — qo'shadi, ikki marta — kamera boradi)
-- **Kodni tashqi muharrirda ochish**: skript inspektoridagi `✎` tugmasi (klass `Source/` papkasidan `ZM_REGISTER_SCRIPT(Klass)` bo'yicha topiladi va e'lon qilingan qatorda ochiladi), kontent brauzerda `.cpp` / `.h` ni ikki marta bosish yoki "Tashqi muharrirda ochish", `Skriptlar` menyusidagi klasslar, sahna statistikasidagi skriptlar; buyruq `Sozlamalar > Tashqi muharrir`da (`{file}`, `{line}`, `{col}`, `{dir}` o'rinbosarlari; standart: `$VISUAL` / `$EDITOR` — vim / nano terminal oynasida —, bo'lmasa `code -g {file}:{line}:{col}`, bo'lmasa `xdg-open`), dastur editorni kutdirmay alohida ishga tushadi
-- **Kompilyatsiya xatolari** (`Oyna > Kompilyatsiya`, `Skriptlar > Kompilyatsiya natijalari`): skriptlar build'ining chiqishi qatorma-qator ajratiladi — GCC / Clang xato va ogohlantirishlari fayl, qator, ustun bilan, ularning izohlari (`note:`, "required from here"), kod satri va xato joyi belgisi, kontekst ("In member function", include zanjiri), linker xatolari (`undefined reference`, lld'ning `>>> referenced by`), CMake xatolari; takrorlanganlari bir marta; xato / ogohlantirish / izoh filtrlari, qidiruv, to'liq chiqish tabi; ikki marta bosish faylni tashqi muharrirda kerakli qatorda ochadi; build muvaffaqiyatsiz bo'lsa oyna o'zi ochiladi, holat panelida xato / ogohlantirish soni
-- **Bo'sh turganda tejash** (`Sozlamalar > Ishlash`): editor oynasi orqada bo'lsa (standart 10 FPS) yoki hech narsa bo'lmayotganda — kiritish yo'q, o'yin / simulyatsiya ishlamayapti, animatsiya yoki particle ko'rib chiqishi ijro etilmayapti, kamera uchmayapti, kompilyatsiya / yuklash / rasmlar yo'q (standart 1 s dan keyin 30 FPS) — kadr oynaning hodisalarini kutadi (`glfwWaitEventsTimeout`): sichqoncha yoki klaviatura darhol to'liq tezlikka qaytaradi; holat panelida barg belgisi bilan `bo'sh turibdi: 30 FPS`; o'chirib qo'yish mumkin; `ZAMIN_MAX_FRAMES` bilan avtomatik ishga tushirishlar hech qachon sekinlashmaydi (`ZAMIN_ALLOW_THROTTLE=1` — sinash uchun). Headless'da 20 s bo'sh turgan editor (2 FPS ga sozlanganda): 54 s → 10.5 s protsessor vaqti
-- Editor kamerasi: Unity kabi uchish (RMB + WASD) va Maya kabi orbit (Alt + sichqoncha)
-- 2D/3D rejim, infinite grid, fizik collider'larni ko'rsatish, kamera/yorug'lik ikonkalari
-- Kontent brauzerdan drag & drop (tekstura → sprite, model → model obyekti, ovoz → Audio Source, prefab, `.zscene` → sahnani ochish)
-- **Kontent brauzer**: katakchalar yoki **ro'yxat** ko'rinishi (nomi / turi / hajmi / o'zgartirilgan sanasi bo'yicha saralash), **fayl turi filtri** (sahna, prefab, rasm, model, audio, shrift, HDRI, C++ ...; barcha ichki papkalardan qidiradi), **qidiruv to'liq yo'l bo'yicha** — standart holatda butun loyihada (yoki faqat ochiq papkada; `Ctrl+F`): papka nomlari ham hisobga olinadi (`textures` — `Textures` papkasidagi hammasi, `Textures/` — faqat ichidagilar; bosh `Assets/` va `Source/` papkalari faqat `/` bilan yozilganda hisobga olinadi — `a` yoki `set` butun loyihani emas, `assets/tex` esa kerakli joyni topadi), `tex/coin` — papkalar va nom shu tartibda, `*.png` — `*` istalgan matn, `t:rasm`, `t:model`, `t:audio` — fayl turi; bir nechta so'z — hammasi mos kelishi kerak; natijalar joylashgan papkasi bilan ko'rsatiladi. **Thumbnaillar**: rasm, HDRI (tonemap qilingan), shrift ("Aa") va **model** (3D ko'rinishda chizilgan) eskizlari — fon oqimida tayyorlanadi, GPU'ga kadrga bir nechtadan yuklanadi (katta papka editorni qotirmaydi), `.zamin/Thumbnails` papkasida keshlanadi (loyiha qayta ochilganda darhol chiqadi) va fayl o'zgarganda yangilanadi. `Ctrl`/`Shift` bilan ko'p fayl tanlash; fayllarni **papkaga sudrab ko'chirish** (papka katakchasi/qatori yoki yuqoridagi yo'l bo'laklariga) va nomini o'zgartirish — sahna/prefab'lardagi yo'llar, glTF modellardagi nisbiy fayl nomlari, ochiq sahna, undo tarixi va boshlang'ich sahna avtomatik yangilanadi (C++ kodidagi eski yo'llar haqida ogohlantiradi)
-- **Tashqaridan import**: fayl yoki papkani editor oynasiga tashlang — `Assets`ga nusxalanadi (kontent brauzer ustiga — ochiq papkaga, aks holda turiga qarab `Textures/`, `Models/`, `Audio/` ...; C++ fayllar `Source/`ga); glTF bog'liq fayllari bilan o'z papkasiga ko'chadi; viewport ustiga tashlansa sahnaga obyekt ham qo'shiladi
-- **Asset tizimi**: har bir asset (sahna, prefab, rasm, model, audio, shrift, HDRI, material) yonida `<fayl>.zmeta` fayli — doimiy **UUID**, turi va import sozlamalari; editor yetishmaganlarini loyiha ochilganda yaratadi (player faqat o'qiydi), kontent brauzerda ko'rinmaydi va asset bilan birga ko'chadi / nomlanadi / o'chiriladi; nusxalangan `.zmeta` yangi UUID oladi. Kontent brauzerda sichqoncha ustida UUID ko'rinadi
-- **UUID havolalar**: sahna / prefab fayllarida har bir asset yo'li yonida uning UUID'si ham yoziladi (`"Texture"` + `"TextureUUID"`, loyiha faylida `StartSceneUUID`); fayl editor yopiq paytda tashqarida qayta nomlansa yoki ko'chirilsa (`.zmeta` bilan), yuklashda yangi yo'l UUID orqali topiladi (konsolga yoziladi, sahna "o'zgargan" deb belgilanadi). Editor ochiq paytda tashqarida ko'chirilgan assetlar aniqlanadi va sahna / prefab / glTF fayllaridagi havolalar darhol yangilanadi
-- **Asset inspektori va import sozlamalari**: kontent brauzerda fayl tanlansa Inspektor o'sha assetni ko'rsatadi (yo'l, UUID, hajm, sana; papka — fayllar soni, hajmi va turlari; bir nechta tanlansa — umumiy ma'lumot). **Rasm**: ko'rinish (R / G / B / A kanallari kulrangda, RGB — shaffofliksiz, 1:1 ... 8:1 kattalashtirish, sichqoncha ostidagi piksel qiymati), o'lcham, fayldagi kanallar va bit chuqurligi, GPU formati, mipmap darajalari, taxminiy video xotira. **Model**: aylanadigan 3D ko'rinish (sudrash — aylantirish, g'ildirak — yaqinlashtirish), animatsiyalar ro'yxati (davomiylik, kanallar; tanlab o'ynatish va vaqt slayderi), submeshlar (uchlar, uchburchaklar, material rangi va xaritalari), skelet bo'g'inlari, fayldagi materiallar va bog'liq fayllar (topilmaganlari qizil). **Audio**: to'lqin shakli — g'ildirak bilan kattalashtirish (sichqoncha atrofida), Shift + g'ildirak / o'rta tugma bilan surish, pastda butun ovoz chizig'i (ko'rinish oynasi bilan), vaqt o'lchagichi, bosib / sudrab **scrub** (shu joydan ijro), ijro kursori (kattalashtirilganda kursorga ergashadi), **takrorlash oralig'i** (Shift + sudrash bilan belgilanadi, chetlari sudraladi, o'ng tugma menyusi); ijro / to'xtatish, takrorlash, ovoz balandligi; format, davomiylik, kanallar, chastota, bitreyt. **Sahna / prefab**: obyektlar soni, ildiz obyektlar, komponentlar; **shrift**: atlas; **C++ fayl**: qatorlar va ro'yxatdan o'tgan skript klasslari. Har bir asset uchun **Ishlatilgan joylar** (qaysi sahna, prefab, model, loyiha fayli yoki C++ kod — yo'l, UUID, model fayli yoki kod orqali; bosilsa kontent brauzerda ochiladi) va sahna / prefab / model uchun **Ishlatadigan assetlar** (buzilgan havolalar bilan). Qo'llanmagan import sozlamalari bilan boshqa narsa tanlansa, ularni qo'llash yoki tashlab yuborish so'raladi. **Rasm**: filtr (silliq / piksel), wrap (takrorlash / chetda / ko'zgu), mipmap, sRGB (o'chirilsa — chiziqli ma'lumot, masalan maska); **model**: masshtab (sm -> m), yuqori o'q (Y / Z — skelet va animatsiyalar bilan aylantiriladi), UV aylantirish; **audio**: yuklash usuli (avtomatik / xotiraga / oqim), oldindan yuklash, faylning balandligi, takrorlash oralig'i (`LoopStart` / `LoopEnd`: takrorlanadigan ovoz avval boshidan oraliq oxirigacha chalinadi, keyin oraliq qayta-qayta — intro + loop; musiqa ham; `AudioEngine::SetLoopRegion`). **Qo'llash** — `.zmeta`ga yoziladi va asset darhol qayta import qilinadi (sahnadagi obyektlar o'sha zahoti yangilanadi), **Bekor qilish** — tahrirni tashlaydi. Player ham shu sozlamalar bilan yuklaydi
-- **O'chirishdan oldin ogohlantirish**: ishlatilayotgan asset (yoki shunday assetli papka) o'chirilmoqchi bo'lsa, tasdiqlash oynasida qaysi sahna, prefab, model yoki C++ fayl uni ishlatishi ro'yxati chiqadi (havolalar soni bilan; birga o'chadigan fayllar hisobga olinmaydi; bosilsa o'sha fayl ko'rsatiladi) va tugma **Baribir o'chirish** bo'ladi
-- **Import xatolari**: yuklanmagan asset (topilmagan, buzilgan yoki qo'llab-quvvatlanmaydigan rasm, model, shrift, HDRI, audio, sahna, prefab) konsolga **bir marta** — yo'li va sababi bilan (`Rasm failed to load: 'Textures/x.png' - noma'lum rasm formati (stb: ...)`) yoziladi, har kadr yoki har yuklashda takrorlanmaydi (sabab o'zgarsa, fayl o'zgarsa yoki muvaffaqiyatli yuklansa — yana); o'zgarmagan buzilgan fayl qayta-qayta dekodlanmaydi. Kontent brauzerda bunday faylda qizil belgi va pastda **N ta import xatosi** ro'yxati (bosilsa fayl ochiladi), Inspektorda sabab va **Qayta urinish** tugmasi
-- **Asset registry keshi**: registry (UUID, tur, yo'l, fayl hajmi va vaqti, import sozlamalari) bitta JSON hujjat sifatida `.zamin/AssetRegistry.json`ga saqlanadi. Editor yopiq paytda tashqarida ko'chirilgan yoki nomi o'zgargan fayllar keyingi ochilishda taniladi — hatto `.zmeta`siz ko'chirilgan bo'lsa ham (tur, hajm va vaqt bo'yicha, faqat bir xil mos kelsa) UUID va sozlamalari tiklanadi, eski `.zmeta` olib tashlanadi va sahna / prefab / glTF fayllaridagi havolalar yangilanadi. Editor ishlayotganda shell'da `.zmeta`siz qayta nomlangan fayl ham shunday taniladi. **O'yinni build qilish** `AssetRegistry.zreg` faylini yozadi — eksport qilingan o'yin har bir `.zmeta`ni o'qimasdan registry'ni shundan oladi (fayllar o'zgargan bo'lsa papkani o'qiydi). `.zamin/` papkasi versiya nazoratiga qo'shilmaydi
-- **Ishlatilmagan assetlar** (Oyna menyusi yoki kontent brauzerda o'ng tugma): hech bir sahna, prefab, material, loyiha fayli, `.gltf` model yoki C++ koddagi satr (`"Prefabs/Ball.zprefab"`) havola qilmaydigan assetlar — o'lchami bilan; ochiq sahnaning saqlanmagan holati ham hisobga olinadi. **Chuqur tahlil**: faqat boshlang'ich sahna va koddan (sahnalar, prefablar, modellar orqali) yetib boriladigan assetlar ishlatilgan hisoblanadi. Tur filtri, qidiruv, belgilanganlarni tasdiq bilan o'chirish (`.zmeta` bilan) va **buzilgan havolalar** ro'yxati (mavjud bo'lmagan fayllarga havolalar)
-- **Fayl kuzatuvchi va qayta yuklash**: `Assets` papkasi kuzatiladi (Linux'da inotify, aks holda har soniyada tekshiruv); tashqi dasturda o'zgartirilgan **rasm, model (glTF / OBJ, `.bin` buferi ham), material (`.zmat`), shrift va HDRI** fayllar editor'da darhol (o'sha obyektning o'zida — sprite, tilemap, model va uning teksturalari, skelet va animatsiyalar, osmon/yorug'lik, eskizlar) yangilanadi; buzilgan fayl xatosi konsolga chiqadi va avvalgi rasm qoladi; yangi / o'chirilgan fayllar ro'yxatga avtomatik tushadi. O'ng tugma → **Qayta yuklash** — qo'lda
-- **Status bar**: tanlangan obyekt nomi, joylashuvi, komponentlar va bolalar soni, yashirin/qulf belgisi (bosish — kamerani yo'naltirish, sichqoncha ustida — batafsil, o'ng tugma — nom/UUID/yo'lni nusxalash); ko'p tanlovda soni va markazi
-- C++ skript maydonlari (`ZM_FIELD`) inspektorda tahrirlanadi, o'yin paytida jonli o'zgartiriladi
-- Loyiha launcher'i: yangi loyiha (shablondan), so'nggi loyihalar, namuna o'yinlar
-- **Profiler** (ierarxik): har bir tizim (skriptlar, fizika, animatsiya, render, post-processing, UI) uchun CPU vaqti.
-  Ichma-ich `ZM_PROFILE_SCOPE` bo'limlari daraxt bo'lib yig'iladi: Statistika panelida yoki Oyna > Profiler oynasida
-  har bo'limning jami vaqti, o'z vaqti (ichki bo'limlarsiz), chaqiruvlar soni va kadrdagi ulushi; o'rtacha (silliqlangan)
-  yoki oxirgi kadr, **Muzlatish** bilan bir kadrni ushlab ko'rish. Bir xil nomli bo'lim bir ota ostida bitta tugun,
-  boshqa ota ostida alohida. `Profiler::Find("Kadr/Layers (update)/Sahna")`, `GetHotspots`, `FormatTree`;
-  `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` daraxtni logga ham yozadi
-- **Statistika overlay** (viewport ustida, faqat editor; toolbar'dagi spidometr tugmasi yoki Ko'rinish > Statistika
-  overlay): FPS va kadr vaqti, so'nggi 240 kadr grafigi (maqsad FPS chiziqlari, ranglar: yashil - sig'di, sariq - ikki
-  baravarigacha, qizil - sekinroq), eng sekin 1% kadrlar, draw call'lar (sahna va editor alohida), uchburchaklar,
-  meshlar / instanced, soyalar, 2D obyektlar, culling kesganlari (ulushi bilan) va eng sekin profiler bo'limlari.
-  Burchagi, foni, bo'limlari va maqsad FPS sozlanadi (o'ng tugma yoki menyu), editor sozlamalarida saqlanadi
-- **Maximize on Play**: o'yin rejimida viewport butun oynaga yoyiladi
-- **O'yinni build qilish**: bitta tugma bilan mustaqil papkaga eksport (`./MeningOyinim.sh`): C++ skriptlar alohida
-  build papkasida Release (`-O2`) da qayta kompilyatsiya qilinadi, binarlar `strip` qilinadi (Debug engine bilan
-  ~218 MB -> 37 MB), ishlatilmagan assetlar chiqarib tashlanadi; papka qayerga ko'chirilsa ham ishlaydigan `.desktop`
-  fayli va 16 ... 256 px ikonkalar (`install-desktop-entry.sh` menyuga va ikonka mavzusiga o'rnatadi); tugagach
-  **eksport hisoboti** oynasi (jami hajm, turlar bo'yicha ulush, eng katta fayllar, chiqarib tashlanganlar,
-  ogohlantirishlar; `export-report.json` / `.txt`)
+- A docking interface: Viewport, Hierarchy, Inspector, Content browser, Console, Scene settings, Statistics
+- **Undo/Redo** (`Ctrl+Z` / `Ctrl+Y`), **Copy/Paste** (`Ctrl+C` / `Ctrl+V`), duplicate (`Ctrl+D`)
+- **Parent/child hierarchy**: a tree view, setting the parent and changing the order with drag & drop (on a row's edge — before/after, on its middle — inside), creating a child object
+- **Multiple selection**: `Ctrl`+click (add/remove), `Shift`+click (range), `Ctrl+A`; deleting, duplicating and dragging the selection together and moving/rotating/scaling it with the gizmo (pivot: the active object or the centre of the selection)
+- The Transform menu in the inspector (⚙ or right-click): reset, copy, paste (everything or only position/rotation/scale) — on every selected object
+- **Component order**: up / down / to the top / to the bottom in the component menu (⚙ / right-click), or by dragging the header; the order is saved in the scene for every object (Transform always on top)
+- **Copying and pasting components**: ⚙ → *Copy component*, on another object ⚙ → *Paste values* or **+ Component → Paste from clipboard** (added when missing) — on every selected object, through the system clipboard to another editor window too
+- The collapsed/expanded state of the inspector's component headers is remembered (by component type, scripts by class; on the next start too), the ⊟/⊞ button collapses/expands all of them
+- **Eye** and **lock** buttons in the hierarchy: a hidden object (and its children) is not drawn in the editor scene — in the game (Play, Player) it shows as usual; a locked object cannot be selected in the viewport or moved with the gizmo (it can still be edited in the hierarchy/inspector). `H` — hide/show the selection, `Alt+H` — show everything; the states are saved in the scene file (not written to a prefab)
+- **Active/inactive objects** (`TagComponent::Active`, a game state — unlike the eye in the editor): an inactive object and its whole hierarchy are not drawn (mesh, sprite, text, tilemap, particles, UI, lights), take no part in physics (2D/3D bodies, tilemap collision and the character are removed and created at the current transform when enabled again; the side inside gets `OnTriggerEnd`/`OnCollisionEnd`), the script gets `OnDisable` and `OnUpdate`/`OnLateUpdate`/timers stop (`OnEnable` when it is enabled). Also: the particle system stops (the particles are cleared, `EmitParticles` does nothing either; when enabled again it starts from the beginning, with its burst), the audio source stops (when enabled again, one marked "Play on start" plays from the start), the Animator and Sprite Animation are not updated (time, pose and state machine stand still, then continue), UI buttons are not shown and cannot be pressed (a button being held is cancelled, the button under the mouse takes over), a camera does not count as the main camera (cameras can be switched by enabling/disabling their objects; the listener and `ScreenToWorld` also come from the active camera), a light is not counted (it lights nothing, casts no shadow and does not take the sun's place or one of the 32 point/spot light slots — the next active light takes it; the sun is the first active Directional Light in scene order, the others are not used (the inspector says so); with more than 32, the ones that affect the camera most are used; `GetScene().CollectLights(...)`, also shown in the statistics window), tilemap collision turns off (rebuilt from the current tiles and transform when enabled again), a Character Controller 3D leaves the world (no gravity, `Grounded` false, `Jump` does nothing; when enabled again it is created in its current place, at rest). Bodies sleeping on a removed body wake up and fall, and the ones inside a body that reappears wake up too. The inspector shows a ⏻ note under such components. The state is saved in the scene file (`"Active": false`, only when off), in copies and in prefabs: every object of a prefab instance starts active/inactive as it was saved; an instance `Instantiate`d from an inactive template is inactive too (enabled with `SetActive(instance, true)`), while an instance of an active template inside an inactive group is created active as a root object (where the template stands). Toggled with the **checkbox** next to the name in the inspector (on every selected object; works while playing too) or `Alt+Shift+A`; in the hierarchy inactive objects (and children of inactive parents) look dim, the ones switched off themselves carry a ⏻ mark
+- **Prefabs** (`.zprefab`): saving an object as a prefab, dragging it into the scene/hierarchy (several at once, under the mouse,
+  Shift — placement mode); instances are **linked** to the prefab (changes are marked in the inspector, Apply / Revert at every
+  level, unlinking), nested prefabs and **variants**, **prefab mode** (editing on its own), instances update when the prefab
+  file changes outside (hot reload), undo with prefab files, the copy buffer keeps the link, prefab pictures in the content
+  browser, checks on export (R1-R10) — details: [docs/Prefabs.md](Prefabs.md)
+- An automatic orthographic camera for 2D scenes, 3D colliders drawn as wireframes
+- A modern dark theme, the Inter font, Font Awesome icons, an Uzbek interface
+- Gizmos (move / rotate / scale), selecting objects with the mouse (picking)
+- **Snapping** on the toolbar (magnet): move / rotate / scale steps and ready-made values; holding `Ctrl` inverts it for the moment
+- **Grid settings**: cell size, major line spacing, colours, axes, view distance (▾ on the toolbar or right-click)
+- **Camera bookmarks**: `Ctrl+1..5` saves the view, `1..5` returns to it smoothly (separately for every scene)
+- **Frame all** (`Shift+F`) and frame the selection (`F`): the camera fits the objects' bounds
+- **Duplicate by dragging** in the viewport: `Alt` + dragging the gizmo drags a copy, `Ctrl+D` while dragging leaves a copy at that spot
+- The viewport settings (snapping, grid, bookmarks, inspector headers, the content browser's view and filter) are saved per user in `~/.config/zamin/editor-view.json`
+- **Play / Simulate / Pause / Step** — running the game inside the editor (on a copy of the scene, the edits are not damaged)
+- **The Preferences window** (`Edit > Preferences`, `Ctrl+,`): the theme's accent colour (8 ready-made colours or any), the font size (12–22 px, the whole UI changes in proportion, the font atlas is rebuilt), the play mode tint, the console and editor camera defaults (FOV, near/far, fly speed) — saved in `~/.config/zamin/preferences.json`
+- **The play mode tint**: during Play the window backgrounds, headers, tabs, the menu and the status bar are multiplied by the chosen colour (reddish, bluish, green ... or any; its strength, in simulation too) — so that you do not forget that changes made in play mode are lost
+- **Game window size** (during Play on the viewport toolbar or in the `View` menu): Free, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 or another (pixels or a ratio) — placed with black bars around the picture, a large size that does not fit is shown scaled down (the game is still drawn at the full size), the mouse maps correctly to the game's pixels
+- **Console**: search by text (case-insensitive or case-sensitive, regex `.*` — over the first 16 KB of a very long message), level buttons (with the number found), **grouping** identical messages (the count in a badge), showing/hiding the time, clearing on Play, selecting a message by clicking (the full text below), copying with `Ctrl+C` / right-click, "filter by this text"
+- **Keyboard shortcuts** (`Help > Keyboard shortcuts`, `F1`): every shortcut of the editor in one table (file, editing, selection, game, viewport tools, camera, tile painting, the panels' own keys) — shown in groups, searched by name / key / place or found by pressing the key; **rebinding** by pressing a key (or leaving it unbound), conflicts are shown with a red mark, the shortcuts in the menus come from the same table — the changes are saved in `preferences.json`
+- **Autosave**: every N minutes (configurable, 1–60) unsaved changes are written as a copy to `<project>/.zamin/autosave/` — the scene file itself does not change; when the editor closes unexpectedly (the project lock file remains), the next time the scene is opened a **restore** is offered if the copy is newer than the file (after restoring, undo goes back to the state in the file); *Later* puts the copy aside (`<copy>.kept`) — the autosave and saving the scene in this session do not touch it, and you are asked again the next time the scene opens
+- **Recent scenes**: `File > Recent scenes` (this project's scenes, the open one marked) and in the start window the recent scenes of every project (one click opens the project too); recent projects as well — saved in `~/.config/zamin/recent-*.json`, moved scenes are updated in the list too
+- **Undo history** (`Ctrl+H`): every step with its name ("Transform.Translation changed (Player)", "Component added: Rigidbody2D (Player)", "Renamed: A → B", "Duplicated: ...") — the name is worked out automatically from the difference between scene snapshots; clicking a step goes to that state, the saved state is marked, the steps that can be redone are dim; **the selection is undone too** (every selection is its own step, `Ctrl+Z` brings back the previous selection; even after a delete, the undo of a change restores the selection of that moment); when undo returns to the state equal to the file the scene counts as "saved"
+- **Window layouts** (`Window > Layout`): the editor's own layouts — *Default*, *2D* (the tile palette under the hierarchy, the viewport in 2D mode), *Animation* (a large Animation window and Animator graph at the bottom), *4 views* (the viewport + top / front / right orthographic views, 2x2, the viewport larger; the hierarchy above the inspector) — and layouts you saved yourself (where the windows are and which are open, `~/.config/zamin/layouts/*.zlayout`): save, apply, rename, update, delete (the `Layouts` window); `Reset layout` returns to the default
+- **Several scene views** (`Window > Views`): 3 more view windows besides the viewport, each with its own camera (by default: top, front, right — orthographic): grid, selection outline, transform gizmo, icons, click selection; in play mode too they show the scene from their own camera; when opened they dock next to the viewport, and the cameras are kept for the next session
+- **Orthographic axis views**: an axis navigator in the corner of every view (clicking the X / Y / Z circles — the view from that side, the centre — perspective / orthographic), a toolbar menu and the numpad keys (`Num 7` top, `Num 1` front, `Num 3` right, with `Ctrl` the opposite side, `Num 5` projection, `Num 0` free perspective) — the camera turns smoothly; orbiting an axis view (Alt + left button) returns to perspective, and the grid's plane is chosen by the view (XZ / XY / YZ)
+- **Camera settings** (the camera button on the viewport toolbar, `View > Editor camera`): fly speed (also with the wheel while the right button is held — saved for every view and the next session), acceleration (the speed grows on long flights, up to 4x), mouse sensitivity, invert Y, FOV, near / far
+- **Object names in the viewport** (the tag button on the toolbar, `View > Object names`): the names of the selected or all objects above them — they fade with distance from the camera (the distance is configurable), when they overlap the selected / hovered / nearest one stays, clicking a name selects the object; size, background and count are configurable, in play mode too if you like
+- **Scene statistics** (`Window > Scene statistics`): objects (active / inactive, roots, hierarchy depth), components by type, C++ scripts by class, prefab instances (objects placed from a prefab in the editor remember it), the assets the scene names (images, models, audio, materials and their images) — size, vertex / index count, duration and **estimated memory** (textures with their mips, mesh buffers, decoded sound); the tables sort by any column, clicking a row selects those objects (`Ctrl` — adds, double-click — the camera goes there)
+- **Opening code in an external editor**: the `✎` button in the script inspector (the class is found in the `Source/` folder by `ZM_REGISTER_SCRIPT(Class)` and opened at the line where it is declared), double-clicking a `.cpp` / `.h` in the content browser or "Open in external editor", the classes in the `Scripts` menu, the scripts in the scene statistics; the command is in `Preferences > External editor` (`{file}`, `{line}`, `{col}`, `{dir}` placeholders; default: `$VISUAL` / `$EDITOR` — vim / nano in a terminal window —, otherwise `code -g {file}:{line}:{col}`, otherwise `xdg-open`), the program starts separately without making the editor wait
+- **Compile errors** (`Window > Compilation`, `Scripts > Compiler output`): the output of the scripts' build is split line by line — GCC / Clang errors and warnings with file, line, column, their notes (`note:`, "required from here"), the code line and the error position marker, the context ("In member function", the include chain), linker errors (`undefined reference`, lld's `>>> referenced by`), CMake errors; repeated ones once; error / warning / note filters, search, a full output tab; double-clicking opens the file at the right line in the external editor; when the build fails the window opens by itself, and the status bar shows the number of errors / warnings
+- **Saving power while idle** (`Preferences > Performance`): when the editor window is in the background (10 FPS by default) or nothing is happening — no input, no game / simulation running, no animation or particle preview playing, the camera is not flying, no compilation / loading / pictures (30 FPS after 1 s by default) — the frame waits for the window's events (`glfwWaitEventsTimeout`): the mouse or keyboard returns it to full speed at once; the status bar shows `idle: 30 FPS` with a leaf mark; it can be switched off; automated runs with `ZAMIN_MAX_FRAMES` never slow down (`ZAMIN_ALLOW_THROTTLE=1` — for testing). An editor idle for 20 s headless (set to 2 FPS): 54 s → 10.5 s of CPU time
+- The editor camera: Unity-style flying (RMB + WASD) and Maya-style orbit (Alt + mouse)
+- 2D/3D mode, an infinite grid, showing physics colliders, camera/light icons
+- Drag & drop from the content browser (texture → sprite, model → model object, sound → Audio Source, prefab, `.zscene` → open the scene)
+- **Content browser**: a tile or **list** view (sorting by name / type / size / modification date), a **file type filter** (scene, prefab, image, model, audio, font, HDRI, C++ ...; searches every subfolder), **search by the full path** — by default in the whole project (or only in the open folder; `Ctrl+F`): folder names count too (`textures` — everything in the `Textures` folder, `Textures/` — only what is inside; the top `Assets/` and `Source/` folders count only when written with `/` — `a` or `set` does not match the whole project, while `assets/tex` finds the right place), `tex/coin` — folders and name in that order, `*.png` — `*` any text, `t:texture`, `t:model`, `t:audio` — the file type; several words — all must match; the results are shown with their folder. **Thumbnails**: previews of images, HDRIs (tonemapped), fonts ("Aa") and **models** (drawn in 3D) — prepared on a background thread, uploaded to the GPU a few per frame (a large folder does not freeze the editor), cached in the `.zamin/Thumbnails` folder (they appear at once when the project is reopened) and refreshed when the file changes. Selecting several files with `Ctrl`/`Shift`; **moving files by dragging them onto a folder** (a folder tile/row or the path segments at the top) and renaming — the paths in scenes/prefabs, the relative file names in glTF models, the open scene, the undo history and the start scene are updated automatically (it warns about old paths in C++ code)
+- **Importing from outside**: drop a file or folder onto the editor window — it is copied into `Assets` (over the content browser — into the open folder, otherwise by its type into `Textures/`, `Models/`, `Audio/` ...; C++ files into `Source/`); a glTF moves into its own folder with its dependent files; dropped over the viewport, an object is also added to the scene
+- **The asset system**: next to every asset (scene, prefab, image, model, audio, font, HDRI, material) a `<file>.zmeta` file — a permanent **UUID**, the type and the import settings; the editor creates the missing ones when the project opens (the player only reads them), they are not shown in the content browser and move / are renamed / are deleted together with the asset; a copied `.zmeta` gets a new UUID. The content browser shows the UUID on hover
+- **UUID references**: in scene / prefab files every asset path is written together with its UUID (`"Texture"` + `"TextureUUID"`, `StartSceneUUID` in the project file); when a file is renamed or moved outside while the editor is closed (with its `.zmeta`), loading finds the new path through the UUID (written to the console, the scene is marked "changed"). Assets moved outside while the editor is open are detected and the references in scene / prefab / glTF files are updated at once
+- **The asset inspector and import settings**: when a file is selected in the content browser the Inspector shows that asset (path, UUID, size, date; a folder — the number of files, their size and types; several selected — a summary). **Image**: a preview (the R / G / B / A channels in grey, RGB — without transparency, 1:1 ... 8:1 zoom, the value of the pixel under the mouse), the size, the channels and bit depth in the file, the GPU format, the mipmap levels, the estimated video memory. **Model**: a rotating 3D preview (drag — rotate, wheel — zoom), the list of animations (duration, channels; play the one you choose and a time slider), the submeshes (vertices, triangles, material colour and maps), the skeleton joints, the materials in the file and the dependent files (the missing ones in red). **Audio**: the waveform — zoom with the wheel (around the mouse), pan with Shift + wheel / the middle button, the whole sound strip below (with the view window), a time ruler, click / drag to **scrub** (play from that spot), a playback cursor (followed when zoomed in), a **loop region** (marked with Shift + drag, its edges can be dragged, a right-click menu); play / stop, loop, volume; format, duration, channels, sample rate, bitrate. **Scene / prefab**: the number of objects, root objects, components; **font**: the atlas; **C++ file**: the lines and the registered script classes. For every asset **Used by** (which scene, prefab, model, project file or C++ code — through a path, UUID, a model file or code; clicking opens it in the content browser) and for scenes / prefabs / models **Uses assets** (with broken references). When something else is selected while import settings are unapplied, you are asked to apply or discard them. **Image**: filter (smooth / pixel), wrap (repeat / clamp / mirror), mipmaps, sRGB (when off — linear data, a mask for example); **model**: scale (cm -> m), up axis (Y / Z — rotated together with the skeleton and animations), flip UV; **audio**: load mode (automatic / into memory / stream), preloading, the file's volume, a loop region (`LoopStart` / `LoopEnd`: a looping sound first plays from the start to the end of the region, then the region over and over — intro + loop; music too; `AudioEngine::SetLoopRegion`). **Apply** — written to the `.zmeta` and the asset is reimported at once (the objects in the scene update immediately), **Cancel** — discards the edit. The player loads with the same settings
+- **A warning before deleting**: when an asset in use (or a folder with such assets) is about to be deleted, the confirmation window lists which scene, prefab, model or C++ file uses it (with the number of references; files deleted together are not counted; clicking shows that file) and the button becomes **Delete anyway**
+- **Import errors**: an asset that failed to load (a missing, damaged or unsupported image, model, font, HDRI, audio, scene, prefab) is written to the console **once** — with its path and the reason (`Image failed to load: 'Textures/x.png' - unknown image format (stb: ...)`), not repeated every frame or every load (again when the reason changes, the file changes or it loads successfully); an unchanged damaged file is not decoded over and over. The content browser shows a red mark on such a file and a list of **N import errors** at the bottom (clicking opens the file), the Inspector shows the reason and a **Retry** button
+- **The asset registry cache**: the registry (UUID, type, path, file size and time, import settings) is saved as one JSON document in `.zamin/AssetRegistry.json`. Files moved or renamed outside while the editor was closed are recognized the next time it opens — even when moved without their `.zmeta` (by type, size and time, only on a unique match) their UUID and settings are restored, the old `.zmeta` is removed and the references in scene / prefab / glTF files are updated. A file renamed in a shell without its `.zmeta` while the editor is running is recognized the same way. **Build game** writes an `AssetRegistry.zreg` file — the exported game takes the registry from it without reading every `.zmeta` (when files have changed it reads the folder). The `.zamin/` folder is not added to version control
+- **Unused assets** (the Window menu or right-click in the content browser): the assets no scene, prefab, material, project file, `.gltf` model or string in C++ code (`"Prefabs/Ball.zprefab"`) refers to — with their size; the unsaved state of the open scene counts too. **Deep analysis**: only the assets reachable from the start scene and from code (through scenes, prefabs, models) count as used. A type filter, search, deleting the marked ones after confirmation (with their `.zmeta`) and a list of **broken references** (references to files that do not exist)
+- **The file watcher and reloading**: the `Assets` folder is watched (inotify on Linux, otherwise a check every second); **image, model (glTF / OBJ, and the `.bin` buffer), material (`.zmat`), font and HDRI** files changed in an external program update in the editor at once (on the object itself — sprite, tilemap, model and its textures, skeleton and animations, sky/lighting, thumbnails); a damaged file's error goes to the console and the previous picture stays; new / deleted files appear in the list automatically. Right-click → **Reload** — by hand
+- **Status bar**: the selected object's name, position, the number of components and children, the hidden/locked mark (click — aim the camera, hover — details, right-click — copy the name/UUID/path); with several selected, their number and centre
+- C++ script fields (`ZM_FIELD`) are edited in the inspector and changed live while playing
+- The project launcher: a new project (from a template), recent projects, sample games
+- **Profiler** (hierarchical): the CPU time of every system (scripts, physics, animation, rendering, post-processing, UI).
+  Nested `ZM_PROFILE_SCOPE` sections are gathered into a tree: in the Statistics panel or the Window > Profiler window
+  every section's total time, its own time (without inner sections), the number of calls and its share of the frame;
+  averaged (smoothed) or the last frame, **Freeze** to hold one frame. A section with the same name is one node under one
+  parent and a separate one under another parent. `Profiler::Find("Frame/Layers (update)/Scene")`, `GetHotspots`,
+  `FormatTree`; `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` also write the tree to the log
+- **Statistics overlay** (over the viewport, editor only; the speedometer button on the toolbar or View > Statistics
+  overlay): FPS and frame time, a graph of the last 240 frames (target FPS lines, colours: green - fits, yellow - up to
+  twice as long, red - slower), the slowest 1% of frames, draw calls (scene and editor separately), triangles,
+  meshes / instanced, shadows, 2D objects, what culling removed (with its share) and the slowest profiler sections.
+  The corner, background, sections and target FPS are configurable (right-click or the menu), saved in the editor settings
+- **Maximize on Play**: in play mode the viewport fills the whole window
+- **Build game**: export to a standalone folder with one button (`./MyGame.sh`): the C++ scripts are recompiled in
+  Release (`-O2`) in a separate build folder, the binaries are `strip`ped (with a Debug engine ~218 MB -> 37 MB), unused
+  assets are left out; a `.desktop` file that works wherever the folder is moved and 16 ... 256 px icons
+  (`install-desktop-entry.sh` installs them in the menu and the icon theme); when it finishes, the **export report**
+  window (total size, share by kind, the largest files, what was left out, warnings; `export-report.json` / `.txt`)
 
-## Dvigatel
+## Engine
 
-- ECS arxitektura (EnTT), UUID, JSON sahna formati (`.zscene`)
-- **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida) — batafsil qo'llanma: [docs/Rendering.md](Rendering.md):
-  - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
-  - **Sprite atlas va Sprite muharriri** (Oyna > Sprite muharriri, yoki rasm inspektoridagi / Sprite Renderer'dagi ✂
-    tugma): teksturani grid bo'yicha kesish (katak o'lchami yoki ustun/qator soni, siljish, oraliq, bo'sh kataklarni
-    tashlash, nom prefiksi), rasm ustida sichqoncha bilan yangi kadr chizish, har bir kadrning nomi, to'rtburchagi,
-    pivot'i va 9-slice chegaralari; zoom (g'ildirak) va surish. Kadrlar rasmning `.zmeta` faylida (`"Sprites"`) saqlanadi —
-    rasm o'zi atlas bo'ladi: Sprite Renderer kadrni nomi bilan ko'rsatadi (`SpriteName`, bo'sh — butun rasm), Sprite
-    Animation nomlangan kadrlar ro'yxatini o'ynaydi (`Frames`, inspektorda `run_0, run_1, ...` ketma-ketliklari bitta
-    tanlov bilan; skriptdan `PlaySpriteSequence("run")`, `SetSprite("idle")`), eksport qilingan o'yinga registry bilan o'tadi
-  - **Sprite animatsiya kliplari** (`.zsanim` asset): rasm, sprite sheet kadrlari yoki grid, FPS, takrorlash va **kadr
-    event'lari** (`OnAnimationEvent`, masalan qadam "Step"). Sprite Animation'ning **Kliplar** ro'yxati — birinchisi o'yin
-    boshida o'ynaydi va editorda ko'rinadi, skript `PlaySpriteClip("HeroSide")`; asset inspektorida jonli ko'rinish (kadrlar
-    qatori, oldinga / orqaga), tahrirlar darhol hamma foydalanuvchilarga o'tadi va saqlanadi. Kontent: o'ng tugma → Yangi
-    sprite animatsiya klipi (tanlangan rasmdan); inspektorda "Shu kadrlardan klip". Namuna: TopDown2D qahramoni va gulxani
-  - **9-slice va plitkali sprite'lar**: Sprite Renderer'ning chizish rejimi Oddiy / 9-slice (Sliced) / Plitka (Tiled) —
-    `Size` (birlik) to'rtburchagini burchaklari cho'zilmay (chegara px / `PixelsPerUnit`) to'ldiradi, Tiled'da chetlar va
-    o'rta takrorlanadi; chegaralar komponentda yoki kadrda. Ekran UI'sida ham (panel, tugma — chegara ekran pikselida).
-    Oddiy rejimdan o'tilganda masshtab avtomatik `Size`'ga ko'chadi (burchaklar cho'zilmasin)
-  - **Saralash qatlamlari** (Loyiha sozlamalari > Saralash qatlamlari): nomlangan qatlamlar ro'yxati (tartibi — chizish
-    tartibi), sprite, doira, matn, tilemap va particle'larda qatlam + qatlamdagi tartib; chizish tartibi: qatlam, tartib,
-    keyin kameradan uzoqlik. Obyektlar qatlamni ID bilan eslaydi (qayta nomlash/surish buzmaydi, boshqa loyihadan kelgan
-    sahna nom bo'yicha topadi). **Y bo'yicha saralash** (qatlamning "Y" belgisi, top-down o'yinlar): qatlam ichida avval Y —
-    yuqoriroqdagi orqada; saralash nuqtasi pivot (oyoqlar), shu qatlamdagi ota-obyekt ostidagi qismlar (soya, qalpoq)
-    otaning Y'i bilan birga, o'zaro tartib bo'yicha chiziladi
-  - **Parallax** komponenti: obyekt (bolalari bilan) o'yin kamerasi bilan `Factor` (0 — oddiy, 1 — ekranda qotgan, manfiy —
-    old plan) bo'yicha siljiydi, `RepeatX`/`RepeatY` bilan sprite ko'rinadigan joyni cheksiz to'ldiradi. Transform
-    o'zgarmaydi (fizika va skriptlarga ta'sir qilmaydi); editorda Ko'rinish > Parallax bilan editor kamerasida ham.
-    Namuna: Platformer2D `Scenes/Showcase2D.zscene`
-  - **Camera 2D Follow** komponenti: obyekt (odatda kamera) nishon ortidan fizika va skriptlardan keyin silliq yuradi —
-    `Offset`, x/y bo'yicha alohida silliqlik (soniyada, kadr tezligiga bog'liq emas), o'lik zona (nishon uning ichida yursa
-    kamera qimirlamaydi), harakat yo'nalishi bo'yicha oldinga qarash (`LookAhead`), dunyo chegaralari (kameraning butun
-    ko'rinishi to'rtburchakdan chiqmaydi), boshida nishonga sakrash va `Snap()`. Editorda tanlanganda o'lik zona va
-    chegaralar chiziladi; skriptdan `SetCameraTarget(entity)`
-  - **Kamera silkinishi**: `ShakeCamera(kuch, davomiylik, chastota)` (skriptdan yoki `Scene::ShakeCamera`) — trauma
-    modeli: kuch qo'shiladi (eng ko'pi 1), davomiylik ichida so'nadi, siljish = kuch^daraja × `MaxOffset` / `MaxAngle`
-    (kamera komponentida sozlanadi), silliq shovqin bo'yicha; faqat tasvir silkinadi — transform, kuzatish, fizika
-    o'zgarmaydi; bir xil seed bilan aynan takrorlanadi. Inspektorda o'yin paytida "Sinash" tugmasi
-  - **Hit flash va kontur** (Sprite Renderer > Effektlar): `FlashAmount` rasmni `FlashColor` rangiga aralashtiradi,
-    skriptdan `Flash(rang, soniya)` — darhol to'liq, so'ng so'nib boradi (pauzada kutadi); `OutlineThickness` (tekstura
-    pikseli) — rasmning ko'rinadigan piksellari atrofida `OutlineColor` chegarasi (shader qo'shni alfalarni tekshiradi,
-    quad kontur kengligicha kattalashadi, atlas kadridan tashqariga chiqmaydi; bitta bo'lak bo'lib chiziladigan sprite'larda:
-    Simple, chegarasiz Sliced/Tiled ham), `SetOutline(rang, qalinlik)`.
-    Ekran UI sprite'larida ham ishlaydi; sozlanmagan sprite'lar avvalgidek chiziladi
-  - **Tint animatsiyasi** (Tint Animation komponenti): renderer rangi (Sprite, Circle, Text, Tilemap va Light 2D) x gradiyent
-    rangi — kalitlar (vaqt 0..1 + rang), davomiylik, Bir marta / Takror / Borib-qaytish, easing, sikllar soni, boshlanish
-    siljishi; renderer'ning o'z rangi o'zgarmaydi. Inspektorda gradiyent chizig'i va "Sahnada ko'rish". Skriptdan:
-    `PlayTint(rang, soniya, rejim, sikllar)` (masalan miltillash), `StopTint()`, `TweenColor(rang, soniya)`, `FadeTo(alfa, soniya)`
-  - **2D yorug'lik** (Light 2D komponenti): nuqta yoki konus (obyektning +X o'qi bo'ylab), rang, kuch, radius, ichki radius,
-    so'nish darajasi, miltillash (mash'al); sahnaning 2D muhit yorug'ligi (Sahna sozlamalari > 2D yorug'lik). Faqat "Lit"
-    belgilangan sprite va tilemap'lar yoritiladi (shader ichida, eng yaqin 32 ta yorug'lik qo'shiladi) — eski sahnalar
-    o'zgarmaydi. Editorda tanlanganda radius/konus chiziladi
-  - **Pixel-perfect kamera** (ortografik kamera > Pixel-perfect): piksel/birlik va asosiy o'lcham (masalan 320x180) —
-    kattalashtirish shu o'lcham sig'adigan eng katta butun son; "past o'lchamda chizish" — sahna art o'lchamida chiziladi
-    va aniq piksellar bilan kattalashtiriladi (UI esa ekran o'lchamida, tiniq); kamera (ixtiyoriy sprite'lar ham) piksel
-    to'rida. Namuna: Platformer2D `Scenes/TopDown2D.zscene` — tungi qishloq: Y bo'yicha saralash, fonarlar, gulxan va
-    kristallar yorug'ligi, tint animatsiyalar, auto-tile yo'lak, 9-slice HUD, pixel-perfect kamera (WASD)
-  - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
-  - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat
-    bittasi beradi — sahna tartibida "Soyalar" yoqilgan birinchisi (asosiy quyosh; osmondagi quyosh diski ham unga
-    ergashadi). Inspektorda har bir quyoshning roli yoziladi ("Soya bermaydi: soyani '...' beradi"), Statistika panelida
-    asosiy quyosh va soyasiz quyoshlar soni
-  - **Osmon gradienti va quyosh diski** (HDRI bo'lmaganda; Sahna panelining "Osmon gradienti va quyosh" bo'limi, sahnada
-    saqlanadi): zenit / ufq / yer ranglari, zenit egriligi (tepa rangi qanchalik pastga tushadi), yerga o'tish (ufq
-    chizig'ining kengligi), quyosh diski (o'lchami gradusda, yorqinligi, nur gardishi) — asosiy quyosh yo'nalishida va
-    rangida. Gradient atrof yorug'lik va akslarda ham ishlatiladi. Namuna: `Showcase3D` ichidagi `Scenes/Sunset.zscene`
-    (3 ta quyosh, quyosh botishi osmoni, bloom rangi, linza changi, xromatik aberratsiya, plyonka donasi)
-  - **Nuqtali va spot yorug'liklar** — birgalikda 32 tagacha: **Spot Light** (obyektning -Z o'qi bo'ylab konus, ichki /
-    tashqi burchak orasida yumshoq so'nish, masofa bo'yicha nuqtali yorug'lik kabi so'nish). Ko'proq bo'lsa kameraga eng
-    ko'p ta'sir qiladiganlari tanlanadi (kuchi x rangi, kamera yorug'lik radiusidan tashqarida bo'lsa x (radius /
-    masofa)^2; teng ta'sirda eng yaqini) — shuning uchun oddiy "eng yaqinlari"dan farqli, uzoqdagi kuchli yorug'lik
-    yaqindagi kuchsizidan ustun bo'lishi mumkin, kamerani o'z radiusi ichida qamragan yorug'lik esa to'liq kuchi bilan.
-    Editorda tanlangan nuqtali yorug'likning radiusi (3 ta aylana) va spot konusi (ichki konus xiraroq) ko'rinadi,
-    viewport'da spot belgisi bor. Namuna: `Projects/Showcase3D` ichidagi `Scenes/Lights.zscene` (29 ta yorug'lik)
-  - **HDRI osmon + IBL**: `.hdr` panorama — diffuz yorug'lik SH9 orqali, aks (specular) mip darajalari bo'yicha
-  - **Cascaded Shadow Maps** (texel snapping), **tuman** (masofa + balandlik). Soya sifati sahna sozlamalarida (Sahna
-    panelining "Soyalar" bo'limi, sahna faylida saqlanadi): atlas o'lchami (1024 / 2048 / 4096), filtr (o'chiq, PCF 3x3,
-    PCF 5x5, Poisson 16 nuqta), kaskadlar soni (1-4, bitta kaskad butun atlasni oladi) va taqsimoti (teng .. logarifmik),
-    soya masofasi, chuqurlik bias va normal bias. Standart qiymatlar (4096, PCF 3x3, 3 kaskad) avvalgi ko'rinishni saqlaydi
-  - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
-  - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
-  - Material xaritalari: **normal map**, metallic/roughness map, emissive map; tekstura **takrorlash va siljish** (vec2)
-  - **Material assetlari (`.zmat`)**: JSON fayl — shader (Lit / Unlit), aralashtirish rejimi (Opaque / Cutout / Transparent),
-    alfa chegarasi, ikki tomonlama, rang, metallik, g'adir-budurlik, nurlanish (rang + kuch), normal / metal-roughness /
-    nurlanish teksturalari (loyiha yo'li + UUID), takrorlash va siljish. Bitta fayl — bitta umumiy obyekt (`MaterialLibrary`):
-    Mesh Renderer'da **Material asset** maydoni (primitiv va modelning barcha qismlari, yoki har bir submesh uchun alohida)
-    ichki materialni almashtiradi; eski sahnalar avvalgidek yuklanadi. Fayl yoki uning teksturalari o'zgarsa joyida qayta
-    yuklanadi. Inspektorda **material muharriri**: aylanadigan preview (shar / kub / tekislik / silindr, osmon gradienti
-    yoki sahna HDRI'si bilan), o'zgarishlar sahnada darhol ko'rinadi, **Saqlash** / **Bekor qilish**, saqlanmagan belgisi.
-    Ichki materialni bir tugma bilan `.zmat`ga aylantirish mumkin
-  - **Sirt turlari** (material asset va ichki materialda): **Opaque** — alfa e'tiborga olinmaydi; **Cutout** — alfasi
-    (rang x tekstura) chegaradan past piksellar chizilmaydi, soyada ham shu teshiklar bo'ladi (barglar, panjaralar);
-    **Transparent** — shaffof sirtlar opaque sahna va osmondan keyin, avval materialning **ustuvorligi** (Sort Priority,
-    -100..100: kattasi boshqalar ustida chiziladi), keyin chegaralari markazining kameradan uzoqligi bo'yicha (ortografik
-    kamerada — ko'rish yo'nalishi bo'yicha) orqadan oldinga saralanib, chuqurlik yozmasdan premultiplied alfa bilan
-    chiziladi, soya tashlamaydi. Ko'rinish menyusidagi **Shaffoflar tartibi** viewport'da har bir shaffof sirt ustiga uning
-    chizilish raqami, uzoqligi va ustuvorligini yozadi (o'yin rejimida ham), Statistika panelida — shaffof meshlar soni; **Aksni saqlash** yoqilsa aks va yaltirashlar
-    alfa bilan susaymaydi (shisha), o'chirilsa butun sirt so'nadi. **Ikki tomonlama**: ikkala tomon chiziladi, orqa tomon
-    teskari normal bilan yoritiladi (ikki tomonlama shaffof sirt — avval ichki, keyin tashqi tomoni); bayroq o'chiq bo'lsa
-    orqa tomonlar kesiladi (manfiy masshtabli ko'zgu obyektlarda ham to'g'ri). **Unlit**: faqat rang x tekstura + nurlanish,
-    yorug'lik va soya ta'sir qilmaydi. glTF `alphaMode` (MASK / BLEND), `alphaCutoff`, `doubleSided` va
-    `KHR_materials_unlit` o'qiladi; eski sahnalarda alfasi 1 dan kichik rang avtomatik Transparent bo'ladi. Namuna:
-    `Projects/Showcase3D` ichidagi `Scenes/MaterialGallery.zscene`
-  - **Materiallar bilan ishlash**: kontent brauzerda o'ng tugma — **Yangi material** (standart `.zmat` takrorlanmas nom bilan
-    yaratiladi, tanlanadi va inspektorda ochiladi). `.zmat`ni viewport'dagi mesh ustiga sudrash — qo'yishdan oldin material
-    o'sha meshda ko'rinadi (ko'k ramka va yorliq), qo'yilsa Mesh Renderer'ga yoziladi (bitta undo qadami); ko'p qismli
-    modelga **Shift** bilan qo'yilsa qaysi qism (submesh) olishini so'raydi. Ierarxiya qatoriga yoki Material asset maydoniga
-    ham tashlash mumkin (faqat mos fayl qabul qilinadi). Model inspektorida **.zmat ga eksport qilish**: glTF materiallari
-    `<model>_Materials` papkasiga `.zmat` bo'lib yoziladi, fayl ichidagi (.glb / data URI) rasmlar PNG/JPG bo'lib chiqariladi;
-    Mesh Renderer'dagi **Modeldan .zmat yaratib biriktirish** ularni har bir qismga biriktiradi
-  - **Material instansiyalari (skript)**: `GetMaterial()->SetColor(...)` — obyektning materialdan o'z nusxasi (birinchi
-    chaqiriqda yaratiladi), o'zgarishi faqat shu obyektda ko'rinadi, umumiy `.zmat` va boshqa obyektlar o'zgarmaydi; o'yin
-    to'xtaganda yo'qoladi. `GetMaterial(qism)`, `GetSharedMaterial()` (umumiy asset — o'zgartirilsa hammasi o'zgaradi, editorda
-    o'yin to'xtaganda asl holiga qaytadi), `SetSharedMaterial("Materials/Red.zmat")`, `ResetMaterial()`. Tezkor tahrirlar:
-    `SetColor`, `SetOpacity`, `SetEmission`, `SetMetallic`, `SetRoughness`, `SetTiling`, `SetOffset`, `SetAlbedoMap`.
-    `SetEmissionColor`, `SetEmissionStrength`, `SetSortPriority`.
-    Namuna: Showcase3D minorasidagi har bir g'isht `Clay.zmat`ning o'z nusxasini qavatiga qarab bo'yaydi
-  - **Nurlanish (emissive)**: material rangi x kuchi (x nurlanish teksturasi) — HDR: 1 dan katta natija bloom yoqilgan sahnada
-    porlaydi. Inspektorda bitta qatorda rang, kuch va **HDR / LDR** belgisi; nurlanishi o'chiq materialga nurlanish teksturasi
-    berilsa nurlanish oq x 1 bo'ladi (aks holda tekstura ko'rinmasdi). Material preview va thumbnaillarda ham bloom bor;
-    glTF `emissiveFactor` va `KHR_materials_emissive_strength` o'qiladi
-  - **Standart materiallar kutubxonasi** (`MaterialPresets`): metall, cho'tkalangan metall, oltin, mis, plastik, rezina,
-    yog'och, shisha, keramika, beton, neon, suv. Yog'och, beton va cho'tkalangan metall teksturalari protsedural
-    (CPU'da, choksiz takrorlanadi) va loyihada bir marta `Assets/Materials/Standard/Textures/` ga PNG bo'lib yoziladi - har
-    papkadagi nusxalar shu bitta teksturani ishlatadi. Kontent brauzerda
-    **Yangi material** menyusidan tanlanganining nusxasi shu papkada yaratiladi; Mesh Renderer'dagi **Standart material...**
-    loyihadagi umumiy nusxasini (`Assets/Materials/Standard/`) biriktiradi. Namuna: `MaterialGallery` sahnasidagi sharlar qatori
-  - **Material thumbnaillari**: kontent brauzerda va Material asset maydonlarida `.zmat` shar ustida (yoritilgan, shaffof /
-    kesilganlari shaxmat fon bilan, nurlilari bloom bilan) ko'rinadi; teksturasi o'zgarsa ham yangilanadi, ochiq material
-    tahrir qilinayotganda jonli kuzatiladi, diskdagi keshga faqat fayldagiga mos holati yoziladi
-  - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
-  - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
-    kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`; **event'lar** (klipning 0..1 nuqtasi,
-    nom va parametr — skriptga `OnAnimationEvent`), **root motion** (ildiz suyakning XZ yurishi va Y burilishi obyektni yoki
-    Character Controller 3D'ni siljitadi, poza joyida qoladi; suyak avtomatik yoki tanlanadi)
-  - **Blend tree 1D**: holat turi "Blend tree 1D" — float parametr (masalan `Speed`) chegaralari bo'yicha kliplar
-    aralashadi (Idle 0 / Walk 3 / Run 6.5), hammasi bitta normalizatsiyalangan vaqtda o'ynaydi (oyoqlar fazada qoladi),
-    sikl davomiyligi og'irliklar bo'yicha; boshqa holatlarga crossfade, exit time, root motion va event'lar (eng og'ir klipdan)
-    bilan. **Qatlamlar** (Animator > Qatlamlar): o'z klipi, og'irligi (parametr bilan ham), **avatar maska** (suyak va undan
-    pastdagilar, masalan `Spine` — ustki tana), Override yoki Additive; skript: `PlayLayer("UpperBody", "Wave")`,
+- ECS architecture (EnTT), UUIDs, a JSON scene format (`.zscene`)
+- **Renderer** (OpenGL 4.1 core, behind an RHI abstraction layer) — the detailed guide: [docs/Rendering.md](Rendering.md):
+  - A 2D batch renderer: sprites, textures, circles, lines, **text** (UTF-8, Latin/Cyrillic, `oʻ gʻ`)
+  - **Sprite atlas and the Sprite editor** (Window > Sprite editor, or the ✂ button in the image inspector / on the
+    Sprite Renderer): slicing a texture by a grid (cell size or column/row count, offset, spacing, dropping empty cells,
+    a name prefix), drawing a new frame on the image with the mouse, every frame's name, rectangle, pivot and 9-slice
+    borders; zoom (wheel) and pan. The frames are saved in the image's `.zmeta` file (`"Sprites"`) — the image itself
+    becomes the atlas: the Sprite Renderer shows a frame by name (`SpriteName`, empty — the whole image), Sprite
+    Animation plays a list of named frames (`Frames`, in the inspector `run_0, run_1, ...` sequences with one choice;
+    from a script `PlaySpriteSequence("run")`, `SetSprite("idle")`), and they go into the exported game with the registry
+  - **Sprite animation clips** (the `.zsanim` asset): an image, sprite sheet frames or a grid, FPS, looping and **frame
+    events** (`OnAnimationEvent`, a "Step" footstep for example). The Sprite Animation's **Clips** list — the first one
+    plays when the game starts and is shown in the editor, a script `PlaySpriteClip("HeroSide")`; a live preview in the
+    asset inspector (a strip of frames, forwards / backwards), edits reach every user at once and are saved. Content:
+    right-click → New sprite animation clip (from the selected image); "Clip from these frames" in the inspector.
+    Sample: the TopDown2D hero and campfire
+  - **9-slice and tiled sprites**: the Sprite Renderer's draw mode Simple / 9-slice (Sliced) / Tiled — fills the `Size`
+    (units) rectangle without stretching the corners (border px / `PixelsPerUnit`), in Tiled the edges and the middle
+    repeat; the borders on the component or on the frame. On screen UI too (panels, buttons — the border in screen
+    pixels). When leaving Simple mode the scale moves into `Size` automatically (so the corners do not stretch)
+  - **Sorting layers** (Project settings > Sorting layers): a list of named layers (their order is the drawing order),
+    a layer + order in layer on sprites, circles, text, tilemaps and particles; the drawing order: layer, order, then
+    distance from the camera. Objects remember the layer by ID (renaming/reordering does not break it, a scene from
+    another project finds it by name). **Sorting by Y** (the layer's "Y" checkbox, top-down games): inside the layer Y
+    first — the higher one is behind; the sorting point is the pivot (the feet), and the parts under a parent object
+    on the same layer (a shadow, a hat) are drawn with the parent's Y, by their own order among themselves
+  - The **Parallax** component: the object (with its children) moves with the game camera by `Factor` (0 — normal, 1 —
+    fixed on the screen, negative — foreground), and with `RepeatX`/`RepeatY` a sprite fills the visible area endlessly.
+    The Transform does not change (it does not affect physics and scripts); in the editor with View > Parallax in the
+    editor camera too. Sample: Platformer2D `Scenes/Showcase2D.zscene`
+  - The **Camera 2D Follow** component: an object (usually the camera) follows its target smoothly after physics and
+    scripts — `Offset`, separate smoothing on x/y (in seconds, independent of the frame rate), a dead zone (the camera
+    does not move while the target walks inside it), looking ahead in the direction of movement (`LookAhead`), world
+    bounds (the camera's whole view never leaves the rectangle), jumping to the target at the start and `Snap()`. When
+    selected in the editor the dead zone and the bounds are drawn; from a script `SetCameraTarget(entity)`
+  - **Camera shake**: `ShakeCamera(strength, duration, frequency)` (from a script or `Scene::ShakeCamera`) — the trauma
+    model: the strength adds up (at most 1) and fades over the duration, the offset = strength^power × `MaxOffset` /
+    `MaxAngle` (set on the camera component), following smooth noise; only the picture shakes — the transform,
+    following and physics do not change; it repeats exactly with the same seed. A "Test" button in the inspector while
+    playing
+  - **Hit flash and outline** (Sprite Renderer > Effects): `FlashAmount` blends the image towards the `FlashColor`
+    colour, from a script `Flash(colour, seconds)` — full at once, then fading (it waits during the pause);
+    `OutlineThickness` (texture pixels) — an `OutlineColor` border around the visible pixels of the image (the shader
+    checks the neighbouring alphas, the quad grows by the outline width, it never goes outside the atlas frame; on sprites
+    drawn as one piece: Simple, and Sliced/Tiled without borders), `SetOutline(colour, thickness)`.
+    It works on screen UI sprites too; sprites without these settings are drawn as before
+  - **Tint animation** (the Tint Animation component): the renderer's colour (Sprite, Circle, Text, Tilemap and Light 2D)
+    x the gradient colour — keys (time 0..1 + colour), duration, Once / Loop / Ping-pong, easing, the number of cycles, a
+    start offset; the renderer's own colour does not change. A gradient bar and "Preview in scene" in the inspector. From
+    a script: `PlayTint(colour, seconds, mode, cycles)` (blinking, for example), `StopTint()`, `TweenColor(colour, seconds)`,
+    `FadeTo(alpha, seconds)`
+  - **2D lights** (the Light 2D component): a point or a cone (along the object's +X axis), colour, intensity, radius,
+    inner radius, falloff, flicker (a torch); the scene's 2D ambient light (Scene settings > 2D lighting). Only sprites and
+    tilemaps marked "Lit" are lit (in the shader, the nearest 32 lights are added) — old scenes do not change. When
+    selected in the editor the radius/cone is drawn
+  - **Pixel-perfect camera** (orthographic camera > Pixel-perfect): pixels per unit and a reference size (320x180, for
+    example) — the zoom is the largest whole number at which that size fits; "render at low resolution" — the scene is
+    drawn at the art's size and scaled up with exact pixels (the UI at screen size, crisp); the camera (and optionally the
+    sprites) on the pixel grid. Sample: Platformer2D `Scenes/TopDown2D.zscene` — a village at night: sorting by Y,
+    lanterns, the light of a campfire and crystals, tint animations, an auto-tile path, a 9-slice HUD, a pixel-perfect
+    camera (WASD)
+  - 3D PBR (metallic/roughness), a directional sun, a gradient sky, environment reflections
+  - **Several suns**: every active Directional Light (up to 4 at once) lights the scene, but only one casts the shadow
+    — the first one in scene order with "Shadows" on (the main sun; the sun disc in the sky follows it too). The
+    inspector states every sun's role ("Casts no shadow: '...' casts the shadow"), the Statistics panel shows the main sun
+    and the number of shadowless suns
+  - **Sky gradient and sun disc** (without an HDRI; the "Sky gradient and sun" section of the Scene panel, saved in the
+    scene): zenith / horizon / ground colours, the zenith curve (how far down the top colour reaches), the ground blend
+    (the width of the horizon band), the sun disc (its size in degrees, brightness, glow halo) — in the main sun's
+    direction and colour. The gradient is used for the ambient light and reflections too. Sample:
+    `Scenes/Sunset.zscene` in `Showcase3D` (3 suns, a sunset sky, bloom tint, lens dirt, chromatic aberration, film grain)
+  - **Point and spot lights** — up to 32 together: the **Spot Light** (a cone along the object's -Z axis, a soft falloff
+    between the inner / outer angle, falling off with distance like a point light). With more, the ones that affect the
+    camera most are chosen (intensity x colour, x (radius / distance)^2 when the camera is outside the light's radius;
+    on equal effect the nearest) — so unlike plain "nearest ones", a strong light far away can win over a weak one
+    nearby, and a light that encloses the camera within its radius counts with its full intensity.
+    In the editor the radius of a selected point light (3 circles) and the spot cone (the inner cone dimmer) are shown,
+    and the viewport has a spot icon. Sample: `Scenes/Lights.zscene` in `Projects/Showcase3D` (29 lights)
+  - **HDRI sky + IBL**: an `.hdr` panorama — diffuse light through SH9, reflections (specular) by mip level
+  - **Cascaded Shadow Maps** (texel snapping), **fog** (distance + height). Shadow quality in the scene settings (the
+    "Shadows" section of the Scene panel, saved in the scene file): atlas size (1024 / 2048 / 4096), filter (off, PCF 3x3,
+    PCF 5x5, Poisson 16 taps), the number of cascades (1-4, a single cascade takes the whole atlas) and their split
+    (even .. logarithmic), shadow distance, depth bias and normal bias. The defaults (4096, PCF 3x3, 3 cascades) keep the
+    earlier look
+  - Primitives (cube, sphere, plane, cylinder, cone), `.obj` and `.gltf/.glb` models
+  - **HDR pipeline**: the scene is drawn into a float buffer, tonemapping (ACES / Reinhard / none), real HDR bloom
+  - Material maps: **normal map**, metallic/roughness map, emissive map; texture **tiling and offset** (vec2)
+  - **Material assets (`.zmat`)**: a JSON file — shader (Lit / Unlit), blend mode (Opaque / Cutout / Transparent),
+    alpha cutoff, double-sided, colour, metallic, roughness, emission (colour + strength), normal / metal-roughness /
+    emission textures (project path + UUID), tiling and offset. One file — one shared object (`MaterialLibrary`):
+    the **Material asset** field on the Mesh Renderer (for a primitive and every part of a model, or separately for every
+    submesh) replaces the built-in material; old scenes load as before. When the file or its textures change it reloads
+    in place. A **material editor** in the inspector: a rotating preview (sphere / cube / plane / cylinder, with the sky
+    gradient or the scene's HDRI), changes show in the scene at once, **Save** / **Cancel**, an unsaved mark.
+    A built-in material can be turned into a `.zmat` with one button
+  - **Surface types** (on a material asset and a built-in material): **Opaque** — alpha is ignored; **Cutout** — pixels
+    whose alpha (colour x texture) is below the cutoff are not drawn, and the shadow has the same holes (leaves,
+    fences); **Transparent** — transparent surfaces after the opaque scene and the sky, sorted back to front first by the
+    material's **priority** (Sort Priority, -100..100: a larger one is drawn over the others), then by the distance of
+    their bounds' centre from the camera (with an orthographic camera — along the view direction), drawn with
+    premultiplied alpha without writing depth, casting no shadows. **Transparent order** in the View menu writes every
+    transparent surface's draw number, distance and priority over it in the viewport (in play mode too), the Statistics
+    panel shows the number of transparent meshes; with **Keep reflections** on, reflections and highlights do not fade
+    with alpha (glass), with it off the whole surface fades. **Double-sided**: both sides are drawn, the back side is lit
+    with the inverted normal (a double-sided transparent surface — the inner side first, then the outer); with the flag
+    off back faces are culled (correct for mirrored objects with a negative scale too). **Unlit**: only colour x texture
+    + emission, light and shadow have no effect. glTF `alphaMode` (MASK / BLEND), `alphaCutoff`, `doubleSided` and
+    `KHR_materials_unlit` are read; in old scenes a colour with alpha below 1 becomes Transparent automatically. Sample:
+    `Scenes/MaterialGallery.zscene` in `Projects/Showcase3D`
+  - **Working with materials**: right-click in the content browser — **New material** (a default `.zmat` is created with
+    a unique name, selected and opened in the inspector). Dragging a `.zmat` onto a mesh in the viewport — before it is
+    dropped the material shows on that mesh (a blue frame and a label), dropped it is written to the Mesh Renderer (one
+    undo step); dropped on a multi-part model with **Shift** it asks which part (submesh) gets it. It can also be dropped
+    on a hierarchy row or the Material asset field (only a matching file is accepted). **Export to .zmat** in the model
+    inspector: the glTF materials are written as `.zmat` files to a `<model>_Materials` folder, the images inside the file
+    (.glb / data URI) are extracted as PNG/JPG; **Create .zmat from the model and assign** on the Mesh Renderer assigns
+    them to every part
+  - **Material instances (script)**: `GetMaterial()->SetColor(...)` — the object's own copy of the material (created on
+    the first call), the change shows only on this object, the shared `.zmat` and other objects do not change; it is gone
+    when the game stops. `GetMaterial(part)`, `GetSharedMaterial()` (the shared asset — changing it changes everyone, in
+    the editor it returns to its original state when the game stops), `SetSharedMaterial("Materials/Red.zmat")`,
+    `ResetMaterial()`. Quick edits: `SetColor`, `SetOpacity`, `SetEmission`, `SetMetallic`, `SetRoughness`, `SetTiling`,
+    `SetOffset`, `SetAlbedoMap`. `SetEmissionColor`, `SetEmissionStrength`, `SetSortPriority`.
+    Sample: every brick of the Showcase3D tower paints its own copy of `Clay.zmat` by its storey
+  - **Emission (emissive)**: material colour x strength (x the emission texture) — HDR: a result above 1 glows in a scene
+    with bloom on. In the inspector colour, strength and an **HDR / LDR** mark in one row; when an emission texture is
+    given to a material with emission off, the emission becomes white x 1 (otherwise the texture would not show). The
+    material preview and thumbnails have bloom too; glTF `emissiveFactor` and `KHR_materials_emissive_strength` are read
+  - **A library of standard materials** (`MaterialPresets`): metal, brushed metal, gold, copper, plastic, rubber, wood,
+    glass, ceramic, concrete, neon, water. The wood, concrete and brushed metal textures are procedural (on the CPU,
+    seamlessly tiling) and are written once per project as PNGs to `Assets/Materials/Standard/Textures/` - copies in every
+    folder use that one texture. In the content browser the **New material** menu creates a copy of the chosen one in
+    that folder; **Standard material...** on the Mesh Renderer assigns the project's shared copy
+    (`Assets/Materials/Standard/`). Sample: the row of spheres in the `MaterialGallery` scene
+  - **Material thumbnails**: in the content browser and in Material asset fields a `.zmat` shows on a sphere (lit, the
+    transparent / cut-out ones over a checkerboard, the glowing ones with bloom); they update when a texture changes too,
+    an open material is followed live while it is edited, and only the state matching the file is written to the disk
+    cache
+  - **glTF 2.0** models (`.gltf` / `.glb`): several meshes, PBR materials, embedded textures
+  - **Skeletal animation**: glTF skins, bones, animation clips (GPU skinning, with shadows), the `Animator` component,
+    **smooth transitions** between clips (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`; **events** (a 0..1 point of
+    the clip, a name and a parameter — `OnAnimationEvent` in the script), **root motion** (the root bone's XZ walk and Y
+    turn move the object or the Character Controller 3D, the pose stays in place; the bone is automatic or chosen)
+  - **Blend tree 1D**: the "Blend tree 1D" state type — clips blend by the thresholds of a float parameter (`Speed`, for
+    example) (Idle 0 / Walk 3 / Run 6.5), all of them play at one normalized time (the feet stay in phase), the cycle
+    length by the weights; with crossfades to other states, exit time, root motion and events (from the heaviest clip).
+    **Layers** (Animator > Layers): their own clip, weight (with a parameter too), an **avatar mask** (a bone and
+    everything below it, `Spine` — the upper body, for example), Override or Additive; script: `PlayLayer("UpperBody", "Wave")`,
     `SetLayerWeight("UpperBody", 0.0f, 0.3f)`, `SetState("Jump")`
-  - **Animator grafi** (Oyna > Animator grafi, yoki inspektordagi tugma): holatlar node'lar (klip / blend tree, boshlang'ich —
-    to'q sariq), o'tishlar strelkalar, "Har qanday holat" node'i; node'larni sudrash (joylari sahnada saqlanadi), Shift +
-    sudrash yoki menyu bilan o'tish chizish, strelka / node bosilsa o'ng panelda tahrirlash (shartlar, fade, exit time, blend
-    motion'lari), Delete, g'ildirak — masshtab, o'rta / o'ng tugma — surish, undo. O'yin davomida jonli: hozirgi holat va
-    uning vaqti, o'tish strelkasi, blend og'irliklari; inspektorda ham **jonli holat** (normalizatsiyalangan vaqt, o'tish
-    jarayoni, og'irliklar, qatlamlar) va parametrlarni o'zgartirish (trigger tugmasi). Namuna: Showcase3D
-    `Scenes/Animator.zscene` (blend tree + Any State trigger, Bone2 maskali qatlam), Adventure3D robot (Idle/Walk/Run blend tree)
-  - **Skelet kliplarini editorda ko'rib chiqish** (Animatsiya oynasi, skelet rejimi — Animator'li obyekt tanlanganda):
-    modelning glTF kliplari, vaqt chizg'ichini bosib / sudrab **scrub** (sahnada o'yin rejimisiz ko'rinadi), o'ynatish /
-    to'xtatish, takror, tezlik, kadrlarga yopishish, masshtab / surish; klip harakatlantiradigan suyaklar va blend shape'lar
-    kalitlari bilan qatorlar (qator bosilsa — shu vaqtdagi T/R/S yoki og'irliklar); **Animator event'lari** shu klip uchun
-    vaqt chizig'ida qo'shiladi (ikki marta bosish, qo'ng'iroqcha tugmasi), sudraladi, nomlanadi, o'chiriladi (undo bilan)
-  - **Suyakka biriktirish** (`Bone Attachment` komponenti): obyekt skinned modelning suyagiga ergashadi (qo'lda qilich, boshda
-    shlyapa) — suyak Animator pozasi bilan (editorda ham) obyekt otasining o'rnini egallaydi, Transform suyakka nisbatan
-    siljish bo'ladi (gizmo ham suyak fazosida); model obyekti tanlanmasa eng yaqin skinned ota, suyak masshtabi ixtiyoriy
-  - **Qadam tovushlari** (`Footsteps` komponenti): animatsiya event'i (odatda `Footstep`) kelganda ovozlardan tasodifiysi
-    (ketma-ket takrorlanmaydi) — tezlik (Animator float parametri) bo'yicha balandroq va yuqoriroq tonda, tasodifiy
-    balandlik / ton oralig'i, sekinda jim, yaqin event'lar bitta qadam, 3D ovoz, mixer guruhi
-  - **Kliplarni kesish va bo'lish** (model `.zmeta` import sozlamalari, asset inspektorida): fayldagi klipning boshlanish /
-    oxiri (soniya va kadr, chetlari sudraladigan oraliq chizig'i) — shu nomli bo'lsa klip kesiladi, boshqa nom bilan alohida
-    klip bo'ladi (bitta uzun yozuvdan Walk / Run / Jump); qo'llashdan oldin ko'rib chiqish, asl kliplarni saqlash tanlovi
-  - **glTF morph target'lar** (blend shape'lar): target'larning joy / normal siljishlari va boshlang'ich og'irliklari
-    o'qiladi, CPU'da qo'llanadi (har obyekt o'z og'irliklari bilan o'z mesh nusxasini oladi, skinning bilan ham), glTF
-    `weights` animatsiya kanallari Animator kliplarida o'ynaydi (crossfade, blend tree bilan); Mesh Renderer inspektorida
-    slayderlar, skript: `GetComponent<MeshRendererComponent>().SetMorphWeight("Smile", 0.8f)`. Namunalar: Showcase3D
-    `Scenes/Animator.zscene` (morph'li `Blob.gltf`: Animator klipi va skript, tentakl uchidagi kristal — `Bone3` ga
-    biriktirilgan), Adventure3D robot (qo'lidagi fonar, Walk/Run qadam event'lari va `Footsteps`), `Tentacle.gltf` (`WaveHalf`
-    kesilgan klip)
-  - **Property animatsiya** (`.zanim` kliplar, **Animation Player** komponenti): obyekt va uning bolalarining (nom yo'li bilan,
-    `"Eshik/Oshiq"`) transformi, Sprite / Circle / Text / Mesh rangi, yorug'lik rangi va kuchi, UI joylashuvi / o'lchami /
-    masshtabi / shaffofligi, UI rasm rangi va skriptning float maydonlari; kalitlar **Step / Linear / Bezier** (avtomatik
-    silliq tangentlar — cho'qqida oshib ketmaydi, tekis yoki qo'lda), klip **bir marta / takror / borib-qaytish**, tezlik
-    (manfiy — orqaga), **event'lar** (har biri o'tilganda aynan bir marta, katta kadrda ham). Skript: `PlayAnimation("DoorOpening")`,
-    `PlayAnimation("DoorOpening", -1.0f)` (yopish), `StopAnimation()`, `IsAnimationPlaying()`, komponentda `SetTime`,
-    `GetNormalizedTime`; `OnAnimationEvent(e)` yoki `AddAnimationEventHandler("Pulse", fn)`, event bus'da `"AnimationEvent"`
-  - **Animatsiya oynasi** (Oyna > Animatsiya, timeline): treklar ro'yxati (+ Trek qo'shish: obyekt va xususiyat), **dope sheet**
-    (kalitlar romb, sudrab ko'chirish, ikki marta bosish — kalit, Delete, o'ng tugma — interpolyatsiya / tangent) va **egri
-    chiziqlar** (tanlangan trekning komponentlari, kalit nuqtalari va Bezier tutqichlari sudraladi), event'lar qatori, vaqt
-    chizg'ichi (scrub), g'ildirak bilan masshtab va surish, kadrlarga yopishish, klip davomiyligi / fps / tugash rejimi.
-    **Play rejimisiz ko'rib chiqish**: vaqt surilganda yoki ▶ bosilganda sahna ko'rinishida klip qo'llanadi, oyna yopilganda
-    (yoki saqlash / undo / Play) sahnaning o'z qiymatlari qaytadi. **Yozish** (●): inspektor yoki gizmo bilan qilingan
-    o'zgarishlar joriy vaqtda kalit bo'ladi (yangi xususiyat — yangi trek). O'z undo/redo'si (oyna fokusda: Ctrl+Z / Ctrl+Y),
-    Ctrl+S — klipni saqlash. Kontent: o'ng tugma → Yangi animatsiya klipi, `.zanim` ikki marta bosilsa oynada ochiladi.
-    Namuna: Showcase3D `Scenes/Animation.zscene` (mayoq, eshik, glTF Animator event'lari); Adventure3D ark ostidagi
-    **darvoza** — qahramon yaqinlashsa ochiladi, uzoqlashsa yopiladi (`AnimationPlayerComponent::PlayFrom` — turgan joyidan
-    orqaga), klip event'lari g'ichirlash va taqillash ovozlarini chaladi (`ProximityDoor` skripti)
-  - **Bir nechta skin** (glTF): har skinned mesh o'z skin'i bilan (tana va kiyim, bir faylda ikki personaj, ikki armaturaga
-    bog'langan arqon) — barcha skin suyaklari bitta skeletda (bitta Animator), har skin o'z suyaklari / inverse bind'lari bilan
-    (farq qilsa o'z palitrasi, har skin'da 80 tagacha suyak). Namuna: Showcase3D `Models/TentaclePair.gltf` (uch skin)
-  - **Animatsiya samaradorligi** (Animator > Samaradorlik): kirishlari o'zgarmagan poza qayta hisoblanmaydi (pauza, tezlik 0,
-    tugagan klip); **ko'rinmasa** — hech bir kamera ko'rmagan model pozalanmaydi (vaqt, event'lar, root motion davom etadi) yoki
-    umuman to'xtaydi; **pozalarni keshlash** (klip belgilangan kadr/s da oldindan namuna olinadi, model animatorlari ulashadi,
-    step kalitlar aniq). Statistika oynasida **Animatsiya** bo'limi, profiler'da `Animatsiya/Pozalar`, `Scene::GetAnimationStats()`.
-    Namuna: Showcase3D `Scenes/Crowd.zscene` (168 tentakl, buriladigan kamera)
-  - Batafsil qo'llanma: [docs/Animation.md](Animation.md) — kliplar, timeline, Animator, blend tree, qatlamlar, event'lar,
-    root motion, biriktirish, morph target'lar, samaradorlik, kod misollari bilan
-  - **Post-processing**: SSAO (ambient occlusion), bloom (**rangi** — porlash shu rangga ko'paytiriladi; **linza changi** —
-    yorqin yorug'likning keng porlashi protsedural chang/dog' teksturasini yoritadi), vinyetka, kontrast/to'yinganlik/rang
-    tuslash, **xromatik aberratsiya** (chetlarga tomon qizil va ko'k siljiydi), **plyonka donasi** (har kadr o'zgaradigan
-    shovqin, o'rta tonlarda kuchli, dona o'lchami bilan; FXAA yoqilgan bo'lsa undan keyin qo'shiladi) — yangi effektlar
-    standart holatda o'chiq,
-    **FXAA** anti-aliasing (tonemapping va rang sozlamalaridan keyin; Sahna panelida yoqiladi, subpiksel kuchi bilan),
-    **avto ekspozitsiya** (ko'z moslashishi: o'rtacha log yorqinlik GPU'da kichraytirish zanjiri bilan o'lchanadi, vaqt
-    bo'yicha moslashish tezligi, min/max EV, kompensatsiya; standart holatda o'chiq - qo'lda ekspozitsiya)
-  - **Render masshtabi** (0.5 - 2.0): sahna tasviri ko'rinish o'lchamining shu barobarida chiziladi va chiziqli filtr bilan
-    kattalashtiriladi / kichraytiriladi (editor viewport'i va player; Sahna panelining "Render" bo'limi)
-  - **Frustum culling**: kamera ko'rmaydigan meshlar dunyo AABB'lari bo'yicha chizilmaydi (model qismlari alohida,
-    skinned meshlar uchun barcha suyaklar bo'yicha kafolatli chegaralar), soyalarda har bir kaskad o'z hajmi bo'yicha;
-    2D'da sprite, doira, matn (glif chegaralari bo'yicha), zarrachalar tizimi va tilemap'ning 16x16 plitkali bo'laklari
-  - **GPU instancing**: bir xil mesh + material (shader oladigan barcha qiymatlar teng, skinned emas, opaque / cutout)
-    bitta `glDrawElementsInstanced` chaqiruvida - transform, normal matritsa va entity ID har nusxa uchun atribut; soya
-    kaskadlarida ham bir xil meshlar birlashtiriladi. Tasvir va tanlash (picking) buferi o'zgarmaydi
-  - **Render statistikasi** (Statistika paneli): chizilgan / kesilgan / instanced meshlar va chaqiruvlar, soya chizishlari,
-    2D obyektlar va tile bo'laklari. `ZAMIN_EDITOR_STATS=1` (editor) / `ZAMIN_PLAYER_STATS=1` (player) chiqishda oxirgi
-    kadr statistikasini logga yozadi; `ZAMIN_EDITOR_NO_CULLING`, `ZAMIN_EDITOR_NO_INSTANCING` (player'da
-    `ZAMIN_PLAYER_NO_...`) solishtirish uchun o'chiradi
-  - **Editor ko'rinish rejimlari** (viewport toolbar'i): wireframe (faqat qirralar yoki sirt + qirralar) va debug
-    ko'rinishlar - faqat yorug'lik, normallar, albedo, roughness, metallic (qiymat ko'rinishlari tonemappingsiz)
-  - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview). Simulyatsiya sahnadan
-    alohida (`ParticleSimulation`, `Scene/ParticleSystem.h`). **Asosiy sozlamalar**: sikl davomiyligi, takrorlash,
-    **oldindan to'ldirish** (prewarm - takrorlanadigan tizim boshidanoq bir sikl ishlagandek to'la), boshlanish
-    kechikishi, **simulyatsiya (vaqt) tezligi**, fazo - dunyo / lokal / **boshqa obyekt** (masalan kema: uchqunlar
-    kema bilan siljiydi, aylanayotgan minora bilan emas), **tugaganda** (takrorlanmaydigan tizim siklini o'ynab
-    bo'lgach va bola obyektlardagi sub-emitter shablonlarining particle'lari ham tugagach - mushakning oxirgi portlashi
-    kesilmaydi: obyekt o'chiriladi / yo'q qilinadi; skript `OnParticlesFinished()` va "ParticlesFinished" hodisasini
-    oladi), **boshida ijro** (o'chiq: skript `Play()` chaqirguncha jim; inspektor / viewport'dagi Ijro / To'xtatish
-    faqat ko'rib chiqish uchun, sahnaga saqlanmaydi). Emissiya: soniyasiga N, boshida (kechikishdan keyin) bir martalik
-    portlash va **portlashlar jadvali** (har siklda: vaqt, soni,
-    sikllar - cheksiz ham, oraliq, ehtimollik). Chizish: 3D billboardlar **GPU instancing** bilan - har tizim bitta
-    chizish buyrug'ida (`ParticleRenderer`; 2D tekis particle'lar sprite'lar bilan 2D partiyada), shaffof (additive
-    emas) tizimlar kameradan uzoqlik bo'yicha **orqadan oldinga saralanadi** (yoki yoshi bo'yicha / saralanmaydi);
-    statistikada particle'lar soni va instanced chaqiruvlar. Emitter shakllari: nuqta, doira, sfera, quti, **konus**
-    (asos radiusi, burchak, asosdan / hajmidan, 2D tekis yelpig'ich), **chiziq** (2D, lokal X bo'ylab), **mesh sirti**
-    (primitiv, model fayli yoki obyektning Mesh Renderer'i; uchburchaklar yuzasiga qarab / qirralar / uchlar, normal
-    bo'ylab yoki Yo'nalish bo'ylab); qalinlik (faqat cheti / sirti) va "markazdan tashqariga" yo'nalish. Ixtiyoriy
-    modullar (inspektorda yoqiladigan bo'limlar):
-    **Rang (umr bo'yi)** - ko'p nuqtali gradient (ikki gradient orasida tasodifiy), **O'lcham (umr bo'yi)** - egri chiziq
-    (animatsiya kalitlari: pog'onali / chiziqli / Bezier; ikki egri chiziq orasida), **Tezlik (umr bo'yi)** - chiziqli
-    (egri chiziq bilan, emitter yoki dunyo o'qlarida), orbita, radial, tezlik ko'paytuvchisi, **Tezlik chegarasi**
-    (so'ndirish bilan), **Shovqin** - silliq 3D gradient shovqin maydoni (o'qlar bo'yicha kuch, egri chiziq, chastota,
-    siljish tezligi, oktavalar, seed - deterministik), **To'qnashuv** - yer tekisligi (normal + masofa yoki obyekt orqali)
-    yoki 3D / 2D fizika colliderlari (raycast, qatlamlar, o'yin / simulyatsiyada): sakrash, so'ndirish, umr yo'qotish,
-    o'ldirish tezligi, radius; sirtda tinch yotadi, **Sub-emitterlar** - particle tug'ilganda / o'lganda / urilganda /
-    umr bo'yi boshqa obyektning Particle System'i o'sha joyda particle chiqaradi (soni, ehtimollik, tezlik / rang /
-    o'lcham merosi; "Yangi shablon" tugmasi bola obyekt yaratadi) - mushak, yomg'ir sachrashi, **Tekstura sheet
-    (flipbook)** - ustun x qator panjara yoki sprite kadrlari (.zmeta, prefiks), umr bo'yi (sikllar) yoki FPS bilan,
-    boshlang'ich / tasodifiy kadr, tasodifiy qator, **Iz (trail)** - kameraga qaragan lenta (ulushi, umri, nuqta
-    oralig'i, kenglik egri chizig'i, rang gradienti, particle rangida). Viewport'da emitter shakli (mesh qirralari ham)
-    va to'qnashuv tekisligi gizmo bilan (Gizmolar > Particle shakli). Namunalar: Showcase3D `Scenes/Particles.zscene`,
-    `Scenes/ParticlesII.zscene` (mesh, shovqin, to'qnashuv + sachrash, spiral izlar, mushaklar), `Scenes/ParticlesIII.zscene`
-    (prewarm bilan / siz tutun, portlashlar jadvali favvorasi, kechikish bilan halqalar to'lqini, 9000 particle'li
-    instanced galaktika sekin harakatda, kema fazosidagi uchqunlar, o'zini yo'q qiladigan bir martalik mushak)
-  - **Particle preset'lari kutubxonasi**: 9 ta tayyor effekt (olov, tutun, uchqunlar, yomg'ir, qor, sehr, portlash,
-    chang, mushak) - inspektordagi **Preset** menyusidan, **Obyekt > Effektlar** menyusidan (yoki ierarxiyadagi **+**
-    tugmasidan) yoki `ParticlePresets` API'dan; tizim (sub-emitter shablonlari bilan) **`.zparticle`** fayl sifatida
-    saqlanadi (Assets/Particles, "Preset sifatida saqlash") va menyudan, Kontent oynasidan viewport / ierarxiya / Preset
-    tugmasiga tashlab qo'llanadi; shablonlar bola obyekt bo'lib yaratiladi, sahnaga tegishli havolalar (boshqa obyekt
-    fazosi, tekislik obyekti) saqlanmaydi. **Ob-havo (Kamera atrofida moduli)**: emitter asosiy kamera bilan (editorda -
-    sahna ko'rinishi kamerasi bilan) yuradi, kamera ortda qoldirgan particle'lar quti bo'ylab oldinga o'raladi - yomg'ir
-    tomchilari yerga tegib sachraydi (to'qnashuv sub-emitteri), qor shovqin bilan aylanib tushadi; kameraga juda yaqin
-    particle'lar so'nadi ("Yaqinda so'nish", standart 4 birlik - ob'ektiv yonidagi tomchi ekran bo'ylab chiziq
-    bo'lmaydi). Chizish moduli: **tezlik bo'ylab cho'zilgan billboardlar** (yomg'ir chiziqlari, uchqunlar). Inspektor
-    Unity'dagidek modullarga bo'lingan (Asosiy, Emissiya, Shakl, Kamera atrofida, Tezlik, Tezlik chegarasi, Rang,
-    O'lcham, Shovqin, To'qnashuv, Sub-emitterlar, Tekstura sheet, Iz, Chizish) - har birida yoqish katagi, "faqat
-    yoqilganlar" filtri va "Modul qo'shish"; Ijro / Pauza (qotib qoladi) / Qayta / To'xtatish tugmalari inspektorda va
-    tanlangan tizim uchun viewport burchagidagi panelda (particle soni, sub-emitterlar bilan, sikl vaqti). Namuna:
-    Showcase3D `Scenes/ParticlesIV.zscene` (preset'lar qatori, loyihaning `Particles/Campfire.zparticle` preset'i, kamera
-    atrofidagi yomg'ir, o'chiq qor). **Performance**: `build/bin/ZaminBench` (yoki `particle_bench` target) ~50 000
-    particle'ni headless simulyatsiya qilib har holat uchun ms / kadr chiqaradi (`--profile` - profiler bo'limlari);
-    particle simulyatsiyasi Debug build'da ham `-O2` bilan kompilyatsiya qilinadi (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`)
-  - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
-- **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
-  (2D va 3D fizika qo'llanmasi: [docs/Physics.md](Physics.md))
-  - **Polygon Collider 2D**: istalgan ko'pburchak (obyekt masshtabi bilan); botiq yoki 8 tadan ko'p burchakli shakl
-    quloq kesish (ear clipping) bilan uchburchaklarga bo'linib, ko'pi bilan 8 burchakli qavariq bo'laklarga qayta
-    birlashtiriladi (Hertel-Mehlhorn, `Polygon2D::Decompose`), o'zini kesib o'tgani qavariq qobiq bilan. Inspektorda
-    nuqtalar ro'yxati va holat (nechta bo'lak), **viewport'da tahrirlash** ("Nuqtalarni tahrirlash": sudrash, chiziqqa
-    bosish - yangi nuqta, Ctrl + bosish / Delete - o'chirish, Shift - 0.1 qadam, Esc - tugatish; har bir harakat bitta
-    Ctrl+Z) va **"Spraytga moslash"** (sprayt kadrining shaffof bo'lmagan qismi chetidan ko'pi bilan 12 nuqtali kontur)
-  - **Edge Collider 2D**: nuqtalar orqali chiziq yoki yopiq halqa (yer, qiyaliklar); ikki tomonlama yoki **bir tomonlama
-    silliq zanjir** (Box2D chain: bo'g'inlarga ilinmaydi; qattiq tomoni nuqtalar yo'nalishining chap tomonida, viewport'da
-    chiziqchalar bilan ko'rsatiladi). Nuqtalar xuddi shunday viewport'da tahrirlanadi
-  - **Fizik material** (`.zphysmat` asset, Kontent > "Yangi fizik material": muz, rezina, metall...): ishqalanish,
-    sakrash, sakrash chegarasi, zichlik va **qo'shilish usullari** (O'rtacha / Eng kichigi / Ko'paytma / Eng kattasi /
-    Box2D standarti). Box / Circle / Polygon / Edge collider va Tilemap tanlaydi (bo'sh - o'z qiymatlari); inspektorda
-    tahrirlanadi, fayl o'zgarsa o'yin davomida ham darhol qo'llanadi (hot reload)
-  - **To'qnashuv qatlamlari**: loyihada 16 ta nomli qatlam va qaysi juftliklar to'qnashishi (Loyiha sozlamalari >
-    Fizika qatlamlari: burchakli sarlavhali matritsa). Rigidbody 2D, har bir kollider (o'z qatlami yoki jismniki) va
-    Tilemap qatlam tanlaydi (Box2D category/mask); `Raycast2D(..., LayerMask({ "Ground" }))`. 3D fizika ham shu
-    qatlamlardan foydalanadi
-  - **Platform Effector 2D**: obyektning barcha kolliderlari (yoki tilemap plitkalari) platforma - bir tomonlama, sirt
-    yoyi (180 - oddiy, kichigi burchaklardan ham o'tkazadi, kattasi yondan ham ushlaydi), burilish, yon tomonda
-    ishqalanish / sakrashni o'chirish (devorga yopishib qolmaslik). Box Collider 2D'ning "Bir tomonlama" belgisi avvalgidek
-    ishlaydi (bir bosishda effektorga o'tkaziladi). Namuna: Platformer2D `Scenes/Shapes2D.zscene` (tepalikli Edge yer,
-    botiq tosh ko'prik, yog'ayotgan polygon toshlar va kristallar, muz qiyalik, rezina to'shak, bir tomonlama
-    platformalar, faqat yerga tegadigan "Ghost" qatlamidagi sharlar)
-  - **Joint'lar**: Distance (qattiq tayoq, arqon - "faqat maksimal", prujina - chastota/so'nish), Revolute (sharnir:
-    burchak chegarasi, motor), Prismatic (o'q bo'ylab sirpanish: chegara, motor), Weld (payvand, qattiq yoki yumshoq),
-    Wheel (g'ildirak: osma prujinasi, chegara, motor). Umumiy: ulangan jism (boshqa obyektning Rigidbody 2D yoki
-    Tilemap'i; bo'sh - dunyodagi nuqta), langar / ulangan langar (avto), bir-biri bilan to'qnashuv, uzilish kuchi /
-    momenti (`OnJointBreak(joint)`, komponentda `Broken`; `Broken = false` qayta yaratadi). Jism nofaol bo'lsa yoki
-    o'chirilsa joint yo'qoladi, ikkala jism qaytganda qayta yaratiladi; o'yin davomida motor/chegara/prujina o'zgarishi
-    darhol, `ConnectedBody` almashsa joint qayta quriladi. Inspektorda holat (kuch, moment, burchak, siljish), viewport'da
-    langarlar, burchak yoylari va o'qlar (Gizmolar > 2D joint'lar: tanlanganda / hammasi). Duplikat va prefab'da ulangan
-    jism nusxaga qayta bog'lanadi; prefab'dan tashqaridagi jismga ulangan joint saqlashda, sahnada yo'q jismga ulangani
-    o'yin boshida / paydo bo'lganda ogohlantiradi (inspektorda ham ko'rinadi). **Viewport'da tahrirlash** ("Langarlarni tahrirlash"): langar (doira), ulangan
-    langar (romb), sirpanish / osma o'qi (kvadrat) va chegaralar (sharnirning burchaklari yoy ustida, sirpanish
-    oralig'i o'q yonida) sudraladi, Shift - 0.1 birlik / 5° qadam, Esc - tugatish; har harakat bitta Ctrl+Z. Ulangan
-    langarni "Langar turgan joyga" bir bosishda qo'yish. Namuna: Platformer2D `Scenes/Joints2D.zscene` (ko'prik, lift,
-    mayatnik, arqon, prujina, uziladigan chiroq, yumshoq minora, motorli mashina - A / D)
-  - **Area Effector 2D** (shamol, oqim): kolliderlari (odatda trigger) ichidagi dinamik jismlarni har fizika qadamida
-    itaradi - yo'nalish (obyekt bilan buriladi yoki dunyoda), kuch (N yoki "massaga ko'paytirish" bilan N/kg - hamma
-    jism bir xil tezlanadi), tasodifiy shiddat, chiziqli / burchak qarshiligi, qatlam maskasi. Trigger bo'lmagan
-    kollider unga tegib turganlarni itaradi
-  - **Buoyancy Effector 2D** (suv): kollider ichi sirtgacha suyuqlik; jism siqib chiqargan suyuqlik og'irligi (zichlik x
-    sirt ostidagi yuza x gravitatsiya) botgan qismining markaziga yuqoriga qo'yiladi - zichligi kichik kollider suzadi va
-    to'g'rilanadi, kattasi cho'kadi. Qarshilik va oqim (daryo) botgan qismiga qarab, qatlam maskasi. Viewport'da shamol
-    o'qlari, suv sathi va oqim yo'nalishi; inspektorda nechta jismga ta'sir qilayotgani
-  - **So'rovlar**: `Raycast2DAll` (nur yo'lidagi har bir obyekt, eng yaqini birinchi), `OverlapCircle2D` /
-    `OverlapBox2D` (burchak bilan) / `OverlapPoint2D` - aniq shakl tekshiruvi, har obyekt bir marta, markazga yaqini
-    birinchi; hammasi qatlam maskasi va `includeTriggers` bilan. Ko'rinish > Debug chizish > Raycastlar yoqilsa nur
-    (tartib raqamlari bilan) va so'rov shakli ko'rinadi. Namuna: Platformer2D `Scenes/Effectors2D.zscene` (hovuz va
-    unda suzayotgan qutilar, yog'och, to'p va cho'kkan toshlar; shamol ustuni va yon shamol; Raycast2DAll skaner nuri;
-    sichqoncha bilan portlash - OverlapCircle2D)
-  - **Simulyatsiya sozlamalari** (Sahna > Fizika): qadam chastotasi (2D va 3D, standart 60 Hz), kadrda ko'pi bilan
-    qadam, Box2D **sub-qadamlari** (har qadam shuncha kichik qadamga bo'linadi: og'ir yuk osilgan zanjir va ragdoll'lar
-    cho'zilmaydi; effektorlar, joint uzilishi va skriptning `ApplyForce` kuchi har sub-qadamda - har kadr berilgan kuch
-    istalgan FPS, qadam chastotasi va sub-qadamlar sonida bir xil ta'sir qiladi), tezlik / pozitsiya iteratsiyalari. O'yin davomida
-    jismlar, uyg'oq / uxlayotganlar, joint'lar, kontaktlar va kadrdagi Box2D qadamlari soni ko'rinadi
-  - **Uxlash**: qimirlamay qolgan jism (unga tegib / ulanib turganlar bilan birga, Box2D orollari kabi) hisoblanmaydi -
-    sahnada yoqish / o'chirish va qancha vaqtdan keyin (Box2D'niki 0.5 s, boshqasini dvigatel o'zi sanaydi); har
-    Rigidbody 2D: "Uyg'oq boshlanadi", "Uxlab boshlanadi" (urilguncha kutib turadigan minora) yoki "Hech uxlamaydi".
-    Inspektorda holati va "Uyg'otish" tugmasi, colliderlar ko'rinishida uxlayotganlar ko'kish-kulrang; skriptda
-    `IsSleeping()`, `WakeUp()` (jism yana to'liq vaqt uyg'oq turadi), `PutToSleep()`; `SetPosition2D` va kuch ham
-    uyg'otadi. Namuna: Platformer2D `Scenes/Ragdoll2D.zscene` - sichqoncha bilan
-    (yoki R, o'zi ham har 2 soniyada) `Prefabs/Ragdoll.zprefab` tashlanadi: 11 bo'lak, chegarali va ishqalanishli 10 ta
-    sharnir, tana qismlari "Ragdoll", qo'l-oyoqlar "RagdollLimb" qatlamida (o'zaro to'qnashmaydi); zinapoya, chegarali
-    ko'prik, motorli rotor, arg'imchoq, uxlab turgan quti minorasi va zanjirli mayatnik; 2 sub-qadam
-  - **Determinizm** (2D va 3D): bir xil sahna har safar bit-bit bir xil simulyatsiya beradi - ikki marta, faylga saqlab
-    o'qilgandan keyin va obyektlari boshqa tartibda yaratilgan bo'lsa ham (`PhysicsDeterminism2D/3D` testlari). Jismlar,
-    joint'lar va personajlar sahna tartibida yaratiladi, editorning Play nusxasi (`Scene::Copy`) ierarxiya tartibida -
-    fayldan o'qilgan sahna kabi: editorda o'ynalgan va eksport qilingan o'yin bir xil harakat qiladi
-- **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
-  - **Convex Hull Collider 3D**: obyektning Mesh Renderer'idagi model / primitiv (yoki tanlangan `.gltf/.glb/.obj`)
-    vertekslaridan qavariq qobiq, ko'pi bilan "Maks. burchaklar" (4..256) - ko'proq bo'lsa eng chetdagi nuqtalar
-    olinadi (soddalashtirilgan qobiq). Qobiq har model va chegara uchun bir marta quriladi (`CollisionShapes3D`,
-    GPU'siz o'qiladi) va fayl yoki uning `.zmeta` import sozlamalari o'zgarsa qayta quriladi; transform masshtabi bilan
-    ko'payadi. Inspektorda burchak / yuz soni, viewport'da qobiq qirralari (Fizik colliderlar)
-  - **Joint'lar 3D** (Jolt constraint'lar): Fixed (mahkam), Hinge (sharnir: o'q, chegaralar -180..0 / 0..180, motor -
-    tezlik va maks. moment, prujina - nishon burchakka tortadi), Distance (minimal / maksimal masofa, arqon - "faqat
-    maksimal", yumshoq uchlar - chastota / so'nish), Slider (o'q bo'ylab sirpanish, chegaralar, motor), Cone (sharsimon
-    sharnir - yelka / son: konus burchagi, buralish chegaralari, ishqalanish momenti; Jolt SwingTwist). 2D joint'lar
-    kabi: ulangan jism (bo'sh - dunyodagi nuqta), langar / avto ulangan langar (obyektning o'z koordinatalarida,
-    masshtab bilan), "Bir-biri bilan to'qnashsin" (o'chiq - ulangan jismlar bir-biridan o'tadi), uzilish kuchi / momenti
-    (`OnJointBreak3D(joint)`, `Broken`), jism nofaol / o'chirilganda yo'qolib qaytishi, o'yin davomida sozlamalar
-    darhol, duplikat / nusxalash / prefab'da (`.zprefab` fayli ham) qayta bog'lanish - nusxa o'z jismlariga ulanadi,
-    tashqaridagi jismga havola saqlanadi; serializatsiya UUID orqali, sahnada yo'q ulangan jism uchun bitta
-    ogohlantirish. Bo'sh yoki faqat 2D sahnaga 3D prefab tashlansa Jolt o'sha paytda ishga tushadi. Inspektorda holat
-    (kuch, moment, burchak, siljish, masofa, og'ish / buralish), viewport'da langarlar, sharnir o'qi va burchak yoyi,
-    sirpanish chegaralari, masofa tayog'i, konus (Gizmolar > Joint'lar); "Langarlarni tahrirlash" - langar, ulangan
-    langar, o'q va chegaralarni viewport'da sudrash (tanlangan nuqtada ko'chirish gizmosi). Namuna: Showcase3D
-    `Scenes/Joints3D.zscene` (prujinali eshik, sharlar zanjiri, lift - `SliderShuttle` skripti, motorli tegirmon
-    parragi, payvandlangan L, qiyalikdan dumalaydigan konus / silindr / kristall ziyoratgoh qobiqlari)
-  - **3D ragdoll** namunasi: Showcase3D `Scenes/Ragdoll3D.zscene` - `Prefabs/Ragdoll3D.zprefab` (11 bo'lak: yelka, son,
-    bel va bo'yinda Cone Joint 3D, tirsak va tizzada chegarali Hinge Joint 3D, bo'g'imlar bir-biri bilan
-    to'qnashmaydi) zinadan yumalab tushadi; `RagdollSpawner3D` skripti - R (yana 3 ta), sichqoncha / F (kameradan
-    otish), o'zi ham har 3 soniyada; qutilar, bochkalar, arg'imchoq va qum xalta
-  - **Mesh Collider 3D** (Jolt MeshShape): modelning (yoki Mesh Renderer'dagi model / primitivning) o'z uchburchaklari -
-    botiq shakllar (zinapoya, ark, tunnel, yarim quvur, notekis yer) chizilgan joyida to'qnashadi. Faqat statik va
-    kinematik jismlar uchun (dinamik jism uni hisobga olmaydi - ogohlantirish, inspektorda ham); uchburchaklar old
-    tomonidan qattiq. Uchburchaklar har model uchun bir marta o'qiladi, Jolt daraxti esa barcha dunyolar uchun umumiy va
-    Play / Stop'dan keyin qayta qurilmaydi; burchaklar joyi bo'yicha birlashtiriladi (choklarda sakramaydi). Inspektorda
-    uchburchak / nuqta soni, viewport'da qirralari (bir tekislikdagi ichki qirralarsiz)
-  - **To'qnashuv qatlamlari 3D**: 2D bilan bir xil 16 ta nomli qatlam va matritsa (Loyiha sozlamalari > Fizika
-    qatlamlari). Rigidbody 3D va Character Controller 3D qatlam tanlaydi (Jolt ObjectLayer); o'yin davomida qatlam ham,
-    matritsa ham darhol qo'llanadi
-  - **3D so'rovlar** (qatlam niqobi va "trigger'lar ham" belgisi bilan; nur / shakl to'qnashuvchi ichidan boshlansa uni
-    urmaydi - o'z tanasi o'tkazib yuboriladi): `Raycast3D`, `Raycast3DAll` (har obyekt bir marta, yaqinidan),
-    `OverlapSphere3D` / `OverlapBox3D` / `OverlapCapsule3D` (obyektlar, markazga yaqinidan), `SphereCast3D` /
-    `BoxCast3D` / `CapsuleCast3D` va ularning `...All` turlari ("qalin nur": shakl qancha yurgani, tegish nuqtasi,
-    normal). "Raycastlar" debug chizishda shakl, yo'l va tegishlar ko'rinadi (`DebugDraw::WireCapsule` ham bor).
-    Namuna: Showcase3D `Scenes/Queries3D.zscene` (yarim quvurdagi sharlar, Arvoh sharlar o'tib ketadigan panjara,
-    `SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` skriptlari)
-  - **Uzluksiz to'qnashuv (CCD)**: Rigidbody 3D > "Uzluksiz (CCD)" (dinamik jismlar, Jolt LinearCast) - tez jism (o'q,
-    otilgan to'p) har qadamda yo'li bo'ylab tekshiriladi va yupqa devordan o'tib ketmaydi; o'yin davomida ham yoqiladi
-  - **Uxlash 3D**: Sahna sozlamalari > Fizika > Jolt (3D) - yoqish / o'chirish va qancha vaqtdan keyin (Jolt'niki
-    0.5 s; o'chirilsa hamma jism uyg'onadi), har Rigidbody 3D: "Uyg'oq boshlanadi", "Uxlab boshlanadi" (urilguncha
-    kutadigan to'plam) yoki "Hech uxlamaydi". Inspektorda holati va "Uyg'otish" / "Uxlatish" tugmasi, sahna
-    sozlamalarida uyg'oq / uxlayotgan jismlar soni, colliderlar ko'rinishida uxlayotganlar ko'kish-kulrang; skriptda
-    `IsSleeping3D()`, `WakeUp3D()`, `PutToSleep3D()` (va `(other)` turlari). Uxlab qolgan jismlarning kontaktlari
-    saqlanadi (Box2D kabi): uxlagan quti trigger plitasidan yoki yerdan "chiqib ketmaydi"
-  - **Fizik material 3D**: 3D colliderlar ham 2D'dagi `.zphysmat` asset'ini oladi - ishqalanish, sakrash, sakrash
-    chegarasi va qo'shish usullari (Eng kichigi, Ko'paytma...; har kollider o'zinikini, bir jismdagi kolliderlar ham
-    alohida), fayl o'zgarsa o'yin davomida ham yangilanadi. Zichlik 3D'da ishlatilmaydi (massa - Rigidbody 3D'da)
-  - **Trigger'lar 3D**: `IsSensor` kolliderlar `OnTriggerBegin` / `OnTriggerEnd` beradi (2D bilan bir xil API, har
-    obyekt jufti bir marta). Bir jismda trigger va qattiq kolliderlar birga bo'lishi mumkin (quti + uning atrofidagi
-    "radar" sferasi): trigger qismi urilmaydi, qahramonni to'xtatmaydi, so'rovlar uni faqat "trigger'lar ham" bilan
-    ko'radi; kinematik trigger uxlab yotgan jismni ham sezadi
-- **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish;
-  yurib borib tekkan dinamik jismlarni **itaradi** ("Jismlarni itaradi", "Itarish kuchi" - ko'pi bilan shuncha N;
-  standart 100 N, og'ir jism uchun ko'proq). Namuna: Showcase3D `Scenes/Physics3D.zscene` - muz / oddiy / rezina
-  qutilar qiyalikda va trigger plitasi, uxlab turgan piramida va uni urib yuboradigan supurgich, CCD yoqiq / o'chiq
-  tez sharlar yupqa oynaga (`Launcher3D`), qutilarni itarib yuradigan qahramon va trigger sferali "radar" quti
-  (`SleepTint3D`, `Sweeper3D`, `Respawn3D`, `TriggerGlow3D` skriptlari)
-- **Raycast** 2D va 3D (`Raycast2DAll` / `Raycast3DAll`, overlap va shape cast so'rovlari)
-- **Debug chizish** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): skriptlardan va dvigateldan dunyo fazosida chiziq, nur, o'q,
-  quti (AABB va burilgan), sfera, aylana, krest, nuqta, o'qlar, yo'l (path) va ekranga qaragan matn - rang, davomiylik
-  (0 = bir kadr, > 0 = o'yin vaqtida soniyalar; pauzada to'xtaydi - oxirgi o'yin kadrining shakllari ekranda qoladi,
-  pauza paytida boshqa kod chizgan bir kadrlik shakllar esa yig'ilib qolmaydi) va chuqurlik testi bilan. Sahna chizilgandan keyin
-  post-processingdan o'tgan tasvir ustiga (aniq ranglar, silliq qalin chiziqlar) sahna chuqurligiga qarab chiziladi.
-  Fizika ko'rinishlari: **raycast so'rovlari** (nur, tegish nuqtasi, normal; tegmasa qizil), **kontakt nuqtalari**
-  (2D, 3D, personajlar - yashil; sariq normal, shakllar qancha kirgani asl o'lchamda qizil chiziq, 3D jism kuchli
-  urilganda bir lahza halqa, ikkala jism uxlasa xira), **qiymat yozuvlari** (har tegib turgan juftlik ustida:
-  chuqurlik mm, 3D zarba tezligi va taxminiy impulsi - tezlik x juftlikning normal bo'yicha effektiv massasi, 2D'da
-  Box2D impulsi; joint'larda kuch, moment, uzilish chegarasidan foizi), **joint'lar** (2D va 3D: ikkala langar va ular
-  orasidagi chiziq - sharnir bo'shasa qizil, jismlar markazigacha chiziqlar, sharnir / sirpanish / konus o'qi; rangi
-  uzilishga qanchalik yaqin - yashil, sariq, qizil, uzilmaydigani ko'k; uzilgani qizil X) va **tezlik vektorlari**
-  (3D personajlarning haqiqiy tezligi o'q va m/s bilan, devor to'sganda skript so'ragan tezlik xira; dinamik 2D/3D
-  jismlar). `PhysicsWorld3D::GetDebugContacts` kontakt ma'lumotini (normal, chuqurlik, zarba, impuls, yoshi, uxlash,
-  ikkala obyekt) testlar va vositalar uchun ham beradi. Namuna: Showcase3D `Scenes/PhysicsDebug3D.zscene` (ikki
-  chiroq - biri tebranadi, biri chegarasiga yaqin; shar urilib uziladigan javon; tinch quti, uxlagan minora, sakraydigan
-  shar; `PhysicsDebugView3D` skripti - C / J / V tugmalari). Navigatsiya yo'llari uchun
-  `DebugDraw::NavigationPath(points)`: bo'laklar, yo'nalish uchlari, nuqtalar, boshi yashil va oxirida halqa.
-  Editor'da viewport toolbar'idagi hasharot (bug) tugmasi va uning menyusi, player'da loyiha sozlamalari
-  (Umumiy > Debug chizish) va `--no-debug-draw` / `--debug-raycasts` / `--debug-contacts` / `--debug-contact-details` /
-  `--debug-joints` / `--debug-velocities` bayroqlari.
-  Skript ularni o'yin vaqtida o'zgartira oladi (`DebugDraw::SetEnabled(false)`, `DebugDraw::GetSettings().ShowRaycasts = true`):
-  editor'da o'yin viewport sozlamalari bilan boshlanadi, skript o'zgarishi o'yin to'xtaguncha (yoki menyuda biror narsa
-  o'zgartirilguncha) saqlanadi.
-  Shipping build'da (`-DZAMIN_SHIPPING=ON`; yoki `-DZAMIN_DEBUG_DRAW=OFF`) barcha chaqiruvlar bo'sh inline funksiyalar -
-  skriptlarda qoldirsa bo'ladi. Namuna: `Projects/Showcase3D` > `Scenes/DebugDraw.zscene`
-- **Editor gizmolari** (faqat editor viewport'ida, ko'z tugmasining menyusi yoki Ko'rinish > Gizmolar; har biri
-  o'chiq / tanlanganda / hammasida, sozlamalar saqlanadi): **kamera frustumi** (perspektiv - 10 birlikkacha aniq piramida,
-  far tekisligigacha xira; ortografik - quti; yuqori tomoni uchburchak), **yorug'lik yo'nalishi** (directional: halqa, nurlar
-  va o'q; spot: o'qi bo'ylab o'q; yorug'lik rangida), **audio radiusi** (3D manbalar: Min va Max masofa sferalari),
-  **chegaralar (bounding box)** - lokal (obyekt bilan aylanadigan quti), dunyo AABB (mesh'lar uchun frustum culling
-  tekshiradigan chegara, skinned model'niki pozasi bilan) yoki ikkalasi, **skelet** (skinned model'lar: ota bo'g'indan
-  bo'g'ingacha suyaklar va bo'g'inlar joriy animatsiya pozasida, mesh ustidan; ixtiyoriy bo'g'in nomlari), **normallar**
-  (mesh va model vertekslarining normallari - har verteksdan chiziq, skinned model'larda joriy pozada; uzunligi, faqat
-  kameraga qaraganlar, yo'nalish bo'yicha rang sozlanadi; kadrda ko'pi bilan 60000 ta, ko'p bo'lsa vertekslar namunasi.
-  Dvigatelda: `Mesh::GetGeometry()` (vertekslar GPU'dan bir marta o'qiladi) va `AppendNormalLines`)
-- **Tanlash konturi** (shader asosida, faqat editor): tanlangan obyektlar chizgan piksellar atrofida bir necha piksel
-  qalinlikdagi silliq (anti-aliasing) kontur - mesh, model (skinned ham), sprite, doira, matn, tilemap. Viewport'ning
-  entity ID rasmi ko'rinadigan piksellarni, tanlangan mesh'larning qaytadan chizilgan siluetlari esa butun shaklni beradi:
-  boshqa obyekt orqasida qolgan qirralar xira chiziladi. Asosiy tanlangan obyekt to'q sariq, ko'p tanlovning qolganlari
-  ochroq, bolalari xiraroq; sichqoncha ostidagi (bosilsa tanlanadigan) obyekt ingichka havorang kontur bilan ajratiladi.
-  Qalinlik, ranglar, yashiringan qismlar, bolalar va hover sozlanadi (ko'z menyusi > Tanlash ko'rinishi); eski uslub -
-  "Quti" (mesh chegaralari sim quti bilan) ham tanlanadi
-- **Gizmo o'lchami**: ko'chirish / aylantirish / masshtab gizmosining ekrandagi o'lchami, chiziqlari qalinligi va viewport
-  ikonkalari o'lchami (tanlash asboblari yonidagi menyu yoki Ko'rinish > Gizmo o'lchami; editor sozlamalarida saqlanadi)
-- **Tilemap**: tileset'dan plitkali darajalar, editor'da chizish (palitra), avtomatik birlashtirilgan collider'lar
-  - **Qatlamlar**: har bir qatlamning nomi, ko'rinishi, collision bayrog'i (faqat shu qatlamlar qattiq), tartibi (tilemap
-    tartibiga qo'shiladi — masalan, o'yinchi oldidagi old plan) va shaffofligi; inspektorda qatlamlar ro'yxati (qo'shish,
-    nusxa, surish, o'chirish), bo'yash faol qatlamga tushadi. Eski sahna fayllari 0-qatlam bo'lib ochiladi
-  - **Auto-tile qoidalari**: 4 qo'shni (16 plitka) va 8 qo'shni blob (47 plitka) — katak qo'shnilariga qarab to'g'ri
-    plitkani oladi, qo'shnilari ham yangilanadi. Qoidalar tileset'ning `.zmeta` faylida (`"AutoTiles"`) saqlanadi va
-    inspektorda tuziladi: variantlar to'ri (qo'shnilik naqshi + plitka), palitradan bosib tayinlash, ketma-ket to'ldirish
-  - **Asboblar**: mo'yqalam (B), to'rtburchak (R), to'ldirish (G, 4 qo'shnili flood fill), o'chirg'ich (E), tomizg'ich (I);
-    Shift — o'chirish, auto-tile qoidasi bilan ham ishlaydi; viewport'da natija oldindan ko'rinadi (auto-tile variantlari
-    bilan), har bir chiziq/to'rtburchak bitta Ctrl+Z qadami. Namuna: Platformer2D `Scenes/Tilemap2D.zscene`
-  - **Plitka xususiyatlari** (tileset'ning `.zmeta` faylida, `"TileProperties"`; inspektorda tanlangan plitka uchun):
-    collision turi — qattiq (standart), yo'q (o't, gul, suv: collision qatlamida ham o'tib ketiladi) yoki **bir tomonlama**
-    (pastdan sakrab o'tiladi, ustiga qo'niladi); birlashtirilgan collider'lar shunga qarab quriladi. **Animatsiyali
-    plitkalar**: plitka → kadrlar ro'yxati + FPS (palitradan bosib yoki tanlangan plitkalardan), editorda ham o'ynaydi
-  - **Bir tomonlama platformalar**: plitkalar va Box Collider 2D'dagi "Bir tomonlama" belgisi (Box2D PreSolve: yuqoriga
-    harakatlanayotgan yoki sirtdan pastdagi jism o'tib ketadi, tez tushayotgani ham qo'nadi); skriptlarga to'qnashuv faqat
-    platforma ushlab turganda keladi; `DropThroughPlatforms(soniya)` — pastga tushib ketish (pastga + sakrash)
-  - **Palitra**: sichqoncha g'ildiragi bilan kattalashtirish (kursor atrofida), surish (scroll, o'rta/o'ng tugma), bosib
-    plitka yoki **sudrab bir nechta plitkali mo'yqalam** tanlash (mo'yqalam, to'rtburchak va to'ldirish uni choksiz
-    takrorlaydi); belgilar (collision yo'q, bir tomonlama, animatsiya). Inspektor kengligida yoki alohida **Oyna > Plitka
-    palitrasi** oynasida. Fizik colliderlar ko'rinishida tilemap qutilari (bir tomonlamalari pushti, strelka bilan)
-- **Audio** qo'llanmasi (manbalar, mixer, musiqa, 3D, filtrlar, zonalar, profiler): [docs/Audio.md](Audio.md)
-- **3D (spatial) ovoz**: masofaga qarab so'nish; tinglovchi — **Audio Listener** komponenti (bir nechtasidan faol va eng katta
-  ustuvorlikdagisi; ixtiyoriy tezlik o'lchash — Doppler uchun), u bo'lmasa asosiy kamera
-- **Audio mixer**: guruhlar (bus) — Master > Music, SFX, UI va loyihaning o'z guruhlari (ota guruh bilan, masalan
-  Ambience → SFX); har birida fader (dB), mute, solo va post-fader **daraja o'lchagich** (stereo, peak hold). **Oyna > Audio
-  Mixer**: kanal tasmalari, guruh qo'shish / o'chirish / ota guruhini o'zgartirish (o'ng tugma), hozir chalinayotgan
-  musiqa (pauza, to'xtatish), streaming chegarasi. Tahrir rejimida — loyiha standarti (`.zproject` "Audio"), o'yin
-  davomida — faqat shu o'yin uchun ("Standart qilib saqlash" bilan loyihaga). Audio Source'ning **Chiqish guruhi**
-  (inspektorda guruh tanlash + mixerdan keyingi dB) va **Streaming** belgisi; loyiha chegarasidan (4 MB) katta fayllar
-  avtomatik diskdan oqim bilan o'qiladi
-- **Musiqa API** (`Audio::PlayMusic(path, fade)`, `Audio::CrossfadeTo(path, sekund)`, `Audio::StopMusic(fade)`, pauza,
-  musiqa balandligi): Music guruhida, har doim oqim bilan, teng quvvatli crossfade; musiqa o'yinga tegishli — `LoadScene`dan
-  keyin ham davom etadi (editor o'yin to'xtaganda to'xtatadi va mixerni loyiha standartiga qaytaradi). Namuna: Showcase3D
-  `Scenes/Audio.zscene` — tinglovchi shar tinch (yashil) va xavfli (qizil) zonalar orasida yuradi, `MusicDirector` skripti
-  zonaga qarab musiqani crossfade qiladi (1 / 2 — trek, M — Music mute, P — pauza, S — to'xtatish), ziyoratgoh ovozi
-  Ambience guruhida, signal UI guruhida
-- **Ovoz variatsiyasi, ovozlar limiti, Doppler**: Audio Source (va `SoundParams`) har ijroda **tasodifiy balandlik / ton
-  oralig'ini** oladi (masalan ton 0.9–1.1, `AudioEngine::SetRandomSeed` bilan takrorlanuvchi). Loyiha bo'yicha bir vaqtda
-  ijro etiladigan **ovozlar limiti** (standart 64, musiqa hisobga kirmaydi): limit to'lsa yangi ovoz ustuvorligi (0–255)
-  pastrog'ining o'rnini oladi, tenglarda — manbaning qoidasi (eng eskisi / eng past eshitilgani to'xtaydi yoki yangisi ijro
-  etilmaydi); bitta faylning bir vaqtdagi nusxalari soni ham cheklanadi (masalan 20 ta dushman o'kirsa ham 3 tasi).
-  **Doppler**: 3D manbaning tezligi harakatidan o'lchanadi (teleport hisobga olinmaydi), tinglovchinikini Audio Listener
-  beradi; manbaning va loyihaning koeffitsiyenti (Audio Mixer > Sozlamalar), ton silliq o'zgaradi va 0.5–2 oralig'ida qoladi.
-  Inspektorda o'yin davomida **jonli holat**: ijro / pauza / to'xtagan (limit sababli ham), vaqt chizig'i (bosib — o'sha
-  joyga), eshitilish dB (balandlik x tasodifiy x guruh x masofa), hozirgi ton (tasodifiy va Doppler bilan), tezlik;
-  Qayta / Pauza / To'xtatish tugmalari; inspektordagi o'zgarishlar darhol eshitiladi. Namuna: `Scenes/Audio.zscene` —
-  uchuvchi dron (Doppler x2) va shamol qo'ng'iroqchalari (tasodifiy ton, bir vaqtda 3 tasi; H — ziyoratgoh g'uvillashini
-  pauza / davom)
-- **Audio clip asset**: ovoz faylining import sozlamalari `.zmeta`da (asset inspektorida tahrirlanadi, Qo'llash bilan
-  saqlanadi): **yuklash usuli** (avtomatik — hajmiga qarab / xotiraga yechish / diskdan oqim), **oldindan yuklash** (sahna
-  boshlanganda yoki birinchi ijroda yechilib xotirada qoladi — birinchi ijro kutmaydi, qayta-qayta chalinadigan ovoz har
-  safar yechilmaydi; `Audio::Preload` / `Unload`) va faylning o'z **balandligi** (dB). Inspektor fayl qanday o'qilishini
-  (oqim yoki xotiraga, chegara bilan) va yechilgan ovoz xotirada qancha joy olishini ko'rsatadi; davomiylik, format,
-  kanallar, chastota bir marta o'qiladi (`Audio::GetClipLength("Audio/x.wav")`, `Audio::GetClipInfo`). Fayl o'zgarsa
-  oldindan yuklangani qayta yechiladi
-- **So'nish (fade)**: Audio Source'ning **FadeIn / FadeOut** (sekund) — ijro jimdan asta boshlanadi, to'xtatilganda
-  (StopAudio, obyekt o'chirilsa yoki yo'q qilinsa) birdan uzilmay so'nadi (manba darhol bo'shaydi, ovoz o'zi so'nib
-  tugaydi; limit to'lsa birinchi bo'lib o'sha o'rin beradi). Skriptda `PlayAudio(1.5f)`, `StopAudio(2.0f)`,
-  `FadeAudio(0.3f, 0.5f)` (masalan dialog paytida pasaytirish), `GetAudioFade()`; `SoundParams::FadeIn`,
-  `AudioEngine::Stop(handle, sekund)`, `Audio::StopSound(handle, sekund)`. Inspektorda jonli so'nish darajasi
-- **Low-pass / high-pass filtr**: har bir Audio Source'da va har bir mixer guruhida (12 dB/oktava, kesish chastotasi
-  o'zgarsa ~30 ms da silliq siljiydi): devor ortidagi yoki suv ostidagi bo'g'iq ovoz, radio / telefon ovozi. Audio Mixer
-  tasmasidagi filtr tugmasi (`LP 450`), skriptda `SetAudioLowPass(600.0f)` / `SetAudioHighPass(...)` (0 — o'chirish),
-  `Audio::SetGroupLowPass("SFX", 500.0f)`; guruh filtri loyiha mixeri bilan `.zproject`ga saqlanadi
-- **O'yinchi ovoz sozlamalari**: `Audio::SaveSettings()` guruhlar balandligi / mute va musiqa balandligini **SaveData**'ga
-  (loyiha standartidan alohida) saqlaydi; o'yin boshlanganda (player va editorda Play) avtomatik yuklanadi
-  (`Audio::LoadSettings`, `HasSavedSettings`, `ClearSavedSettings`). Namuna: `Scenes/Audio.zscene` — **radio** (FadeIn /
-  FadeOut, high-pass 700 Hz + low-pass 3.5 kHz; R — yoqish / o'chirish, T — filtr, G — pasaytirish), **suv havzasi**
-  (tinglovchi kirsa SFX va Music guruhlari low-pass bilan bo'g'iladi), **sozlamalar** (- / = Music balandligi, N — SFX
-  mute, 9 — saqlash, 0 — tozalash)
-- **Yo'nalish konusi (3D)**: Audio Source'da **Yo'nalish konusi** — ichki burchak (to'liq balandlik), tashqi burchak va
-  orqadagi balandlik (`AudioConeSettings`, miniaudio `ma_sound_set_cone`): ovoz obyektning oldi tomoniga (-Z) qarab
-  baland, orqasida past — karnay, televizor, gapirayotgan odam; obyekt burilsa ovoz ham buriladi. Sahnada tanlangan
-  manbaning konusi (ichki — to'q, tashqi — xira) va yo'nalish o'qi chiziladi, o'yin davomida inspektorda konus
-  ko'paytuvchisi ko'rinadi. API: `SoundParams::Cone` / `Direction`, `AudioEngine::SetSoundCone`, `SetSoundDirection`,
-  `ComputeConeGain`. Namuna: `Scenes/Audio.zscene` — ustundagi **karnay** (-X tomonga qaragan): tinglovchi uning oldidan
-  o'tganda baland, orqasiga o'tganda past eshitiladi
-- **Ambient zona** (`AmbientZoneComponent`, "Ambient Zone"): hajm ichida eshitiladigan takrorlanuvchi fon ovozi — o'rmon,
-  g'or, yomg'ir, olomon. Quti (obyekt masshtabi va aylanishi bilan) yoki shar; tinglovchi ichida bo'lsa ovoz to'liq va
-  joylashuvsiz, chetdan tashqarida **aralashish masofasida** silliq so'nadi, **so'nish vaqti** sakrashlarni (teleport,
-  zona yoqilishi / o'chirilishi) silliqlaydi; ovoz eshitila boshlaganda ishga tushadi, so'nganda to'xtaydi (ovozlar
-  limitini egallamaydi). Chiqish guruhi, ustuvorlik, streaming; bir nechta zona birga eshitiladi. Sahnada hajm va
-  aralashish chegarasi chiziladi, inspektorda jonli daraja. API: `Scene::GetAmbientZoneLevel(entity)`,
-  `Scene::GetAmbientZoneWeight(...)`. Namuna: `Scenes/Audio.zscene` — yashil zona ustidagi **o'rmon shovqini** (shamol va
-  qushlar, Ambience guruhida)
-- **Audio hodisalar**: `OnSoundFinished(const SoundFinished& sound)` — obyektning ovozi o'zi tugaganda (Audio Source yoki
-  skriptning `PlaySound` ovozi, takrorlanmaydigan; ovozlar limiti to'xtatsa `Stolen`), asosiy oqimda yetkaziladi;
-  boshqa skriptlar `Subscribe("SoundFinished", ...)` bilan eshitadi. `PlaySound` / `PlaySoundAt` endi handle qaytaradi.
-  Dvigatelda: `AudioEngine::TakeFinishedSounds()` (`Finished` / `Stolen`). Namuna: `Scenes/Audio.zscene` — **karnay**
-  e'loni tugaganda `PaAnnouncer` skripti tanaffusdan keyin keyingisini chaladi
-- **Audio profiler**: Statistika oynasida faol ovozlar soni / limit (rang: to'lishiga qarab), so'nggi 240 kadr grafigi
-  (limit chizig'i bilan), cho'qqi, ovoz turlari (ijroda / pauza / so'nmoqda, 3D, oqim, filtrli, musiqa, ko'rib chiqish,
-  oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli
-  to'xtatilgan / ijro etilmagan, daraja); viewport statistika overlay'ida **Audio** bo'limi (o'ng tugma > Audio).
-  Hisoblagichlar Play boshlanganda nollanadi. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
-  `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F10 bilan audio profilini log'ga yozadi
-- **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, `OnClick()` — qo'llanma: [docs/UI.md](UI.md)
-  - **UI ierarxiyasi** (RectTransform modeli): UI obyektning bolasi ota to'rtburchagiga nisbatan joylashadi (oddiy obyekt
-    ostidagisi — ekranga). **Langar min/max** (0..1): bitta nuqtaga bog'lash (9 ta tayyor nuqta) yoki **cho'zish** —
-    chapdan o'ngga, pastdan yuqoriga, butun ota (yuqori/pastki panel, fon); cho'zilgan o'qda inspektor Chap | O'ng
-    (Past | Yuqori) chekkalarini ko'rsatadi; **pivot** (o'z to'rtburchagining nuqtasi). Langar yoki pivot o'zgarsa obyekt
-    joyida qoladi (Shift bilan — langarga joylashadi). Bolalar otasidan keyin (ustida) chiziladi, aka-ukalar orasida —
-    Tartib bo'yicha. Eski sahnalarning 9 nuqtali langari o'zi o'giriladi. API: `GetScene().GetUIRect(e)`,
-    `GetUIScreenRect`, `GetUIParentRect`, `SetUIRect`, `SetUIAnchors(e, min, max, joyidaQolsin)`, `SetUIPivot`
-  - **UI Canvas** — ekranga moslashuvchi masshtab: UI mo'ljal o'lcham (masalan 1920 x 1080) uchun yasaladi va ekran
-    bilan birga kattalashadi / kichrayadi (kenglik yoki balandlikka moslash, ikkalasi orasi — logarifmik; "kengaytirish" —
-    doim sig'adi, "qisqartirish" — doim to'ldiradi) yoki doimiy piksel koeffitsiyenti. Butun pastki daraxtga ta'sir qiladi
-    (ichki canvas tashqisinikini oladi); `GetScene().GetUIScale(e)`. Obyekt > UI (ekran) > Canvas
-  - **Layout guruhlari** (UI Layout Group): bolalarni ierarxiya tartibida **qator** (gorizontal), **ustun** (vertikal)
-    yoki **panjara** (grid) qilib joylaydi: ichki chekka, oraliq, tekislash (9 nuqta), teskari tartib, bolalar
-    kengligi/balandligini boshqarish va ortgan joyni bo'lish; panjara — katak o'lchami, oraliq, boshlanish burchagi,
-    avval qator/ustun, ustunlar yoki qatorlar soni. "Mazmunga mos" — guruh o'lchami bolalariga qarab o'zgaradi (o'sib
-    boruvchi ro'yxat). Ichma-ich guruhlar (ro'yxat ichida qator) afzal o'lchamni bolalaridan oladi. **UI Layout
-    Element** — minimal / afzal / moslashuvchan o'lcham yoki guruhdan chiqarish. Nofaol bolalar tashlab ketiladi
-  - **UI hodisalari**: `OnPointerEnter` / `OnPointerExit` (sichqoncha ustiga keldi / ketdi — bolasi ustida bo'lsa ota
-    UI obyektga ham), `OnPointerDown` / `OnPointerUp` (`event.Inside`) / `OnPointerClick`; event bus: `"UIPointerEnter"` ...
-    `"UIPointerClick"` (payload `UIPointerEvent`: `Target`, `Position`, `ScreenPosition`), `"UIClick"`. UI Button'ning
-    **"Xabar nomi"** — bosilganda shu nomdagi skript xabari qabul qiluvchiga (bo'sh — `Broadcast`) yuboriladi:
+  - **The Animator graph** (Window > Animator graph, or the button in the inspector): states are nodes (clip / blend
+    tree, the initial one orange), transitions are arrows, plus an "Any state" node; dragging nodes (their positions are
+    saved in the scene), drawing a transition with Shift + drag or the menu, clicking an arrow / node edits it in the right
+    panel (conditions, fade, exit time, blend motions), Delete, the wheel — zoom, the middle / right button — pan, undo.
+    Live while playing: the current state and its time, the transition arrow, the blend weights; the inspector also has
+    the **live state** (normalized time, transition progress, weights, layers) and changing the parameters (a trigger
+    button). Samples: Showcase3D `Scenes/Animator.zscene` (a blend tree + an Any State trigger, a layer masked at Bone2),
+    the Adventure3D robot (an Idle/Walk/Run blend tree)
+  - **Previewing skeletal clips in the editor** (the Animation window, skeletal mode — when an object with an Animator
+    is selected): the model's glTF clips, click / drag the time ruler to **scrub** (shown in the scene without play mode),
+    play / stop, loop, speed, snapping to frames, zoom / pan; rows with keys for the bones and blend shapes the clip moves
+    (clicking a row shows the T/R/S or the weights at that time); **Animator events** for this clip are added on the
+    timeline (double-click, the bell button), dragged, named and deleted (with undo)
+  - **Attaching to a bone** (the `Bone Attachment` component): the object follows a bone of a skinned model (a sword in
+    the hand, a hat on the head) — the bone with the Animator pose (in the editor too) takes the place of the object's
+    parent, and the Transform becomes an offset relative to the bone (the gizmo in bone space too); when no model object
+    is chosen, the nearest skinned parent, the bone scale optional
+  - **Footstep sounds** (the `Footsteps` component): when an animation event (usually `Footstep`) comes, a random one of
+    its sounds (never the same twice in a row) — louder and higher-pitched by the speed (an Animator float parameter),
+    random volume / pitch ranges, silent when slow, events close together count as one step, a 3D sound, a mixer group
+  - **Trimming and splitting clips** (the model's `.zmeta` import settings, in the asset inspector): the start / end of a
+    clip in the file (seconds and frames, a range bar with draggable edges) — with the same name the clip is trimmed,
+    with another name it becomes a separate clip (Walk / Run / Jump from one long recording); a preview before applying,
+    a choice to keep the original clips
+  - **glTF morph targets** (blend shapes): the targets' position / normal offsets and default weights are read and
+    applied on the CPU (every object with its own weights gets its own mesh copy, with skinning too), the glTF `weights`
+    animation channels play in Animator clips (with crossfades, blend trees); sliders in the Mesh Renderer inspector,
+    script: `GetComponent<MeshRendererComponent>().SetMorphWeight("Smile", 0.8f)`. Samples: Showcase3D
+    `Scenes/Animator.zscene` (`Blob.gltf` with morphs: an Animator clip and a script, a crystal at the tip of a tentacle —
+    attached to `Bone3`), the Adventure3D robot (a lantern in its hand, Walk/Run step events and `Footsteps`),
+    `Tentacle.gltf` (the trimmed `WaveHalf` clip)
+  - **Property animation** (`.zanim` clips, the **Animation Player** component): the transform of the object and its
+    children (by name path, `"Door/Hinge"`), the Sprite / Circle / Text / Mesh colour, the light colour and intensity, the
+    UI position / size / scale / opacity, the UI image colour and the script's float fields; **Step / Linear / Bezier**
+    keys (automatically smooth tangents — no overshoot at a peak, flat or by hand), the clip **once / loop / ping-pong**,
+    speed (negative — backwards), **events** (each fires exactly once when passed, with a long frame too). Script:
+    `PlayAnimation("DoorOpening")`, `PlayAnimation("DoorOpening", -1.0f)` (closing), `StopAnimation()`,
+    `IsAnimationPlaying()`, `SetTime`, `GetNormalizedTime` on the component; `OnAnimationEvent(e)` or
+    `AddAnimationEventHandler("Pulse", fn)`, `"AnimationEvent"` on the event bus
+  - **The Animation window** (Window > Animation, timeline): the track list (+ Add track: an object and a property), a
+    **dope sheet** (keys are diamonds, drag to move, double-click — a key, Delete, right-click — interpolation / tangent)
+    and **curves** (the components of the selected track, key points and Bezier handles can be dragged), an event row, a
+    time ruler (scrub), zoom and pan with the wheel, snapping to frames, the clip's length / fps / end mode.
+    **Preview without play mode**: when the time is moved or ▶ is pressed the clip is applied in the scene view, and when
+    the window closes (or on save / undo / Play) the scene's own values come back. **Record** (●): changes made with the
+    inspector or the gizmo become keys at the current time (a new property — a new track). Its own undo/redo (with the
+    window focused: Ctrl+Z / Ctrl+Y), Ctrl+S — save the clip. Content: right-click → New animation clip, double-clicking
+    a `.zanim` opens it in the window. Samples: Showcase3D `Scenes/Animation.zscene` (a beacon, a door, glTF Animator
+    events); the **gate** under the Adventure3D arch — it opens when the hero approaches and closes when they walk away
+    (`AnimationPlayerComponent::PlayFrom` — backwards from where it is), the clip's events play the creak and thud sounds
+    (the `ProximityDoor` script)
+  - **Several skins** (glTF): every skinned mesh with its own skin (the body and the clothes, two characters in one file,
+    a rope bound to two armatures) — the bones of all the skins in one skeleton (one Animator), every skin with its own
+    bones / inverse binds (its own palette when they differ, up to 80 bones per skin). Sample: Showcase3D
+    `Models/TentaclePair.gltf` (three skins)
+  - **Animation performance** (Animator > Performance): a pose whose inputs did not change is not computed again (a
+    pause, speed 0, a finished clip); **when not visible** — a model no camera sees is not posed (time, events and root
+    motion go on) or stops completely; **pose caching** (the clip is sampled in advance at the set frames/s, shared by
+    the model's animators, step keys exact). An **Animation** section in the Statistics window, `Animation/Poses` in the
+    profiler, `Scene::GetAnimationStats()`. Sample: Showcase3D `Scenes/Crowd.zscene` (168 tentacles, a turning camera)
+  - The detailed guide: [docs/Animation.md](Animation.md) — clips, the timeline, the Animator, blend trees, layers,
+    events, root motion, attaching, morph targets, performance, with code examples
+  - **Post-processing**: SSAO (ambient occlusion), bloom (its **tint** — the glow is multiplied by that colour; **lens
+    dirt** — the wide glow of bright lights lights up a procedural dust/smudge texture), vignette,
+    contrast/saturation/colour grading, **chromatic aberration** (red and blue shift towards the edges), **film grain**
+    (noise that changes every frame, strongest in the midtones, with a grain size; added after FXAA when it is on) — the
+    new effects are off by default,
+    **FXAA** anti-aliasing (after tonemapping and the colour settings; turned on in the Scene panel, with a subpixel
+    strength), **auto exposure** (eye adaptation: the average log luminance is measured on the GPU with a downsampling
+    chain, an adaptation speed over time, min/max EV, compensation; off by default - manual exposure)
+  - **Render scale** (0.5 - 2.0): the scene picture is drawn at that multiple of the view size and scaled up / down with
+    a linear filter (the editor viewport and the player; the "Render" section of the Scene panel)
+  - **Frustum culling**: meshes the camera cannot see are not drawn, by their world AABBs (model parts separately,
+    guaranteed bounds over all the bones for skinned meshes), in the shadows every cascade by its own volume; in 2D
+    sprites, circles, text (by glyph bounds), particle systems and the 16x16-tile chunks of tilemaps
+  - **GPU instancing**: the same mesh + material (every value the shader takes equal, not skinned, opaque / cutout) in
+    one `glDrawElementsInstanced` call - the transform, the normal matrix and the entity ID are per-instance attributes;
+    identical meshes are batched in the shadow cascades too. The picture and the picking buffer do not change
+  - **Render statistics** (the Statistics panel): drawn / culled / instanced meshes and calls, shadow draws, 2D objects
+    and tile chunks. `ZAMIN_EDITOR_STATS=1` (editor) / `ZAMIN_PLAYER_STATS=1` (player) write the last frame's statistics
+    to the log on exit; `ZAMIN_EDITOR_NO_CULLING`, `ZAMIN_EDITOR_NO_INSTANCING` (in the player `ZAMIN_PLAYER_NO_...`)
+    turn them off for comparison
+  - **Editor view modes** (the viewport toolbar): wireframe (edges only or surface + edges) and debug views - lighting
+    only, normals, albedo, roughness, metallic (the value views without tonemapping)
+  - **Particle system**: fire, sparks, smoke (additive blending, billboards, a live preview in the editor). The
+    simulation is separate from the scene (`ParticleSimulation`, `Scene/ParticleSystem.h`). **Main settings**: cycle
+    length, looping, **prewarm** (a looping system is full from the very start, as if it had run one cycle), start delay,
+    **simulation (time) speed**, space - world / local / **another object** (a ship, for example: the sparks move with the
+    ship, not with the rotating turret), **on finish** (after a non-looping system has played its cycle and the particles
+    of the sub-emitter templates on child objects have finished too - the last burst of a firework is not cut off: the
+    object is deactivated / destroyed; the script gets `OnParticlesFinished()` and the "ParticlesFinished" event),
+    **play on start** (off: silent until a script calls `Play()`; Play / Stop in the inspector / viewport are only for
+    previewing and are not saved to the scene). Emission: N per second, a one-off burst at the start (after the delay)
+    and a **burst schedule** (every cycle: time, count,
+    cycles - endless too, interval, probability). Drawing: 3D billboards with **GPU instancing** - every system in one
+    draw call (`ParticleRenderer`; flat 2D particles in the 2D batch with the sprites), transparent (not additive)
+    systems are **sorted back to front** by distance from the camera (or by age / unsorted); the statistics show the
+    particle count and the instanced calls. Emitter shapes: point, circle, sphere, box, **cone** (base radius, angle, from
+    the base / the volume, a flat 2D fan), **line** (2D, along local X), **mesh surface** (a primitive, a model file or the
+    object's Mesh Renderer; by triangle area / edges / vertices, along the normal or along the Direction); thickness (only
+    the edge / the surface) and an "outward from the centre" direction. Optional modules (sections switched on in the
+    inspector):
+    **Colour over lifetime** - a multi-point gradient (random between two gradients), **Size over lifetime** - a curve
+    (animation keys: stepped / linear / Bezier; between two curves), **Velocity over lifetime** - linear (with a curve,
+    in the emitter or world axes), orbital, radial, a speed multiplier, **Limit velocity** (with damping), **Noise** - a
+    smooth 3D gradient noise field (strength per axis, a curve, frequency, scroll speed, octaves, seed - deterministic),
+    **Collision** - a ground plane (normal + distance or through an object) or 3D / 2D physics colliders (raycasts,
+    layers, in play / simulation): bounce, dampen, lifetime loss, kill speed, radius; resting still on a surface,
+    **Sub-emitters** - when a particle is born / dies / hits / over its life, another object's Particle System emits
+    particles at that spot (count, probability, inherited velocity / colour / size; the "New template" button creates a
+    child object) - fireworks, rain splashes, **Texture sheet (flipbook)** - a column x row grid or sprite frames
+    (.zmeta, prefix), over the lifetime (cycles) or by FPS, start / random frame, random row, **Trail** - a camera-facing
+    ribbon (ratio, lifetime, point spacing, a width curve, a colour gradient, in the particle's colour). In the viewport
+    the emitter shape (mesh edges too) and the collision plane with a gizmo (Gizmos > Particle shape). Samples:
+    Showcase3D `Scenes/Particles.zscene`, `Scenes/ParticlesII.zscene` (mesh, noise, collision + splashes, spiral trails,
+    fireworks), `Scenes/ParticlesIII.zscene` (smoke with / without prewarm, a burst schedule fountain, a wave of rings with
+    a delay, an instanced galaxy of 9000 particles in slow motion, sparks in a ship's space, a one-off firework that
+    destroys itself)
+  - **A library of particle presets**: 9 ready-made effects (fire, smoke, sparks, rain, snow, magic, explosion, dust,
+    fireworks) - from the **Preset** menu in the inspector, the **Object > Effects** menu (or the **+** button in the
+    hierarchy) or the `ParticlePresets` API; a system (with its sub-emitter templates) is saved as a **`.zparticle`**
+    file (Assets/Particles, "Save as preset") and applied from the menu or by dropping it from the Content window onto
+    the viewport / hierarchy / Preset button; the templates are created as child objects, references to the scene
+    (another object's space, the plane object) are not saved. **Weather (the Around camera module)**: the emitter walks
+    with the main camera (in the editor - with the scene view camera), the particles the camera leaves behind wrap
+    forward through the box - raindrops splash when they hit the ground (a collision sub-emitter), snow tumbles down with
+    noise; particles very close to the camera fade ("Near fade", 4 units by default - a drop next to the lens does not
+    become a streak across the screen). A rendering module: **billboards stretched along the velocity** (rain streaks,
+    sparks). The inspector is split into modules as in Unity (Main, Emission, Shape, Around camera, Velocity, Limit
+    velocity, Colour, Size, Noise, Collision, Sub-emitters, Texture sheet, Trail, Rendering) - each with an enable
+    checkbox, a "only enabled" filter and "Add module"; Play / Pause (freezes) / Restart / Stop buttons in the inspector
+    and, for the selected system, in a panel in the viewport corner (particle count, with sub-emitters, cycle time).
+    Sample: Showcase3D `Scenes/ParticlesIV.zscene` (a row of presets, the project's `Particles/Campfire.zparticle` preset,
+    rain around the camera, snow switched off). **Performance**: `build/bin/ZaminBench` (or the `particle_bench` target)
+    simulates ~50 000 particles headless and prints the ms / frame for every case (`--profile` - profiler sections);
+    the particle simulation is compiled with `-O2` even in a Debug build (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`)
+  - **Sprite animation** (sprite sheets), a pixel-art filter, FlipX/FlipY
+- **2D physics** (Box2D, `PhysicsWorld2D`): dynamic/static/kinematic bodies, box/circle colliders, triggers, collision callbacks
+  (the 2D and 3D physics guide: [docs/Physics.md](Physics.md))
+  - **Polygon Collider 2D**: any polygon (with the object's scale); a concave shape or one with more than 8 corners is
+    split into triangles by ear clipping and merged back into convex pieces of at most 8 corners (Hertel-Mehlhorn,
+    `Polygon2D::Decompose`), a self-intersecting one with its convex hull. In the inspector the list of points and the
+    state (how many pieces), **editing in the viewport** ("Edit points": drag, click the line - a new point,
+    Ctrl + click / Delete - remove, Shift - a 0.1 step, Esc - finish; every move is one Ctrl+Z) and **"Fit to sprite"**
+    (an outline of at most 12 points around the opaque part of the sprite frame)
+  - **Edge Collider 2D**: a line or a closed loop through points (ground, slopes); two-sided or a **one-sided smooth
+    chain** (a Box2D chain: nothing catches on the joints; the solid side is to the left of the points' direction, shown
+    with ticks in the viewport). The points are edited in the viewport the same way
+  - **Physics material** (a `.zphysmat` asset, Content > "New physics material": ice, rubber, metal...): friction,
+    bounciness, bounce threshold, density and **combine modes** (Average / Minimum / Multiply / Maximum / the Box2D
+    default). Box / Circle / Polygon / Edge colliders and the Tilemap choose one (empty - their own values); it is
+    edited in the inspector, and when the file changes it applies at once even while playing (hot reload)
+  - **Collision layers**: 16 named layers in the project and which pairs collide (Project settings > Physics layers: a
+    matrix with angled headers). The Rigidbody 2D, every collider (its own layer or the body's) and the Tilemap choose a
+    layer (Box2D category/mask); `Raycast2D(..., LayerMask({ "Ground" }))`. 3D physics uses the same layers too
+  - **Platform Effector 2D**: all the colliders of the object (or the tilemap's tiles) are a platform - one-way, a surface
+    arc (180 - normal, a smaller one lets things through at the corners too, a larger one holds from the side too), a
+    rotation, switching off friction / bounce on the sides (so nothing sticks to a wall). The Box Collider 2D's "One way"
+    checkbox works as before (converted to an effector in one click). Sample: Platformer2D `Scenes/Shapes2D.zscene` (Edge
+    ground with hills, a concave stone bridge, falling polygon stones and crystals, an icy slope, a rubber mattress,
+    one-way platforms, balls on a "Ghost" layer that only touch the ground)
+  - **Joints**: Distance (a rigid rod, a rope - "max only", a spring - frequency/damping), Revolute (a hinge: angle
+    limits, a motor), Prismatic (sliding along an axis: limits, a motor), Weld (rigid or soft), Wheel (a suspension spring,
+    limits, a motor). Common to all: the connected body (another object's Rigidbody 2D or Tilemap; empty - a point in the
+    world), the anchor / connected anchor (auto), colliding with each other, a break force / torque
+    (`OnJointBreak(joint)`, `Broken` on the component; `Broken = false` recreates it). When a body is inactive or deleted
+    the joint goes away and is recreated when both bodies are back; while playing, motor/limit/spring changes apply at
+    once, and the joint is rebuilt when `ConnectedBody` changes. The state in the inspector (force, torque, angle,
+    translation), in the viewport the anchors, angle arcs and axes (Gizmos > 2D joints: when selected / all). On
+    duplicates and prefabs the connected body is rebound to the copy; a joint connected to a body outside the prefab
+    warns when saved, one connected to a body missing from the scene warns when the game starts / it appears (shown in
+    the inspector too). **Editing in the viewport** ("Edit anchors"): the anchor (a circle), the connected
+    anchor (a diamond), the slide / suspension axis (a square) and the limits (a hinge's angles on its arc, the slide range
+    next to the axis) can be dragged, Shift - a 0.1 unit / 5° step, Esc - finish; every move is one Ctrl+Z. Placing the
+    connected anchor "at the anchor's position" in one click. Sample: Platformer2D `Scenes/Joints2D.zscene` (a bridge, a
+    lift, a pendulum, a rope, a spring, a lamp that breaks off, a soft tower, a motor car - A / D)
+  - **Area Effector 2D** (wind, currents): pushes the dynamic bodies inside its colliders (usually triggers) every
+    physics step - a direction (turning with the object or in the world), a force (N, or N/kg with "multiply by mass" -
+    every body accelerates the same), random gusts, linear / angular drag, a layer mask. A collider that is not a
+    trigger pushes the bodies touching it
+  - **Buoyancy Effector 2D** (water): the inside of the collider up to the surface is liquid; the weight of the liquid a
+    body displaces (density x the area below the surface x gravity) acts upwards at the centre of its submerged part - a
+    collider with a low density floats and rights itself, a dense one sinks. Drag and flow (a river) by the submerged
+    part, a layer mask. In the viewport the wind arrows, the water level and the flow direction; in the inspector how
+    many bodies it affects
+  - **Queries**: `Raycast2DAll` (every object along the ray, the nearest first), `OverlapCircle2D` /
+    `OverlapBox2D` (with an angle) / `OverlapPoint2D` - an exact shape test, every object once, the one nearest the
+    centre first; all with a layer mask and `includeTriggers`. With View > Debug drawing > Raycasts on, the ray (with
+    order numbers) and the query shape are shown. Sample: Platformer2D `Scenes/Effectors2D.zscene` (a pool with floating
+    crates, wood, a ball and sunken stones; a wind column and a side wind; a Raycast2DAll scanner ray; an explosion with
+    the mouse - OverlapCircle2D)
+  - **Simulation settings** (Scene > Physics): the step rate (2D and 3D, 60 Hz by default), the most steps per frame,
+    Box2D **sub-steps** (every step is split into that many small steps: a chain with a heavy load and ragdolls do not
+    stretch; effectors, joint breaking and the script's `ApplyForce` force act on every sub-step - a force given every
+    frame has the same effect at any FPS, step rate and number of sub-steps), velocity / position iterations. While
+    playing, the bodies, awake / sleeping ones, joints, contacts and the number of Box2D steps in the frame are shown
+  - **Sleeping**: a body that stopped moving (together with the ones touching / connected to it, like Box2D islands) is
+    not simulated - turned on / off in the scene and after how long (Box2D's own 0.5 s, any other value the engine counts
+    itself); every Rigidbody 2D: "Starts awake", "Starts asleep" (a tower that waits until it is hit) or "Never sleeps".
+    The state and a "Wake up" button in the inspector, sleeping ones are bluish-grey in the collider view; in a script
+    `IsSleeping()`, `WakeUp()` (the body stays awake for the full time again), `PutToSleep()`; `SetPosition2D` and a force
+    wake it up too. Sample: Platformer2D `Scenes/Ragdoll2D.zscene` - with the mouse
+    (or R, and by itself every 2 seconds) a `Prefabs/Ragdoll.zprefab` is dropped: 11 pieces, 10 hinges with limits and
+    friction, the torso parts on the "Ragdoll" layer and the limbs on "RagdollLimb" (they do not collide with each other);
+    stairs, a bridge with limits, a motor rotor, a swing, a sleeping tower of crates and a pendulum on a chain; 2 sub-steps
+  - **Determinism** (2D and 3D): the same scene gives a bit-for-bit identical simulation every time - twice in a row,
+    after saving to a file and reading back, and even when its objects were created in another order
+    (the `PhysicsDeterminism2D/3D` tests). Bodies, joints and characters are created in scene order, and the editor's
+    Play copy (`Scene::Copy`) in hierarchy order - like a scene read from a file: the game played in the editor and the
+    exported game move the same way
+- **3D physics** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule colliders, triggers, collisions
+  - **Convex Hull Collider 3D**: a convex hull from the vertices of the model / primitive on the object's Mesh Renderer
+    (or a chosen `.gltf/.glb/.obj`), with at most "Max. vertices" (4..256) - with more, the outermost points are taken (a
+    simplified hull). The hull is built once per model and limit (`CollisionShapes3D`, read without the GPU) and rebuilt
+    when the file or its `.zmeta` import settings change; it is multiplied by the transform scale. The vertex / face
+    count in the inspector, the hull edges in the viewport (Physics colliders)
+  - **3D joints** (Jolt constraints): Fixed, Hinge (an axis, limits -180..0 / 0..180, a motor - speed and max. torque, a
+    spring - pulls towards a target angle), Distance (minimum / maximum distance, a rope - "max only", soft ends -
+    frequency / damping), Slider (sliding along an axis, limits, a motor), Cone (a ball joint - a shoulder / hip: cone
+    angle, twist limits, friction torque; Jolt SwingTwist). As with 2D joints: the connected body (empty - a point in the
+    world), the anchor / auto connected anchor (in the object's own coordinates, with scale), "Collide with each other"
+    (off - the connected bodies pass through each other), a break force / torque (`OnJointBreak3D(joint)`, `Broken`),
+    disappearing and coming back when a body is inactive / deleted, settings applied at once while playing, rebinding on
+    duplicate / copy / prefab (the `.zprefab` file too) - a copy connects to its own bodies, a reference to a body outside
+    is kept; serialization by UUID, one warning for a connected body missing from the scene. When a 3D prefab is dropped
+    into an empty or 2D-only scene, Jolt starts at that moment. The state in the inspector (force, torque, angle,
+    translation, distance, swing / twist), in the viewport the anchors, the hinge axis and angle arc, the slide limits,
+    the distance rod, the cone (Gizmos > Joints); "Edit anchors" - dragging the anchor, the connected anchor, the axis and
+    the limits in the viewport (a move gizmo on the selected point). Sample: Showcase3D `Scenes/Joints3D.zscene` (a door
+    on a spring, a chain of balls, a lift - the `SliderShuttle` script, a motorized windmill blade, a welded L, cone /
+    cylinder / crystal shrine hulls rolling down a slope)
+  - **A 3D ragdoll** sample: Showcase3D `Scenes/Ragdoll3D.zscene` - `Prefabs/Ragdoll3D.zprefab` (11 pieces: Cone Joint 3D
+    at the shoulders, hips, waist and neck, Hinge Joint 3D with limits at the elbows and knees, the joints do not collide
+    with each other) tumbles down the stairs; the `RagdollSpawner3D` script - R (3 more), mouse / F (shoot from the
+    camera), and by itself every 3 seconds; crates, barrels, a swing and a sandbag
+  - **Mesh Collider 3D** (Jolt MeshShape): the model's (or the Mesh Renderer model's / primitive's) own triangles -
+    concave shapes (stairs, an arch, a tunnel, a half-pipe, uneven ground) collide where they are drawn. Only for static
+    and kinematic bodies (a dynamic body ignores it - a warning, in the inspector too); the triangles are solid from the
+    front. The triangles are read once per model, and the Jolt tree is shared by all worlds and not rebuilt after
+    Play / Stop; vertices are welded by position (nothing bumps at the seams). The triangle / vertex count in the
+    inspector, the edges in the viewport (without the inner edges of one plane)
+  - **3D collision layers**: the same 16 named layers and matrix as 2D (Project settings > Physics layers). The
+    Rigidbody 3D and Character Controller 3D choose a layer (a Jolt ObjectLayer); while playing both the layer and the
+    matrix apply at once
+  - **3D queries** (with a layer mask and a "triggers too" flag; a ray / shape starting inside a collider does not hit
+    it - its own body is skipped): `Raycast3D`, `Raycast3DAll` (every object once, nearest first),
+    `OverlapSphere3D` / `OverlapBox3D` / `OverlapCapsule3D` (objects, the one nearest the centre first), `SphereCast3D` /
+    `BoxCast3D` / `CapsuleCast3D` and their `...All` kinds (a "thick ray": how far the shape travelled, the contact point,
+    the normal). The "Raycasts" debug drawing shows the shape, the path and the hits (there is `DebugDraw::WireCapsule`
+    too). Sample: Showcase3D `Scenes/Queries3D.zscene` (balls in a half-pipe, a grate the Ghost balls pass through, the
+    `SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` scripts)
+  - **Continuous collision (CCD)**: Rigidbody 3D > "Continuous (CCD)" (dynamic bodies, Jolt LinearCast) - a fast body (a
+    bullet, a thrown ball) is checked along its path every step and does not pass through a thin wall; it can be turned
+    on while playing too
+  - **3D sleeping**: Scene settings > Physics > Jolt (3D) - on / off and after how long (Jolt's own 0.5 s; when turned off
+    every body wakes up), every Rigidbody 3D: "Starts awake", "Starts asleep" (a pile that waits until it is hit) or
+    "Never sleeps". The state and a "Wake up" / "Put to sleep" button in the inspector, the number of awake / sleeping
+    bodies in the scene settings, sleeping ones bluish-grey in the collider view; in a script `IsSleeping3D()`,
+    `WakeUp3D()`, `PutToSleep3D()` (and their `(other)` kinds). The contacts of sleeping bodies are kept (as in Box2D): a
+    sleeping crate does not "leave" a trigger plate or the ground
+  - **3D physics material**: 3D colliders take the same `.zphysmat` asset as 2D - friction, bounciness, bounce threshold
+    and combine modes (Minimum, Multiply...; every collider its own, the colliders on one body separately too), updated
+    while playing when the file changes. Density is not used in 3D (the mass is on the Rigidbody 3D)
+  - **3D triggers**: `IsSensor` colliders give `OnTriggerBegin` / `OnTriggerEnd` (the same API as 2D, once per pair of
+    objects). A trigger and solid colliders can be on one body together (a crate + a "radar" sphere around it): the
+    trigger part is not hit, does not stop the character, and queries see it only with "triggers too"; a kinematic
+    trigger senses a sleeping body too
+- **Character Controller 3D** (Jolt CharacterVirtual): slopes, stairs, ground detection, jumping, walking on moving platforms;
+  it **pushes** the dynamic bodies it walks into ("Pushes bodies", "Push force" - at most that many N; 100 N by
+  default, more for heavy bodies). Sample: Showcase3D `Scenes/Physics3D.zscene` - ice / plain / rubber crates on a slope
+  and a trigger plate, a sleeping pyramid and the sweeper that knocks it over, fast balls with CCD on / off against a thin
+  pane (`Launcher3D`), a character that pushes crates as it walks and a "radar" crate with a trigger sphere
+  (the `SleepTint3D`, `Sweeper3D`, `Respawn3D`, `TriggerGlow3D` scripts)
+- **Raycast** 2D and 3D (`Raycast2DAll` / `Raycast3DAll`, overlap and shape cast queries)
+- **Debug drawing** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): from scripts and from the engine, in world space, lines, rays,
+  arrows, boxes (AABB and rotated), spheres, circles, crosses, points, axes, paths and screen-facing text - with a colour,
+  a duration (0 = one frame, > 0 = seconds of game time; it stops during the pause - the shapes of the last game frame stay
+  on the screen, while one-frame shapes other code draws during the pause do not pile up) and a depth test. Drawn after the scene
+  over the post-processed picture (exact colours, smooth thick lines) against the scene's depth.
+  Physics views: **raycast queries** (the ray, the hit point, the normal; red when it misses), **contact points**
+  (2D, 3D, characters - green; a yellow normal, how far the shapes overlap as a red line at its real size, a ring for an
+  instant when a 3D body hits hard, dim when both bodies sleep), **value labels** (above every touching pair: the depth
+  in mm, the 3D impact speed and estimated impulse - the speed x the pair's effective mass along the normal, in 2D the
+  Box2D impulse; on joints the force, the torque and the percentage of the break limit), **joints** (2D and 3D: both
+  anchors and the line between them - red when a hinge comes loose, lines to the body centres, the hinge / slide / cone
+  axis; the colour shows how close it is to breaking - green, yellow, red, an unbreakable one blue; a broken one a red X)
+  and **velocity vectors** (the real velocity of 3D characters as an arrow and m/s, the velocity the script asked for dim
+  when a wall blocks it; dynamic 2D/3D bodies). `PhysicsWorld3D::GetDebugContacts` gives the contact data (normal,
+  depth, impact, impulse, age, sleeping, both objects) to tests and tools too. Sample: Showcase3D
+  `Scenes/PhysicsDebug3D.zscene` (two lamps - one swinging, one close to its limit; a shelf a ball breaks off; a resting
+  crate, a sleeping tower, a bouncing ball; the `PhysicsDebugView3D` script - the C / J / V keys). For navigation paths
+  `DebugDraw::NavigationPath(points)`: segments, direction heads, points, a green start and a ring at the end.
+  In the editor the bug button on the viewport toolbar and its menu, in the player the project settings
+  (General > Debug drawing) and the `--no-debug-draw` / `--debug-raycasts` / `--debug-contacts` / `--debug-contact-details` /
+  `--debug-joints` / `--debug-velocities` flags.
+  A script can change them while playing (`DebugDraw::SetEnabled(false)`, `DebugDraw::GetSettings().ShowRaycasts = true`):
+  in the editor the game starts with the viewport settings, and a script's change lasts until the game stops (or until
+  something is changed in the menu).
+  In a Shipping build (`-DZAMIN_SHIPPING=ON`; or `-DZAMIN_DEBUG_DRAW=OFF`) every call is an empty inline function - they
+  can stay in scripts. Sample: `Projects/Showcase3D` > `Scenes/DebugDraw.zscene`
+- **Editor gizmos** (only in the editor viewport, the eye button's menu or View > Gizmos; each off / when selected / on
+  all, the settings are saved): **camera frustum** (perspective - an exact pyramid up to 10 units, dim up to the far
+  plane; orthographic - a box; a triangle on the top side), **light direction** (directional: a ring, rays and an arrow;
+  spot: an arrow along its axis; in the light's colour), **audio radius** (3D sources: the Min and Max distance spheres),
+  **bounds (bounding box)** - local (a box that rotates with the object), the world AABB (the bounds frustum culling checks
+  for meshes, a skinned model's with its pose) or both, **skeleton** (skinned models: bones from parent joint to joint and
+  the joints in the current animation pose, over the mesh; optional joint names), **normals** (the normals of mesh and
+  model vertices - a line from every vertex, in the current pose on skinned models; length, only those facing the camera,
+  colour by direction are configurable; at most 60000 per frame, a sample of the vertices when there are more.
+  In the engine: `Mesh::GetGeometry()` (the vertices are read from the GPU once) and `AppendNormalLines`)
+- **Selection outline** (shader-based, editor only): a smooth (anti-aliased) outline a few pixels thick around the pixels
+  the selected objects drew - meshes, models (skinned too), sprites, circles, text, tilemaps. The viewport's entity ID
+  image gives the visible pixels, and redrawn silhouettes of the selected meshes give the whole shape: edges hidden
+  behind another object are drawn dim. The active selected object is orange, the rest of a multiple selection lighter,
+  their children dimmer; the object under the mouse (which a click would select) is marked with a thin light blue
+  outline. Thickness, colours, hidden parts, children and hover are configurable (eye menu > Selection display); the old
+  style - "Box" (the mesh bounds as a wire box) - can be chosen too
+- **Gizmo size**: the on-screen size of the move / rotate / scale gizmo, its line thickness and the size of the viewport
+  icons (the menu next to the selection tools or View > Gizmo size; saved in the editor settings)
+- **Tilemap**: tiled levels from a tileset, painting in the editor (palette), automatically merged colliders
+  - **Layers**: every layer's name, visibility, collision flag (only these layers are solid), order (added to the
+    tilemap's order — a foreground in front of the player, for example) and opacity; a list of layers in the inspector
+    (add, duplicate, move, delete), painting goes to the active layer. Old scene files open as layer 0
+  - **Auto-tile rules**: 4 neighbours (16 tiles) and an 8-neighbour blob (47 tiles) — the right tile is taken from the
+    cell's neighbours, and the neighbours update too. The rules are saved in the tileset's `.zmeta` file
+    (`"AutoTiles"`) and built in the inspector: a grid of variants (a neighbour pattern + a tile), assigning by clicking
+    in the palette, filling one after another
+  - **Tools**: brush (B), rectangle (R), fill (G, a 4-neighbour flood fill), eraser (E), eyedropper (I);
+    Shift — erase, works with an auto-tile rule too; the result is previewed in the viewport (with the auto-tile
+    variants), every stroke/rectangle is one Ctrl+Z step. Sample: Platformer2D `Scenes/Tilemap2D.zscene`
+  - **Tile properties** (in the tileset's `.zmeta` file, `"TileProperties"`; in the inspector for the selected tile):
+    the collision type — solid (the default), none (grass, flowers, water: passed through even on a collision layer) or
+    **one-way** (you jump through from below and land on top); the merged colliders are built accordingly. **Animated
+    tiles**: a tile → a list of frames + FPS (by clicking in the palette or from the selected tiles), they play in the
+    editor too
+  - **One-way platforms**: tiles and the "One way" checkbox on a Box Collider 2D (Box2D PreSolve: a body moving up or
+    below the surface passes through, one falling fast still lands); scripts get the collision only while the platform
+    holds them; `DropThroughPlatforms(seconds)` — dropping through (down + jump)
+  - **Palette**: zooming with the mouse wheel (around the cursor), panning (scroll, the middle/right button), clicking
+    a tile or **dragging out a multi-tile brush** (the brush, rectangle and fill repeat it seamlessly); marks (no
+    collision, one-way, animation). At the inspector's width or in a separate **Window > Tile palette** window. Tilemap
+    boxes in the physics collider view (one-way ones pink, with an arrow)
+- The **Audio** guide (sources, mixer, music, 3D, filters, zones, profiler): [docs/Audio.md](Audio.md)
+- **3D (spatial) sound**: falloff with distance; the listener — the **Audio Listener** component (of several, the active
+  one with the highest priority; optional velocity tracking — for Doppler), otherwise the main camera
+- **Audio mixer**: groups (buses) — Master > Music, SFX, UI and the project's own groups (with a parent group, for
+  example Ambience → SFX); each with a fader (dB), mute, solo and a post-fader **level meter** (stereo, peak hold).
+  **Window > Audio Mixer**: channel strips, adding / deleting groups / changing the parent group (right-click), the music
+  playing now (pause, stop), the streaming threshold. In edit mode — the project default (`.zproject` "Audio"), while
+  playing — only for this game (saved to the project with "Save as default"). The Audio Source's **Output group**
+  (choosing a group in the inspector + dB after the mixer) and the **Streaming** checkbox; files larger than the project
+  threshold (4 MB) are streamed from disk automatically
+- **Music API** (`Audio::PlayMusic(path, fade)`, `Audio::CrossfadeTo(path, seconds)`, `Audio::StopMusic(fade)`, pause,
+  music volume): in the Music group, always streamed, an equal-power crossfade; music belongs to the game — it carries on
+  after `LoadScene` (the editor stops it when the game stops and returns the mixer to the project default). Sample:
+  Showcase3D `Scenes/Audio.zscene` — a listener sphere walks between calm (green) and dangerous (red) zones, the
+  `MusicDirector` script crossfades the music by zone (1 / 2 — track, M — mute Music, P — pause, S — stop), the shrine's
+  sound in the Ambience group, an alarm in the UI group
+- **Sound variation, the voice limit, Doppler**: an Audio Source (and `SoundParams`) takes a **random volume / pitch
+  range** on every play (pitch 0.9–1.1, for example, repeatable with `AudioEngine::SetRandomSeed`). A project-wide
+  **voice limit** for sounds playing at once (64 by default, music does not count): when the limit is full, a new sound
+  takes the place of one with a lower priority (0–255), on equal priority the source's rule decides (the oldest / the
+  quietest stops, or the new one does not play); the number of simultaneous copies of one file is limited too (even when
+  20 enemies roar, 3 of them, for example). **Doppler**: a 3D source's velocity is measured from its movement (teleports do
+  not count), the listener's comes from the Audio Listener; the source's and the project's factor (Audio Mixer >
+  Settings), the pitch changes smoothly and stays within 0.5–2.
+  The inspector shows the **live state** while playing: playing / paused / stopped (by the limit too), a time bar (click —
+  to that spot), the audible dB (volume x random x group x distance), the current pitch (with random and Doppler), the
+  velocity; Restart / Pause / Stop buttons; changes in the inspector are heard at once. Sample: `Scenes/Audio.zscene` — a
+  flying drone (Doppler x2) and wind chimes (random pitch, 3 at once; H — pause / resume the shrine's hum)
+- **The audio clip asset**: a sound file's import settings are in its `.zmeta` (edited in the asset inspector, saved
+  with Apply): the **load mode** (automatic — by size / decompress into memory / stream from disk), **preloading**
+  (decoded when the scene starts or on the first play and kept in memory — the first play does not wait, a sound played
+  over and over is not decoded every time; `Audio::Preload` / `Unload`) and the file's own **volume** (dB). The inspector
+  shows how the file is read (streamed or in memory, with the threshold) and how much memory the decoded sound takes;
+  the duration, format, channels and sample rate are read once (`Audio::GetClipLength("Audio/x.wav")`,
+  `Audio::GetClipInfo`). When the file changes a preloaded one is decoded again
+- **Fades**: the Audio Source's **FadeIn / FadeOut** (seconds) — playback starts quietly from silence, and when it is
+  stopped (StopAudio, the object deactivated or destroyed) it fades instead of cutting off (the source is free at once,
+  the sound fades out by itself; when the limit is full that slot gives way first). In a script `PlayAudio(1.5f)`,
+  `StopAudio(2.0f)`, `FadeAudio(0.3f, 0.5f)` (ducking during dialogue, for example), `GetAudioFade()`;
+  `SoundParams::FadeIn`, `AudioEngine::Stop(handle, seconds)`, `Audio::StopSound(handle, seconds)`. The live fade level in
+  the inspector
+- **Low-pass / high-pass filter**: on every Audio Source and every mixer group (12 dB/octave, the cutoff glides smoothly
+  over ~30 ms when it changes): a muffled sound behind a wall or under water, a radio / phone voice. The filter button on
+  the Audio Mixer strip (`LP 450`), in a script `SetAudioLowPass(600.0f)` / `SetAudioHighPass(...)` (0 — off),
+  `Audio::SetGroupLowPass("SFX", 500.0f)`; a group filter is saved to the `.zproject` with the project mixer
+- **Player sound settings**: `Audio::SaveSettings()` saves the group volumes / mutes and the music volume to **SaveData**
+  (separately from the project default); they are loaded automatically when the game starts (the player and Play in the
+  editor) (`Audio::LoadSettings`, `HasSavedSettings`, `ClearSavedSettings`). Sample: `Scenes/Audio.zscene` — a **radio**
+  (FadeIn / FadeOut, high-pass 700 Hz + low-pass 3.5 kHz; R — on / off, T — filter, G — duck), a **pool** (when the
+  listener enters, the SFX and Music groups are muffled with a low-pass), **settings** (- / = Music volume, N — mute
+  SFX, 9 — save, 0 — clear)
+- **Directional cone (3D)**: the **Directional cone** on an Audio Source — an inner angle (full volume), an outer angle and
+  the volume behind (`AudioConeSettings`, miniaudio `ma_sound_set_cone`): the sound is loud in front of the object (-Z)
+  and quiet behind it — a loudspeaker, a television, a person talking; when the object turns the sound turns too. The
+  cone of the selected source (inner — strong, outer — dim) and the direction arrow are drawn in the scene, and the cone
+  multiplier shows in the inspector while playing. API: `SoundParams::Cone` / `Direction`, `AudioEngine::SetSoundCone`,
+  `SetSoundDirection`, `ComputeConeGain`. Sample: `Scenes/Audio.zscene` — a **loudspeaker** on a pole (facing -X): loud
+  when the listener passes in front of it, quiet behind it
+- **Ambient zone** (`AmbientZoneComponent`, "Ambient Zone"): a looping background sound heard inside a volume — a forest,
+  a cave, rain, a crowd. A box (with the object's scale and rotation) or a sphere; with the listener inside the sound is
+  full and unpositioned, outside the edge it fades smoothly over the **blend distance**, and the **fade time** smooths
+  jumps (a teleport, the zone being switched on / off); the sound starts when it becomes audible and stops when it has
+  faded (it takes no slot in the voice limit). An output group, priority, streaming; several zones are heard together.
+  The volume and the blend boundary are drawn in the scene, the live level in the inspector. API:
+  `Scene::GetAmbientZoneLevel(entity)`, `Scene::GetAmbientZoneWeight(...)`. Sample: `Scenes/Audio.zscene` — the **forest
+  ambience** over the green zone (wind and birds, in the Ambience group)
+- **Audio events**: `OnSoundFinished(const SoundFinished& sound)` — when an object's sound finishes by itself (an Audio
+  Source or a script's `PlaySound` sound, non-looping; `Stolen` when the voice limit stopped it), delivered on the main
+  thread; other scripts hear it with `Subscribe("SoundFinished", ...)`. `PlaySound` / `PlaySoundAt` now return a handle.
+  In the engine: `AudioEngine::TakeFinishedSounds()` (`Finished` / `Stolen`). Sample: `Scenes/Audio.zscene` — when the
+  **loudspeaker**'s announcement ends, the `PaAnnouncer` script plays the next one after a pause
+- **Audio profiler**: in the Statistics window the number of active voices / the limit (coloured by how full it is), a
+  graph of the last 240 frames (with the limit line), the peak, the kinds of voices (playing / paused / fading, 3D,
+  streamed, filtered, music, previews, preloaded files) and a **per mixer group** table (on its own / with child groups,
+  stopped / not played because of the limit, the level); an **Audio** section in the viewport statistics overlay
+  (right-click > Audio). The counters reset when Play starts. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
+  `GetVoiceHistory()`; the player writes the audio profile to the log on exit with `ZAMIN_PLAYER_STATS=1` and with F10
+- **Screen UI** (HUD): text/images/buttons attached to the screen, `OnClick()` — the guide: [docs/UI.md](UI.md)
+  - **The UI hierarchy** (the RectTransform model): a child of a UI object is placed relative to its parent's rectangle
+    (one under an ordinary object — relative to the screen). **Anchor min/max** (0..1): attach to one point (9 ready-made
+    points) or **stretch** — left to right, bottom to top, the whole parent (a top/bottom bar, a background); on a stretched
+    axis the inspector shows the Left | Right (Bottom | Top) margins; a **pivot** (a point of its own rectangle). When the
+    anchor or pivot changes the object stays in place (with Shift — it moves to the anchor). Children are drawn after (over)
+    their parent, among siblings — by Order. The 9-point anchor of old scenes is converted by itself. API:
+    `GetScene().GetUIRect(e)`, `GetUIScreenRect`, `GetUIParentRect`, `SetUIRect`, `SetUIAnchors(e, min, max, keepInPlace)`,
+    `SetUIPivot`
+  - **UI Canvas** — a scale that adapts to the screen: the UI is made for a reference size (1920 x 1080, for example)
+    and grows / shrinks with the screen (match width or height, anything in between — logarithmic; "expand" — always
+    fits, "shrink" — always fills) or a constant pixel factor. It affects the whole subtree (an inner canvas takes the
+    outer one's); `GetScene().GetUIScale(e)`. Object > UI (screen) > Canvas
+  - **Layout groups** (UI Layout Group): place the children in hierarchy order as a **row** (horizontal), a **column**
+    (vertical) or a **grid**: padding, spacing, alignment (9 points), reverse order, controlling the children's
+    width/height and sharing the remaining space; a grid — cell size, spacing, start corner, rows/columns first, the
+    number of columns or rows. "Fit to content" — the group's size follows its children (a growing list). Nested groups (a
+    row inside a list) take their preferred size from their children. **UI Layout Element** — a minimum / preferred /
+    flexible size or leaving the group. Inactive children are skipped
+  - **UI events**: `OnPointerEnter` / `OnPointerExit` (the mouse came over / left — also to the parent UI object when it
+    is over a child), `OnPointerDown` / `OnPointerUp` (`event.Inside`) / `OnPointerClick`; the event bus: `"UIPointerEnter"` ...
+    `"UIPointerClick"` (payload `UIPointerEvent`: `Target`, `Position`, `ScreenPosition`), `"UIClick"`. The UI Button's
+    **"Message name"** — when pressed, a script message with that name is sent to the receiver (empty — `Broadcast`):
     `AddMessageHandler("Resume", ...)`
-  - **Klaviatura / gamepad navigatsiyasi**: tanlangan vidjetdan strelkalar / D-pad / chap stik (ushlab turilsa
-    takrorlanadi) eng yaqin vidjetga o'tadi, gorizontal slayder chap/o'ng bilan qiymatini o'zgartiradi; Tab / Shift+Tab —
-    keyingi/oldingi (matn maydoniga kirsa yozish boshlanadi), Enter / A — bosish (tugma, belgilash, maydonni tahrirlash),
-    Esc / B — `OnCancel()`. Tanlangan vidjet ramka bilan ko'rinadi. **UI Navigation** komponenti: avtomatik / faqat
-    gorizontal / faqat vertikal / aniq (har yo'nalishga vidjet) / yo'q, "faollashganda tanlash" (menyuning birinchi
-    tugmasi), ramka rangi. `OnSelect()` / `OnDeselect()`, `GetScene().SetSelectedUI(e)`, `NavigateUI`, `SubmitUI`,
-    `CancelUI`. Hech narsa tanlanmagan bo'lsa strelkalar o'yinniki (sichqoncha bosgan vidjet tanlanadi). Namuna:
-    Platformer2D `Scenes/UILayout.zscene` (`UILayoutDemo`); player'da `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"`
-    bilan avtomatik kiritish
-  - **UI animatsiyalari** (tween): UI Transform'ning **ko'rinishi** — masshtab (pivot atrofida), siljish, shaffoflik —
-    layout'ni o'zgartirmaydi, UI bolalari ham birga kattalashadi / suriladi / so'nadi, sichqoncha chizilgan joyga tegadi
-    (shaffoflik 0 — bosilmaydi). `GetScene().TweenUI(e, UITweenProperty::Alpha, glm::vec4(0.0f), 0.3f, { .Easing = ...,
-    .Delay = ..., .Loop = UITweenLoop::PingPong, .Loops = 4, .From = ..., .OnComplete = ... })` — masshtab / alpha /
-    siljish / pozitsiya / o'lcham / rasm rangi; bitta xususiyatga bitta tween; UI vaqtida (o'yin pauzada ham ishlaydi).
-    Skriptda: `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale` (hisoblagich "sakraydi"), `CancelUITweens`,
-    `ShowUI(panel)` / `HideUI(panel)`. **UI Animation** komponenti: faollashganda (boshlanishda ham) **ko'rinish**
-    animatsiyasi — paydo bo'lish, kattalashib chiqish (pop), chapdan / o'ngdan / yuqoridan / pastdan surilib chiqish,
-    kechikish (ketma-ket chiquvchi menyu), egri chiziq; **yashirish** (`HideUI` o'ynab bo'lgach o'chiradi); tugma /
-    belgilash / slayder / matn maydoni ustiga kelganda kattalashadi, bosilganda kichrayadi (bosilish javobi; bosilgan
-    joy sichqoncha ostidan qochmaydi)
-  - **Matn**: to'rtburchak ichida **tekislash** — chap / markaz / o'ng va yuqori / o'rta / past (dunyo matni obyekt nuqtasi
-    atrofida, "tayanch" — birinchi qator chizig'i nuqtada); **so'z bo'yicha o'rash** (UTF-8: oʻ, gʻ, sh, kirill — bitta
-    belgi, apostrof so'z ichida qoladi; uzun so'z sig'magan joyidan, defisdan keyin ham bo'linadi; dunyo matni —
-    "Kenglik" bo'yicha); sig'maganda: **chiqib ketadi**, **kesiladi** (butun belgi va qatorlar) yoki **uch nuqta** (…);
-    qator oralig'i. Shriftlar har bir o'lcham uchun alohida atlasda (ekrandagi o'lchamiga yaqin — kichik matn ham, katta
-    sarlavha ham tiniq; UI matni butun piksellarga joylanadi). `TextLayout::Layout(...)` — sof hisob (testlar uchun ham).
-    Eski sahnalarning "Centered" belgisi o'zi o'giriladi
-  - **Editorda**: viewport'da UI obyektlari to'rtburchagi bo'yicha tanlanadi (shaffof joyidan ham; 2D va 3D sahnalarda —
-    UI ekran ustida; Ko'rinish menyusida o'chiriladi), sichqoncha ostidagisi ingichka ramka bilan ko'rinadi. Tanlangan UI
-    obyektning **to'rtburchak gizmo'si**: ichidan sudrash — ko'chirish (ota chetlari / markaziga yopishadi), 8 ta
-    tutqich — o'lchamni o'zgartirish (Shift — nisbatni saqlash, Alt — markaz atrofida, magnit / Ctrl — 10 birlik qadam),
-    pivot halqasi, ota to'rtburchagidagi **langarlar** (uchburchaklar, sudrab o'zgartiriladi, 0 / 0.5 / 1 ga yopishadi)
-    va ulardan burchaklarga chiziqlar, o'lcham yozuvi; Esc — bekor qilish, Ctrl+Z — qaytarish. Layout guruhi
-    joylashtirgan obyektda tutqichlar yo'q (yozuvi aytadi). `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — avtomatik sudrash
-- **UI vidjetlari** (Obyekt > UI (ekran) menyusi, Komponent qo'shish > Effektlar va UI):
-  - **UI Image** — tekstura yoki uning sprite kadri (atlas), rang; turi: oddiy (nisbatni saqlash bilan), **9-slice**
-    (burchaklar ekran pikselida, chegara masshtabi), plitka, **to'ldirilgan** (gorizontal / vertikal / radial 360°,
-    boshlanish tomoni, soat yo'nalishi, `FillAmount` — chiziqlar, taymerlar, qayta tiklanish belgilari); "Sichqonchani
-    to'sadi" — ostidagi tugma/slayderlar bosilmaydi (dialog foni). UI Button bilan rangi tugma holatiga bo'yaladi
-  - **UI Slider** — min/max/qiymat, butun sonlar, 4 yo'nalish, yo'lak + to'ldirish + tutqich (yumaloq yoki to'rtburchak),
-    bosilgan joyga sakraydi, ushlab turilganda sichqonchaga ergashadi; `OnValueChanged(qiymat)`, `GetScene().SetSliderValue(e, v)`
-  - **UI Toggle** — belgilash qutisi (galochka / kvadrat / nuqta) yoki **switch** (tugmacha silliq suriladi), yozuvi —
-    obyektning Text komponenti; **guruhlar** (radio tugmalar: bittasi yoqiq, "o'chirishga ruxsat"); `OnToggleChanged(yoqiq)`,
+  - **Keyboard / gamepad navigation**: from the selected widget the arrows / D-pad / left stick (repeating while held)
+    move to the nearest widget, a horizontal slider changes its value with left/right; Tab / Shift+Tab — next/previous
+    (entering a text field starts typing), Enter / A — press (a button, a checkbox, editing a field), Esc / B —
+    `OnCancel()`. The selected widget is shown with a frame. The **UI Navigation** component: automatic / horizontal only /
+    vertical only / explicit (a widget for every direction) / none, "select when activated" (a menu's first button), the
+    frame colour. `OnSelect()` / `OnDeselect()`, `GetScene().SetSelectedUI(e)`, `NavigateUI`, `SubmitUI`, `CancelUI`. With
+    nothing selected the arrows belong to the game (a widget clicked with the mouse becomes selected). Sample:
+    Platformer2D `Scenes/UILayout.zscene` (`UILayoutDemo`); automatic input in the player with
+    `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"`
+  - **UI animations** (tweens): the UI Transform's **appearance** — scale (around the pivot), offset, opacity — does not
+    change the layout, the UI children grow / move / fade along with it, the mouse hits where it is drawn (opacity 0 —
+    cannot be clicked). `GetScene().TweenUI(e, UITweenProperty::Alpha, glm::vec4(0.0f), 0.3f, { .Easing = ...,
+    .Delay = ..., .Loop = UITweenLoop::PingPong, .Loops = 4, .From = ..., .OnComplete = ... })` — scale / alpha / offset /
+    position / size / image colour; one tween per property; in UI time (it works during the game pause too).
+    In a script: `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale` (a counter "bounces"), `CancelUITweens`,
+    `ShowUI(panel)` / `HideUI(panel)`. The **UI Animation** component: a **show** animation when activated (at the start
+    too) — fade in, pop, sliding in from the left / right / top / bottom, a delay (a menu that comes in one item after
+    another), a curve; **hide** (`HideUI` deactivates it once it has played); a button / checkbox / slider / text field
+    grows on hover and shrinks when pressed (press feedback; the pressed spot does not slip away from under the mouse)
+  - **Text**: **alignment** inside a rectangle — left / centre / right and top / middle / bottom (world text around the
+    object's point, "baseline" — the first line's baseline at the point); **word wrap** (UTF-8: oʻ, gʻ, sh, Cyrillic — one
+    character, an apostrophe stays inside a word; a long word is broken where it does not fit, after a hyphen too; world
+    text — by "Width"); when it does not fit: **overflow**, **clip** (whole characters and lines) or an **ellipsis** (…);
+    line spacing. Fonts in a separate atlas for every size (close to the size on screen — small text and large headings
+    are both crisp; UI text is placed on whole pixels). `TextLayout::Layout(...)` — the pure computation (for tests too).
+    The "Centered" flag of old scenes is converted by itself
+  - **In the editor**: UI objects are selected by their rectangle in the viewport (even at a transparent spot; in 2D and
+    3D scenes — the UI over the screen; can be turned off in the View menu), the hovered one shows with a thin frame. The
+    selected UI object's **rectangle gizmo**: dragging inside — move (snaps to the parent's edges / centre), 8 handles —
+    resize (Shift — keep the ratio, Alt — around the centre, magnet / Ctrl — a 10-unit step), a pivot ring, the
+    **anchors** on the parent's rectangle (triangles, changed by dragging, snapping to 0 / 0.5 / 1) and lines from them to
+    the corners, a size label; Esc — cancel, Ctrl+Z — undo. An object placed by a layout group has no handles (its label
+    says so). `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — an automatic drag
+- **UI widgets** (the Object > UI (screen) menu, Add component > Effects and UI):
+  - **UI Image** — a texture or a sprite frame of it (atlas), a colour; the type: simple (with preserve aspect),
+    **9-slice** (corners in screen pixels, a border scale), tiled, **filled** (horizontal / vertical / radial 360°, the
+    origin side, clockwise, `FillAmount` — bars, timers, cooldown icons); "Blocks the mouse" — buttons/sliders under it
+    cannot be pressed (a dialog background). With a UI Button its colour follows the button's state
+  - **UI Slider** — min/max/value, whole numbers, 4 directions, a track + fill + handle (round or square), jumps to the
+    clicked spot, follows the mouse while held; `OnValueChanged(value)`, `GetScene().SetSliderValue(e, v)`
+  - **UI Toggle** — a checkbox (a check mark / a square / a dot) or a **switch** (the knob slides smoothly), its label —
+    the object's Text component; **groups** (radio buttons: one is on, "allow switching off"); `OnToggleChanged(on)`,
     `GetScene().SetToggle(e, true)`
-  - **UI Progress Bar** — qiymat 0..1, 4 yo'nalish, fon/to'ldirish ranglari, qiymatga qarab rang (sog'liq: qizil -> yashil),
-    silliq ergashish (tezlik), foiz yozuvi
-  - **UI Input Field** — bir qatorli matn maydoni: bosilganda tahrirlanadi (kursor sichqoncha joyiga), sudrab / Shift +
-    strelkalar / ikki marta bosish bilan tanlash, Ctrl+A/C/X/V (tizim bufer), Home/End, Ctrl + strelka/Backspace — so'z
-    bo'yicha, Enter — yuborish, Escape — bekor qilish (oldingi matn), boshqa joy bosilsa tahrir tugaydi; **UTF-8**
-    (oʻ, gʻ, sh, kirill harflari bitta belgi), belgilar chegarasi, mazmun turi (oddiy / butun son / o'nlik son / harf va
-    raqam / parol — nuqtalar bilan, buferga nusxalanmaydi), bo'sh paytdagi yozuv, faqat o'qish, kursor miltillashi,
-    uzun matn surilib kursor ko'rinib turadi (maydon chetida kesiladi). `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`,
-    `GetScene().SetInputText` / `FocusInputField`. Editorda o'yin ko'rinishi fokusda bo'lganda yoziladi (editor
-    yorliqlari o'sha payt ishlamaydi)
-  - Hammasi event bus'ga ham chiqadi: `"UISliderChanged"` (float), `"UIToggleChanged"` (bool), `"UITextChanged"`,
-    `"UITextSubmitted"`, `"UITextEndEdit"` (std::string), jo'natuvchi — vidjet obyekti. Nofaol / "Faol" belgisi o'chiq
-    vidjet bosilmaydi. Matn kiritish uchun `Input::GetTextInput()` (yozilgan belgilar va avto-takrorli tugmalar) va
-    `Input::GetClipboardText()` / `SetClipboardText()`. Namuna: Platformer2D `Scenes/UIWidgets.zscene` (`UIWidgetsDemo`)
-  - **UI Mask** — obyektning butun UI ierarxiyasi faqat uning to'rtburchagi ichida chiziladi va sichqoncha ham faqat
-    shu yerda topadi (chekka ichkariga / tashqariga suriladi); maska ichidagi maska ikkalasi kesishgan joyni ko'rsatadi;
-    "O'z rasmini ko'rsatish" o'chiq bo'lsa faqat kesadi. To'liq yashiringan vidjetga navigatsiya o'tmaydi.
-    `GetScene().GetUIClipRect(e, rect)` (ekran pikselida, scissor bilan)
-  - **UI Scroll View** — kontent (masalan balandligi qatorlariga moslashuvchi ro'yxat) ko'rinish ichida suriladi:
-    sichqoncha **g'ildiragi**, **sudrash** (tugma ustidan boshlansa ham — u holda tugma bosilmaydi), **scrollbar'lar**
-    (o'zi chizadi: tutqichni sudrash, yo'lakni bosish; doim / kerak bo'lganda / yo'q), **inersiya** (sudrab qo'yib
-    yuborilganda sekinlashib davom etadi), **elastik** chekka (tortilganda qarshilik qiladi va qaytadi) yoki chetda
-    to'xtash; gorizontal / vertikal; viewport (bo'sh — o'zi, scrollbar'lar joyisiz; bolalari shu joyga joylashadi).
-    Klaviatura / gamepad bilan tanlangan vidjet ko'rinadigan joyga **o'zi aylanadi**. `OnScrollChanged(pos)` (x 0 chap ..
-    1 o'ng, y 1 tepa .. 0 past), `"UIScrollChanged"`; `GetScene().SetScrollPosition` / `ScrollBy` / `ScrollIntoView` /
-    `GetScrollPosition`. Obyekt > UI (ekran) > Scroll view (ro'yxat bilan)
-  - **Pauza menyusi** namunasi (Platformer2D 1-3 darajalar, `PauseMenu` skripti): Esc / gamepad Start — o'yin to'xtaydi
-    va menyu ochiladi (Davom etish / Sozlamalar / Chiqish), musiqa bo'g'iqlashadi; Sozlamalar — scroll view ichida ovoz
-    guruhlari (Master, Music, SFX, UI) slayderlari mikserga ulangan, **to'liq ekran** va **VSync** switch'lari, "Standart";
-    hammasi SaveData'da saqlanadi va keyingi safar qaytadi. Strelkalar / D-pad tanlaydi, Enter / A bosadi, Esc / B orqaga
-- **O'yin vaqti**: `SetTimeScale(0.5f)` — sekin harakat (OnUpdate vaqti, taymerlar, fizika, animatsiyalar shunga
-  ergashadi), `PauseGame()` / `ResumeGame()` / `IsGamePaused()` — vaqt 0: o'yindan hech narsa qimirlamaydi, faqat
-  `SetUpdateWhenPaused(true)` qilgan skriptlar (pauza menyusi) `OnUpdate` oladi; UI (vidjetlar, UI tween'lari,
-  navigatsiya) doim haqiqiy vaqtda ishlaydi. `GetUnscaledDeltaTime()`, `QuitGame()` (player yopiladi, editorda Play
-  to'xtaydi). **Display**: `Display::SetFullscreen` / `SetVSync` (player oynasiga qo'llanadi, editorda faqat eslab
-  qoladi), `Display::SaveSettings()` / `LoadSettings()` (SaveData; player oynani saqlangan tanlov bilan yaratadi, buyruq
-  qatori ustun; F11 / Alt+Enter to'liq ekranni almashtiradi). Player avtomatlashtirish: `ZAMIN_PLAYER_INPUT` da `down` / `up` (sudrash) va `scroll=dy`
-- **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
-- Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
-- **Sahna boshqaruvi** (`SceneManager`, editorning o'yin rejimi va player): bir vaqtda bir nechta sahna — **additive**
-  yuklash (`LoadScene(path, LoadSceneMode::Additive)`, `UnloadScene`, `SetActiveScene`; har birining o'z obyektlari,
-  skriptlari va fizika dunyosi, hammasi bitta kadrda ishlaydi va faol sahna kamerasi orqali birga chiziladi, hodisalar
-  shinasi va o'yin soati umumiy; `FindEntity` / `Resolve(EntityRef)` boshqa yuklangan sahnalarda ham qidiradi);
-  **`DontDestroyOnLoad(entity)`** — obyekt (bolalari bilan) doimiy sahnaga o'tadi: skript nusxasi, qiymatlari,
-  obunalari va ijro etilayotgan ovozi saqlanadi (editor ierarxiyasida alohida bo'lim); **fonda yuklash**
-  (`LoadSceneAsync` → `AsyncOperation`: fayl o'qish, JSON va rasmlarni ochish ishchi oqimda, obyektlar va GPU yuklash
-  asosiy oqimda har kadr bir bo'lak, `GetProgress()`, `SetAllowSceneActivation`); **o'tishlar**
-  (`SceneTransition::Fade(0.5f)` — rangga so'nib, almashib, ochiladi); **build sahnalar ro'yxati** (Loyiha sozlamalari →
-  Build sahnalar: tartib, yoqish/o'chirish, sudrash, ochiq sahnani qo'shish, boshlang'ich sahna; `LoadScene(1)` yoki
-  `LoadScene("Level2")`, `LoadNextScene()`, `ReloadScene()`, `LoadSceneAsync(2)`, `GetSceneBuildIndex()`; player:
-  `--scene 2` yoki `--scene Level2`; eksportga faqat ro'yxatdagi sahnalar kiradi); **sahna hodisalari** —
-  `OnSceneLoaded` / `OnSceneUnloaded` / `OnActiveSceneChanged` skript callback'lari va shinada `"SceneLoaded"`,
-  `"SceneUnloaded"`, `"ActiveSceneChanged"` (`SceneEventInfo`: nom, yo'l, build indeksi, rejim); **tez qidiruv** —
-  nom va teg indekslari (birinchi qidiruvda quriladi, keyin obyekt yaratish/o'chirish/nomlashda bittalab yangilanadi:
-  10 000 obyektda `FindEntityByName` skandan ~2000x tez, `CountEntitiesWithTag` O(1)), komponent turi bo'yicha
-  `FindEntitiesWith<T>()`, `FindObjectsOfType<T>()` (komponentlar yoki skript klasslari, barcha yuklangan sahnalarda;
-  `ZaminBench --queries`); **yuklash xatolari** (`SceneLoadReport`) — JSON xatosi qator/ustun va fayl qatori bilan,
-  noma'lum komponent, o'qilmagan komponent (obyekt qolgan komponentlari bilan yuklanadi), topilmagan asset, takroriy ID,
-  ota obyekti yo'q / halqa: konsolda, editorda viewport ustidagi banner va "Sahna yuklash muammolari" oynasi, player'da
-  o'yin yopilish o'rniga xato ekrani; **barqaror fayl tartibi** — `.zscene` obyektlari UUID bo'yicha saralangan,
-  ierarxiya tartibi `RootOrder` / `ChildOrder` da: bir xil sahna doim bir xil matn (diff'lar faqat o'zgarganini
-  ko'rsatadi), yuklashda obyektlar ierarxiya tartibida yaratiladi; **sahna metadata** — ta'rif, muallif, teglar
-  (`Scene::GetMetadata()`, faylda `"Metadata"`; Sahna oynasining "Ma'lumot" bo'limida tahrirlanadi) va **sahna rasmi**
-  (har saqlashda boshlang'ich kameradan 720p da chizilib 320x180 ga kichraytiriladi, sahna yonida yashirin
-  `.Level1.zscene.png` fayl: alohida asset emas, sahna bilan ko'chadi / nusxalanadi / o'chadi; kontent brauzer, inspektor
-  va Sahnalar oynasida ko'rinadi; `SceneSerializer::ReadSceneInfo` — sahnani yuklamay nomi, versiyasi, metadata va obyektlar
-  soni); **"Sahnalar" oynasi** (Oyna → Sahnalar) — loyihaning barcha sahnalari rasmli kartalar yoki ro'yxat ko'rinishida:
-  build indeksi, boshlang'ich sahna, eski format belgisi, qidiruv (nom, ta'rif, `#teg`), ochish, build ro'yxatiga
-  qo'shish/olib tashlash, boshlang'ich qilish, rasmlarni chizish, "Play bilan" qo'shimcha (additive) yuklash; o'yin
-  rejimida — yuklangan sahnalar (faol ★, DontDestroyOnLoad, fonda yuklanayotganlar), faol qilish, yopish, ierarxiyada
-  ko'rsatish, o'yinga sahnani additiv yoki almashtirib yuklash va global holat (GameState qiymatlari jonli tahrirlanadi,
-  servislar ro'yxati); **o'yin rejimidan chiqishda tiklash** — o'yin boshqa sahnaga o'tgan bo'lsa Stop editorni asl sahna,
-  tanlov va kamera ko'rinishiga qaytaradi; **global o'yin holati** — `Services::Register<T>()` / `Get<T>()` /
-  `GetOrCreate<T>()` (C++ servislar turi bo'yicha, sahnalardan tashqarida) va `GameState::SetInt / GetInt / Increment /
-  SetString ...` kalit-qiymat ombori, `WatchGameState(key, fn)` (skript bilan tugaydi), doimiy kalitlar
-  `GameState::SetPersistent` + `Save()` / `Load()` (SaveData); editor har Play boshida va oxirida tozalaydi;
-  **sahna formati versiyasi va migratsiya** — `"Version"` (hozir 2), eski fayllar yuklashda `vN → vN+1` qadamlar
-  zanjiri bilan yangilanadi (`SceneMigration`, konsolda bir marta yoziladi, saqlanganda yangi formatda), yangiroq
-  dvigatel fayli ogohlantirish bilan o'qiladi; **yuklash vaqti** bosqichlar bo'yicha (o'qish, JSON, migratsiya,
-  obyektlar, fonda rasmlar, assetlar, audio, fizika, skriptlar) — konsolda, profiler'da (`Sahna yuklash` bo'limi) va
-  Statistika / Profiler oynalarining "Sahna yuklash vaqti" bo'limida (rangli chiziq, so'nggi 32 ta yuklash;
-  `SceneLoadProfiler`, `AsyncOperation::GetTiming()`); **katta sahnalar uchun tez serializatsiya** — 10 000 obyekt
-  Debug'da saqlash 1346 → 163 ms, yuklash 2076 → 222 ms (`ZaminBench --serialize`), ixtiyoriy **binar kesh**
-  `.zsceneb` (MessagePack, ~3 marta kichik, yuklash 140 ms; eksportda har sahna yoniga yoziladi, player uni avtomatik
-  o'qiydi); **sub-sahnalar** — `SubSceneComponent` boshqa `.zscene` faylini obyekt joyiga qo'shimcha sahna sifatida
-  yuklaydi (transform bilan, ichma-ich, halqadan himoyalangan, `LoadSubScene()` / `UnloadSubScene()`), editorda joyida
-  faqat ko'rish uchun chiziladi va ierarxiyada obyekt ostida ko'rinadi, eksport ularni ham kiritadi. Namuna:
+  - **UI Progress Bar** — a value 0..1, 4 directions, background/fill colours, a colour by value (health: red -> green),
+    smooth following (speed), a percentage label
+  - **UI Input Field** — a single-line text field: edited when clicked (the cursor at the mouse position), selecting by
+    dragging / Shift + arrows / double-clicking, Ctrl+A/C/X/V (the system clipboard), Home/End, Ctrl + arrow/Backspace — by
+    word, Enter — submit, Escape — cancel (the previous text), clicking elsewhere ends the edit; **UTF-8** (oʻ, gʻ, sh,
+    Cyrillic letters are one character), a character limit, a content type (standard / integer / decimal /
+    alphanumeric / password — with dots, never copied to the clipboard), a placeholder text, read-only, a blinking
+    cursor, long text scrolls so the cursor stays visible (clipped at the field's edge). `OnTextChanged`, `OnTextSubmit`,
+    `OnTextEndEdit`, `GetScene().SetInputText` / `FocusInputField`. In the editor you type while the game view has the
+    focus (the editor shortcuts do not work then)
+  - All of them also go out on the event bus: `"UISliderChanged"` (float), `"UIToggleChanged"` (bool), `"UITextChanged"`,
+    `"UITextSubmitted"`, `"UITextEndEdit"` (std::string), the sender — the widget object. An inactive widget, or one with
+    its "Enabled" flag off, cannot be pressed. For text input `Input::GetTextInput()` (the typed characters and the
+    auto-repeating keys) and `Input::GetClipboardText()` / `SetClipboardText()`. Sample: Platformer2D
+    `Scenes/UIWidgets.zscene` (`UIWidgetsDemo`)
+  - **UI Mask** — the object's whole UI hierarchy is drawn only inside its rectangle, and the mouse finds it only there
+    (the edge moves in / out); a mask inside a mask shows where both overlap; with "Show own image" off it only clips.
+    Navigation does not go to a fully hidden widget. `GetScene().GetUIClipRect(e, rect)` (in screen pixels, with scissor)
+  - **UI Scroll View** — content (a list whose height follows its rows, for example) scrolls inside the view: the mouse
+    **wheel**, **dragging** (even when it starts over a button — the button is then not pressed), **scrollbars** (it draws
+    them itself: drag the handle, click the track; always / when needed / never), **inertia** (after a drag is released
+    it carries on, slowing down), an **elastic** edge (resists when pulled and springs back) or stopping at the edge;
+    horizontal / vertical; a viewport (empty — itself, without the scrollbars' space; its children are placed there).
+    A widget selected with the keyboard / gamepad **scrolls into view by itself**. `OnScrollChanged(pos)` (x 0 left ..
+    1 right, y 1 top .. 0 bottom), `"UIScrollChanged"`; `GetScene().SetScrollPosition` / `ScrollBy` / `ScrollIntoView` /
+    `GetScrollPosition`. Object > UI (screen) > Scroll view (with a list)
+  - The **pause menu** sample (Platformer2D levels 1-3, the `PauseMenu` script): Esc / gamepad Start — the game stops and
+    the menu opens (Resume / Settings / Quit), the music is muffled; Settings — inside a scroll view, sliders for the sound
+    groups (Master, Music, SFX, UI) wired to the mixer, **fullscreen** and **VSync** switches, "Default"; everything is
+    saved in SaveData and comes back the next time. The arrows / D-pad select, Enter / A presses, Esc / B goes back
+- **Game time**: `SetTimeScale(0.5f)` — slow motion (the OnUpdate time, timers, physics, animations follow it),
+  `PauseGame()` / `ResumeGame()` / `IsGamePaused()` — time 0: nothing in the game moves, only scripts that called
+  `SetUpdateWhenPaused(true)` (a pause menu) get `OnUpdate`; the UI (widgets, UI tweens, navigation) always runs in real
+  time. `GetUnscaledDeltaTime()`, `QuitGame()` (the player closes, in the editor Play stops). **Display**:
+  `Display::SetFullscreen` / `SetVSync` (applied to the player window, in the editor only remembered),
+  `Display::SaveSettings()` / `LoadSettings()` (SaveData; the player creates its window with the saved choice, the
+  command line wins; F11 / Alt+Enter toggles fullscreen). Player automation: `down` / `up` (dragging) and `scroll=dy` in
+  `ZAMIN_PLAYER_INPUT`
+- **Gamepad** (Xbox/PlayStation) support
+- **Scene switching** from scripts (`LoadScene`), `Instantiate` of prefabs
+- **Scene management** (`SceneManager`, the editor's play mode and the player): several scenes at once — **additive**
+  loading (`LoadScene(path, LoadSceneMode::Additive)`, `UnloadScene`, `SetActiveScene`; each with its own objects,
+  scripts and physics world, all of them run in one frame and are drawn together through the active scene's camera, the
+  event bus and the game clock are shared; `FindEntity` / `Resolve(EntityRef)` search the other loaded scenes too);
+  **`DontDestroyOnLoad(entity)`** — the object (with its children) moves to the persistent scene: the script instance,
+  its values, subscriptions and the sound it is playing are kept (a separate section in the editor hierarchy); **loading
+  in the background** (`LoadSceneAsync` → `AsyncOperation`: reading the file, parsing the JSON and decoding the images on a
+  worker thread, the objects and the GPU uploads on the main thread one chunk per frame, `GetProgress()`,
+  `SetAllowSceneActivation`); **transitions** (`SceneTransition::Fade(0.5f)` — fades to a colour, switches, fades back
+  in); **the build scene list** (Project settings → Build scenes: order, enabling/disabling, dragging, adding the open
+  scene, the start scene; `LoadScene(1)` or `LoadScene("Level2")`, `LoadNextScene()`, `ReloadScene()`,
+  `LoadSceneAsync(2)`, `GetSceneBuildIndex()`; the player: `--scene 2` or `--scene Level2`; only the scenes in the list go
+  into an export); **scene events** — the `OnSceneLoaded` / `OnSceneUnloaded` / `OnActiveSceneChanged` script callbacks
+  and `"SceneLoaded"`, `"SceneUnloaded"`, `"ActiveSceneChanged"` on the bus (`SceneEventInfo`: name, path, build index,
+  mode); **fast lookups** — name and tag indices (built on the first lookup, then updated one by one when objects are
+  created/deleted/renamed: with 10 000 objects `FindEntityByName` is ~2000x faster than a scan, `CountEntitiesWithTag`
+  O(1)), by component type `FindEntitiesWith<T>()`, `FindObjectsOfType<T>()` (components or script classes, in every
+  loaded scene; `ZaminBench --queries`); **load errors** (`SceneLoadReport`) — a JSON error with its line/column and the
+  file's line, an unknown component, a component that could not be read (the object loads with its other components), a
+  missing asset, a duplicate ID, a missing parent / a cycle: in the console, in the editor a banner over the viewport and a
+  "Scene load problems" window, in the player an error screen instead of the game closing; **a stable file order** —
+  the objects of a `.zscene` are sorted by UUID, the hierarchy order is in `RootOrder` / `ChildOrder`: the same scene is
+  always the same text (diffs show only what changed), and on load the objects are created in hierarchy order; **scene
+  metadata** — a description, author, tags (`Scene::GetMetadata()`, `"Metadata"` in the file; edited in the "Info"
+  section of the Scene window) and a **scene picture** (on every save it is drawn from the start camera at 720p and
+  scaled down to 320x180, a hidden `.Level1.zscene.png` file next to the scene: not a separate asset, it moves / is copied
+  / is deleted with the scene; shown in the content browser, the inspector and the Scenes window;
+  `SceneSerializer::ReadSceneInfo` — the name, version, metadata and object count without loading the scene); **the
+  "Scenes" window** (Window → Scenes) — every scene of the project as picture cards or a list: the build index, the start
+  scene, an old format mark, search (name, description, `#tag`), opening, adding to / removing from the build list,
+  making it the start scene, drawing the pictures, additional (additive) loading "with Play"; in play mode — the loaded
+  scenes (active ★, DontDestroyOnLoad, the ones loading in the background), making one active, closing, showing it in the
+  hierarchy, loading a scene into the game additively or as a replacement, and the global state (the GameState values
+  edited live, the list of services); **restoring when leaving play mode** — when the game moved to another scene, Stop
+  returns the editor to the original scene, selection and camera view; **global game state** —
+  `Services::Register<T>()` / `Get<T>()` / `GetOrCreate<T>()` (C++ services by type, outside the scenes) and a
+  `GameState::SetInt / GetInt / Increment / SetString ...` key-value store, `WatchGameState(key, fn)` (ends with the
+  script), persistent keys `GameState::SetPersistent` + `Save()` / `Load()` (SaveData); the editor clears it at the start
+  and end of every Play; **the scene format version and migration** — `"Version"` (now 2), old files are upgraded on load
+  by a chain of `vN → vN+1` steps (`SceneMigration`, written once to the console, saved in the new format), a file from a
+  newer engine is read with a warning; **the load time** by stage (reading, JSON, migration, objects, background images,
+  assets, audio, physics, scripts) — in the console, in the profiler (the `Scene load` section) and in the "Scene load
+  time" section of the Statistics / Profiler windows (a coloured bar, the last 32 loads; `SceneLoadProfiler`,
+  `AsyncOperation::GetTiming()`); **fast serialization for large scenes** — 10 000 objects in Debug: saving 1346 →
+  163 ms, loading 2076 → 222 ms (`ZaminBench --serialize`), an optional **binary cache** `.zsceneb` (MessagePack, ~3 times
+  smaller, loads in 140 ms; written next to every scene in an export, the player reads it automatically);
+  **sub-scenes** — `SubSceneComponent` loads another `.zscene` file as an additional scene at the object's place (with
+  the transform, nested, protected against cycles, `LoadSubScene()` / `UnloadSubScene()`), in the editor it is drawn in
+  place for viewing only and shows under the object in the hierarchy, and an export includes them too. Sample:
   Platformer2D `Scenes/Menu.zscene` → `Scenes/Loading.zscene`
-  (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa; tangalar, darajalar va rekord `GameState` da,
-  darajalar statistikasi `SessionStats` servisida; HUD `WatchGameState` bilan yangilanadi); `Scenes/SubScenes.zscene`
-  (bitta `Parts/Camp.zscene` bo'lagi uch joyda, uchinchisi skript bilan keyinroq)
-  - Prefab'lar: [docs/Prefabs.md](Prefabs.md) — nusxa va bog'lanish, override'lar, Apply / Revert, ichma-ich prefab'lar,
-    variantlar, prefab rejimi, havolalar, hot reload, undo, bufer, fayl formati va versiya, tiklash, eksport qoidalari R1-R10
-  - Batafsil qo'llanma: [docs/Scenes.md](Scenes.md) — yuklash rejimlari, DontDestroyOnLoad, fonda yuklash, o'tishlar,
-    build ro'yxati, hodisalar, qidiruv, xatolar, fayl formati, global holat, sub-sahnalar, profiler, binar kesh, kod misollari bilan
-- **Loyiha sozlamalari** (Oyna → Loyiha sozlamalari, bo'limlar va qidiruv): player oynasi, ikonka, kompaniya / mahsulot / versiya,
-  sifat darajalari (Low..Ultra), OpenGL konteksti, vaqt (`Time::SetTimeScale`), standart gravitatsiya, audio standartlari (3D masofa
-  modeli), lokalizatsiya (`Assets/Localization/<til>.json`, `Localize("key")`, Text komponenti kaliti), editor tili (o'zbek / ingliz)
-  - Batafsil qo'llanma: [docs/ProjectSettings.md](ProjectSettings.md) — har sozlama, `.zproject` formati, player buyruq qatori, kod misollari
-- **Player** (`ZaminPlayer`): oyna sozlamalari ustunlik tartibi bilan (buyruq qatori > o'yinchi saqlagani > loyiha), F11 / Alt+Enter
-  bilan to'liq ekran (oyna avvalgi joyiga qaytadi, oyna turgan monitorda), FPS cheklovi (`--fps`, VSync bilan kelishilgan: 30 FPS
-  60 Hz da VSync intervali 2, boshqalari uyqu + aylanish jadvali), Zamin logotipli splash ekran (birinchi sahna fonda yuklanadi,
-  tugma bilan o'tkaziladi, o'z rasmi / fon rangi), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`;
-  fonda ishlash o'chiq bo'lsa oyna fokusni yo'qotganda pauza (vaqt, fizika, audio to'xtaydi; oxirgi kadr xiralashib
-  "Paused" yozuvi), o'yinchining gamma va yorqinlik sozlamasi (oxirgi o'tish, `Display::SetGamma` / `SetBrightness`,
-  saqlanadi, `--gamma` / `--brightness`; Platformer2D pauza menyusida slayderlar); `--version` (o'yin versiyasi va dvigatel
-  build'i: git kommiti, sana - `BuildInfo`, log va crash hisobotlarida ham), `--benchmark N` (headless ishlash testi: o'rtacha,
-  p95, p99 ms, JSON, chegaralar - `Tests/player_bench.sh`), avtomatik eksport testi (`Tests/export_test.sh`: editor eksporti,
-  eksport qilingan o'yin xvfb'da), qayta ishlatiladigan o'yin menyusi (`Prefabs/GameMenu.zprefab`: O'ynash / Sozlamalar -
-  ekran o'lchami, to'liq ekran, VSync, sifat, gamma, ovoz, til / Chiqish)
-  - Batafsil qo'llanma: [docs/Runtime.md](Runtime.md) — player, buyruq qatori, sozlamalar ustunligi, eksport, log, crash
-    hisobotlari, versiya, ekran va kursor API, o'yin menyusi, ishlash va eksport testlari
-- **Matematika va core**: son utilitalari (`Remap`, `SmoothDamp`, `MoveTowards`, burchaklar), kvaternionlar
-  (`LookRotation`, `Slerp`, `RotateTowards`), geometriya (`AABB`, `Sphere`, `Ray`, `Plane`, `Frustum`; ray-AABB /
-  sfera / tekislik / uchburchak, kesishuvlar, eng yaqin nuqtalar; skriptda `GetMouseRay()`), Perlin / Simplex shovqin
-  (fBm, ridged), `AnimationCurve`, spline'lar, ranglar (HSV/HSL, hex, sRGB), vazifalar tizimi (`JobSystem::ParallelFor`),
-  xotira statistikasi, log darajalari, xabarli assert'lar, `Stopwatch` / `Timer`, `StringUtils`, fayl yo'llari
-  (`NormalizePath`, `SafeJoin`, vaqtinchalik papkalar)
-  - Batafsil qo'llanma: [docs/Core.md](Core.md) — har modul API'si misollar bilan, Showcase3D'dagi `Geometry` sahnasi
-- **Navigatsiya va AI**: NavGrid 2D (tilemap / collider'lardan) va 3D (nurlar bilan pol), A* (binar heap, qisman yo'llar),
-  string pulling va spline silliqlash, Nav Agent (`SetDestination`, nishon ortidan, nurlar bilan to'siqdan qochish),
-  Nav Obstacle (grid'ni dinamik o'yish, qayta yo'l), steering (seek / flee / arrive / wander / pursue / evade / suruv),
-  Sight Sensor (ko'rish konusi va chizig'i, `OnTargetSpotted`), Patrol Path, Formation (qator / kolonna / pona / doira),
-  `StateMachine` va behavior tree (`BehaviorTreeBuilder`, inspektorda jonli daraxt), navigatsiya gizmo'si va
-  `--debug-nav`, vazifalar tizimida guruhlangan yo'l qidirish (`ZaminBench --nav`), bake'ni `.znav` faylida saqlash
-  - Batafsil qo'llanma: [docs/AI.md](AI.md) — har tizim misollar bilan, namuna sahnalar (Chase2D, AI3D, Squad3D, Island)
-- **Audio** (miniaudio): WAV, MP3, FLAC (OGG Vorbis dekoderi yo'q)
-- **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
-- Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
+  (a progress bar) → level 1, `GameSession` (DontDestroyOnLoad: the music; coins, levels and the record in `GameState`,
+  the level statistics in the `SessionStats` service; the HUD updates with `WatchGameState`); `Scenes/SubScenes.zscene`
+  (one `Parts/Camp.zscene` piece in three places, the third one later from a script)
+  - Prefabs: [docs/Prefabs.md](Prefabs.md) — instances and links, overrides, Apply / Revert, nested prefabs, variants,
+    prefab mode, references, hot reload, undo, the clipboard, the file format and version, recovery, the export rules R1-R10
+  - The detailed guide: [docs/Scenes.md](Scenes.md) — load modes, DontDestroyOnLoad, background loading, transitions,
+    the build list, events, lookups, errors, the file format, global state, sub-scenes, the profiler, the binary cache,
+    with code examples
+- **Project settings** (Window → Project settings, sections and search): the player window, the icon, company / product /
+  version, quality levels (Low..Ultra), the OpenGL context, time (`Time::SetTimeScale`), default gravity, audio defaults
+  (the 3D distance model), localization (`Assets/Localization/<language>.json`, `Localize("key")`, the Text component's
+  key), the editor language (Uzbek / English)
+  - The detailed guide: [docs/ProjectSettings.md](ProjectSettings.md) — every setting, the `.zproject` format, the player command line, code examples
+- **Player** (`ZaminPlayer`): window settings with an order of precedence (command line > what the player saved > the
+  project), fullscreen with F11 / Alt+Enter (the window returns to its previous place, on the monitor it is on), an FPS
+  limit (`--fps`, coordinated with VSync: 30 FPS at 60 Hz with a VSync interval of 2, others with a sleep + spin
+  schedule), a splash screen with the Zamin logo (the first scene loads in the background, skipped with a key, its own
+  image / background colour), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`;
+  with running in the background off, a pause when the window loses focus (time, physics, audio stop; the last frame
+  dimmed with "Paused"), the player's gamma and brightness setting (the last pass, `Display::SetGamma` / `SetBrightness`,
+  saved, `--gamma` / `--brightness`; sliders in the Platformer2D pause menu); `--version` (the game version and the
+  engine build: git commit, date - `BuildInfo`, in the log and crash reports too), `--benchmark N` (a headless
+  performance test: average, p95, p99 ms, JSON, limits - `Tests/player_bench.sh`), an automatic export test
+  (`Tests/export_test.sh`: the editor's export, the exported game under xvfb), a reusable game menu
+  (`Prefabs/GameMenu.zprefab`: Play / Settings - screen size, fullscreen, VSync, quality, gamma, sound, language / Quit)
+  - The detailed guide: [docs/Runtime.md](Runtime.md) — the player, the command line, settings precedence, export, logs,
+    crash reports, versions, the display and cursor API, the game menu, performance and export tests
+- **Math and core**: number utilities (`Remap`, `SmoothDamp`, `MoveTowards`, angles), quaternions
+  (`LookRotation`, `Slerp`, `RotateTowards`), geometry (`AABB`, `Sphere`, `Ray`, `Plane`, `Frustum`; ray-AABB /
+  sphere / plane / triangle, intersections, closest points; `GetMouseRay()` in a script), Perlin / Simplex noise
+  (fBm, ridged), `AnimationCurve`, splines, colours (HSV/HSL, hex, sRGB), the job system (`JobSystem::ParallelFor`),
+  memory statistics, log levels, asserts with messages, `Stopwatch` / `Timer`, `StringUtils`, file paths
+  (`NormalizePath`, `SafeJoin`, temporary folders)
+  - The detailed guide: [docs/Core.md](Core.md) — every module's API with examples, the `Geometry` scene in Showcase3D
+- **Navigation and AI**: NavGrid 2D (from tilemaps / colliders) and 3D (the floor found with rays), A* (a binary heap,
+  partial paths), string pulling and spline smoothing, Nav Agent (`SetDestination`, following a target, obstacle
+  avoidance with rays), Nav Obstacle (carving the grid dynamically, re-pathing), steering (seek / flee / arrive / wander /
+  pursue / evade / flocking), Sight Sensor (the sight cone and line of sight, `OnTargetSpotted`), Patrol Path, Formation
+  (line / column / wedge / circle), `StateMachine` and the behavior tree (`BehaviorTreeBuilder`, a live tree in the
+  inspector), the navigation gizmo and `--debug-nav`, batched path searches on the job system (`ZaminBench --nav`),
+  storing the bake in a `.znav` file
+  - The detailed guide: [docs/AI.md](AI.md) — every system with examples, the sample scenes (Chase2D, AI3D, Squad3D, Island)
+- **Audio** (miniaudio): WAV, MP3, FLAC (no OGG Vorbis decoder)
+- **C++ scripts**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, the game module is loaded as a `.so`, hot reload
+- Zamin Player — the runtime that starts exported games
 
-## Editor boshqaruvi
+## Editor controls
 
-Barcha oynalar, menyular va yorliqlar (to'liq jadval, qayta bog'lash): [Editor.md](Editor.md#13-keyboard-shortcuts).
+Every window, menu and shortcut (the full table, rebinding): [Editor.md](Editor.md#13-keyboard-shortcuts).
 
-| Tugma | Amal |
+| Key | Action |
 |---|---|
-| RMB + WASD / Q E | Kamerada uchish (Shift — tez, g'ildirak — tezlik) |
-| Alt + LMB / MMB / RMB | Orbit / surish / zoom |
-| G'ildirak | Yaqinlashtirish |
-| Q / W / E / R | Tanlash / Ko'chirish / Aylantirish / Masshtab |
-| F / Shift+F | Tanlanganlarga fokus / Butun sahnani ko'rsatish |
-| Ctrl+1..5 / 1..5 | Kamera xatcho'pini saqlash / unga qaytish |
-| Ctrl (gizmo bilan) | Snapping'ni vaqtincha yoqish/o'chirish (toolbar'dagi magnitga teskari) |
-| Alt + gizmo'ni sudrash | Nusxasini sudrash (asl obyekt joyida qoladi) |
-| Ctrl+D (sudrash paytida) | Shu joyda nusxa qoldirib, sudrashni davom ettirish |
-| Ctrl+P | O'ynash / To'xtatish |
-| Ctrl+S / Ctrl+Shift+S | Saqlash / Boshqacha saqlash |
-| Ctrl+O / Ctrl+Shift+O | Sahna / Loyiha ochish |
-| Ctrl+N | Yangi sahna |
-| Ctrl+D / Delete / F2 | Nusxa / O'chirish / Nomini o'zgartirish (Ctrl+D va Delete — barcha tanlanganlarga) |
-| Ctrl / Shift + bosish, Ctrl+A | Tanlovga qo'shish / oraliqni tanlash, hammasini tanlash |
-| H / Alt+H | Tanlanganlarni editorda yashirish/ko'rsatish / Hammasini ko'rsatish |
-| Alt+Shift+A | Tanlanganlarni nofaol qilish / faollashtirish (o'yin holati; Play paytida ierarxiyada ham) |
-| Ctrl+Z / Ctrl+Y | Bekor qilish / Qaytarish |
-| Ctrl+C / Ctrl+V | Nusxalash / Joylash |
-| Ctrl+B | C++ skriptlarni kompilyatsiya qilish |
-| Kontent brauzerda: Delete / F2 / Enter / Backspace | O'chirish / Nomini o'zgartirish / Ochish / Yuqori papka (`Ctrl+A` — hammasini tanlash, `Ctrl` + g'ildirak — katakcha o'lchami) |
+| RMB + WASD / Q E | Fly the camera (Shift — fast, wheel — speed) |
+| Alt + LMB / MMB / RMB | Orbit / pan / zoom |
+| Wheel | Zoom in |
+| Q / W / E / R | Select / Move / Rotate / Scale |
+| F / Shift+F | Focus the selection / Show the whole scene |
+| Ctrl+1..5 / 1..5 | Save a camera bookmark / return to it |
+| Ctrl (with the gizmo) | Toggle snapping for the moment (the opposite of the magnet on the toolbar) |
+| Alt + dragging the gizmo | Drag a copy (the original object stays in place) |
+| Ctrl+D (while dragging) | Leave a copy at this spot and keep dragging |
+| Ctrl+P | Play / Stop |
+| Ctrl+S / Ctrl+Shift+S | Save / Save as |
+| Ctrl+O / Ctrl+Shift+O | Open a scene / a project |
+| Ctrl+N | New scene |
+| Ctrl+D / Delete / F2 | Duplicate / Delete / Rename (Ctrl+D and Delete — on every selected object) |
+| Ctrl / Shift + click, Ctrl+A | Add to the selection / select a range, select everything |
+| H / Alt+H | Hide/show the selection in the editor / Show everything |
+| Alt+Shift+A | Deactivate / activate the selection (a game state; in the hierarchy during Play too) |
+| Ctrl+Z / Ctrl+Y | Undo / Redo |
+| Ctrl+C / Ctrl+V | Copy / Paste |
+| Ctrl+B | Compile the C++ scripts |
+| In the content browser: Delete / F2 / Enter / Backspace | Delete / Rename / Open / Parent folder (`Ctrl+A` — select everything, `Ctrl` + wheel — tile size) |
 
-## Yo'l xaritasi
+## Roadmap
 
-Batafsil reja — [TASKS.md](TASKS.md) (500 ta vazifa, 25 milestone), bajarilganlari — [CHANGELOG.md](../CHANGELOG.md).
+The detailed plan — [TASKS.md](TASKS.md) (500 tasks, 25 milestones), what is done — [CHANGELOG.md](../CHANGELOG.md).
 
-- [x] Linux: editor, 2D/3D renderer, 2D fizika, audio, C++ skriptlar + hot reload, eksport
-- [x] Undo/Redo, obyektlar ierarxiyasi (parent/child), prefab'lar, copy/paste
-- [x] 3D fizika (Jolt), raycast'lar
-- [x] Sprite animatsiya, particle tizimi, ekran UI, gamepad
-- [x] Post-processing (bloom, vinyetka, rang sozlamalari)
-- [x] Tilemap (editor'da chizish), 3D ovoz
-- [x] glTF import, HDR pipeline, normal/metal-roughness/emissive map'lar
-- [x] Skeletal animatsiya (glTF skins), Animator, CPU profiler
-- [x] Animatsiyalar orasida silliq o'tish (crossfade), Character Controller 3D
-- [x] Animatsiya holat mashinasi (parametrlar, holatlar, shartli o'tishlar, exit time, trigger'lar)
-- [x] Root motion, animatsiya event'lari, property animatsiya va timeline, blend tree, qatlamlar
-- [x] Cascaded shadow maps, tuman
+- [x] Linux: editor, 2D/3D renderer, 2D physics, audio, C++ scripts + hot reload, export
+- [x] Undo/Redo, the object hierarchy (parent/child), prefabs, copy/paste
+- [x] 3D physics (Jolt), raycasts
+- [x] Sprite animation, the particle system, screen UI, gamepad
+- [x] Post-processing (bloom, vignette, colour settings)
+- [x] Tilemap (painting in the editor), 3D sound
+- [x] glTF import, the HDR pipeline, normal/metal-roughness/emissive maps
+- [x] Skeletal animation (glTF skins), Animator, CPU profiler
+- [x] Smooth transitions between animations (crossfade), Character Controller 3D
+- [x] The animation state machine (parameters, states, conditional transitions, exit time, triggers)
+- [x] Root motion, animation events, property animation and the timeline, blend trees, layers
+- [x] Cascaded shadow maps, fog
 - [x] SSAO
-- [x] HDRI osmon va IBL (SH9 + prefiltered mip)
-- [ ] **Windows** (MSVC, `.dll` skript moduli)
+- [x] HDRI sky and IBL (SH9 + prefiltered mips)
+- [ ] **Windows** (MSVC, a `.dll` script module)
 - [ ] **macOS** (Metal backend)
 - [ ] **Android** (OpenGL ES / Vulkan)
 - [ ] **iOS** (Metal)

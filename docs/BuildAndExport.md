@@ -26,7 +26,7 @@ The player itself (the command line, the log, crash reports) - [Runtime.md](Runt
 
 ## 1. Requirements
 
-- Linux x86_64 (no Windows and macOS yet - [the roadmap](Features.md#yol-xaritasi)).
+- Linux x86_64 (no Windows and macOS yet - [the roadmap](Features.md#roadmap)).
 - A C++20 compiler: **GCC 13+** or **Clang 17+**; **CMake 3.20+** (3.25+ for the presets); Ninja is recommended
   (optional); `git` (the dependencies are downloaded on the first configure).
 - An **OpenGL 4.1+** driver, the X11 or Wayland dev packages.

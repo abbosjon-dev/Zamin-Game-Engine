@@ -34,7 +34,7 @@ Every system also has its own detailed "problems" section: [Scripting.md, 23](Sc
 
 A 2D and 3D game engine written in C++20: an editor (`ZaminEditor`), a player that runs a game without the editor
 (`ZaminPlayer`) and games with C++ scripts. For now **Linux** (x86_64, OpenGL 4.1+). Windows, macOS and mobile
-platforms are on the [roadmap](Features.md#yol-xaritasi), not there yet.
+platforms are on the [roadmap](Features.md#roadmap), not there yet.
 
 ### What language is the game logic written in?
 

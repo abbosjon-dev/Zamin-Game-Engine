@@ -2138,6 +2138,7 @@ namespace Zamin {
             { "Funksiya", "Function" },
             { "Butun graf", "Whole graph" },
             { "Funksiyaga yig'ish", "Collapse to function" },
+            { "Qayta nomlash: yangi nomni yozing va Enter bosing", "Rename: type a new name and press Enter" },
             { "Tanlangan tugunlar yangi tiplangan funksiyaga ko'chadi, o'rniga chaqiruv qo'yiladi (Ctrl+G)", "The selected nodes move into a new typed function and a call takes their place (Ctrl+G)" },
             { "Funksiyalar", "Functions" },
             { "Chaqirish", "Call" },

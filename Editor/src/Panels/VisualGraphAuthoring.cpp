@@ -1,4 +1,5 @@
 #include "VisualGraphPanel.h"
+#include "VisualGraphLayout.h"
 #include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include <algorithm>
@@ -20,7 +21,9 @@ namespace Zamin {
     {
         using namespace Visual;
         bool changed = false;
-        if (ImGui::BeginCombo(label, TypeName(type)))
+        const bool open = ImGui::BeginCombo(GraphLayout::Field(label).c_str(), TypeName(type));
+        GraphLayout::Record(label);
+        if (open)
         {
             for (int i = 1; i < int(Type::Count); ++i)
             {
@@ -42,7 +45,9 @@ namespace Zamin {
         if (type == Type::Enum)
         {
             ImGui::PushID(label);
-            if (ImGui::BeginCombo(Tr("Enum turi###Enum type"), enumName.c_str()))
+            const bool enumOpen = ImGui::BeginCombo(GraphLayout::Field(Tr("Enum turi###Enum type")).c_str(), enumName.c_str());
+            GraphLayout::Record(Tr("Enum turi###Enum type"));
+            if (enumOpen)
             {
                 for (const auto& [name, definition] : m_Graph.Enums)
                     if (ImGui::Selectable(name.c_str(), name == enumName) && name != enumName)
@@ -128,9 +133,17 @@ namespace Zamin {
     void VisualGraphPanel::Functions()
     {
         using namespace Visual;
-        if (!ImGui::CollapsingHeader(Tr("Tiplangan funksiyalar###Typed functions"))) return;
-        ImGui::InputText(Tr("Funksiya nomi###Function name"), m_FunctionName, sizeof(m_FunctionName));
-        if (ImGui::Button(Tr("Funksiya yaratish###Create function")) && m_FunctionName[0] && m_Graph.Functions.size() < 64 && !m_Graph.Functions.contains(m_FunctionName))
+        const bool sectionOpen = ImGui::CollapsingHeader(Tr("Tiplangan funksiyalar###Typed functions"));
+        GraphLayout::Record(Tr("Tiplangan funksiyalar###Typed functions"));
+        if (!sectionOpen) return;
+        GraphLayout::PushScope("functions");
+        struct ScopeGuard
+        {
+            ~ScopeGuard() { GraphLayout::PopScope(); }
+        } scopeGuard;
+        ImGui::InputText(GraphLayout::Field(Tr("Funksiya nomi###Function name")).c_str(), m_FunctionName, sizeof(m_FunctionName));
+        GraphLayout::Record(Tr("Funksiya nomi###Function name"));
+        if (GraphLayout::Button(Tr("Funksiya yaratish###Create function")) && m_FunctionName[0] && m_Graph.Functions.size() < 64 && !m_Graph.Functions.contains(m_FunctionName))
         {
             Snapshot();
             const std::string name = m_FunctionName;
@@ -153,16 +166,19 @@ namespace Zamin {
         for (auto& [name, signature] : m_Graph.Functions)
         {
             ImGui::PushID(name.c_str());
-            if (ImGui::TreeNode("signature", "%s (%zu -> %zu)", name.c_str(), signature.Inputs.size(), signature.Outputs.size()))
+            const bool treeOpen = GraphLayout::TreeNode("signature", name + " (" + std::to_string(signature.Inputs.size()) + " -> " + std::to_string(signature.Outputs.size()) + ")", name);
+            GraphLayout::PushScope(name);
+            if (treeOpen)
             {
                 char renamed[129]{};
                 std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
-                if (ImGui::InputText(Tr("Funksiyani qayta nomlash###Rename function"), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
+                if (ImGui::InputText(GraphLayout::Field(Tr("Funksiyani qayta nomlash###Rename function")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
                 {
                     renameFrom = name;
                     renameTo = renamed;
                 }
-                if (ImGui::Button(Tr("Chaqiruv tugunini qo'shish###Add call node")))
+                GraphLayout::Record(Tr("Funksiyani qayta nomlash###Rename function"));
+                if (GraphLayout::Button(Tr("Chaqiruv tugunini qo'shish###Add call node")))
                 {
                     uint32_t id = 0;
                     for (const auto& node : m_Graph.Nodes) id = std::max(id, node.ID);
@@ -174,22 +190,28 @@ namespace Zamin {
                         m_Selection = { id + 1 };
                     }
                 }
-                ImGui::SameLine();
-                if (ImGui::Button(Tr("Funksiyani ochish###Open function"))) open = name;
+                GraphLayout::SameLineIfFits(GraphLayout::ButtonWidth(Tr("Funksiyani ochish###Open function")));
+                if (GraphLayout::Button(Tr("Funksiyani ochish###Open function"))) open = name;
                 auto draft = signature;
                 bool changed = false;
                 std::vector<std::pair<std::string, std::string>> pinRenames[2];
                 auto pins = [&](const char* title, std::vector<Pin>& list, int side) {
-                    if (!ImGui::TreeNode(title)) return;
+                    const bool listOpen = ImGui::TreeNode(title);
+                    GraphLayout::Record(title);
+                    if (!listOpen) return;
+                    GraphLayout::PushScope(side == 0 ? "Parameters" : "Returns");
                     size_t remove = SIZE_MAX;
                     for (size_t i = 0; i < list.size(); ++i)
                     {
                         ImGui::PushID(int(i));
+                        GraphLayout::PushScope(std::to_string(i));
+                        if (i) ImGui::Separator();
                         char key[129]{};
                         std::snprintf(key, sizeof(key), "%s", list[i].Name.c_str());
                         // Enter renames; the wires of the entry, calls and returns follow (Graph::RenameFunctionPin).
-                        if (ImGui::InputText(Tr("Pin nomi###Pin name"), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue) && list[i].Name != key)
-                            pinRenames[side].push_back({ list[i].Name, key });
+                        const bool renamedPin = ImGui::InputText(GraphLayout::Field(Tr("Pin nomi###Pin name")).c_str(), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue);
+                        GraphLayout::Record(Tr("Pin nomi###Pin name"));
+                        if (renamedPin && list[i].Name != key) pinRenames[side].push_back({ list[i].Name, key });
                         auto type = list[i].Kind;
                         auto enumName = list[i].Enum;
                         if (TypeCombo(Tr("Pin turi###Pin type"), type, enumName))
@@ -206,7 +228,8 @@ namespace Zamin {
                             list[i].Default = std::move(value);
                             changed = true;
                         }
-                        if (ImGui::SmallButton(Tr("Pinni olib tashlash###Remove pin"))) remove = i;
+                        if (GraphLayout::SmallButton(Tr("Pinni olib tashlash###Remove pin"))) remove = i;
+                        GraphLayout::PopScope();
                         ImGui::PopID();
                     }
                     if (remove != SIZE_MAX)
@@ -214,22 +237,27 @@ namespace Zamin {
                         list.erase(list.begin() + remove);
                         changed = true;
                     }
-                    if (list.size() < 32 && ImGui::Button(Tr("Pin qo'shish###Add pin")))
+                    if (list.size() < 32 && GraphLayout::Button(Tr("Pin qo'shish###Add pin")))
                     {
                         std::string pinName = "Value" + std::to_string(list.size() + 1);
                         while (std::any_of(list.begin(), list.end(), [&](const Pin& p) { return p.Name == pinName; })) pinName += "_";
                         list.push_back({ pinName, Type::Number, 0. });
                         changed = true;
                     }
+                    GraphLayout::PopScope();
                     ImGui::TreePop();
                 };
                 pins(Tr("Parametrlar###Parameters"), draft.Inputs, 0);
                 pins(Tr("Natijalar###Returns"), draft.Outputs, 1);
-                if (ImGui::TreeNode(Tr("Lokal o'zgaruvchilar###Local variables")))
+                const bool localsOpen = ImGui::TreeNode(Tr("Lokal o'zgaruvchilar###Local variables"));
+                GraphLayout::Record(Tr("Lokal o'zgaruvchilar###Local variables"));
+                if (localsOpen)
                 {
-                    ImGui::InputText(Tr("Lokal nomi###Local name"), m_MemberName, sizeof(m_MemberName));
+                    GraphLayout::PushScope("Locals");
+                    ImGui::InputText(GraphLayout::Field(Tr("Lokal nomi###Local name")).c_str(), m_MemberName, sizeof(m_MemberName));
+                    GraphLayout::Record(Tr("Lokal nomi###Local name"));
                     TypeCombo(Tr("Lokal turi###Local type"), m_NewLocalType, m_NewLocalEnum);
-                    if (m_MemberName[0] && draft.Locals.size() < 32 && ImGui::Button(Tr("Lokal qo'shish###Add local")))
+                    if (m_MemberName[0] && draft.Locals.size() < 32 && GraphLayout::Button(Tr("Lokal qo'shish###Add local")))
                     {
                         const auto* enumeration = m_NewLocalType == Type::Enum ? FindEnum(m_NewLocalEnum) : nullptr;
                         if (m_NewLocalType != Type::Enum || enumeration)
@@ -242,14 +270,17 @@ namespace Zamin {
                     for (const auto& [key, local] : draft.Locals)
                     {
                         ImGui::PushID(key.c_str());
-                        ImGui::Text("%s (%s%s%s)", key.c_str(), TypeName(local.Kind), local.Enum.empty() ? "" : " ", local.Enum.c_str());
+                        GraphLayout::PushScope(key);
+                        ImGui::Separator();
+                        GraphLayout::FitText((key + " (" + TypeName(local.Kind) + (local.Enum.empty() ? "" : " " + local.Enum) + ")").c_str());
                         auto value = local.Default;
                         if (EditLiteral(Tr("Boshlang'ich qiymat"), local.Kind, value, FindEnum(local.Enum)))
                         {
                             draft.Locals.at(key).Default = std::move(value);
                             changed = true;
                         }
-                        if (ImGui::SmallButton(Tr("Lokalni olib tashlash###Remove local"))) removed = key;
+                        if (GraphLayout::SmallButton(Tr("Lokalni olib tashlash###Remove local"))) removed = key;
+                        GraphLayout::PopScope();
                         ImGui::PopID();
                     }
                     if (!removed.empty())
@@ -257,6 +288,7 @@ namespace Zamin {
                         draft.Locals.erase(removed);
                         changed = true;
                     }
+                    GraphLayout::PopScope();
                     ImGui::TreePop();
                 }
                 if (changed || !pinRenames[0].empty() || !pinRenames[1].empty())
@@ -270,9 +302,10 @@ namespace Zamin {
                     const auto removed = m_Graph.PruneInvalidPins();
                     if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
                 }
-                if (ImGui::Button(Tr("Funksiya va uning tugunlarini o'chirish###Delete function and its nodes"))) erase = name;
+                if (GraphLayout::Button(Tr("Funksiya va uning tugunlarini o'chirish###Delete function and its nodes"))) erase = name;
                 ImGui::TreePop();
             }
+            GraphLayout::PopScope();
             ImGui::PopID();
         }
         if (!renameFrom.empty())
@@ -302,9 +335,17 @@ namespace Zamin {
     void VisualGraphPanel::Enums()
     {
         using namespace Visual;
-        if (!ImGui::CollapsingHeader(Tr("Enum turlari###Graph enums"))) return;
-        ImGui::InputText(Tr("Enum nomi###Enum name"), m_EnumName, sizeof(m_EnumName));
-        if (ImGui::Button(Tr("Enum yaratish###Create enum")))
+        const bool sectionOpen = ImGui::CollapsingHeader(Tr("Enum turlari###Graph enums"));
+        GraphLayout::Record(Tr("Enum turlari###Graph enums"));
+        if (!sectionOpen) return;
+        GraphLayout::PushScope("enums");
+        struct ScopeGuard
+        {
+            ~ScopeGuard() { GraphLayout::PopScope(); }
+        } scopeGuard;
+        ImGui::InputText(GraphLayout::Field(Tr("Enum nomi###Enum name")).c_str(), m_EnumName, sizeof(m_EnumName));
+        GraphLayout::Record(Tr("Enum nomi###Enum name"));
+        if (GraphLayout::Button(Tr("Enum yaratish###Create enum")))
         {
             if (!m_EnumName[0] || m_Graph.Enums.contains(m_EnumName) || m_Graph.Enums.size() >= 64) m_Error = Tr("Enum nomi band yoki bo'sh");
             else
@@ -318,18 +359,18 @@ namespace Zamin {
         for (const auto& [className, info] : ScriptRegistry::GetAll())
             for (const auto& field : info.Fields)
                 if (field.Type == ScriptFieldType::Enum && !field.EnumOptions.empty()) fields.push_back({ className, field.Name });
-        if (fields.empty()) ImGui::TextDisabled("%s", Tr("Yuklangan C++ enum maydonlari yo'q"));
+        if (fields.empty()) GraphLayout::FitText(Tr("Yuklangan C++ enum maydonlari yo'q"), true);
         else
         {
             m_ImportField = std::clamp(m_ImportField, 0, int(fields.size()) - 1);
             const auto label = [&](int i) { return fields[size_t(i)].first + "." + fields[size_t(i)].second; };
-            if (ImGui::BeginCombo(Tr("C++ enum maydoni###C++ enum field"), label(m_ImportField).c_str()))
+            if (ImGui::BeginCombo(GraphLayout::Field(Tr("C++ enum maydoni###C++ enum field")).c_str(), label(m_ImportField).c_str()))
             {
                 for (int i = 0; i < int(fields.size()); ++i)
                     if (ImGui::Selectable(label(i).c_str(), i == m_ImportField)) m_ImportField = i;
                 ImGui::EndCombo();
             }
-            if (ImGui::Button(Tr("C++ maydonidan import qilish###Import from C++ field")))
+            if (GraphLayout::Button(Tr("C++ maydonidan import qilish###Import from C++ field")))
             {
                 EnumDefinition definition;
                 std::string error;
@@ -349,16 +390,19 @@ namespace Zamin {
         for (auto& [name, definition] : m_Graph.Enums)
         {
             ImGui::PushID(name.c_str());
-            if (ImGui::TreeNode("enum", "%s (%zu)", name.c_str(), definition.Entries.size()))
+            const bool treeOpen = GraphLayout::TreeNode("enum", name + " (" + std::to_string(definition.Entries.size()) + ")", name);
+            GraphLayout::PushScope(name);
+            if (treeOpen)
             {
                 char renamed[65]{};
                 std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
-                if (ImGui::InputText(Tr("Enumni qayta nomlash###Rename enum"), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
+                if (ImGui::InputText(GraphLayout::Field(Tr("Enumni qayta nomlash###Rename enum")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
                 {
                     renameFrom = name;
                     renameTo = renamed;
                 }
-                if (!definition.Source.empty()) ImGui::TextDisabled("%s: %s", Tr("Manba"), definition.Source.c_str());
+                GraphLayout::Record(Tr("Enumni qayta nomlash###Rename enum"));
+                if (!definition.Source.empty()) GraphLayout::FitText((std::string(Tr("Manba")) + ": " + definition.Source).c_str(), true);
                 auto draft = definition;
                 bool changed = false;
                 size_t remove = SIZE_MAX;
@@ -366,16 +410,21 @@ namespace Zamin {
                 for (size_t i = 0; i < draft.Entries.size(); ++i)
                 {
                     ImGui::PushID(int(i));
+                    GraphLayout::PushScope(std::to_string(i));
+                    if (i) ImGui::Separator();
                     char key[65]{};
                     std::snprintf(key, sizeof(key), "%s", draft.Entries[i].Name.c_str());
-                    if (ImGui::InputText(Tr("Qiymat nomi###Entry name"), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue) && draft.Entries[i].Name != key) entryRename = { draft.Entries[i].Name, key };
+                    const bool renamedEntry = ImGui::InputText(GraphLayout::Field(Tr("Qiymat nomi###Entry name")).c_str(), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue);
+                    GraphLayout::Record(Tr("Qiymat nomi###Entry name"));
+                    if (renamedEntry && draft.Entries[i].Name != key) entryRename = { draft.Entries[i].Name, key };
                     // Committed on Enter (a half-typed number must not collide with another entry's value).
                     char number[32]{};
                     std::snprintf(number, sizeof(number), "%lld", (long long)draft.Entries[i].Value);
                     char* end = nullptr;
                     int64_t value = draft.Entries[i].Value;
-                    if (ImGui::InputText(Tr("Son qiymati###Entry value"), number, sizeof(number), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CharsDecimal))
+                    if (ImGui::InputText(GraphLayout::Field(Tr("Son qiymati###Entry value")).c_str(), number, sizeof(number), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CharsDecimal))
                         value = std::strtoll(number, &end, 10);
+                    GraphLayout::Record(Tr("Son qiymati###Entry value"));
                     if (end && end != number && value != draft.Entries[i].Value)
                     {
                         if (draft.Find(value) || std::abs(value) > (int64_t(1) << 53)) m_Error = Tr("Son qiymati band yoki chegaradan tashqarida");
@@ -385,7 +434,8 @@ namespace Zamin {
                             changed = true;
                         }
                     }
-                    if (draft.Entries.size() > 1 && ImGui::SmallButton(Tr("Qiymatni olib tashlash###Remove entry"))) remove = i;
+                    if (draft.Entries.size() > 1 && GraphLayout::SmallButton(Tr("Qiymatni olib tashlash###Remove entry"))) remove = i;
+                    GraphLayout::PopScope();
                     ImGui::PopID();
                 }
                 if (remove != SIZE_MAX)
@@ -393,7 +443,7 @@ namespace Zamin {
                     draft.Entries.erase(draft.Entries.begin() + remove);
                     changed = true;
                 }
-                if (draft.Entries.size() < 256 && ImGui::Button(Tr("Qiymat qo'shish###Add entry")))
+                if (draft.Entries.size() < 256 && GraphLayout::Button(Tr("Qiymat qo'shish###Add entry")))
                 {
                     int64_t value = 0;
                     for (const auto& entry : draft.Entries) value = std::max(value, entry.Value + 1);
@@ -410,9 +460,10 @@ namespace Zamin {
                     const auto removed = m_Graph.PruneInvalidPins();
                     if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
                 }
-                if (ImGui::Button(Tr("Enumni o'chirish###Delete enum"))) erase = name;
+                if (GraphLayout::Button(Tr("Enumni o'chirish###Delete enum"))) erase = name;
                 ImGui::TreePop();
             }
+            GraphLayout::PopScope();
             ImGui::PopID();
         }
         if (!renameFrom.empty())

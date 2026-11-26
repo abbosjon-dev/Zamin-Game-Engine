@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include "VisualGraphPanel.h"
+#include "VisualGraphLayout.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -29,9 +30,7 @@ namespace Zamin {
         bool EditChoice(const char* label, const std::vector<const char*>& choices, Visual::Value& v)
         {
             ImGui::PushID(label);
-            ImGui::TextUnformatted(label);
-            ImGui::SameLine(112);
-            ImGui::SetNextItemWidth(-1);
+            GraphLayout::InlineLabel(label);
             const double x = v.is_number() ? v.get<double>() : -1;
             const int index = std::floor(x) == x && x >= 0 && x < double(choices.size()) ? int(x) : -1;
             bool changed = false;
@@ -50,6 +49,7 @@ namespace Zamin {
                 }
                 ImGui::EndCombo();
             }
+            GraphLayout::RecordKey(label);
             ImGui::PopID();
             return changed;
         }
@@ -79,9 +79,7 @@ namespace Zamin {
         {
             using namespace Visual;
             ImGui::PushID(label);
-            ImGui::TextUnformatted(label);
-            ImGui::SameLine(112);
-            ImGui::SetNextItemWidth(-1);
+            GraphLayout::InlineLabel(label);
             bool changed = false;
             if (!Matches(type, v))
             {
@@ -206,19 +204,19 @@ namespace Zamin {
                 uint64_t id = v.get<uint64_t>();
                 if (id == UINT64_MAX) ImGui::TextDisabled("%s", Tr("O'zi"));
                 else ImGui::TextDisabled("%llu", (unsigned long long)id);
-                if (ImGui::Button(Tr("O'zi###Self")))
+                if (GraphLayout::Button(Tr("O'zi###Self")))
                 {
                     v = UINT64_MAX;
                     changed = true;
                 }
-                ImGui::SameLine();
-                if (ImGui::Button(Tr("Hech biri###None")))
+                GraphLayout::SameLineIfFits(GraphLayout::ButtonWidth(Tr("Hech biri###None")));
+                if (GraphLayout::Button(Tr("Hech biri###None")))
                 {
                     v = 0ull;
                     changed = true;
                 }
-                ImGui::SameLine();
-                ImGui::Button(Tr("Obyektni shu yerga tashlang###Drop entity"));
+                GraphLayout::SameLineIfFits(GraphLayout::ButtonWidth(Tr("Obyektni shu yerga tashlang###Drop entity")));
+                GraphLayout::Button(Tr("Obyektni shu yerga tashlang###Drop entity"));
                 if (ImGui::BeginDragDropTarget())
                 {
                     if (auto* p = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
@@ -248,6 +246,7 @@ namespace Zamin {
                     }
                 }
             }
+            if (!IsArray(type)) GraphLayout::RecordKey(label);
             ImGui::PopID();
             return changed;
         }
@@ -552,6 +551,7 @@ namespace Zamin {
         Properties();
         ImGui::EndChild();
         ImGui::End();
+        GraphLayout::Flush();
     }
     void VisualGraphPanel::Canvas()
     {
@@ -779,8 +779,10 @@ namespace Zamin {
             }
             CombatLive(*m_Scene, actor);
         }
+        GraphLayout::RecordRegion("properties");
         ImGui::TextUnformatted(Tr("Tanlangan tugun"));
         ImGui::BeginDisabled(!m_Editable);
+        GraphLayout::PushScope("node");
         auto it = std::find_if(m_Graph.Nodes.begin(), m_Graph.Nodes.end(), [&](auto& n) { return n.ID == m_Selected; });
         if (it != m_Graph.Nodes.end() && Catalog().contains(it->Kind))
         {
@@ -806,9 +808,7 @@ namespace Zamin {
                 if (p.Name == "Enum" && p.Kind == Type::String && n.Kind.find("Enum") != std::string::npos && v.is_string())
                 {
                     ImGui::PushID("enumType");
-                    ImGui::TextUnformatted(p.Name.c_str());
-                    ImGui::SameLine(112);
-                    ImGui::SetNextItemWidth(-1);
+                    GraphLayout::InlineLabel(p.Name.c_str());
                     const auto current = v.get<std::string>();
                     if (ImGui::BeginCombo("##enum", current.empty() ? Tr("(o'zgaruvchining enumi)") : current.c_str()))
                     {
@@ -843,7 +843,7 @@ namespace Zamin {
                     n.Inputs[p.Name] = v;
                 }
             }
-            if (ImGui::Button(Tr("Tugunni o'chirish###Delete node")))
+            if (GraphLayout::Button(Tr("Tugunni o'chirish###Delete node")))
             {
                 Snapshot();
                 auto selected = m_Selection;
@@ -854,10 +854,26 @@ namespace Zamin {
                 m_Selection.clear();
             }
         }
-        ImGui::SeparatorText(Tr("Graf o'zgaruvchilari###Graph variables"));
+        GraphLayout::PopScope();
+        const bool variablesOpen = ImGui::CollapsingHeader(Tr("Graf o'zgaruvchilari###Graph variables"), ImGuiTreeNodeFlags_DefaultOpen);
+        GraphLayout::Record(Tr("Graf o'zgaruvchilari###Graph variables"));
+        GraphLayout::PushScope("variables");
+        if (variablesOpen) GraphVariables();
+        GraphLayout::PopScope();
+        Functions();
+        Enums();
+        ImGui::EndDisabled();
+        ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
+        SceneInstance();
+    }
+    void VisualGraphPanel::GraphVariables()
+    {
+        using namespace Visual;
+        ImGui::SetNextItemWidth(-FLT_MIN);
         ImGui::InputTextWithHint("##variable", Tr("O'zgaruvchi nomi"), m_Name, sizeof(m_Name));
+        GraphLayout::RecordKey("Variable name");
         TypeCombo(Tr("Turi###Type"), m_NewVariableType, m_NewVariableEnum);
-        if (ImGui::Button(Tr("O'zgaruvchi qo'shish###Add variable")) && m_Name[0] && !m_Graph.Variables.contains(m_Name))
+        if (GraphLayout::Button(Tr("O'zgaruvchi qo'shish###Add variable")) && m_Name[0] && !m_Graph.Variables.contains(m_Name))
         {
             const auto* enumeration = m_NewVariableType == Type::Enum ? FindEnum(m_NewVariableEnum) : nullptr;
             if (m_NewVariableType != Type::Enum || enumeration)
@@ -876,16 +892,23 @@ namespace Zamin {
                 v.Default = value;
             }
             ImGui::PushID(name.c_str());
-            if (ImGui::SmallButton(Tr("Olib tashlash###Remove"))) remove = name;
+            GraphLayout::PushScope(name);
+            if (GraphLayout::SmallButton(Tr("Olib tashlash###Remove"))) remove = name;
             ImGui::SameLine();
             char renamed[129]{};
             std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
-            if (ImGui::InputText("Rename", renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
+            // The name field fills the row; Enter renames (the label is in the tooltip, not right of the field).
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::InputText("##rename", renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
             {
                 renameFrom = name;
                 renameTo = renamed;
             }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", Tr("Qayta nomlash: yangi nomni yozing va Enter bosing"));
+            GraphLayout::RecordKey("Rename");
+            GraphLayout::PopScope();
             ImGui::PopID();
+            ImGui::Spacing();
         }
         if (!remove.empty())
         {
@@ -897,10 +920,11 @@ namespace Zamin {
             Snapshot();
             if (!m_Graph.RenameVariable(renameFrom, renameTo)) m_Error = "Variable rename rejected: duplicate/empty name";
         }
-        Functions();
-        Enums();
-        ImGui::EndDisabled();
-        ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
+    }
+    void VisualGraphPanel::SceneInstance()
+    {
+        using namespace Visual;
+        GraphLayout::PushScope("instance");
         Entity selected = m_Scene ? m_Scene->GetEntityByUUID(m_Entity) : Entity{};
         if (selected)
         {
@@ -909,7 +933,7 @@ namespace Zamin {
             ImGui::BeginDisabled(!m_Editable || m_Dirty || m_Path.empty());
             bool replace = c && !c->ClassName.empty() && c->ClassName != "Zamin.VisualGraph";
             if (replace) ImGui::TextWrapped("This entity has a C++ script. Attaching replaces it.");
-            if (ImGui::Button(replace ? Tr("Skriptni shu graf bilan almashtirish###Replace script with this graph") : Tr("Saqlangan grafni biriktirish###Attach saved graph")))
+            if (GraphLayout::Button(replace ? Tr("Skriptni shu graf bilan almashtirish###Replace script with this graph") : Tr("Saqlangan grafni biriktirish###Attach saved graph")))
             {
                 if (!c) c = &selected.AddComponent<NativeScriptComponent>();
                 c->ClassName = "Zamin.VisualGraph";
@@ -941,7 +965,7 @@ namespace Zamin {
                     }
                     ImGui::PopID();
                 }
-                if (ImGui::Button(Tr("Nusxa qiymatlarini tiklash###Reset instance overrides")))
+                if (GraphLayout::Button(Tr("Nusxa qiymatlarini tiklash###Reset instance overrides")))
                 {
                     c->Fields.erase("Overrides");
                     if (OnModified) OnModified();
@@ -981,6 +1005,7 @@ namespace Zamin {
                 }
             }
         }
-        else ImGui::TextDisabled("%s", Tr("Biriktirish uchun sahnadan obyekt tanlang."));
+        else ImGui::TextWrapped("%s", Tr("Biriktirish uchun sahnadan obyekt tanlang."));
+        GraphLayout::PopScope();
     }
 }

@@ -58,5 +58,7 @@ namespace Zamin {
         void Snapshot();
         void Canvas();
         void Properties();
+        void GraphVariables();
+        void SceneInstance();
     };
 }

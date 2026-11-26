@@ -10,13 +10,36 @@ repo=Path(__file__).resolve().parent.parent;build=Path(os.environ.get('ZAMIN_BUI
 if project.exists():shutil.rmtree(project)
 shutil.copytree(repo/'Projects/VisualWorkshop',project,ignore=shutil.ignore_patterns('.zamin','Build'))
 (work/'home').mkdir(exist_ok=True)
-env=dict(os.environ,HOME=str(work/'home'),ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/Move2D.zgraph',ZAMIN_EDITOR_SELECT='Player',ZAMIN_MAX_FRAMES='10000')
+layout=work/'layout.json'
+# The editor writes the screen rectangles of the properties column's widgets (ZAMIN_EDITOR_VISUAL_LAYOUT); the test clicks
+# them by key ("<scope>/<id>") instead of fixed coordinates and checks that none of them is clipped at the right edge.
+env=dict(os.environ,HOME=str(work/'home'),ZAMIN_EDITOR_VISUAL_LAYOUT=str(layout),ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/Move2D.zgraph',ZAMIN_EDITOR_SELECT='Player',ZAMIN_MAX_FRAMES='10000')
 log=(work/'editor.log').open('w');app=subprocess.Popen([str(build/'bin/ZaminEditor'),str(project/'VisualWorkshop.zproject')],env=env,stdout=log,stderr=subprocess.STDOUT)
 def x(*args):subprocess.run(['xdotool',*map(str,args)],check=True,stdout=subprocess.DEVNULL)
 def click(px,py):
  # Give GLFW a frame to observe the pointer before the button event on slow software renders.
  x('mousemove',px,py);time.sleep(.6)
  x('mousedown',1);time.sleep(1);x('mouseup',1);time.sleep(1.2)
+def items():
+ for i in range(20):
+  try:return json.loads(layout.read_text())
+  except (OSError,ValueError):time.sleep(.3)
+ raise RuntimeError('No layout file')
+def find(key):
+ # The rectangle of a recorded widget, scrolled into the properties column first.
+ for attempt in range(40):
+  data=items();region=data['Regions'].get('properties');match=[v['Rect'] for k,v in data['Items'].items() if k==key or k.endswith('/'+key)]
+  if match and region:
+   r=match[0];cx,cy=int((region[0]+region[2])/2),int((region[1]+region[3])/2)
+   if r[3]>region[3]-4:x('mousemove',cx,cy);time.sleep(.3);x('click',5);time.sleep(.8);continue
+   if r[1]<region[1]+4:x('mousemove',cx,cy);time.sleep(.3);x('click',4);time.sleep(.8);continue
+   return int((r[0]+r[2])/2),int((r[1]+r[3])/2)
+  time.sleep(.4)
+ raise RuntimeError('Widget not found in the properties column: '+key)
+def press(key):click(*find(key))
+def unclipped():
+ clipped=[k for k,v in items()['Items'].items() if v['Clipped']]
+ assert not clipped,clipped
 def read():return json.loads((project/'Assets/Scripts/Move2D.zgraph').read_text())
 def save():click(473,140);time.sleep(1.2)
 try:
@@ -55,7 +78,7 @@ try:
  x('key','Delete');time.sleep(1.5);save()
  assert read()['Nodes']==original['Nodes'] and read()['Links']==original['Links']
  print('UI: whole-group duplicate/delete preserves original nodes and wires',flush=True)
- click(1270,421);click(1270,477);save()
+ press('Typed functions');press('functions/Create function');save();unclipped()
  assert 'Calculate' in read()['Functions'] and len(read()['Nodes'])==14
  assert read()['Functions']['Calculate']['Inputs'][0]['Name']=='X'
  assert read()['Functions']['Calculate']['Outputs'][0]['Name']=='Result'
@@ -77,7 +100,7 @@ finally:
 # wire it, set an argument, undo/redo, open it with a double-click - and run the saved graph in the Player.
 flow=project/'Assets/Scripts/FunctionFlow.zgraph'
 def node(i,kind,x,y,inputs=None):return {'ID':i,'Kind':kind,'X':x,'Y':y,'Inputs':inputs or {},'Breakpoint':False}
-# A format 1 file: the editor upgrades it to format 2 on save.
+# A format 1 file: the editor upgrades it to the current format on save.
 flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':1,'Nodes':[node(1,'Event.Start',40,60),node(2,'Print',760,60),node(3,'Concat',560,420,{'A':'FUNCTION_UI result='}),node(4,'NumberToText',300,470)],
  'Links':[{'From':3,'Output':'Value','To':2,'Input':'Text'},{'From':4,'Output':'Value','To':3,'Input':'B'}],'Variables':{}},indent=2))
 def readflow():return json.loads(flow.read_text())
@@ -94,7 +117,7 @@ try:
   time.sleep(.4)
  else:raise RuntimeError('Function graph window did not become ready')
  time.sleep(1)
- click(1284,357);click(1249,421);save()
+ press('Typed functions');press('functions/Create function');save()
  j=readflow();assert j['Version']==2 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
  print('UI: function created; the format 1 graph saved as format 2',flush=True)
  click(160,282);save()
@@ -104,11 +127,11 @@ try:
  j=readflow();assert len(j['Links'])==7,j['Links']
  assert {(l['From'],l['Output'],l['To'],l['Input']) for l in j['Links']}>={(1,'Then',call,'In'),(call,'Then',2,'In'),(call,'Result',4,'Number')}
  print('UI: call wired into Start -> Print',flush=True)
- click(1260,598);click(1278,684);click(1260,829);save()
+ press('functions/Calculate');press('Calculate/Parameters');press('Calculate/Parameters/Add pin');save();unclipped()
  j=readflow();assert [p['Name'] for p in j['Functions']['Calculate']['Inputs']]==['X','Value2'],j['Functions']
  print('UI: parameter added to the signature',flush=True)
  subprocess.run(['import','-window','root',str(out/'function-signature.png')],check=True)
- click(1385,319);x('key','ctrl+a');time.sleep(.4);x('type','--delay','150','21');time.sleep(.4);x('key','Return');time.sleep(1.5);save()
+ press('node/X');x('key','ctrl+a');time.sleep(.4);x('type','--delay','150','21');time.sleep(.4);x('key','Return');time.sleep(1.5);save()
  arg=lambda:next(n for n in readflow()['Nodes'] if n['ID']==call)['Inputs'].get('X')
  assert arg()==21,arg()
  click(531,140);save();assert arg()!=21,arg()

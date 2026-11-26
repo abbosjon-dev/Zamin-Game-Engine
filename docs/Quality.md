@@ -379,7 +379,7 @@ does not replace a Clang/sanitizer build of the whole engine.
 Three items of the P3 "world and asset streaming" track: a frame-time gate with strict budgets for texture/model
 decode and GPU upload, RAM/VRAM residency limits and their regressions, and a repeatable camera path and reports with a
 many-cell asset demo. The structure and limits —
-[Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli), the tests —
+[Terrain.md](Terrain.md#the-asset-budget-residency-limits-and-the-camera-path), the tests —
 [Testing.md](Testing.md#world-asset-streaming-budget-limit-and-demo).
 
 What was added:

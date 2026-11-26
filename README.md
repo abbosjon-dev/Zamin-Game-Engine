@@ -59,7 +59,7 @@ a tour of the code):*
 - **World asset streaming:** a cell's textures/models are decoded/parsed on workers and uploaded to the GPU in a queue
   under a per-frame byte budget; RSS / requested GPU limits evict far cells; a `.ztour` camera path
   gives a frame-time and RSS report — [the 24-cell WorldGallery3D](Projects/WorldGallery3D/README.md),
-  [details](docs/Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
+  [details](docs/Terrain.md#the-asset-budget-residency-limits-and-the-camera-path).
 - **Physics** — 2D (Box2D) and 3D (Jolt): colliders, joints, effectors, the Character Controller, queries,
   collision layers, determinism — [Physics.md](docs/Physics.md)
 - **Quest/progression** — [objectives, prerequisites, one-time rewards, XP and save v2](docs/GameplayQuest.md), the compiler-free QuestWorkshop.

@@ -17,7 +17,7 @@ be done on the graphics card).
 | Profiler (`ZM_PROFILE_SCOPE`, `Profiler::FormatTree`) | the frame's tree: the time of each part, its own time, the number of calls; the Profiler window in the editor |
 | `ZAMIN_PLAYER_STATS=1` | when the player exits: the last frame's profile, render statistics, the scene, memory |
 | `ZaminPlayer --benchmark` | frame times (mean, p95, p99) and **the profile of the slowest frame** |
-| `ZAMIN_WORLD_TOUR=<.ztour>` + `ZAMIN_WORLD_REPORT=<.json>` | the streaming world: a camera path tied to the frame number and each frame's time, streaming/upload work, RSS, requested GPU bytes ([Terrain.md](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli)) |
+| `ZAMIN_WORLD_TOUR=<.ztour>` + `ZAMIN_WORLD_REPORT=<.json>` | the streaming world: a camera path tied to the frame number and each frame's time, streaming/upload work, RSS, requested GPU bytes ([Terrain.md](Terrain.md#the-asset-budget-residency-limits-and-the-camera-path)) |
 | `ZAMIN_STARTUP_PROFILE=1` | the startup tree (window, renderer, audio, project, scene) and the first frame's tree |
 | `ZAMIN_EDITOR_PANEL_TIMES=1`, `ZAMIN_EDITOR_STATS=1` | the time of the editor panels, the editor's memory |
 | `Tests/samples_bench.py` | nine samples while a bot plays them (collects the above) |

@@ -8,4 +8,4 @@ Use the terrain projection button after changing the ground. It preserves X/Z, r
 
 Tree shadows are disabled in this dense demo: the current conservative shadow pass renders all near-LOD instances. Picking selects the entire component. These instances have no individual colliders/scripts; GPU shadow culling, HLOD, streaming, billboards and individual painting remain future work. Only static opaque/cutout model parts are supported, at most 128 parts per LOD and 65536 instances per component.
 
-See [terrain and foliage documentation](../../docs/Terrain.md#packed-foliage-va-ikki-model-lod) for memory counters, limits and the reproducible GPU/CPU image oracle. Mesa software results establish correctness, not physical GPU frame-time performance.
+See [terrain and foliage documentation](../../docs/Terrain.md#packed-foliage-and-two-model-lod) for memory counters, limits and the reproducible GPU/CPU image oracle. Mesa software results establish correctness, not physical GPU frame-time performance.

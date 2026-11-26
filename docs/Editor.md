@@ -422,7 +422,7 @@ cell held by a limit with an orange border. Inside the **Streaming policy**,
 *Evict far cells when over a limit*, the cooldown and the **Asset budget (texture / model)** fields
 (background preparation, the uploads/bytes per frame, the GPU bytes to free, the file / cell / total staging
 bytes) are edited; the changes are applied with Save + runtime reload.
-[Details](Terrain.md#asset-byudjeti-rezidentlik-limitlari-va-kamera-yoli).
+[Details](Terrain.md#the-asset-budget-residency-limits-and-the-camera-path).
 
 In play mode the Visual Script panel shows the **Live variables** values of the matching scene instance at the top
 (up to 16, long strings are shortened in the preview). This is separate from the authoring default/override

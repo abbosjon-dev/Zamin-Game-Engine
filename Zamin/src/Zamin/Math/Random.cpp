@@ -3,23 +3,54 @@
 #include <glm/gtc/constants.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <optional>
 #include <random>
 
 namespace Zamin {
 
+    // ZAMIN_RANDOM_SEED=N (tests, automation): the "fresh" seeds are a fixed sequence derived from N, so a run whose
+    // game picks new random numbers every session (Randomize, a default-constructed generator) plays the same way
+    // every time. Read once, at the first fresh seed.
+    static std::optional<uint64_t> ReproducibleBaseSeed()
+    {
+        static const std::optional<uint64_t> s_Base = []() -> std::optional<uint64_t> {
+            const char* text = std::getenv("ZAMIN_RANDOM_SEED");
+            if (!text || !*text)
+                return std::nullopt;
+            char* end = nullptr;
+            const unsigned long long value = std::strtoull(text, &end, 10);
+            if (end == text || *end != '\0')
+                return std::nullopt;
+            return (uint64_t)value;
+        }();
+        return s_Base;
+    }
+
     static uint64_t NonDeterministicSeed()
     {
-        uint64_t seed = (uint64_t)std::chrono::high_resolution_clock::now().time_since_epoch().count();
-        try
+        uint64_t seed = 0;
+        if (const std::optional<uint64_t> base = ReproducibleBaseSeed())
         {
-            std::random_device device;
-            seed ^= ((uint64_t)device() << 32) ^ (uint64_t)device();
+            // The n-th fresh seed of the process: base + n, spread by the finalizer below.
+            static std::atomic<uint64_t> s_Count{ 0 };
+            seed = *base * 0x2545f4914f6cdd1dULL + s_Count.fetch_add(1, std::memory_order_relaxed);
         }
-        catch (...)
+        else
         {
-            // No entropy source: the clock alone is good enough for gameplay.
+            seed = (uint64_t)std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            try
+            {
+                std::random_device device;
+                seed ^= ((uint64_t)device() << 32) ^ (uint64_t)device();
+            }
+            catch (...)
+            {
+                // No entropy source: the clock alone is good enough for gameplay.
+            }
         }
         // splitmix64 finalizer: spreads similar clock values over all bits.
         seed += 0x9e3779b97f4a7c15ULL;
@@ -46,6 +77,10 @@ namespace Zamin {
     }
 
     void RandomGenerator::Randomize() { SetSeed(NonDeterministicSeed()); }
+
+    bool RandomGenerator::HasReproducibleSeeds() { return ReproducibleBaseSeed().has_value(); }
+
+    uint64_t RandomGenerator::GetReproducibleBaseSeed() { return ReproducibleBaseSeed().value_or(0); }
 
     uint32_t RandomGenerator::NextUInt()
     {

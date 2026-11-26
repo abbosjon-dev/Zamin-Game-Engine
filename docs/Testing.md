@@ -190,7 +190,9 @@ Every run also checks the following:
 
 The game clock is fixed: with `ZAMIN_CAPTURE_FPS=20` (`--capture-fps`) every frame is exactly 1/20 s
 (`Time::SetCaptureFrameRate`), so N frames are the same game time on every machine. The bots play with seeded random
-numbers, so the result is the same on a slow and on a fast machine. Every run gets a fresh `HOME` (no saved records
+numbers, so the result is the same on a slow and on a fast machine. A human game picks a fresh seed every session
+(`RandomGenerator::Randomize`: new enemies every time); the test sets `ZAMIN_RANDOM_SEED=1` (`--random-seed`), so
+those fresh seeds are the same on every run too and the menu and gamepad cases see the same game each time. Every run gets a fresh `HOME` (no saved records
 or settings). The report is written to `report.json`; the logs and pictures stay in the `--out` folder.
 
 `Tests/samples_assets.py` (no display, ~1 s) checks the procedural assets of the six M24 games:

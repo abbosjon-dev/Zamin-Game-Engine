@@ -23,15 +23,20 @@ namespace Zamin {
     class RandomGenerator
     {
     public:
-        // Seeded from std::random_device (a different sequence every run).
+        // Seeded from std::random_device (a different sequence every run; with ZAMIN_RANDOM_SEED - see Randomize).
         RandomGenerator();
         explicit RandomGenerator(uint64_t seed, uint64_t stream = DefaultStream);
 
         // Restarts the sequence. `stream` selects one of 2^63 independent sequences.
         void SetSeed(uint64_t seed, uint64_t stream = DefaultStream);
         uint64_t GetSeed() const { return m_Seed; }
-        // Picks a fresh non-deterministic seed.
+        // Picks a fresh non-deterministic seed. With the ZAMIN_RANDOM_SEED=N environment variable (tests,
+        // automation) the fresh seeds of a process are a fixed sequence derived from N instead: the same calls in
+        // the same order give the same numbers on every run.
         void Randomize();
+        // ZAMIN_RANDOM_SEED is set (and a number): fresh seeds are reproducible; its value (0 when not set).
+        static bool HasReproducibleSeeds();
+        static uint64_t GetReproducibleBaseSeed();
 
         // ---- raw bits
         uint32_t NextUInt();

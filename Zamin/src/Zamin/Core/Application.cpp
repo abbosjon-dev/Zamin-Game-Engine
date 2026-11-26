@@ -14,6 +14,7 @@
 #include "Zamin/Core/StartupTimer.h"
 #include "Zamin/Core/Time.h"
 #include "Zamin/Core/Version.h"
+#include "Zamin/Math/Random.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/RenderCommand.h"
@@ -74,6 +75,9 @@ namespace Zamin {
             if (Time::GetCaptureFrameRate() > 0)
                 ZM_CORE_INFO("Fixed game time: every frame is 1/{} s (ZAMIN_CAPTURE_FPS)", Time::GetCaptureFrameRate());
         }
+        // ZAMIN_RANDOM_SEED=N: RandomGenerator::Randomize gives the same seeds on every run (Math/Random.h).
+        if (RandomGenerator::HasReproducibleSeeds())
+            ZM_CORE_INFO("Reproducible random seeds: {} (ZAMIN_RANDOM_SEED)", RandomGenerator::GetReproducibleBaseSeed());
 
 #if ZAMIN_WITH_IMGUI
         if (m_Specification.EnableImGui)

@@ -25,8 +25,9 @@ Cases:
           and back; the control hints on screen switch to the gamepad's buttons.
 Every run: exit code 0, a log without ERROR / CRITICAL lines, the script module loaded, a last-frame screenshot that
 is not one flat colour (Tests/png_check.py). The game clock is fixed (ZAMIN_CAPTURE_FPS, --capture-fps: 20 frames a
-second of game time), so N frames are the same game time on any computer; each run has a fresh HOME (no saved records
-or settings). ZAMIN_BUILD_DIR=<dir> (or --build) selects the build. Exit code: 0 all passed, 1 a check failed, 2 the
+second of game time), so N frames are the same game time on any computer; the "fresh" random seeds are fixed too
+(ZAMIN_RANDOM_SEED, --random-seed: a human game's new enemy order is the same every run); each run has a fresh HOME
+(no saved records or settings). ZAMIN_BUILD_DIR=<dir> (or --build) selects the build. Exit code: 0 all passed, 1 a check failed, 2 the
 player is missing or there is no display and no xvfb-run.
 """
 import argparse
@@ -365,7 +366,7 @@ def run_game(case, args, runner, work, tag, home, frames, env_extra, scene=None)
     shot = os.path.join(work, tag + ".png")
     env = dict(os.environ)
     env.update({"HOME": home, "ZAMIN_MAX_FRAMES": str(frames), "ZAMIN_SCREENSHOT": shot,
-                "ZAMIN_CAPTURE_FPS": str(args.capture_fps)})
+                "ZAMIN_CAPTURE_FPS": str(args.capture_fps), "ZAMIN_RANDOM_SEED": str(args.random_seed)})
     for key in ("ZAMIN_DEMO", "ZAMIN_PLAYER_INPUT", "ZAMIN_DEMO_RECORDS", "ZAMIN_START_LEVEL"):
         env.pop(key, None)
     env.update(env_extra)
@@ -473,6 +474,8 @@ def main():
     parser.add_argument("--out", help="keep the logs, screenshots and report.json in this folder")
     parser.add_argument("--frames-scale", type=float, default=1.0, help="every run's frames times this")
     parser.add_argument("--capture-fps", type=int, default=20, help="game frames per second of game time (ZAMIN_CAPTURE_FPS)")
+    parser.add_argument("--random-seed", type=int, default=1,
+                        help="ZAMIN_RANDOM_SEED: the games' fresh random seeds (a new enemy order every human game) are the same every run")
     parser.add_argument("--resolution", default="960x540")
     parser.add_argument("--timeout", type=int, default=900, help="seconds a run may take")
     parser.add_argument("--no-records", action="store_true", help="skip the record runs after the demos")

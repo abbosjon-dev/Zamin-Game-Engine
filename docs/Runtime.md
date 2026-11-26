@@ -449,6 +449,7 @@ itself does not change (the Release module is in `<project>/Build/ExportRelease`
 | `ZAMIN_SCREENSHOT_ON="<text>\|<frames>\|<file.png>[\|quit]"` | player | A picture `<frames>` (0..600) frames after the first log line with `<text>`; with `\|quit` the player closes afterwards (for example the victory screen: `SLICE_VICTORY\|120\|victory.png\|quit`) |
 | `ZAMIN_DEMO=1`, `ZAMIN_DEMO_RECORDS=1`, `ZAMIN_START_LEVEL=N` | sample games | A bot plays; the bot's result becomes a record too (tests); from that level ([Samples.md](Samples.md#demo-mode)) |
 | `ZAMIN_CAPTURE_FPS=N` | all | A fixed game time: every frame exactly 1/N s (`Time::SetCaptureFrameRate`) - N frames are the same game time on every computer (tests, frame-by-frame recording) |
+| `ZAMIN_RANDOM_SEED=N` | all | Reproducible "fresh" random seeds: `RandomGenerator::Randomize` and default-constructed generators take a fixed sequence of seeds derived from N, so a game that picks new random numbers every session (a human game's enemy order) plays the same way on every run (tests) |
 | `ZAMIN_PLAYER_STATS=1` | player | On exit: render statistics, the last frame's scene (entities, the most common components), frame times, the profiler, audio, scene load times |
 | `ZAMIN_PLAYER_SPLASH=1` | player | The splash in automatic runs too |
 | `ZAMIN_FOCUS_LOSS_TEST=<frame>[:<count>]` | all | Simulates losing the focus (the background pause) |

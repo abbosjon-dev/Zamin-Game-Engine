@@ -1,135 +1,135 @@
 # Zamin Engine: audio
 
-Bu qo'llanma Zamin'ning ovoz tizimini tushuntiradi: Audio Source va bir martalik ovozlar, 3D ovoz va tinglovchi,
-mixer guruhlari, musiqa va crossfade, so'nish, filtrlar, ovozlar limiti va tasodifiy variatsiya, Doppler va yo'nalish
-konusi, ambient zonalar, qadam tovushlari, ovoz tugashi hodisalari, audio fayllarning import sozlamalari, o'yinchi ovoz
-sozlamalarini saqlash va audio profiler — editorda va C++ skriptda.
+This guide explains Zamin's sound system: Audio Source and one-shot sounds, 3D sound and the listener,
+mixer groups, music and crossfade, fades, filters, the voice limit and random variation, Doppler and the direction
+cone, ambient zones, footsteps, sound-finished events, the import settings of audio files, saving the player's sound
+settings and the audio profiler — in the editor and in C++ scripts.
 
-Komponentlarning to'liq maydonlari: [Components.md](Components.md#9-audio). Loyihaning audio standartlari (mixer, oqim
-chegarasi, ovozlar limiti, 3D masofa modeli): [ProjectSettings.md](ProjectSettings.md#9-audio-standartlari). Misollar
-`#include <Zamin/Zamin.h>` va `using namespace Zamin;` bilan.
+The full fields of the components: [Components.md](Components.md#9-audio). The project's audio defaults (the mixer, the stream
+threshold, the voice limit, the 3D distance model): [ProjectSettings.md](ProjectSettings.md#9-audio-standartlari). The examples use
+`#include <Zamin/Zamin.h>` and `using namespace Zamin;`.
 
-![Audio sahnasi va Audio Mixer oynasi](images/audio-mixer-editor.jpg)
+![The Audio scene and the Audio Mixer window](images/audio-mixer-editor.jpg)
 
-*Showcase3D `Scenes/Audio.zscene` editorda (Play): musiqa zonalari, Doppler, radio filtri, karnay konusi; pastda **Audio Mixer** —
-guruhlar, daraja o'lchagichlari, hozirgi musiqa.*
+*Showcase3D `Scenes/Audio.zscene` in the editor (Play): the music zones, Doppler, the radio filter, the loudspeaker cone; below, the **Audio Mixer** —
+the groups, the level meters, the current music.*
 
-Mundarija:
+Contents:
 
-1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)
-2. [Tez boshlash](#2-tez-boshlash)
-3. [Audio Source komponenti](#3-audio-source-komponenti)
-4. [Bir martalik ovozlar va SoundParams](#4-bir-martalik-ovozlar-va-soundparams)
-5. [3D ovoz, tinglovchi, Doppler, yo'nalish konusi](#5-3d-ovoz-tinglovchi-doppler-yonalish-konusi)
-6. [Mixer guruhlari va Audio Mixer oynasi](#6-mixer-guruhlari-va-audio-mixer-oynasi)
-7. [Musiqa](#7-musiqa)
-8. [So'nish (fade)](#8-sonish-fade)
-9. [Low-pass / high-pass filtrlar](#9-low-pass--high-pass-filtrlar)
-10. [Ovozlar limiti va tasodifiy variatsiya](#10-ovozlar-limiti-va-tasodifiy-variatsiya)
-11. [Ambient zonalar](#11-ambient-zonalar)
-12. [Qadam tovushlari](#12-qadam-tovushlari)
-13. [Ovoz tugashi: OnSoundFinished](#13-ovoz-tugashi-onsoundfinished)
-14. [Audio fayllar va import sozlamalari](#14-audio-fayllar-va-import-sozlamalari)
-15. [O'yinchi ovoz sozlamalari](#15-oyinchi-ovoz-sozlamalari)
-16. [Profiler va ko'rinishlar](#16-profiler-va-korinishlar)
-17. [Namuna sahnalar](#17-namuna-sahnalar)
-18. [Ko'p uchraydigan muammolar](#18-kop-uchraydigan-muammolar)
-19. [Testlar](#19-testlar)
-20. [Qisqa API ma'lumotnomasi](#20-qisqa-api-malumotnomasi)
-
----
-
-## 1. Asosiy tushunchalar
-
-- **Dvigatel** — miniaudio (`AudioEngine`, `Zamin/Audio/AudioEngine.h`); skriptlar uchun soddaroq kirish — `Audio`
-  klassi (`Zamin/Audio/Audio.h`) va `ScriptableEntity` ning `PlaySound` / `PlayAudio` ... funksiyalari.
-- **Formatlar**: WAV, MP3, FLAC. `.ogg` fayllar audio asset sifatida ko'rinadi, lekin OGG Vorbis dekoderi yo'q:
-  asset inspektori va to'lqin ko'rinishida `no OGG Vorbis decoder (use WAV, MP3 or FLAC)` yoziladi, ijro
-  etishga urinilganda esa konsolda (fayl o'zgarmaguncha bir marta) `Audio yuklanmadi: '<fayl>' - audio fayl o'qilmadi -
-  WAV, MP3 yoki FLAC bo'lishi kerak (miniaudio: <sabab>)` chiqadi.
-- **Yo'llar** — loyihaning `Assets` papkasiga nisbatan: `"Audio/Chime.wav"`.
-- **Handle** — har ijro etilgan ovozning raqami (`uint32_t`, 0 — chalinmadi). `PlaySound` uni qaytaradi; u bilan
-  ovozni to'xtatish, so'ndirish, balandligini o'zgartirish mumkin (`AudioEngine::Stop`, `SetVolume` ...).
-- **Mixer guruhi** — har ovoz biror guruhda chalinadi (Master > Music, SFX, UI va loyihaning o'z guruhlari).
-- **2D / 3D ovoz** — oddiy ovoz hamma joyda bir xil eshitiladi; **3D (spatial)** ovozning balandligi va chap / o'ng
-  tomoni tinglovchidan qayerdaligiga bog'liq.
-- **Qachon ishlaydi** — Audio Source'lar Play (va player) paytida chalinadi; tahrir rejimida faylni asset inspektorida
-  eshitib ko'rish mumkin ([14-bo'lim](#14-audio-fayllar-va-import-sozlamalari)). Kadrda audio eng oxirida yangilanadi (transformlar tayyor bo'lgach).
-- **Qurilmasiz** (headless, CI): `No audio device found - sound is off` — o'yin ishlayveradi, ovozlar
-  chalinmaydi (Audio Mixer oynasida "Audio qurilmasi yo'q - faqat sozlash").
-- **Nofaol obyekt** — ovozi to'xtaydi; qayta yoqilganda **Boshida ijro** belgilangan manba boshidan chalinadi.
-- **Oyna fokusni yo'qotsa** (player): chiqish pauzaga tushadi — hamma ovozlar va musiqa joyida
-  turadi ([ProjectSettings.md](ProjectSettings.md#oyna), *Fonda pauza*). `PauseGame()` ovozlarni o'zi to'xtatmaydi (pauza menyusi UI ovozlari kerak) —
-  kerak bo'lsa musiqani filtrlang yoki `PauseAudio` qiling ([9-bo'lim](#9-low-pass--high-pass-filtrlar)).
+1. [Basic concepts](#1-basic-concepts)
+2. [Quick start](#2-quick-start)
+3. [The Audio Source component](#3-the-audio-source-component)
+4. [One-shot sounds and SoundParams](#4-one-shot-sounds-and-soundparams)
+5. [3D sound, the listener, Doppler, the direction cone](#5-3d-sound-the-listener-doppler-the-direction-cone)
+6. [Mixer groups and the Audio Mixer window](#6-mixer-groups-and-the-audio-mixer-window)
+7. [Music](#7-music)
+8. [Fades](#8-fades)
+9. [Low-pass / high-pass filters](#9-low-pass--high-pass-filters)
+10. [The voice limit and random variation](#10-the-voice-limit-and-random-variation)
+11. [Ambient zones](#11-ambient-zones)
+12. [Footsteps](#12-footsteps)
+13. [A sound finishing: OnSoundFinished](#13-a-sound-finishing-onsoundfinished)
+14. [Audio files and import settings](#14-audio-files-and-import-settings)
+15. [The player's sound settings](#15-the-players-sound-settings)
+16. [The profiler and views](#16-the-profiler-and-views)
+17. [Sample scenes](#17-sample-scenes)
+18. [Common problems](#18-common-problems)
+19. [Tests](#19-tests)
+20. [A short API reference](#20-a-short-api-reference)
 
 ---
 
-## 2. Tez boshlash
+## 1. Basic concepts
 
-1. Ovoz faylini (`.wav`) kontent brauzerga yoki to'g'ridan-to'g'ri editor oynasiga tashlang (`Assets/Audio/` ga
-   nusxalanadi).
-2. Faylni viewport'ga sudrang — **Audio Source**'li obyekt yaratiladi. Yoki *Obyekt > Ovoz manbai*, keyin inspektorda
-   **Ovoz fayli** maydoniga faylni tashlang.
-3. Fon musiqasi yoki g'uvillash uchun **Takrorlash** va **Boshida ijro** ni yoqing; ma'lum joydan eshitilsin desangiz
-   **3D ovoz (spatial)** va **Min / Max masofa**.
-4. ▶ — ovoz chalinadi. Inspektor o'yin davomida jonli holatni ko'rsatadi (ijro / pauza, vaqt chizig'i, eshitilish dB).
+- **The engine** — miniaudio (`AudioEngine`, `Zamin/Audio/AudioEngine.h`); a simpler entry for scripts — the `Audio`
+  class (`Zamin/Audio/Audio.h`) and the `PlaySound` / `PlayAudio` ... functions of `ScriptableEntity`.
+- **Formats**: WAV, MP3, FLAC. `.ogg` files show up as audio assets, but there is no OGG Vorbis decoder:
+  the asset inspector and the waveform view say `no OGG Vorbis decoder (use WAV, MP3 or FLAC)`, and when one is played
+  the console says (once until the file changes) that `the audio file could not be read - it must be WAV, MP3 or FLAC
+  (miniaudio: <reason>)`.
+- **Paths** — relative to the project's `Assets` folder: `"Audio/Chime.wav"`.
+- **Handle** — the number of every played sound (`uint32_t`, 0 — not played). `PlaySound` returns it; with it the
+  sound can be stopped, faded out, its volume changed (`AudioEngine::Stop`, `SetVolume` ...).
+- **Mixer group** — every sound plays in some group (Master > Music, SFX, UI and the project's own groups).
+- **2D / 3D sound** — a plain sound is heard the same everywhere; the volume and the left / right side of a **3D (spatial)**
+  sound depend on where it is relative to the listener.
+- **When it works** — Audio Sources play during Play (and in the player); in edit mode a file can be listened to in the
+  asset inspector ([section 14](#14-audio-files-and-import-settings)). Audio is updated last in the frame (once the transforms are ready).
+- **Without a device** (headless, CI): `No audio device found - sound is off` — the game keeps running, the sounds
+  do not play (the Audio Mixer window says "No audio device - setup only").
+- **An inactive entity** — its sound stops; when it is turned on again, a source with **Play on start** plays from the start.
+- **When the window loses the focus** (the player): the output pauses — every sound and the music stay
+  where they are ([ProjectSettings.md](ProjectSettings.md#oyna), *Pause in the background*). `PauseGame()` does not stop sounds by itself (the pause menu needs its UI sounds) —
+  filter the music or `PauseAudio` when needed ([section 9](#9-low-pass--high-pass-filters)).
 
-Skriptdan bir martalik ovoz — bitta qator:
+---
+
+## 2. Quick start
+
+1. Drop a sound file (`.wav`) into the content browser or straight onto the editor window (it is copied to
+   `Assets/Audio/`).
+2. Drag the file onto the viewport — an entity with an **Audio Source** is created. Or *Object > Audio source*, then drop the file onto
+   the **Audio file** field in the inspector.
+3. For background music or a hum, turn on **Loop** and **Play on start**; for a sound heard from a particular place,
+   **3D sound (spatial)** and **Min / Max distance**.
+4. ▶ — the sound plays. During play the inspector shows the live state (playing / paused, the time bar, the audibility in dB).
+
+A one-shot sound from a script — one line:
 
 ```cpp
 void OnTriggerBegin(Entity other) override
 {
     if (other.HasTag("Player"))
-        PlaySound("Audio/Chime.wav");                       // SFX guruhida
+        PlaySound("Audio/Chime.wav");                       // in the SFX group
 }
 ```
 
 ---
 
-## 3. Audio Source komponenti
+## 3. The Audio Source component
 
-`AudioSourceComponent` — obyektning o'z ovozi (inspektorda **Audio Source**):
+`AudioSourceComponent` — the entity's own sound (**Audio Source** in the inspector):
 
-| Maydon (inspektor) | Ma'nosi |
+| Field (inspector) | Meaning |
 |---|---|
-| `Path` (**Ovoz fayli**) | fayl, `Assets` ga nisbatan |
-| `Volume` (**Balandlik**), `Pitch` (**Ton (pitch)**) | 0 ... 2 (1 — o'zgarishsiz); ton 2 — oktava yuqori |
-| `Loop` (**Takrorlash**), `PlayOnStart` (**Boshida ijro**) | takrorlanadimi, o'yin (yoki obyekt yoqilishi) boshida chalinadimi |
-| `Spatial` (**3D ovoz (spatial)**), `MinDistance`, `MaxDistance` | [5-bo'lim](#5-3d-ovoz-tinglovchi-doppler-yonalish-konusi); yangi manba loyihaning standart masofalarini oladi |
-| `Output` (**Chiqish guruhi**) | mixer guruhi; noma'lum nom — SFX (ogohlantirish bilan) |
-| `Stream` (**Streaming**) | diskdan oqim bilan o'qish (uzun musiqa, fon); loyiha chegarasidan (4 MB) katta fayllar baribir oqim |
-| `VolumeRandom`, `PitchRandom` (**Balandlik / Ton oralig'i**) | har ijroda tasodifiy ko'paytuvchi, [10-bo'lim](#10-ovozlar-limiti-va-tasodifiy-variatsiya) |
-| `Priority`, `MaxInstances`, `Steal` (**Ustuvorlik**, **Bir vaqtda (shu fayl)**, **Limit to'lsa**) | ovozlar limiti |
-| `DopplerFactor` (**Doppler**) | harakatdagi 3D ovozning tonga ta'siri (0 — o'chiq) |
-| `FadeIn`, `FadeOut` (**Kirish / Chiqish (fade in / out)**) | so'nish, soniya, [8-bo'lim](#8-sonish-fade) |
-| `Filter` (**Low-pass**, **High-pass**) | [9-bo'lim](#9-low-pass--high-pass-filtrlar) |
-| `Cone` (**Yo'nalish konusi**: ichki / tashqi burchak, orqada) | [5-bo'lim](#5-3d-ovoz-tinglovchi-doppler-yonalish-konusi) |
+| `Path` (**Audio file**) | the file, relative to `Assets` |
+| `Volume` (**Volume**), `Pitch` (**Pitch**) | 0 ... 2 (1 — unchanged); pitch 2 — an octave higher |
+| `Loop` (**Loop**), `PlayOnStart` (**Play on start**) | whether it loops, whether it plays at the start of the game (or when the entity is turned on) |
+| `Spatial` (**3D sound (spatial)**), `MinDistance`, `MaxDistance` | [section 5](#5-3d-sound-the-listener-doppler-the-direction-cone); a new source gets the project's default distances |
+| `Output` (**Output group**) | the mixer group; an unknown name — SFX (with a warning) |
+| `Stream` (**Streaming**) | reading as a stream from disk (long music, backgrounds); files larger than the project threshold (4 MB) stream anyway |
+| `VolumeRandom`, `PitchRandom` (**Volume / Pitch range**) | a random multiplier on every play, [section 10](#10-the-voice-limit-and-random-variation) |
+| `Priority`, `MaxInstances`, `Steal` (**Priority**, **At once (this file)**, **When the limit is reached**) | the voice limit |
+| `DopplerFactor` (**Doppler**) | the effect of a moving 3D sound on its pitch (0 — off) |
+| `FadeIn`, `FadeOut` (**Fade in / Fade out**) | fades, seconds, [section 8](#8-fades) |
+| `Filter` (**Low-pass**, **High-pass**) | [section 9](#9-low-pass--high-pass-filters) |
+| `Cone` (**Direction cone**: inner / outer angle, behind) | [section 5](#5-3d-sound-the-listener-doppler-the-direction-cone) |
 
-O'yin davomida inspektordagi har o'zgarish darhol eshitiladi; **Qayta / Pauza / To'xtatish** tugmalari va vaqt chizig'i
-(bosib — o'sha joyga) bor.
+During play every change in the inspector is heard at once; there are **Again / Pause / Stop** buttons and a time bar
+(click — to that place).
 
-**Skriptdan boshqarish** (shu obyektning manbasi; deyarli hammasining `(Entity other, ...)` varianti bor):
+**Control from a script** (this entity's source; almost all of them have an `(Entity other, ...)` variant):
 
-| Funksiya | Nima qiladi |
+| Function | What it does |
 |---|---|
-| `PlayAudio()` / `PlayAudio(fadeIn)` | boshidan chaladi (yangi tasodifiy variatsiya bilan); obyekt nofaol bo'lsa yoki limit rad etsa `false` |
-| `StopAudio()` / `StopAudio(fadeOut)` | to'xtatadi (manbaning `FadeOut` i yoki berilgan vaqt bilan so'nib) |
-| `PauseAudio()`, `ResumeAudio()`, `IsAudioPaused()` | joyida to'xtatish / davom ettirish |
-| `IsAudioPlaying()` | hozir eshitilyaptimi (pauzada — `false`) |
-| `SetAudioVolume(v)` / `GetAudioVolume()`, `SetAudioPitch(p)` / `GetAudioPitch()` | manba va hozir chalinayotgan ovoz |
-| `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()` | joriy vaqt, sakrash, uzunlik (soniya) |
-| `FadeAudio(volume, seconds)`, `GetAudioFade()` | so'nish darajasini o'zgartirish (pasaytirish) |
-| `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)` | filtr (0 — o'chirish) |
+| `PlayAudio()` / `PlayAudio(fadeIn)` | plays from the start (with a new random variation); `false` when the entity is inactive or the limit refuses |
+| `StopAudio()` / `StopAudio(fadeOut)` | stops (fading with the source's `FadeOut` or the given time) |
+| `PauseAudio()`, `ResumeAudio()`, `IsAudioPaused()` | pausing in place / resuming |
+| `IsAudioPlaying()` | whether it is heard now (`false` while paused) |
+| `SetAudioVolume(v)` / `GetAudioVolume()`, `SetAudioPitch(p)` / `GetAudioPitch()` | the source and the sound playing now |
+| `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()` | the current time, seeking, the length (seconds) |
+| `FadeAudio(volume, seconds)`, `GetAudioFade()` | changing the fade level (ducking) |
+| `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)` | a filter (0 — off) |
 
 ```cpp
-// Showcase3D RadioToggle: R - yoqish / o'chirish (manbaning FadeIn / FadeOut i bilan), T - "radio" filtri,
-// G - pasaytirish.
+// Showcase3D RadioToggle: R - turn on / off (with the source's FadeIn / FadeOut), T - the "radio" filter,
+// G - duck.
 void OnUpdate(Timestep) override
 {
     if (Input::IsKeyJustPressed(Key::R))
     {
         if (IsAudioPlaying())
-            StopAudio();          // o'zi so'nib tugaydi
+            StopAudio();          // fades out by itself
         else
             PlayAudio();
     }
@@ -149,134 +149,134 @@ void OnUpdate(Timestep) override
 
 ---
 
-## 4. Bir martalik ovozlar va SoundParams
+## 4. One-shot sounds and SoundParams
 
-Obyektga bog'lanmagan qisqa ovozlar (zarba, tanga, tugma) uchun komponent shart emas:
+Short sounds not tied to an entity (a hit, a coin, a button) need no component:
 
 ```cpp
-PlaySound("Audio/UiPing.wav", 0.6f, 1.0f, "UI");               // balandlik, ton, mixer guruhi
-PlaySoundAt("Audio/DoorThud.wav", GetWorldPosition());         // 3D, loyihaning standart masofalari bilan
-uint32_t h = PlaySound("Audio/DroneBuzz.wav", params);         // hamma imkoniyatlar bilan
-Audio::StopSound(h, 0.5f);                                     // 0.5 s da so'nib to'xtaydi
+PlaySound("Audio/UiPing.wav", 0.6f, 1.0f, "UI");               // volume, pitch, mixer group
+PlaySoundAt("Audio/DoorThud.wav", GetWorldPosition());         // 3D, with the project's default distances
+uint32_t h = PlaySound("Audio/DroneBuzz.wav", params);         // with every option
+Audio::StopSound(h, 0.5f);                                     // fades out and stops in 0.5 s
 ```
 
-Skriptsiz joydan ham: `Audio::PlaySound(...)`, `Audio::PlaySoundAt(...)`. Skript chalgan ovoz tugaganda shu skript
-`OnSoundFinished` oladi ([13-bo'lim](#13-ovoz-tugashi-onsoundfinished)).
+From a place without a script too: `Audio::PlaySound(...)`, `Audio::PlaySoundAt(...)`. When a sound a script played finishes, that script
+gets `OnSoundFinished` ([section 13](#13-a-sound-finishing-onsoundfinished)).
 
 **`SoundParams`** (`Zamin/Audio/AudioEngine.h`):
 
-| Maydon | Standart | Ma'nosi |
+| Field | Default | Meaning |
 |---|---|---|
 | `Volume`, `Pitch`, `Loop` | 1, 1, false | |
-| `Group` | `"SFX"` | mixer guruhi |
-| `Stream` | false | diskdan oqim |
-| `Spatial`, `Position` | false, (0,0,0) | 3D ovoz va uning joyi |
-| `MinDistance`, `MaxDistance` | -1 | manfiy — loyiha standarti |
-| `VolumeRandom`, `PitchRandom` | (1, 1) | har ijroda [x, y] oralig'idan ko'paytuvchi |
-| `Priority`, `MaxInstances`, `Steal` | 128, 0, `Oldest` | ovozlar limiti |
+| `Group` | `"SFX"` | the mixer group |
+| `Stream` | false | a stream from disk |
+| `Spatial`, `Position` | false, (0,0,0) | a 3D sound and its place |
+| `MinDistance`, `MaxDistance` | -1 | negative — the project default |
+| `VolumeRandom`, `PitchRandom` | (1, 1) | a multiplier from the [x, y] range on every play |
+| `Priority`, `MaxInstances`, `Steal` | 128, 0, `Oldest` | the voice limit |
 | `DopplerFactor`, `Velocity` | 1, (0,0,0) | Doppler |
-| `Direction`, `Cone` | (0,0,-1), o'chiq | yo'nalish konusi |
-| `FadeIn` | 0 | jimdan boshlab shuncha soniyada kuchayadi |
-| `Filter` | o'chiq | shu ovozning o'z filtri |
+| `Direction`, `Cone` | (0,0,-1), off | the direction cone |
+| `FadeIn` | 0 | rises from silence over that many seconds |
+| `Filter` | off | this sound's own filter |
 
-Adventure3D darvozasi (`ProximityDoor`, `Projects/Adventure3D/Source/World.cpp`) g'ichirlashni har safar biroz boshqacha
-chaladi:
+The Adventure3D gate (`ProximityDoor`, `Projects/Adventure3D/Source/World.cpp`) plays its creak a little differently every
+time:
 
 ```cpp
 SoundParams p;
 p.Volume = volume;
-p.PitchRandom = pitch;            // masalan { 0.9f, 1.1f }
+p.PitchRandom = pitch;            // for example { 0.9f, 1.1f }
 p.Spatial = true;
 p.Position = GetWorldPosition() + glm::vec3(0.0f, 1.8f, 0.0f);
 PlaySound(path, p);
 ```
 
-**Handle bilan ishlash** (`AudioEngine`): `IsPlaying(h)`, `IsPaused(h)`, `Pause(h)` / `Resume(h)`, `Stop(h)` /
+**Working with a handle** (`AudioEngine`): `IsPlaying(h)`, `IsPaused(h)`, `Pause(h)` / `Resume(h)`, `Stop(h)` /
 `Stop(h, fadeSeconds)`, `FadeTo(h, volume, seconds)`, `SetVolume(h, v)`, `SetPitch(h, p)`, `Seek(h, s)`, `GetCursor(h)`,
-`GetLength(h)`, `SetSoundPosition(h, p)` (harakatlanuvchi 3D ovoz), `SetLoopRegion(h, start, end)`,
-`GetSoundInfo(h, info)` (`SoundInfo`: holat, guruh, vaqt, eshitilish darajasi, tasodifiy variatsiya, Doppler, konus).
+`GetLength(h)`, `SetSoundPosition(h, p)` (a moving 3D sound), `SetLoopRegion(h, start, end)`,
+`GetSoundInfo(h, info)` (`SoundInfo`: the state, group, time, audibility, random variation, Doppler, cone).
 
 ---
 
-## 5. 3D ovoz, tinglovchi, Doppler, yo'nalish konusi
+## 5. 3D sound, the listener, Doppler, the direction cone
 
-**Masofa.** 3D ovoz `MinDistance` dan yaqinda to'liq balandlikda, `MaxDistance` gacha loyihaning masofa modeli bo'yicha
-pasayadi: `Inverse` (tabiiy, standart), `Linear` (max masofada jim), `Exponential`, `None` — formulalar va
-koeffitsiyent: [ProjectSettings.md](ProjectSettings.md#3d-ovoz-standartlari). Kodda: `Audio::GetSpatialDefaults()`
+**Distance.** A 3D sound is at full volume closer than `MinDistance` and falls off up to `MaxDistance` by the project's distance
+model: `Inverse` (natural, the default), `Linear` (silent at the max distance), `Exponential`, `None` — the formulas and the
+factor: [ProjectSettings.md](ProjectSettings.md#3d-ovoz-standartlari). In code: `Audio::GetSpatialDefaults()`
 (`AudioSpatialSettings::ComputeGain(distance)`).
 
-**Tinglovchi.** 3D ovozlar **Audio Listener** komponenti (`AudioListenerComponent`) turgan joydan eshitiladi — masalan
-uchinchi shaxs o'yinida kamera emas, qahramon boshi. Bir nechtasi bo'lsa: yoqilgan (`Enabled`), ierarxiyada faol va
-`Priority` si eng kattasi (teng bo'lsa — birinchi yaratilgani). Tinglovchi bo'lmasa — asosiy kamera. Hozirgi
-tinglovchi: `GetScene().GetAudioListenerEntity()`.
+**The listener.** 3D sounds are heard from where the **Audio Listener** component (`AudioListenerComponent`) is — for example
+the hero's head in a third-person game, not the camera. With several of them: the enabled one (`Enabled`), active in the hierarchy, with the
+largest `Priority` (on a tie — the one created first). Without a listener — the main camera. The current
+listener: `GetScene().GetAudioListenerEntity()`.
 
-**Doppler.** Harakatlanayotgan 3D ovozning tezligi uning harakatidan o'lchanadi (teleport hisobga olinmaydi);
-tinglovchinikini Audio Listener'ning **Tezlikni kuzatish** (`TrackVelocity`) beradi. Ton = manbaning `DopplerFactor` i x
-loyihaning koeffitsiyenti (*Audio Mixer > Sozlamalar*, `AudioSettings::DopplerFactor`), silliq o'zgaradi va 0.5 ... 2
-oralig'ida qoladi. Showcase3D `DopplerFlyby` skripti uchib o'tayotgan dron ustiga `info.DopplerPitch` ni yozadi
+**Doppler.** The velocity of a moving 3D sound is measured from its motion (teleports are not counted);
+the listener's comes from the Audio Listener's **Track velocity** (`TrackVelocity`). The pitch = the source's `DopplerFactor` x
+the project's factor (*Audio Mixer > Settings*, `AudioSettings::DopplerFactor`); it changes smoothly and stays within 0.5 ... 2.
+The Showcase3D `DopplerFlyby` script writes `info.DopplerPitch` above the drone flying past
 (`GetScene().GetAudioInfo(GetEntity(), info)`).
 
-**Yo'nalish konusi** (`AudioConeSettings`: `Enabled`, `InnerAngle`, `OuterAngle`, `OuterGain`): ovoz obyektning old
-tomoniga (-Z) qarab to'liq, ichki konusdan tashqarida pasayib, tashqi konusdan keyin `OuterGain` balandlikda — karnay,
-televizor, gapirayotgan odam. Obyekt burilsa ovoz ham buriladi. Tanlangan manbaning konusi viewport'da chiziladi, o'yinda
-inspektorda konus ko'paytuvchisi. Kodda: `SoundParams::Cone` / `Direction`, `AudioEngine::SetSoundCone`,
+**The direction cone** (`AudioConeSettings`: `Enabled`, `InnerAngle`, `OuterAngle`, `OuterGain`): the sound is full toward the
+entity's front (-Z), falls off outside the inner cone, and beyond the outer cone stays at the `OuterGain` volume — a loudspeaker,
+a TV, a person talking. When the entity turns, the sound turns too. The cone of the selected source is drawn in the viewport, and during play
+the inspector shows the cone multiplier. In code: `SoundParams::Cone` / `Direction`, `AudioEngine::SetSoundCone`,
 `SetSoundDirection`, `AudioEngine::ComputeConeGain`.
 
-**Gizmo**: *Gizmolar > Audio radiusi* — 3D manbalarning Min va Max masofa sferalari.
+**Gizmo**: *Gizmos > Audio radius* — the Min and Max distance spheres of 3D sources.
 
 ---
 
-## 6. Mixer guruhlari va Audio Mixer oynasi
+## 6. Mixer groups and the Audio Mixer window
 
-Har ovoz guruh (bus) orqali o'tadi; guruh o'z ovozlari va bola guruhlarini aralashtirib faderiga ko'paytiradi va ota
-guruhiga uzatadi. Ildiz — **Master**. Asosiy guruhlar: `Master`, `Music`, `SFX`, `UI` (`AudioSettings::Master` ...,
-o'chirilmaydi); loyiha o'zinikini qo'shadi (masalan `Ambience` → `SFX` ichida: SFX pasaysa u ham pasayadi).
+Every sound goes through a group (bus); a group mixes its own sounds and child groups, multiplies them by its fader and passes them to its parent
+group. The root is **Master**. The main groups: `Master`, `Music`, `SFX`, `UI` (`AudioSettings::Master` ...,
+they cannot be deleted); a project adds its own (for example `Ambience` → inside `SFX`: when SFX goes down, it goes down too).
 
-**Oyna > Audio Mixer**: har guruh uchun kanal tasmasi — fader (dB, +6 dB gacha), **mute**, **solo** (faqat shu guruh va
-bolalari eshitiladi; saqlanmaydi), filtr tugmasi (`LP 450` kabi yozuv), post-fader daraja o'lchagich (stereo, cho'qqi
-ushlab turish). O'ng tugma — guruh qo'shish / o'chirish / ota guruhini o'zgartirish. Yuqorida — hozir chalinayotgan
-musiqa (pauza, to'xtatish), **Sozlamalar** — ovozlar limiti, streaming chegarasi, Doppler koeffitsiyenti.
+**Window > Audio Mixer**: a channel strip for every group — a fader (dB, up to +6 dB), **mute**, **solo** (only this group and
+its children are heard; not saved), a filter button (a label like `LP 450`), a post-fader level meter (stereo, with peak
+hold). Right-click — add / delete a group / change its parent group. At the top — the music playing now
+(pause, stop), **Settings** — the voice limit, the streaming threshold, the Doppler factor.
 
-- **Tahrir rejimida** o'zgarishlar loyiha standarti (`.zproject` dagi `"Audio"`), **o'yin davomida** — faqat shu o'yin
-  uchun ("O'yin davomida: o'zgarishlar faqat shu o'yin uchun"); **Standart qilib saqlash** ularni loyihaga yozadi.
-  Editor o'yin to'xtaganda mixerni loyiha standartiga qaytaradi.
-- Xuddi shu sozlamalar *Loyiha sozlamalari > Audio* da ham.
+- In **edit mode** the changes are the project default (`"Audio"` in the `.zproject`), **during play** — for this run
+  only ("While playing: changes are for this run only"); **Save as default** writes them to the project.
+  The editor returns the mixer to the project default when the game stops.
+- The same settings are in *Project settings > Audio* too.
 
-Skriptdan (`Audio` klassi; noma'lum guruh — `false`):
+From a script (the `Audio` class; an unknown group — `false`):
 
 ```cpp
-Audio::SetGroupVolume("SFX", 0.5f);              // chiziqli: 0 - jim, 1 - o'zgarishsiz, 2 - +6 dB
+Audio::SetGroupVolume("SFX", 0.5f);              // linear: 0 - silent, 1 - unchanged, 2 - +6 dB
 float v = Audio::GetGroupVolume("Music");
 Audio::SetGroupMuted("Music", !Audio::IsGroupMuted("Music"));
 if (Audio::HasGroup("Ambience")) { /* ... */ }
-Audio::ResetMixer();                             // loyiha sozlagan holatiga
+Audio::ResetMixer();                             // to the state the project set
 
-// dB bilan (Showcase3D AudioOptions): Music'ni 3 dB pasaytirish
+// In dB (Showcase3D AudioOptions): lowering Music by 3 dB
 float db = AudioGain::ToDecibels(Audio::GetGroupVolume("Music")) - 3.0f;
 Audio::SetGroupVolume("Music", db <= AudioGain::MinDecibels ? 0.0f : AudioGain::FromDecibels(db));
 ```
 
-Past daraja: `AudioEngine::SetGroupSolo`, `GetGroupEffectiveVolume` (ota guruhlar bilan), `GetGroupLevel` (o'lchagich),
+The lower level: `AudioEngine::SetGroupSolo`, `GetGroupEffectiveVolume` (with the parent groups), `GetGroupLevel` (the meter),
 `GetMixerSettings()` / `SetMixerSettings(...)` (`AudioSettings`: `Groups`, `StreamThresholdMB`, `MaxVoices`,
 `DopplerFactor`, `Spatial`).
 
 ---
 
-## 7. Musiqa
+## 7. Music
 
-Musiqa — **Music** guruhida, doim diskdan oqim bilan, bir vaqtda bitta trek. U o'yinga tegishli, sahnaga emas:
-`LoadScene` dan keyin ham davom etadi (editor Play to'xtaganda to'xtatadi).
+Music is in the **Music** group, always streamed from disk, one track at a time. It belongs to the game, not to the scene:
+it goes on after `LoadScene` too (the editor stops it when Play stops).
 
-| Funksiya | Nima qiladi |
+| Function | What it does |
 |---|---|
-| `Audio::PlayMusic(path, fadeSeconds = 0.5, loop = true)` | trekni so'nib kirgizadi; boshqa trek chalinayotgan bo'lsa avval u so'nadi; shu trek chalinayotgan bo'lsa davom etadi |
-| `Audio::CrossfadeTo(path, seconds = 2, loop = true)` | eskisi so'nayotganda yangisi kiradi (teng quvvatli crossfade) |
-| `Audio::StopMusic(fadeSeconds = 0.5)` | so'nib to'xtaydi |
+| `Audio::PlayMusic(path, fadeSeconds = 0.5, loop = true)` | fades the track in; when another track is playing it fades out first; when this track is playing it goes on |
+| `Audio::CrossfadeTo(path, seconds = 2, loop = true)` | the new one comes in while the old one fades out (an equal-power crossfade) |
+| `Audio::StopMusic(fadeSeconds = 0.5)` | fades out and stops |
 | `Audio::PauseMusic()`, `ResumeMusic()`, `IsMusicPaused()`, `IsMusicPlaying()` | |
-| `Audio::GetMusic()` | joriy trek yo'li (`""` — yo'q) |
-| `Audio::SetMusicVolume(v)` / `GetMusicVolume()` | musiqaning o'z balandligi, Music faderi ustidan (dialog paytida pasaytirish) |
+| `Audio::GetMusic()` | the current track path (`""` — none) |
+| `Audio::SetMusicVolume(v)` / `GetMusicVolume()` | the music's own volume, on top of the Music fader (lowering it during dialogue) |
 
-Showcase3D `MusicDirector` — tinglovchi qaysi zonada bo'lsa o'sha trek (qisqartirilgan):
+Showcase3D `MusicDirector` — the track of whichever zone the listener is in (shortened):
 
 ```cpp
 class MusicDirector : public ScriptableEntity
@@ -295,7 +295,7 @@ public:
         if (!listener)
             return;
         const float x = GetScene().GetWorldPosition(listener).x;
-        const int zone = x < Border - 0.5f ? 0 : x > Border + 0.5f ? 1 : m_Zone;   // chegarada kichik o'lik zona
+        const int zone = x < Border - 0.5f ? 0 : x > Border + 0.5f ? 1 : m_Zone;   // a small dead zone at the border
         if (zone != m_Zone)
         {
             m_Zone = zone;
@@ -312,77 +312,77 @@ ZM_REGISTER_SCRIPT(MusicDirector, ZM_FIELD(MusicDirector, CalmTrack), ZM_FIELD(M
                    ZM_FIELD(MusicDirector, Crossfade), ZM_FIELD(MusicDirector, Border))
 ```
 
-Loop'li musiqa uchun "intro + takrorlanuvchi qism" — fayl import sozlamalaridagi takrorlash oralig'i
-([14-bo'lim](#14-audio-fayllar-va-import-sozlamalari)).
+For looping music with "an intro + a repeating part" — the loop region in the file's import settings
+([section 14](#14-audio-files-and-import-settings)).
 
 ---
 
-## 8. So'nish (fade)
+## 8. Fades
 
-- Audio Source'ning **Kirish (fade in)** / **Chiqish (fade out)** (soniya): har ijro jimdan asta boshlanadi, to'xtatilganda
-  (`StopAudio`, obyekt o'chirilsa yoki yo'q qilinsa) birdan uzilmaydi. To'xtatilgan manba darhol bo'shaydi
-  (`IsAudioPlaying()` false, `PlayAudio` yangidan boshlaydi), ovozning o'zi so'nib tugaydi; limit to'lsa birinchi bo'lib
-  so'nayotganlar o'rin beradi.
-- Skriptda o'z vaqti bilan: `PlayAudio(1.5f)`, `StopAudio(2.0f)`.
-- **Pasaytirish (ducking)**: `FadeAudio(0.3f, 0.5f)` — chalinayotgan ovoz 0.5 s da 30% ga (dialog paytida), `GetAudioFade()`
-  — joriy daraja; inspektorda jonli ko'rinadi.
-- Bir martalik ovozlar: `SoundParams::FadeIn`, `AudioEngine::Stop(handle, seconds)`, `AudioEngine::FadeTo(handle, volume,
+- The Audio Source's **Fade in** / **Fade out** (seconds): every play starts slowly from silence, and when it is stopped
+  (`StopAudio`, the entity turned off or destroyed) it is not cut off abruptly. A stopped source is free at once
+  (`IsAudioPlaying()` false, `PlayAudio` starts anew), while the sound itself fades out; when the limit is reached, the ones fading out
+  give way first.
+- With your own time in a script: `PlayAudio(1.5f)`, `StopAudio(2.0f)`.
+- **Ducking**: `FadeAudio(0.3f, 0.5f)` — the playing sound goes to 30% in 0.5 s (during dialogue), `GetAudioFade()`
+  — the current level; shown live in the inspector.
+- One-shot sounds: `SoundParams::FadeIn`, `AudioEngine::Stop(handle, seconds)`, `AudioEngine::FadeTo(handle, volume,
   seconds)`, `Audio::StopSound(handle, seconds)`.
 
 ---
 
-## 9. Low-pass / high-pass filtrlar
+## 9. Low-pass / high-pass filters
 
-`AudioFilterSettings`: `LowPass` + `LowPassCutoff` (Hz — undan yuqorisi bo'g'iladi: devor ortida, suv ostida, uzoqda) va
-`HighPass` + `HighPassCutoff` (undan pastini kesadi: radio, telefon, kichik karnay), har biri 12 dB / oktava; kesish
-chastotasi o'zgarsa ~30 ms da silliq siljiydi (chiqillamaydi). Ikki joyda:
+`AudioFilterSettings`: `LowPass` + `LowPassCutoff` (Hz — what is above it is muffled: behind a wall, under water, far away) and
+`HighPass` + `HighPassCutoff` (cuts what is below it: a radio, a phone, a small speaker), each 12 dB / octave; when the cutoff
+frequency changes it glides smoothly over ~30 ms (no clicks). In two places:
 
-- **Audio Source** (va `SoundParams::Filter`) — faqat shu ovozga: `SetAudioLowPass(600.0f)`, `SetAudioHighPass(...)`
-  (0 — o'chirish);
-- **mixer guruhi** — guruhning hamma ovozlari va bola guruhlariga: `Audio::SetGroupLowPass("SFX", 500.0f)`,
-  `SetGroupHighPass`, `SetGroupFilter` / `GetGroupFilter`; Audio Mixer tasmasidagi filtr tugmasi. Guruh filtri loyiha
-  mixeri bilan `.zproject` ga saqlanadi.
+- **Audio Source** (and `SoundParams::Filter`) — only for this sound: `SetAudioLowPass(600.0f)`, `SetAudioHighPass(...)`
+  (0 — off);
+- **a mixer group** — for all the sounds and child groups of the group: `Audio::SetGroupLowPass("SFX", 500.0f)`,
+  `SetGroupHighPass`, `SetGroupFilter` / `GetGroupFilter`; the filter button on the Audio Mixer strip. A group filter is saved
+  with the project mixer to the `.zproject`.
 
-Suv ostida hamma narsa bo'g'iladi (Showcase3D `UnderwaterZone`):
+Under water everything is muffled (Showcase3D `UnderwaterZone`):
 
 ```cpp
 void Apply(bool underwater)
 {
-    Audio::SetGroupLowPass("SFX", underwater ? 450.0f : 0.0f);     // Ambience (SFX bolasi) ham
+    Audio::SetGroupLowPass("SFX", underwater ? 450.0f : 0.0f);     // Ambience (a child of SFX) too
     Audio::SetGroupLowPass("Music", underwater ? 800.0f : 0.0f);
 }
-// Mixer o'yinniki: sahna tugaganda filtr qolib ketmasin.
+// The mixer belongs to the game: the filter must not stay on when the scene ends.
 void OnDestroy() override { if (m_Inside) Apply(false); }
 ```
 
-Pauza menyusi musiqani bo'g'adi va yopilganda eski filtrni qaytaradi (Platformer2D `PauseMenu`):
+The pause menu muffles the music and gives the old filter back when it closes (Platformer2D `PauseMenu`):
 
 ```cpp
-m_MusicFilter = Audio::GetGroupFilter("Music");   // ochilganda
+m_MusicFilter = Audio::GetGroupFilter("Music");   // when it opens
 Audio::SetGroupLowPass("Music", MusicMuffle);
 // ...
-Audio::SetGroupFilter("Music", m_MusicFilter);    // yopilganda
+Audio::SetGroupFilter("Music", m_MusicFilter);    // when it closes
 ```
 
 ---
 
-## 10. Ovozlar limiti va tasodifiy variatsiya
+## 10. The voice limit and random variation
 
-**Ovozlar limiti** — loyiha bo'yicha bir vaqtda chalinadigan ovozlar (`AudioSettings::MaxVoices`, standart 64; musiqa
-kirmaydi; *Audio Mixer > Sozlamalar*). Limit to'lsa yangi ovoz `Priority` si (0 ... 255) pastroq ovoz o'rnini oladi; tenglar
-orasida manbaning **Limit to'lsa** qoidasi (`AudioStealPolicy`):
+**The voice limit** — the sounds that play at the same time per project (`AudioSettings::MaxVoices`, 64 by default; the music
+does not count; *Audio Mixer > Settings*). When the limit is reached, a new sound takes the place of a sound with a lower `Priority` (0 ... 255); between
+equals the source's **When the limit is reached** rule decides (`AudioStealPolicy`):
 
-| Qoida | Nima bo'ladi |
+| Rule | What happens |
 |---|---|
-| `Oldest` (**Eng eskisi to'xtaydi**) | eng oldin boshlangani to'xtaydi |
-| `Quietest` (**Eng past eshitilgani to'xtaydi**) | hozir eng past eshitilayotgani (balandlik x guruh x masofa) |
-| `None` (**Yangisi ijro etilmaydi**) | hech biri to'xtamaydi, yangisi chalinmaydi |
+| `Oldest` (**Oldest stops**) | the one that started first stops |
+| `Quietest` (**Quietest stops**) | the one heard quietest right now (volume x group x distance) |
+| `None` (**New one is not played**) | none stops, the new one does not play |
 
-`MaxInstances` — **bitta faylning** bir vaqtdagi nusxalari (masalan 20 dushman o'kirsa ham 3 tasi eshitiladi). Limit
-to'lganda konsolda: `The voice limit (64) is full: new sounds are not played (Audio Mixer > Settings)`.
+`MaxInstances` — the simultaneous copies of **one file** (for example even when 20 enemies roar, 3 are heard). When the limit
+is full the console says: `The voice limit (64) is full: new sounds are not played (Audio Mixer > Settings)`.
 
-**Tasodifiy variatsiya** — `VolumeRandom` / `PitchRandom` (x = min, y = max): har ijroda yangi ko'paytuvchi, qayta-qayta
-chalinadigan ovoz (qadam, zarba) bir xil eshitilmaydi. `AudioEngine::SetRandomSeed(seed)` — takrorlanuvchi (testlar).
+**Random variation** — `VolumeRandom` / `PitchRandom` (x = min, y = max): a new multiplier on every play, so a sound played
+again and again (a step, a hit) does not sound the same. `AudioEngine::SetRandomSeed(seed)` — repeatable (tests).
 Showcase3D `ChimeRinger`:
 
 ```cpp
@@ -393,8 +393,8 @@ chime.MinDistance = 1.5f;
 chime.MaxDistance = 12.0f;
 chime.PitchRandom = { 0.75f, 1.35f };
 chime.VolumeRandom = { 0.55f, 1.0f };
-chime.MaxInstances = 3;                        // bir vaqtda 3 tagacha
-chime.Steal = AudioStealPolicy::Quietest;      // to'rtinchisi eng past eshitilganining o'rnini oladi
+chime.MaxInstances = 3;                        // up to 3 at the same time
+chime.Steal = AudioStealPolicy::Quietest;      // the fourth takes the place of the quietest
 chime.Priority = 100;
 if (uint32_t handle = PlaySound("Audio/Chime.wav", chime))
     m_Handles.push_back(handle);
@@ -402,201 +402,201 @@ if (uint32_t handle = PlaySound("Audio/Chime.wav", chime))
 
 ---
 
-## 11. Ambient zonalar
+## 11. Ambient zones
 
-**Ambient Zone** (`AmbientZoneComponent`) — hajm ichida eshitiladigan takrorlanuvchi fon ovozi: o'rmon, g'or, yomg'ir,
-olomon.
+**Ambient Zone** (`AmbientZoneComponent`) — a looping background sound heard inside a volume: a forest, a cave, rain,
+a crowd.
 
-| Maydon | Ma'nosi |
+| Field | Meaning |
 |---|---|
-| `Path`, `Volume`, `Pitch`, `Output`, `Stream`, `Priority` | ovoz (doim takrorlanadi) |
-| `Shape`: `Box` (`Size` — to'liq o'lcham) / `Sphere` (`Radius`) | hajm, obyekt masshtabi va aylanishi bilan |
-| `BlendDistance` | chetdan tashqarida shu masofada asta so'nadi |
-| `FadeTime` | darajaning eng tez o'zgarishi (teleport, zona yoqilishi silliq) |
+| `Path`, `Volume`, `Pitch`, `Output`, `Stream`, `Priority` | the sound (it always loops) |
+| `Shape`: `Box` (`Size` — the full size) / `Sphere` (`Radius`) | the volume, with the entity's scale and rotation |
+| `BlendDistance` | it fades slowly over this distance outside the edge |
+| `FadeTime` | the fastest change of the level (a teleport, a zone being turned on are smooth) |
 
-Tinglovchi ichida bo'lsa ovoz to'liq va joylashuvsiz (atrofdan), tashqarida aralashish masofasida so'nadi. Ovoz eshitila
-boshlaganda ishga tushadi, jim bo'lganda to'xtaydi — uzoqdagi zonalar ovozlar limitini egallamaydi. Bir nechta zona birga
-eshitiladi. Viewport'da hajm va aralashish chegarasi, inspektorda jonli daraja. Skriptdan:
-`GetScene().GetAmbientZoneLevel(entity)` (0 ... 1, hozir eshitilayotgani), komponentning `Target`, `Level`, `Distance`
-maydonlari, `Scene::GetAmbientZoneWeight(zone, world, point)` (istalgan nuqta uchun).
+When the listener is inside, the sound is full and without a position (all around), and outside it fades over the blend distance. The sound
+starts when it becomes audible and stops when it goes silent — distant zones do not take up the voice limit. Several zones are heard
+together. In the viewport the volume and the blend boundary, in the inspector the live level. From a script:
+`GetScene().GetAmbientZoneLevel(entity)` (0 ... 1, what is heard now), the component's `Target`, `Level`, `Distance`
+fields, `Scene::GetAmbientZoneWeight(zone, world, point)` (for any point).
 
 ---
 
-## 12. Qadam tovushlari
+## 12. Footsteps
 
-**Footsteps** (`FootstepsComponent`) animatsiya event'ini (`EventName`, standart `Footstep`) eshitib, `Sounds`
-ro'yxatidan tasodifiysini chaladi (ketma-ket takrorlanmaydi): Animator'ning tezlik parametri (`SpeedParameter`) bo'yicha
-tezroq yurganda balandroq va yuqoriroq tonda (`ReferenceSpeed`, `SpeedVolume`, `SpeedPitch`), `MinSpeed` dan sekinda jim,
-`MinInterval` dan yaqin qadamlar bitta; 3D, mixer guruhi bilan. Batafsil: [Animation.md](Animation.md#9-eventlar).
-Namuna: Adventure3D roboti (`Audio/Step1.wav` ... `Step4.wav`).
+**Footsteps** (`FootstepsComponent`) listens to an animation event (`EventName`, `Footstep` by default) and plays a random one from the
+`Sounds` list (no immediate repeats): by the Animator's speed parameter (`SpeedParameter`) it is louder and higher pitched
+when walking faster (`ReferenceSpeed`, `SpeedVolume`, `SpeedPitch`), silent below `MinSpeed`, and steps closer than
+`MinInterval` count as one; 3D, with a mixer group. More: [Animation.md](Animation.md#9-eventlar).
+Sample: the Adventure3D robot (`Audio/Step1.wav` ... `Step4.wav`).
 
 ---
 
-## 13. Ovoz tugashi: OnSoundFinished
+## 13. A sound finishing: OnSoundFinished
 
-Obyektning ovozi **o'zi** tugaganda (takrorlanmaydigan Audio Source yoki shu skriptning `PlaySound` / `PlaySoundAt`
-ovozi) skript `OnSoundFinished(const SoundFinished&)` oladi — asosiy oqimda, xavfsiz:
+When an entity's sound finishes **by itself** (a non-looping Audio Source, or a `PlaySound` / `PlaySoundAt` sound of this
+script), the script gets `OnSoundFinished(const SoundFinished&)` — on the main thread, safely:
 
-| `SoundFinished` maydoni | Ma'nosi |
+| `SoundFinished` field | Meaning |
 |---|---|
-| `Handle`, `Clip` | ovoz handle'i, fayl yo'li |
-| `Source` | ovoz qaysi obyektniki |
-| `FromAudioSource` | Audio Source'niki (`false` — skriptning `PlaySound` i) |
-| `Stolen` | oxirigacha chalinmadi: ovozlar limiti uni boshqasi uchun to'xtatdi |
+| `Handle`, `Clip` | the sound handle, the file path |
+| `Source` | which entity the sound belongs to |
+| `FromAudioSource` | an Audio Source's (`false` — the script's `PlaySound`) |
+| `Stolen` | it did not play to the end: the voice limit stopped it for another one |
 
-Boshqa skriptlar event bus'da `Subscribe("SoundFinished", ...)` bilan eshitadi. Dvigatelda:
-`AudioEngine::TakeFinishedSounds()`. Showcase3D `PaAnnouncer` — karnay e'loni tugagach tanaffus va keyingisi
-(soddalashtirilgan):
+Other scripts hear it on the event bus with `Subscribe("SoundFinished", ...)`. In the engine:
+`AudioEngine::TakeFinishedSounds()`. Showcase3D `PaAnnouncer` — after a loudspeaker announcement finishes, a break and then the next one
+(simplified):
 
 ```cpp
 void OnSoundFinished(const SoundFinished& sound) override
 {
     if (!sound.Stolen)
         m_Count++;
-    Invoke(Pause, [this]() { PlayAudio(); });   // Pause soniyadan keyin yana
+    Invoke(Pause, [this]() { PlayAudio(); });   // again after Pause seconds
 }
 ```
 
 ---
 
-## 14. Audio fayllar va import sozlamalari
+## 14. Audio files and import settings
 
-Kontent brauzerda audio fayl tanlansa **asset inspektori** ochiladi:
+When an audio file is selected in the content browser, the **asset inspector** opens:
 
-- **To'lqin shakli**: g'ildirak — kattalashtirish (sichqoncha atrofida), Shift + g'ildirak / o'rta tugma — surish, pastda
-  butun ovoz chizig'i, vaqt o'lchagichi; bosib / sudrab **scrub** (shu joydan ijro), ijro kursori; **takrorlash oralig'i** —
-  Shift + sudrash bilan belgilanadi, chetlari sudraladi, o'ng tugma menyusi. Ijro / to'xtatish, takrorlash, balandlik.
-- Ma'lumot: format, davomiylik, kanallar, chastota, bitreyt, fayl qanday o'qilishi (oqim yoki xotira) va yechilgan ovoz
-  xotirada qancha joy olishi; **Ishlatilgan joylar**.
-- **Import sozlamalari** (`.zmeta` dagi `"Import"`, `AudioClipSettings`), **Qo'llash** bilan saqlanadi va darhol qo'llanadi:
+- **The waveform**: the wheel — zoom (around the mouse), Shift + wheel / the middle button — pan, below it a bar of the
+  whole sound, a time ruler; click / drag to **scrub** (play from that place), a playback cursor; **the loop region** —
+  marked with Shift + drag, its edges can be dragged, a right-click menu. Play / stop, loop, volume.
+- Information: the format, duration, channels, sample rate, bitrate, how the file is read (stream or memory) and how much memory
+  the decoded sound takes; **Used by**.
+- **Import settings** (`"Import"` in the `.zmeta`, `AudioClipSettings`), saved with **Apply** and applied at once:
 
-| Kalit | Ma'nosi |
+| Key | Meaning |
 |---|---|
-| `LoadMode`: `Auto` / `Decompress` / `Stream` (`AudioLoadMode`) | avtomatik (hajmiga qarab) / doim xotiraga yechish (qisqa, tez-tez chalinadigan) / doim diskdan oqim (uzun musiqa) |
-| `Preload` | sahna boshlanganda (yoki birinchi ijroda) yechilib xotirada qoladi — birinchi ijro kutmaydi |
-| `Volume` | faylning o'z balandligi (baland yozilgan faylni muvozanatlash) |
-| `LoopStart`, `LoopEnd` | takrorlash oralig'i: takrorlanadigan ovoz boshidan `LoopEnd` gacha, keyin `LoopStart` dan qayta-qayta (intro + loop) |
+| `LoadMode`: `Auto` / `Decompress` / `Stream` (`AudioLoadMode`) | automatic (by size) / always decode into memory (short, frequently played) / always stream from disk (long music) |
+| `Preload` | decoded when the scene starts (or on the first play) and kept in memory — the first play does not wait |
+| `Volume` | the file's own volume (balancing a file recorded too loud) |
+| `LoopStart`, `LoopEnd` | the loop region: a looping sound plays from the start to `LoopEnd`, then again and again from `LoopStart` (intro + loop) |
 
 ```json
 "Import": { "LoadMode": "Stream", "Preload": false, "Volume": 1.0, "LoopStart": 1.5, "LoopEnd": 9.0 }
 ```
 
-Skriptdan: `Audio::GetClipLength("Audio/MusicCalm.wav")` (soniya), `Audio::GetClipInfo(path)` (`AudioFileInfo`),
-`Audio::Preload(path)` / `Unload(path)` / `IsPreloaded(path)`. Fayl o'zgarsa oldindan yuklangani qayta yechiladi.
-Eksport qilingan o'yin ham shu sozlamalar bilan yuklaydi.
+From a script: `Audio::GetClipLength("Audio/MusicCalm.wav")` (seconds), `Audio::GetClipInfo(path)` (`AudioFileInfo`),
+`Audio::Preload(path)` / `Unload(path)` / `IsPreloaded(path)`. When the file changes, a preloaded one is decoded again.
+An exported game loads with these settings too.
 
 ---
 
-## 15. O'yinchi ovoz sozlamalari
+## 15. The player's sound settings
 
-O'yin menyusidagi ovoz slayderlari uchun: `Audio::SaveSettings()` mixer guruhlarining fader / mute holatini va musiqa
-balandligini **SaveData** ga (kalit `Audio::SettingsKey` = `"Zamin.Audio"`) — loyiha standartidan alohida — yozadi. O'yin
-boshlanganda (player va editorda Play) ular avtomatik yuklanadi. `Audio::LoadSettings()`, `HasSavedSettings()`,
-`ClearSavedSettings()` (loyiha mixeriga qaytish).
+For the sound sliders in a game menu: `Audio::SaveSettings()` writes the fader / mute state of the mixer groups and the music
+volume to **SaveData** (the key `Audio::SettingsKey` = `"Zamin.Audio"`) — separately from the project default. When the game
+starts (in the player and with Play in the editor) they are loaded automatically. `Audio::LoadSettings()`, `HasSavedSettings()`,
+`ClearSavedSettings()` (back to the project mixer).
 
-Platformer2D pauza menyusi (`Projects/Platformer2D/Source/PauseMenu.cpp`, qisqartirilgan) — slayderlar guruhlarga ulangan:
+The Platformer2D pause menu (`Projects/Platformer2D/Source/PauseMenu.cpp`, shortened) — the sliders are connected to the groups:
 
 ```cpp
 Subscribe("UISliderChanged", [this](const ScriptMessage& m) {
-    if (const char* group = GroupOf(m.Sender))          // Music / SFX / UI slayderi
+    if (const char* group = GroupOf(m.Sender))          // a Music / SFX / UI slider
     {
         Audio::SetGroupVolume(group, m.Get<float>());
         m_Changed = true;
     }
 });
-// Menyu ochilganda slayderlar joriy qiymatlarni ko'rsatadi:
+// When the menu opens the sliders show the current values:
 GetScene().SetSliderValue(slider, Audio::GetGroupVolume(group), false);
-// Yopilganda:
+// When it closes:
 if (m_Changed)
     Audio::SaveSettings();
 ```
 
-UI slayderlari haqida: [UI.md](UI.md).
+About UI sliders: [UI.md](UI.md).
 
 ---
 
-## 16. Profiler va ko'rinishlar
+## 16. The profiler and views
 
-- **Statistika oynasi** (*Oyna > Statistika*), **Audio** bo'limi: faol ovozlar / limit (to'lishiga qarab rang), so'nggi 240
-  kadr grafigi (limit chizig'i bilan), cho'qqi, ovoz turlari (ijroda / pauza / so'nmoqda, 3D, oqim, filtrli, musiqa,
-  oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli
-  to'xtatilgan / ijro etilmagan, daraja). Hisoblagichlar Play boshlanganda nollanadi.
-- Viewport **statistika overlay**'ida (o'ng tugma) **Audio** bo'limi.
+- **The Statistics window** (*Window > Statistics*), the **Audio** section: active voices / the limit (colored by how full it is), a graph of
+  the last 240 frames (with the limit line), the peak, the kinds of sounds (playing / paused / fading, 3D, streamed, filtered, music,
+  preloaded files) and a table **by mixer group** (on its own / with the child groups, stopped / not played because of the
+  limit, the level). The counters are reset when Play starts.
+- The **Audio** section in the viewport's **statistics overlay** (right-click).
 - API: `AudioEngine::GetProfile()` (`AudioProfile`, `Format()`), `ResetProfileCounters()`, `GetVoiceHistory()`,
   `GetVoiceStats()`.
-- Player: `ZAMIN_PLAYER_STATS=1` chiqishda, **F10** istalgan payt audio profilini logga yozadi.
-- Editor avtomatlashtirish: `ZAMIN_EDITOR_AUDIO_MIXER=1` — Audio Mixer oynasi ochiladi (skrinshotlar uchun,
+- Player: `ZAMIN_PLAYER_STATS=1` on exit, and **F10** at any time writes the audio profile to the log.
+- Editor automation: `ZAMIN_EDITOR_AUDIO_MIXER=1` — the Audio Mixer window opens (for screenshots,
   [Editor.md](Editor.md#15-automation-screenshots-ci)).
 
 ---
 
-## 17. Namuna sahnalar
+## 17. Sample scenes
 
-Showcase3D `Scenes/Audio.zscene` — tizimning hammasi bir joyda (`Projects/Showcase3D/Source/Showcase.cpp`):
+Showcase3D `Scenes/Audio.zscene` — the whole system in one place (`Projects/Showcase3D/Source/Showcase.cpp`):
 
-| Joy | Nima | Skript / tugmalar |
+| Place | What | Script / keys |
 |---|---|---|
-| Tinch (yashil) va xavfli (qizil) zonalar | musiqa crossfade, Music mute / pauza / to'xtatish, UI guruhidagi signal | `MusicDirector`: 1 / 2, M, P, S |
-| Ziyoratgoh | Ambience guruhidagi g'uvillash | `ChimeRinger`: H — pauza |
-| Uchuvchi dron | Doppler x2 | `DopplerFlyby` |
-| Shamol qo'ng'iroqchalari | tasodifiy ton / balandlik, bir vaqtda 3 tasi | `ChimeRinger` |
-| Radio | FadeIn / FadeOut, high-pass + low-pass | `RadioToggle`: R, T, G |
-| Suv havzasi | SFX va Music guruhlarining low-pass'i | `UnderwaterZone` |
-| Ustundagi karnay | yo'nalish konusi, `OnSoundFinished` | `PaAnnouncer` |
-| O'rmon | Ambient Zone | `AmbientZoneLabel` |
-| Sozlamalar | Music balandligi, SFX mute, saqlash | `AudioOptions`: - / =, N, 9, 0 |
+| The calm (green) and dangerous (red) zones | music crossfade, Music mute / pause / stop, a signal in the UI group | `MusicDirector`: 1 / 2, M, P, S |
+| The shrine | the hum in the Ambience group | `ChimeRinger`: H — pause |
+| The flying drone | Doppler x2 | `DopplerFlyby` |
+| The wind chimes | random pitch / volume, 3 at the same time | `ChimeRinger` |
+| The radio | FadeIn / FadeOut, high-pass + low-pass | `RadioToggle`: R, T, G |
+| The pool | the low-pass of the SFX and Music groups | `UnderwaterZone` |
+| The loudspeaker on the pole | the direction cone, `OnSoundFinished` | `PaAnnouncer` |
+| The forest | Ambient Zone | `AmbientZoneLabel` |
+| Settings | the Music volume, SFX mute, saving | `AudioOptions`: - / =, N, 9, 0 |
 
-Boshqalar: Adventure3D (`Footsteps`, darvoza g'ichirlashi — `ProximityDoor`), Platformer2D (`PauseMenu` va `GameMenu` ovoz
-slayderlari, `Audio/SessionTheme.wav`).
+Others: Adventure3D (`Footsteps`, the gate creak — `ProximityDoor`), Platformer2D (the sound sliders of `PauseMenu` and `GameMenu`,
+`Audio/SessionTheme.wav`).
 
 ---
 
-## 18. Ko'p uchraydigan muammolar
+## 18. Common problems
 
-| Belgi | Sabab va yechim |
+| Symptom | Cause and solution |
 |---|---|
-| Hech narsa eshitilmaydi, konsolda `No audio device found - sound is off` | Tizimda audio qurilma yo'q (server, CI) — kutilgan holat |
-| Fayl chalinmaydi, kontent brauzerda qizil belgi | Fayl o'qilmadi: `.ogg` — dekoder yo'q, WAV / MP3 / FLAC ishlating; aks holda sabab asset inspektorida (**Qayta urinish**) |
-| `Unknown audio group 'X' - the sound plays in the SFX group` | `Output` yoki `PlaySound` guruhi mixerda yo'q — Audio Mixer'da qo'shing yoki nomni to'g'rilang |
-| `The voice limit (...) to'ldi ...` | Bir vaqtda juda ko'p ovoz: `MaxInstances`, `Priority`, limitni sozlang |
-| 3D ovoz juda past / umuman eshitilmaydi | Tinglovchi uzoqda (`MaxDistance`, masofa modeli `Linear` bo'lsa max masofada jim), tinglovchi yo'q va asosiy kamera ham yo'q, yoki boshqa Audio Listener ustuvorroq |
-| Musiqa sahna almashganda to'xtamaydi | Shunday bo'lishi kerak — musiqa o'yinniki; `Audio::StopMusic()` |
-| Pauza menyusida o'yin ovozlari davom etadi | `PauseGame()` ovozlarni to'xtatmaydi — `PauseAudio` yoki guruh filtri / mute |
-| Uzun fayl birinchi ijroda kechikadi | `Preload` yoki `Stream` yuklash usuli |
-| Saqlangan sozlamalar ishlamaydi: `The saved audio settings could not be read (...)` | SaveData'dagi yozuv buzilgan — `Audio::ClearSavedSettings()` |
+| Nothing is heard, the console says `No audio device found - sound is off` | The system has no audio device (a server, CI) — expected |
+| A file does not play, a red marker in the content browser | The file could not be read: `.ogg` — no decoder, use WAV / MP3 / FLAC; otherwise the reason is in the asset inspector (**Retry**) |
+| `Unknown audio group 'X' - the sound plays in the SFX group` | The `Output` or `PlaySound` group is not in the mixer — add it in the Audio Mixer or fix the name |
+| `The voice limit (...) is full ...` | Too many sounds at the same time: set `MaxInstances`, `Priority`, the limit |
+| A 3D sound is very quiet / not heard at all | The listener is far away (`MaxDistance`; with the `Linear` distance model it is silent at the max distance), there is no listener and no main camera either, or another Audio Listener has a higher priority |
+| The music does not stop when the scene changes | That is how it should be — the music belongs to the game; `Audio::StopMusic()` |
+| The game sounds go on in the pause menu | `PauseGame()` does not stop sounds — `PauseAudio` or a group filter / mute |
+| A long file is late on its first play | The `Preload` or `Stream` load mode |
+| The saved settings do not work: `The saved audio settings could not be read (...)` | The SaveData entry is broken — `Audio::ClearSavedSettings()` |
 
 ---
 
-## 19. Testlar
+## 19. Tests
 
-Audio testlari qurilmasiz ishlaydi (`AudioEngine::Init(true)`, `RenderOffline`):
+The audio tests run without a device (`AudioEngine::Init(true)`, `RenderOffline`):
 
 ```bash
 ./build/bin/ZaminTests "Audio*:Footsteps*:InactiveAudioSourcesStop:PauseInBackgroundAudioOutput"
 ```
 
-Asosiylari: `AudioMixerGroupMath`, `AudioMixerGroupsDeviceless`, `AudioMusicCrossfade`, `AudioListenerSelection`,
+The main ones: `AudioMixerGroupMath`, `AudioMixerGroupsDeviceless`, `AudioMusicCrossfade`, `AudioListenerSelection`,
 `AudioRandomVariation`, `AudioVoiceLimit`, `AudioSourceScriptControl`, `AudioDoppler`, `AudioFilterMath`,
 `AudioFiltersDeviceless`, `AudioFades`, `AudioClipImportSettings`, `AudioPlayerSettingsSaveLoad`, `AudioProfiler`,
 `AudioWaveformViewAndLoopRegion`, `AudioDirectionalCone`, `AudioAmbientZones`, `AudioOnSoundFinished`,
-`AudioSpatialDefaults`, `AudioSampleScene`, `FootstepsFromAnimationEvents`. Katalog: [Testing.md](Testing.md).
+`AudioSpatialDefaults`, `AudioSampleScene`, `FootstepsFromAnimationEvents`. The catalogue: [Testing.md](Testing.md).
 
 ---
 
-## 20. Qisqa API ma'lumotnomasi
+## 20. A short API reference
 
-| Nima | API |
+| What | API |
 |---|---|
-| Komponentlar | `AudioSourceComponent`, `AudioListenerComponent` (`Enabled`, `Priority`, `TrackVelocity`), `AmbientZoneComponent`, `FootstepsComponent` |
-| Bir martalik (skript) | `PlaySound(path, volume, pitch, group)`, `PlaySound(path, SoundParams)`, `PlaySoundAt(path, position, ...)` → handle |
-| Audio Source (skript) | `PlayAudio`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `IsAudioPlaying`, `IsAudioPaused`, `SetAudioVolume`, `GetAudioVolume`, `SetAudioPitch`, `GetAudioPitch`, `GetAudioTime`, `SetAudioTime`, `GetAudioLength`, `FadeAudio`, `GetAudioFade`, `SetAudioLowPass`, `SetAudioHighPass` |
-| Callback | `OnSoundFinished(const SoundFinished&)`; event bus `"SoundFinished"` |
-| Musiqa | `Audio::PlayMusic`, `CrossfadeTo`, `StopMusic`, `PauseMusic`, `ResumeMusic`, `IsMusicPaused`, `IsMusicPlaying`, `GetMusic`, `SetMusicVolume`, `GetMusicVolume` |
+| Components | `AudioSourceComponent`, `AudioListenerComponent` (`Enabled`, `Priority`, `TrackVelocity`), `AmbientZoneComponent`, `FootstepsComponent` |
+| One-shot (script) | `PlaySound(path, volume, pitch, group)`, `PlaySound(path, SoundParams)`, `PlaySoundAt(path, position, ...)` → handle |
+| Audio Source (script) | `PlayAudio`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `IsAudioPlaying`, `IsAudioPaused`, `SetAudioVolume`, `GetAudioVolume`, `SetAudioPitch`, `GetAudioPitch`, `GetAudioTime`, `SetAudioTime`, `GetAudioLength`, `FadeAudio`, `GetAudioFade`, `SetAudioLowPass`, `SetAudioHighPass` |
+| Callback | `OnSoundFinished(const SoundFinished&)`; the event bus `"SoundFinished"` |
+| Music | `Audio::PlayMusic`, `CrossfadeTo`, `StopMusic`, `PauseMusic`, `ResumeMusic`, `IsMusicPaused`, `IsMusicPlaying`, `GetMusic`, `SetMusicVolume`, `GetMusicVolume` |
 | Mixer | `Audio::SetGroupVolume`, `GetGroupVolume`, `SetGroupMuted`, `IsGroupMuted`, `HasGroup`, `ResetMixer`, `SetGroupLowPass`, `SetGroupHighPass`, `SetGroupFilter`, `GetGroupFilter`; `AudioGain::ToDecibels` / `FromDecibels` |
-| Fayllar | `Audio::GetClipLength`, `GetClipInfo`, `Preload`, `Unload`, `IsPreloaded`; `AudioClipSettings`, `AudioLoadMode` |
-| O'yinchi sozlamalari | `Audio::SaveSettings`, `LoadSettings`, `HasSavedSettings`, `ClearSavedSettings`, `Audio::SettingsKey` |
+| Files | `Audio::GetClipLength`, `GetClipInfo`, `Preload`, `Unload`, `IsPreloaded`; `AudioClipSettings`, `AudioLoadMode` |
+| The player's settings | `Audio::SaveSettings`, `LoadSettings`, `HasSavedSettings`, `ClearSavedSettings`, `Audio::SettingsKey` |
 | 3D | `Audio::GetSpatialDefaults()` (`AudioSpatialSettings`, `AudioRolloff`), `AudioConeSettings`, `Scene::GetAudioListenerEntity`, `Scene::GetAudioInfo` |
-| Handle (dvigatel) | `AudioEngine::IsPlaying`, `Stop`, `FadeTo`, `Pause`, `Resume`, `SetVolume`, `SetPitch`, `Seek`, `GetCursor`, `GetLength`, `SetSoundPosition`, `SetSoundCone`, `SetSoundDirection`, `SetLoopRegion`, `GetSoundInfo`, `WasStolen`, `TakeFinishedSounds`; `Audio::StopSound(handle, fade)` |
-| Limit va variatsiya | `SoundParams::Priority`, `MaxInstances`, `Steal` (`AudioStealPolicy`), `VolumeRandom`, `PitchRandom`; `AudioEngine::SetRandomSeed` |
+| Handle (engine) | `AudioEngine::IsPlaying`, `Stop`, `FadeTo`, `Pause`, `Resume`, `SetVolume`, `SetPitch`, `Seek`, `GetCursor`, `GetLength`, `SetSoundPosition`, `SetSoundCone`, `SetSoundDirection`, `SetLoopRegion`, `GetSoundInfo`, `WasStolen`, `TakeFinishedSounds`; `Audio::StopSound(handle, fade)` |
+| Limit and variation | `SoundParams::Priority`, `MaxInstances`, `Steal` (`AudioStealPolicy`), `VolumeRandom`, `PitchRandom`; `AudioEngine::SetRandomSeed` |
 | Ambient | `Scene::GetAmbientZoneLevel(entity)`, `Scene::GetAmbientZoneWeight(zone, world, point)` |
 | Profiler | `AudioEngine::GetProfile()`, `ResetProfileCounters()`, `GetVoiceHistory()`, `GetVoiceStats()` |

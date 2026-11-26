@@ -488,7 +488,7 @@ private:
 ```
 
 Bosh menyu — xuddi shunday vidjetlardan yasalgan prefab: Platformer2D `Prefabs/GameMenu.zprefab` (`GameMenu` skripti,
-`Scenes/Menu.zscene`). Ovoz slayderlari: [Audio.md](Audio.md#15-oyinchi-ovoz-sozlamalari).
+`Scenes/Menu.zscene`). Ovoz slayderlari: [Audio.md](Audio.md#15-the-players-sound-settings).
 
 ---
 

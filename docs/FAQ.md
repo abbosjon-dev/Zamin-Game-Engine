@@ -8,7 +8,7 @@ of a message into the Console's search field, or find it on this page.
 
 Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
 [Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar),
-[Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar), [Runtime.md, 15](Runtime.md#15-problems-and-solutions),
+[Audio.md, 18](Audio.md#18-common-problems), [Runtime.md, 15](Runtime.md#15-problems-and-solutions),
 [BuildAndExport.md, 13](BuildAndExport.md#13-problems-and-solutions).
 
 ## Contents
@@ -330,18 +330,18 @@ no GPU - the FPS there is not real.
 
 The system has no sound device (or it is busy): the game runs, just silently. If there is a device: is the group muted
 in the Audio Mixer (mute / solo), the Audio Source's **Volume**, and for 3D sound the distance to the listener
-([Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar)).
+([Audio.md, 18](Audio.md#18-common-problems)).
 
 ### An `.ogg` file does not play
 
-This build has no OGG decoder: use WAV, MP3 or FLAC ([Audio.md, 14](Audio.md#14-audio-fayllar-va-import-sozlamalari)).
+This build has no OGG decoder: use WAV, MP3 or FLAC ([Audio.md, 14](Audio.md#14-audio-files-and-import-settings)).
 
 ### Some sounds stopped playing
 
 > `The voice limit (<N>) is full: new sounds are not played (Audio Mixer > Settings)`
 
 Too many sounds at the same time: raise the limit or give the sounds priorities
-([Audio.md, 10](Audio.md#10-ovozlar-limiti-va-tasodifiy-variatsiya)).
+([Audio.md, 10](Audio.md#10-the-voice-limit-and-random-variation)).
 
 > `Unknown audio group '<name>' - the sound plays in the SFX group`
 

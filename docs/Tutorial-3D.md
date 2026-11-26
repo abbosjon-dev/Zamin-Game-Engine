@@ -1,87 +1,88 @@
-# Birinchi 3D o'yin: "Kristallar"
+# A first 3D game: "Crystals"
 
-Bu qo'llanmada 3D o'yin yasaymiz: qahramon maydonda yuradi va sakraydi, kamera uni orqadan kuzatadi, beshta
-kristallni yig'ish kerak, yo'lda itarib yuboriladigan qutilar bor. Hammasi yig'ilganda "G'alaba!" yoziladi va bir
-necha soniyadan keyin daraja qayta boshlanadi. O'rganiladi: 3D primitivlar va materiallar, ierarxiya (ota-bola),
-Character Controller 3D, 3D fizika va trigger'lar, obyekt havolasi (`EntityRef`), kamera skripti, taymerlar va
-sahnani qayta yuklash.
+In this tutorial we build a 3D game: the hero walks and jumps on a field, the camera follows from behind, five
+crystals have to be collected, and there are boxes along the way that can be pushed. When all of them are collected
+"Victory!" appears and the level restarts a few seconds later. You learn: 3D primitives and materials, the hierarchy
+(parent-child), Character Controller 3D, 3D physics and triggers, entity references (`EntityRef`), a camera script,
+timers and reloading the scene.
 
-![Tayyor o'yin](images/tutorial-3d-game.jpg)
+![The finished game](images/tutorial-3d-game.jpg)
 
-Avval [2D qo'llanmani](Tutorial-2D.md) o'qib chiqish tavsiya etiladi (editor asoslari u yerda batafsilroq).
-Ma'lumotnomalar: [Editor.md](Editor.md), [Scripting.md](Scripting.md), [Components.md](Components.md).
+Reading the [2D tutorial](Tutorial-2D.md) first is recommended (the editor basics are covered there in more detail).
+References: [Editor.md](Editor.md), [Scripting.md](Scripting.md), [Components.md](Components.md).
 
-> Qadamlar va skriptlar haqiqiy loyihada tekshirilgan: loyiha editorda yaratildi, skriptlar kompilyatsiya qilindi,
-> o'yin editorda va `ZaminPlayer` da ishga tushirildi (qahramon beshta kristallni yig'di, hisob `G'alaba!` ga o'zgardi,
-> 3 soniyadan keyin sahna so'nib qayta yuklandi), eksport qilingan o'yin ham ishga tushirildi.
+> The steps and scripts were checked in a real project: the project was created in the editor, the scripts were
+> compiled, the game was run in the editor and in `ZaminPlayer` (the hero collected five crystals, the score changed
+> to `Victory!`, the scene faded and reloaded 3 seconds later), and the exported game was run too.
 
-## 1. Loyiha
+## 1. The project
 
-1. `./build/bin/ZaminEditor` → launcher → **Yangi loyiha**: nomi `Kristallar3D` → **Yaratish**.
-2. Shablon sahna `Main` ochiladi: `Main Camera`, `Sun`, `Ground`, `Cube`, `Sphere`. Bu safar shu sahnada ishlaymiz:
-   ierarxiyada `Ground`, `Cube` va `Sphere` ni tanlab (`Ctrl` + bosish) `Delete` bilan o'chiring. `Main Camera` va
-   `Sun` qoladi.
+1. `./build/bin/ZaminEditor` → the launcher → **New project**: name `Crystals3D` → **Create**.
+2. The template scene `Main` opens: `Main Camera`, `Sun`, `Ground`, `Cube`, `Sphere`. This time we work in this scene:
+   select `Ground`, `Cube` and `Sphere` in the hierarchy (`Ctrl` + click) and delete them with `Delete`. `Main Camera`
+   and `Sun` stay.
 
-`Ground` oddiy tekislik edi — collider'i yo'q, qahramon undan o'tib tushib ketardi. O'rniga fizik yer qo'yamiz.
+`Ground` was a plain plane — it has no collider, and the hero would fall through it. We put a physics ground in its
+place.
 
-## 2. Yer va qutilar
+## 2. The ground and boxes
 
-1. **Obyekt → 3D → Fizik yer (statik)** — kub mesh, **Rigidbody 3D** (Statik) va **Box Collider 3D**.
-   **Pozitsiya** `0, -0.1, -4`, **Masshtab** `24, 0.2, 30`, **Mesh Renderer → Rang (albedo)** — yashil.
-2. **Obyekt → 3D → Fizik kub** ikki marta — dinamik qutilar. **Pozitsiya** `3, 3, -4` va `-2, 3, -9`, rangi
-   jigarrang. O'yin boshlanganda ular yerga tushadi; qahramon ularni itarib yuradi.
+1. **Object → 3D → Physics ground (static)** — a cube mesh, a **Rigidbody 3D** (Static) and a **Box Collider 3D**.
+   **Position** `0, -0.1, -4`, **Scale** `24, 0.2, 30`, **Mesh Renderer → Color (albedo)** — green.
+2. **Object → 3D → Physics cube** twice — dynamic boxes. **Position** `3, 3, -4` and `-2, 3, -9`, a brown color.
+   When the game starts they fall to the ground; the hero pushes them around.
 
-## 3. Qahramon
+## 3. The hero
 
-Character Controller 3D'ning nuqtasi qahramonning **oyog'i**, mesh esa markazdan chiziladi. Shuning uchun qahramon —
-bo'sh ota obyekt, ko'rinadigan tanasi — bola.
+The point of a Character Controller 3D is the hero's **feet**, while a mesh is drawn from its center. That is why the
+hero is an empty parent entity and its visible body is a child.
 
-1. **Obyekt → Bo'sh obyekt**, nomi `Player`, **Pozitsiya** `0, 0, 4`.
-2. **+ Komponent → Fizika 3D → Character Controller 3D** (radius 0.35, balandlik 1.8 — standart).
-3. **+ Komponent → Boshqa → Teglar (Tags)** → `Player`.
-4. Ierarxiyada `Player` ga o'ng tugma → **Bola obyekt yaratish → 3D → Silindr**. Nomi `Tana`, **Pozitsiya**
-   `0, 0.9, 0` (otaga nisbatan), **Masshtab** `0.7, 1.8, 0.7`, rangi ko'k.
-5. Yana `Player` → **Bola obyekt yaratish → 3D → Kub**: nomi `Burun`, **Pozitsiya** `0, 1.5, -0.4`, **Masshtab**
-   `0.25, 0.25, 0.25`, rangi sariq — qahramon qayerga qarayotganini ko'rsatadi (oldinga = -Z).
+1. **Object → Empty object**, name `Player`, **Position** `0, 0, 4`.
+2. **+ Component → Physics 3D → Character Controller 3D** (radius 0.35, height 1.8 — the defaults).
+3. **+ Component → Other → Tags** → `Player`.
+4. Right-click `Player` in the hierarchy → **Create child object → 3D → Cylinder**. Name `Body`, **Position**
+   `0, 0.9, 0` (relative to the parent), **Scale** `0.7, 1.8, 0.7`, a blue color.
+5. `Player` again → **Create child object → 3D → Cube**: name `Nose`, **Position** `0, 1.5, -0.4`, **Scale**
+   `0.25, 0.25, 0.25`, a yellow color — it shows where the hero is facing (forward = -Z).
 
-## 4. Kristallar
+## 4. The crystals
 
-1. **Obyekt → 3D → Shar**, nomi `Kristal`, **Pozitsiya** `2, 1, 0`, **Masshtab** `0.5, 0.5, 0.5`. **Mesh Renderer**:
-   **Rang (albedo)** — moviy, **Nurlanish** — moviy, kuchi `1` (o'zi yorishib turadi).
-2. **+ Komponent → Fizika 3D → Rigidbody 3D** → **Turi**: **Statik**.
-3. **+ Komponent → Fizika 3D → Sphere Collider 3D** → **Trigger (sensor)** ni yoqing. Muhim: 3D'da collider faqat
-   Rigidbody 3D bor obyektda fizik dunyoga qo'shiladi — trigger uchun ham.
-4. **Teglar** → `Pickup` (yangi loyihaning teg ro'yxatida bor).
-5. `Ctrl+D` bilan to'rtta nusxa: `-3, 1, -3`, `0, 1, -7`, `4, 1, -10`, `-4, 1, -13`.
+1. **Object → 3D → Sphere**, name `Crystal`, **Position** `2, 1, 0`, **Scale** `0.5, 0.5, 0.5`. **Mesh Renderer**:
+   **Color (albedo)** — light blue, **Emission** — light blue, intensity `1` (it glows by itself).
+2. **+ Component → Physics 3D → Rigidbody 3D** → **Type**: **Static**.
+3. **+ Component → Physics 3D → Sphere Collider 3D** → turn on **Trigger (sensor)**. Important: in 3D a collider is
+   added to the physics world only on an entity that has a Rigidbody 3D — for a trigger too.
+4. **Tags** → `Pickup` (it is in a new project's tag list).
+5. Four copies with `Ctrl+D`: `-3, 1, -3`, `0, 1, -7`, `4, 1, -10`, `-4, 1, -13`.
 
-## 5. Hisob matni
+## 5. The score text
 
-**Obyekt → UI (ekran) → Matn**, nomi `HUD`. **UI Transform**: **X | Kenglik** `240 | 420`, **Y | Balandlik**
-`-40 | 40`, **Shrift o'lchami** `30`.
+**Object → UI (screen) → Text**, name `HUD`. **UI Transform**: **X | Width** `240 | 420`, **Y | Height**
+`-40 | 40`, **Font size** `30`.
 
-## 6. Skriptlar
+## 6. The scripts
 
-**Skriptlar → Yangi C++ skript...** bilan to'rtta skript (**Minimal** shablon) yarating va fayllarni quyidagi kod
-bilan almashtiring.
+Create four scripts with **Scripts → New C++ script...** (the **Minimum** template) and replace the files with the
+code below.
 
-### PlayerMovement3D — qahramon
+### PlayerMovement3D — the hero
 
-`Input::GetVector("Move")` — `Horizontal` (A/D) va `Vertical` (W/S) bitta 2D vektor bo'lib. Character Controller'ga
-faqat gorizontal tezlik beriladi (`Move`), tortishish va zinapoyalarni u o'zi hisoblaydi.
+`Input::GetVector("Move")` — `Horizontal` (A/D) and `Vertical` (W/S) as one 2D vector. The Character Controller is
+given only the horizontal velocity (`Move`); it works out gravity and stairs itself.
 
 ```cpp
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
 
-// Qahramon: WASD / strelkalar / chap stik - yurish, Space - sakrash. Character Controller 3D
-// komponenti bilan ishlaydi: tortishish, zinapoya va qiyaliklarni u o'zi hisoblaydi.
+// The hero: WASD / arrows / left stick - walk, Space - jump. Works with the Character Controller 3D
+// component: it works out gravity, stairs and slopes itself.
 class PlayerMovement3D : public ScriptableEntity
 {
 public:
     float Speed = 5.0f;
     float JumpSpeed = 6.0f;
-    float TurnSpeed = 10.0f; // radian/sekund
+    float TurnSpeed = 10.0f; // radians/second
 
     void OnCreate() override
     {
@@ -94,14 +95,14 @@ public:
         if (!cc)
             return;
 
-        // "Move" = Horizontal (A/D) + Vertical (W/S) bitta 2D qiymat bo'lib, uzunligi 1 dan oshmaydi.
+        // "Move" = Horizontal (A/D) + Vertical (W/S) as one 2D value, its length at most 1.
         glm::vec2 input = Input::GetVector("Move");
-        glm::vec3 velocity(input.x * Speed, 0.0f, -input.y * Speed); // oldinga = -Z (kamera shu tomonga qaraydi)
+        glm::vec3 velocity(input.x * Speed, 0.0f, -input.y * Speed); // forward = -Z (the camera looks that way)
         cc->Move(velocity);
         if (Input::IsActionJustPressed("Jump"))
-            cc->Jump(JumpSpeed); // faqat yerda turganda sakraydi
+            cc->Jump(JumpSpeed); // jumps only while on the ground
 
-        // Yurayotgan tomonga asta buriladi.
+        // Turns slowly toward the walking direction.
         if (glm::length(velocity) > 0.1f)
         {
             glm::quat now = Math::FromEuler(Transform().Rotation);
@@ -109,7 +110,7 @@ public:
             Transform().Rotation = Math::ToEuler(Math::RotateTowards(now, goal, TurnSpeed * (float)ts));
         }
 
-        if (Transform().Translation.y < -10.0f) // yiqilib tushdi
+        if (Transform().Translation.y < -10.0f) // fell off
         {
             SetPosition3D(m_Start);
             cc->VerticalVelocity = 0.0f;
@@ -121,30 +122,31 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(PlayerMovement3D,
-    ZM_FIELD_RANGE(PlayerMovement3D, Speed, 0.0f, 15.0f).Tooltip("Yurish tezligi (m/s)"),
-    ZM_FIELD_RANGE(PlayerMovement3D, JumpSpeed, 0.0f, 15.0f).Tooltip("Sakrashdagi boshlang'ich tezlik (m/s)"),
+    ZM_FIELD_RANGE(PlayerMovement3D, Speed, 0.0f, 15.0f).Tooltip("Walking speed (m/s)"),
+    ZM_FIELD_RANGE(PlayerMovement3D, JumpSpeed, 0.0f, 15.0f).Tooltip("The initial speed of a jump (m/s)"),
     ZM_FIELD(PlayerMovement3D, TurnSpeed))
 ```
 
-### FollowCamera3D — kamera
+### FollowCamera3D — the camera
 
-`EntityRef` maydoni inspektorda obyekt havolasi bo'lib ko'rinadi. Kamera fizikadan keyin suriladi (`OnLateUpdate`),
-`Math::Damp` — kadr tezligiga bog'liq bo'lmagan silliq yaqinlashish, `Math::LookRotation` — nishonga qarash.
+An `EntityRef` field shows up in the inspector as an entity reference. The camera is moved after physics
+(`OnLateUpdate`), `Math::Damp` is a smooth approach that does not depend on the frame rate, `Math::LookRotation`
+looks at the target.
 
 ```cpp
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
 
-// Kamera nishonni (inspektorda tanlanadi) orqadan va yuqoridan silliq kuzatadi.
+// The camera follows the target (chosen in the inspector) smoothly from behind and above.
 class FollowCamera3D : public ScriptableEntity
 {
 public:
-    EntityRef Target;                          // ierarxiyadan sudrab qo'yiladi
-    glm::vec3 Offset = { 0.0f, 5.0f, 8.0f };   // nishonga nisbatan joy
-    float Smoothness = 6.0f;                   // kattaroq - tezroq yetib oladi
+    EntityRef Target;                          // dragged in from the hierarchy
+    glm::vec3 Offset = { 0.0f, 5.0f, 8.0f };   // the place relative to the target
+    float Smoothness = 6.0f;                   // larger - catches up faster
 
-    // Kamera fizika va boshqa skriptlardan keyin suriladi: OnLateUpdate.
+    // The camera moves after physics and the other scripts: OnLateUpdate.
     void OnLateUpdate(Timestep ts) override
     {
         Entity target = Resolve(Target);
@@ -152,29 +154,29 @@ public:
             return;
         glm::vec3 focus = GetScene().GetWorldPosition(target) + glm::vec3(0.0f, 1.0f, 0.0f);
         auto& t = Transform();
-        t.Translation = Math::Damp(t.Translation, focus + Offset, Smoothness, ts); // kadr tezligiga bog'liq emas
+        t.Translation = Math::Damp(t.Translation, focus + Offset, Smoothness, ts); // independent of the frame rate
         t.Rotation = Math::ToEuler(Math::LookRotation(focus - t.Translation));
     }
 };
 
 ZM_REGISTER_SCRIPT(FollowCamera3D,
-    ZM_FIELD(FollowCamera3D, Target).Tooltip("Kuzatiladigan obyekt"),
+    ZM_FIELD(FollowCamera3D, Target).Tooltip("The entity to follow"),
     ZM_FIELD(FollowCamera3D, Offset),
     ZM_FIELD_RANGE(FollowCamera3D, Smoothness, 0.5f, 20.0f))
 ```
 
-### Crystal — kristall
+### Crystal — a crystal
 
 ```cpp
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
 
-// Kristal: aylanadi; "Player" tegli obyekt sensor collider'iga kirsa yig'iladi.
+// A crystal: spins; it is collected when an entity tagged "Player" enters its sensor collider.
 class Crystal : public ScriptableEntity
 {
 public:
-    float SpinSpeed = 2.0f; // radian/sekund
+    float SpinSpeed = 2.0f; // radians/second
 
     void OnUpdate(Timestep ts) override
     {
@@ -186,7 +188,7 @@ public:
         if (m_Taken || !other.HasTag("Player"))
             return;
         m_Taken = true;
-        Emit("CrystalCollected"); // CrystalCounter hisoblaydi
+        Emit("CrystalCollected"); // CrystalCounter counts them
         Destroy();
     }
 
@@ -197,17 +199,17 @@ private:
 ZM_REGISTER_SCRIPT(Crystal, ZM_FIELD(Crystal, SpinSpeed))
 ```
 
-### CrystalCounter — hisob va qayta boshlash
+### CrystalCounter — the score and the restart
 
-`Invoke` — taymer; `ReloadScene(SceneTransition::Fade(0.5f))` — sahnani so'ndirib boshidan yuklaydi.
+`Invoke` is a timer; `ReloadScene(SceneTransition::Fade(0.5f))` fades the scene out and loads it from the start.
 
 ```cpp
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
 
-// Ekrandagi hisob. Hamma kristal yig'ilgach "G'alaba!" yozadi va bir necha soniyadan keyin
-// sahnani boshidan yuklaydi.
+// The score on the screen. When every crystal is collected it writes "Victory!" and a few seconds later
+// loads the scene from the start.
 class CrystalCounter : public ScriptableEntity
 {
 public:
@@ -227,15 +229,15 @@ private:
         Refresh();
         if (m_Count < m_Total)
             return;
-        ZM_INFO("G'alaba! {} ta kristal yig'ildi", m_Total);
+        ZM_INFO("Victory! {} crystals collected", m_Total);
         Invoke(RestartDelay, [this]() { ReloadScene(SceneTransition::Fade(0.5f)); });
     }
 
     void Refresh()
     {
         if (auto* text = TryGetComponent<TextComponent>())
-            text->Text = m_Count < m_Total ? std::format("Kristallar: {} / {}", m_Count, m_Total)
-                                           : std::string("G'alaba!");
+            text->Text = m_Count < m_Total ? std::format("Crystals: {} / {}", m_Count, m_Total)
+                                           : std::string("Victory!");
     }
 
     int m_Count = 0;
@@ -243,47 +245,47 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(CrystalCounter,
-    ZM_FIELD_RANGE(CrystalCounter, RestartDelay, 0.0f, 10.0f).Tooltip("G'alabadan keyin qayta boshlashgacha (sekund)"))
+    ZM_FIELD_RANGE(CrystalCounter, RestartDelay, 0.0f, 10.0f).Tooltip("From the victory to the restart (seconds)"))
 ```
 
-`Ctrl+B` — kompilyatsiya. Xatolar **Oyna → Kompilyatsiya** da.
+`Ctrl+B` — compile. Errors are in **Window → Compilation**.
 
-## 7. Skriptlarni ulash
+## 7. Attaching the scripts
 
-| Obyekt | **C++ Script → Klass** | Maydonlar |
+| Entity | **C++ Script → Class** | Fields |
 |---|---|---|
 | `Player` | `PlayerMovement3D` | `Speed` 5, `JumpSpeed` 6 |
-| `Main Camera` | `FollowCamera3D` | **Target**: ierarxiyadan `Player` ni sudrab tashlang; `Offset` `0, 5, 8` |
-| Har bir `Kristal` | `Crystal` | — |
+| `Main Camera` | `FollowCamera3D` | **Target**: drag `Player` in from the hierarchy; `Offset` `0, 5, 8` |
+| Every `Crystal` | `Crystal` | — |
 | `HUD` | `CrystalCounter` | `RestartDelay` 3 |
 
-![Editor: kamera tanlangan, Target maydonida Player](images/tutorial-3d-editor.jpg)
+![Editor: the camera selected, Player in the Target field](images/tutorial-3d-editor.jpg)
 
-## 8. O'ynash
+## 8. Playing
 
-`Ctrl+S`, keyin `Ctrl+P`. WASD — yurish, Space — sakrash. Kamera qahramon ortidan yuradi, qutilarni itarib ko'ring.
-Kristallga tegsangiz u yo'qoladi va hisob ortadi; beshinchisidan keyin `G'alaba!` yoziladi, **Konsol** da
-`G'alaba! 5 ta kristal yig'ildi` chiqadi va 3 soniyadan keyin daraja boshidan boshlanadi.
+`Ctrl+S`, then `Ctrl+P`. WASD — walk, Space — jump. The camera follows the hero; try pushing the boxes. When you touch
+a crystal it disappears and the score goes up; after the fifth one `Victory!` appears, the **Console** prints
+`Victory! 5 crystals collected`, and 3 seconds later the level starts over.
 
-| Belgi | Sabab |
+| Symptom | Cause |
 |---|---|
-| Qahramon tushib ketadi | Yer **Fizik yer (statik)** emas (collider'i yo'q) |
-| Kristall yig'ilmaydi | Kristallda Rigidbody 3D yo'q, collider **Trigger (sensor)** emas yoki `Player` tegi yo'q |
-| Hisob `0 / 0` | Kristallarda `Pickup` tegi yo'q |
-| Kamera qimirlamaydi | `FollowCamera3D` ning **Target** maydoni bo'sh |
-| Qahramon yerga yarim botgan | `Tana` ning pozitsiyasi `0, 0.9, 0` emas (Character Controller nuqtasi — oyoq) |
+| The hero falls through | The ground is not a **Physics ground (static)** (it has no collider) |
+| A crystal is not collected | The crystal has no Rigidbody 3D, the collider is not a **Trigger (sensor)**, or there is no `Player` tag |
+| The score is `0 / 0` | The crystals have no `Pickup` tag |
+| The camera does not move | The **Target** field of `FollowCamera3D` is empty |
+| The hero is half sunk into the ground | The position of `Body` is not `0, 0.9, 0` (the Character Controller's point is the feet) |
 
-## 9. Eksport
+## 9. Export
 
-**Fayl → O'yinni build qilish...** → papka → build. Natija: `<papka>/Kristallar3D.sh`. Editorsiz sinash:
-`./build/bin/ZaminPlayer <loyiha papkasi>`. Batafsil: [Runtime.md](Runtime.md#11-eksport).
+**File → Build game...** → a folder → build. The result: `<folder>/Crystals3D.sh`. To test without the editor:
+`./build/bin/ZaminPlayer <project folder>`. More: [Runtime.md](Runtime.md#11-eksport).
 
-## 10. Keyingi qadamlar
+## 10. Next steps
 
-- Model: glTF faylni **Kontent** ga tashlang va `Tana` o'rniga **Obyekt → 3D → Model (glTF / OBJ)** qo'ying; animatsiya —
-  **Animator** ([Animation.md](Animation.md)). To'liq misol: `Projects/Adventure3D` (`Source/Player.cpp`).
-- Kamerani sichqoncha bilan aylantirish: `Input::GetMouseDelta()` va `Cursor::SetLockMode(CursorLockMode::Locked)`
+- A model: drop a glTF file into **Content** and put an **Object → 3D → Model (glTF / OBJ)** in place of `Body`;
+  animation — **Animator** ([Animation.md](Animation.md)). A full example: `Projects/Adventure3D` (`Source/Player.cpp`).
+- Orbiting the camera with the mouse: `Input::GetMouseDelta()` and `Cursor::SetLockMode(CursorLockMode::Locked)`
   ([Scripting.md](Scripting.md#8-input)).
-- Kristallga effekt: **Obyekt → Effektlar** dan particle prefab yasab, `Instantiate("Prefabs/...", GetWorldPosition())`
-  ([Prefabs.md](Prefabs.md)).
-- Dushman: **Nav Agent** + **Sight Sensor** ([AI.md](AI.md)).
+- An effect for the crystal: make a particle prefab from **Object → Effects** and use
+  `Instantiate("Prefabs/...", GetWorldPosition())` ([Prefabs.md](Prefabs.md)).
+- An enemy: **Nav Agent** + **Sight Sensor** ([AI.md](AI.md)).

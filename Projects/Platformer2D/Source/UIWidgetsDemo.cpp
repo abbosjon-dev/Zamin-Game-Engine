@@ -5,9 +5,9 @@
 
 using namespace Zamin;
 
-// UIWidgets sahnasi: ekran UI vidjetlarining namunasi - slayderlar, belgilashlar (guruh bilan),
-// progress bar, radial to'ldirish (qayta tiklanish), matn maydoni va tugma. Vidjetlar o'zgarganda
-// event bus xabarlari ("UISliderChanged", "UIToggleChanged", "UITextSubmitted") shu skriptga keladi.
+// The UIWidgets scene: a sample of the screen UI widgets - sliders, toggles (with a group),
+// a progress bar, a radial fill (a cooldown), a text field and a button. When the widgets change, the
+// event bus messages ("UISliderChanged", "UIToggleChanged", "UITextSubmitted") arrive at this script.
 class UIWidgetsDemo : public ScriptableEntity
 {
 public:

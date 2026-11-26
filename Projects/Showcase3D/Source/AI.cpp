@@ -79,7 +79,7 @@ ZM_REGISTER_SCRIPT(SlidingDoor, ZM_FIELD(SlidingDoor, OpenOffset).Label("Offset 
                    ZM_FIELD(SlidingDoor, StartOpen).Label("Starts open"))
 
 // Moves between its start and start + Offset, waiting at each end. With a Nav Obstacle set to
-// "Faqat turganda" it carves the grid only while parked; on the way the agents' feelers steer round it.
+// "Only when still" it carves the grid only while parked; on the way the agents' feelers steer round it.
 class PingPongMover : public ScriptableEntity
 {
 public:

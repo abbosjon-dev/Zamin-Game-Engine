@@ -1,12 +1,12 @@
-// "Splines" sahnasi skriptlari: AnimationCurve, shovqin (Noise), rang (Color) va spline yo'llar.
+// Scripts of the "Splines" scene: AnimationCurve, noise (Noise), color (Color) and spline paths.
 #include <Zamin/Zamin.h>
 
 #include <cmath>
 
 using namespace Zamin;
 
-// Balandligi AnimationCurve egri chizig'idan (inspektorda tahrirlanadi), yon tomonga esa Perlin
-// shovqini bilan sekin chayqaladi.
+// Its height comes from an AnimationCurve (edited in the inspector), and it sways slowly sideways with
+// Perlin noise.
 class CurveBob : public ScriptableEntity
 {
 public:
@@ -16,7 +16,7 @@ public:
         return c;
     }();
     float Phase = 0.0f;
-    float Wobble = 0.35f;      // shovqin bilan siljish (birlik)
+    float Wobble = 0.35f;      // the offset from the noise (units)
     float WobbleSpeed = 0.5f;  // shovqin tezligi
 
     void OnCreate() override { m_Base = Transform().Translation; }
@@ -43,11 +43,11 @@ ZM_REGISTER_SCRIPT(CurveBob,
                    ZM_FIELD_RANGE(CurveBob, Wobble, 0.0f, 2.0f).Label("Chayqalish").Header("Noise"),
                    ZM_FIELD_RANGE(CurveBob, WobbleSpeed, 0.0f, 3.0f).Label("Sway speed"))
 
-// Mesh rangini rang g'ildiragi bo'ylab aylantiradi (Color::FromHSV).
+// Cycles the mesh color around the color wheel (Color::FromHSV).
 class RainbowTint : public ScriptableEntity
 {
 public:
-    float Speed = 0.08f;        // aylanish / soniya
+    float Speed = 0.08f;        // turns / second
     float Phase = 0.0f;         // 0..1
     float Saturation = 0.75f;
     float Brightness = 1.0f;
@@ -64,8 +64,8 @@ ZM_REGISTER_SCRIPT(RainbowTint, ZM_FIELD(RainbowTint, Speed).Label("Speed"), ZM_
                    ZM_FIELD_RANGE(RainbowTint, Saturation, 0.0f, 1.0f).Label("Saturation"),
                    ZM_FIELD_RANGE(RainbowTint, Brightness, 0.0f, 1.0f).Label("Brightness"))
 
-// Bolalari (ustunlar) balandligi shovqindan: fBm yoki "ridged" (tog' qirralari), sekin siljiydi;
-// rang - pastdan yuqoriga HSV bo'ylab aralashadi.
+// The height of its children (the columns) comes from noise: fBm or "ridged" (mountain ridges), drifting slowly;
+// the color blends along HSV from bottom to top.
 class NoiseColumns : public ScriptableEntity
 {
 public:
@@ -74,9 +74,9 @@ public:
     float Frequency = 0.22f;
     int Octaves = 4;
     float HeightScale = 2.6f;
-    float Scroll = 0.35f;       // birlik / soniya
+    float Scroll = 0.35f;       // units / second
     int Seed = 7;
-    float Contrast = 1.0f;      // 0.5 atrofida qiymatlarni yoyadi (1 - o'zgarishsiz)
+    float Contrast = 1.0f;      // spreads the values around 0.5 (1 - unchanged)
     glm::vec4 LowColor{ 0.12f, 0.35f, 0.85f, 1.0f };
     glm::vec4 HighColor{ 1.0f, 0.85f, 0.35f, 1.0f };
 
@@ -109,8 +109,8 @@ ZM_REGISTER_SCRIPT(NoiseColumns, ZM_FIELD_ENUM(NoiseColumns, Type, "Perlin", "Si
                    ZM_FIELD_RANGE(NoiseColumns, Contrast, 0.5f, 4.0f).Label("Contrast"),
                    ZM_FIELD_COLOR(NoiseColumns, LowColor).Label("Low color"), ZM_FIELD_COLOR(NoiseColumns, HighColor).Label("High color"))
 
-// Yo'l (Rail) ustida Target'ga eng yaqin nuqtada turadi (Scene::GetSplineClosestDistance) va unga
-// chiziq tortadi: rels kamera yoki yo'lboshlovchi uchun.
+// Stays at the point of the path (Rail) nearest to Target (Scene::GetSplineClosestDistance) and draws a
+// line to it: a rail for a camera or a guide.
 class SplineMagnet : public ScriptableEntity
 {
 public:

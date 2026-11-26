@@ -8,17 +8,17 @@
 
 using namespace Zamin;
 
-// O'yin menyusi (qayta ishlatiladigan namuna: Prefabs/GameMenu.zprefab - istalgan sahnaga sudrab qo'ying).
-// Ikki rejim:
-//   - bosh menyu (PauseMenu o'chiq, Menu.zscene): doim ko'rinadi - "Play" PlayScene'ga so'nib o'tadi,
+// The game menu (a reusable sample: Prefabs/GameMenu.zprefab - drag it into any scene).
+// Two modes:
+//   - the main menu (PauseMenu off, Menu.zscene): always visible - "Play" fades over to PlayScene,
 //     "Settings", "Quit";
-//   - pauza menyusi (PauseMenu yoqiq): Esc / Start o'yinni to'xtatib ochadi - "Resume", "Settings", "Quit".
-// Sozlamalar: ekran o'lchami (Display::GetResolutions - monitor rejimlari), to'liq ekran, VSync, grafika sifati
-// (Quality darajalari), gamma, ovoz (Master / Music / SFX), til. O'lcham, sifat va til tugmalari bosilganda
-// keyingisiga o'tadi, tanlangan bo'lsa chap / o'ng strelka (D-pad) oldingi / keyingisini tanlaydi. Hammasi
-// SaveData'da saqlanadi (Display / Audio / Quality / Localization::SaveSettings) - player keyingi safar shu
-// sozlamalar bilan ochiladi. Sozlamalar panelining burchagida o'yin va dvigatel versiyasi (VersionInfo).
-// Klaviatura / gamepad: strelkalar / D-pad tanlaydi, Enter / A bosadi, Esc / B orqaga qaytadi.
+//   - the pause menu (PauseMenu on): Esc / Start pauses the game and opens it - "Resume", "Settings", "Quit".
+// Settings: the screen size (Display::GetResolutions - the monitor's modes), fullscreen, VSync, graphics quality
+// (the Quality levels), gamma, sound (Master / Music / SFX), language. Pressing the size, quality and language
+// buttons moves to the next one; when one is selected, the left / right arrow (D-pad) picks the previous / next.
+// Everything is saved in SaveData (Display / Audio / Quality / Localization::SaveSettings) - the player opens
+// with these settings next time. In the corner of the settings panel are the game's and the engine's versions
+// (VersionInfo). Keyboard / gamepad: the arrows / D-pad select, Enter / A presses, Esc / B goes back.
 class GameMenu : public ScriptableEntity
 {
 public:

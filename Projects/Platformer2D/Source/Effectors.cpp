@@ -5,12 +5,12 @@
 
 using namespace Zamin;
 
-// Effectors2D sahnasi: Area / Buoyancy Effector 2D, OverlapCircle2D va Raycast2DAll so'rovlarini
-// ko'rsatadigan skriptlar.
+// The Effectors2D scene: scripts that show Area / Buoyancy Effector 2D and the OverlapCircle2D and
+// Raycast2DAll queries.
 
-// Portlash: sichqoncha bosilgan joyda ("Fire") Radius ichidagi jismlarni OverlapCircle2D bilan topadi
-// va markazdan uzoqqa itaradi (markazga yaqinroq - kuchliroq). AutoInterval > 0 bo'lsa AutoCenter
-// atrofida o'zi ham portlaydi.
+// An explosion: where the mouse is clicked ("Fire") it finds the bodies within Radius with OverlapCircle2D
+// and pushes them away from the center (closer to the center - stronger). When AutoInterval > 0 it also
+// explodes by itself around AutoCenter.
 class BlastOnClick : public ScriptableEntity
 {
 public:
@@ -64,15 +64,15 @@ ZM_REGISTER_SCRIPT(BlastOnClick,
     ZM_FIELD(BlastOnClick, AutoCenter).Tooltip("Center of the automatic explosion (in the world)"),
     ZM_FIELD(BlastOnClick, AutoSpread).Tooltip("Random offset around the center"))
 
-// Skaner nuri: Raycast2DAll bilan nur yo'lidagi hamma obyektlarni topadi, ularni tartib raqami bilan
-// belgilaydi va Label matniga sonini yozadi. Nur MinAngle..MaxAngle oralig'ida tebranadi.
+// A scanner beam: Raycast2DAll finds every entity on the beam's path, marks them with their order number
+// and writes their count to the Label text. The beam swings between MinAngle..MaxAngle.
 class LaserScanner : public ScriptableEntity
 {
 public:
     float Length = 24.0f;
     float MinAngle = 165.0f;
     float MaxAngle = 195.0f;
-    float SweepSpeed = 0.35f; // tebranishlar soniyada
+    float SweepSpeed = 0.35f; // swings per second
     bool IncludeTriggers = false;
     EntityRef Label;
 

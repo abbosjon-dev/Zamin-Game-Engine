@@ -4,17 +4,17 @@
 
 using namespace Zamin;
 
-// Joints2D sahnasi: joint'lar bilan ishlaydigan kichik skriptlar.
+// The Joints2D scene: small scripts that work with joints.
 
-// Mashina: "Horizontal" o'qi (A / D, strelkalar, gamepad) g'ildiraklarning motorlarini aylantiradi;
-// tugma bosilmaganda AutoDrive bo'lsa sekin o'ngga yuradi. G'ildiraklar - Wheel Joint 2D bilan
-// kuzovga (shu obyekt) ulangan obyektlar.
+// A car: the "Horizontal" axis (A / D, arrows, gamepad) turns the wheels' motors; when no key is pressed and
+// AutoDrive is on, it drives slowly to the right. The wheels are entities joined to the body (this entity)
+// with Wheel Joint 2D.
 class CarController : public ScriptableEntity
 {
 public:
     EntityRef RearWheel;
     EntityRef FrontWheel;
-    float MaxSpeed = 720.0f;   // g'ildirak aylanishi, gradus / soniya
+    float MaxSpeed = 720.0f;   // wheel rotation, degrees / second
     float Torque = 60.0f;
     bool AutoDrive = true;
 
@@ -29,9 +29,9 @@ public:
             if (!wheel || !wheel.HasComponent<WheelJoint2DComponent>())
                 continue;
             auto& joint = wheel.GetComponent<WheelJoint2DComponent>();
-            // Bosilmasa motor 0 tezlikda tormoz bo'ladi (sekin to'xtaydi).
+            // With nothing pressed the motor brakes at speed 0 (stops slowly).
             joint.EnableMotor = true;
-            joint.MotorSpeed = -input * MaxSpeed; // soat mili bo'yicha - o'ngga
+            joint.MotorSpeed = -input * MaxSpeed; // clockwise - to the right
             joint.MaxMotorTorque = std::abs(input) > 0.0f ? Torque : Torque * 0.1f;
         }
     }
@@ -44,8 +44,8 @@ ZM_REGISTER_SCRIPT(CarController,
     ZM_FIELD_RANGE(CarController, Torque, 0.0f, 1000.0f).Tooltip("Motor torque (N*m)"),
     ZM_FIELD(CarController, AutoDrive).Tooltip("Rolls slowly to the right even when no key is pressed"))
 
-// Motorli joint'ni (Prismatic / Revolute / Wheel) har Period soniyada teskari yo'nalishga aylantiradi:
-// lift yuqoriga-pastga, eshik ochiladi-yopiladi.
+// Reverses a motorized joint (Prismatic / Revolute / Wheel) every Period seconds:
+// a lift goes up and down, a door opens and closes.
 class JointMotorPingPong : public ScriptableEntity
 {
 public:
@@ -69,7 +69,7 @@ private:
 ZM_REGISTER_SCRIPT(JointMotorPingPong,
     ZM_FIELD_RANGE(JointMotorPingPong, Period, 0.1f, 30.0f).Tooltip("Seconds until the direction changes"))
 
-// Joint uzilganda (Break Force / Break Torque oshib ketdi) obyekt qizarib yonib-o'chadi.
+// When the joint breaks (Break Force / Break Torque exceeded) the entity flashes red.
 class BreakableJoint : public ScriptableEntity
 {
 public:

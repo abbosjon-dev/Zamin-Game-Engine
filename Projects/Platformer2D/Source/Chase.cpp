@@ -8,10 +8,10 @@
 
 using namespace Zamin;
 
-// Qo'riqchi: Patrul (Patrol Path bo'ylab) -> Ta'qib (ko'zi qahramonni ko'rsa) -> Qidiruv (ko'zdan
-// yo'qotsa: oxirgi ko'rgan joyiga borib atrofga qaraydi) -> Qaytish (eng yaqin patrul nuqtasiga) ->
-// Patrul. Ushlasa - qahramon boshiga qaytadi ("Ushlandi" xabari). Holatlar AI/StateMachine bilan,
-// inspektorda (C++ Skript > AI) ko'rinadi.
+// A guard: Patrol (along the Patrol Path) -> Chase (when its eye sees the hero) -> Search (when it loses
+// sight of the hero: it goes to where it last saw them and looks around) -> Return (to the nearest patrol
+// point) -> Patrol. On a catch the hero goes back to the start (the "Caught" message). The states are
+// built with AI/StateMachine and show up in the inspector (C++ Script > AI).
 class ChaseGuard2D : public ScriptableEntity
 {
 public:
@@ -60,7 +60,7 @@ public:
                           Enter(m_PatrolSpeed, "!", { 1.0f, 0.4f, 0.35f });
                           StopMoving();
                           if (Entity hero = SeenTarget())
-                              SendMessage(hero, "Ushlandi");
+                              SendMessage(hero, "Caught");
                           Say("You were caught! Try again");
                           ZM_INFO("{} caught the hero", GetEntity().GetName());
                       })

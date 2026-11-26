@@ -8,16 +8,16 @@
 
 using namespace Zamin;
 
-// Obyektni o'z o'qi atrofida aylantiradi.
+// Spins the entity around its own axis.
 class Rotator : public ScriptableEntity
 {
 public:
-    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radian / sekund
+    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radians / second
     void OnUpdate(Timestep ts) override { Transform().Rotation += Speed * (float)ts; }
 };
 ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD(Rotator, Speed))
 
-// Yuqoriga-pastga suzish.
+// Bobbing up and down.
 class Bobbing : public ScriptableEntity
 {
 public:
@@ -34,7 +34,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(Bobbing, ZM_FIELD(Bobbing, Height), ZM_FIELD(Bobbing, Speed))
 
-// Markaz atrofida aylanib uchadi (yorug'lik sharlari uchun).
+// Flies in a circle around the center (for the light spheres).
 class Orbit : public ScriptableEntity
 {
 public:
@@ -47,7 +47,7 @@ public:
 };
 ZM_REGISTER_SCRIPT(Orbit, ZM_FIELD(Orbit, Radius), ZM_FIELD(Orbit, Speed), ZM_FIELD(Orbit, Phase), ZM_FIELD(Orbit, Height))
 
-// Kamera sahna atrofida sekin aylanadi; sichqoncha o'ng tugmasi bosilsa to'xtaydi.
+// The camera slowly orbits the scene; it stops while the right mouse button is held.
 class OrbitCamera : public ScriptableEntity
 {
 public:
@@ -66,13 +66,13 @@ private:
 };
 ZM_REGISTER_SCRIPT(OrbitCamera, ZM_FIELD(OrbitCamera, Distance), ZM_FIELD(OrbitCamera, Height), ZM_FIELD(OrbitCamera, Speed))
 
-// Slider Joint 3D motorini chegaralar orasida yuqoriga-pastga yuritadi (lift platformasi): har
-// chetda Pause sekund kutadi, keyin orqaga qaytadi.
+// Drives a Slider Joint 3D motor up and down between its limits (a lift platform): at each end it
+// waits Pause seconds, then goes back.
 class SliderShuttle : public ScriptableEntity
 {
 public:
-    float Speed = 1.0f;  // birlik / sekund
-    float Pause = 0.6f;  // har chetda kutish (sekund)
+    float Speed = 1.0f;  // units / second
+    float Pause = 0.6f;  // the wait at each end (seconds)
     void OnUpdate(Timestep ts) override
     {
         auto* slider = TryGetComponent<SliderJoint3DComponent>();
@@ -82,7 +82,7 @@ public:
         if (m_Wait > 0.0f)
         {
             m_Wait -= (float)ts;
-            slider->MotorSpeed = 0.0f; // joyida ushlab turadi
+            slider->MotorSpeed = 0.0f; // holds it in place
             return;
         }
         const float target = m_Up ? slider->UpperTranslation : slider->LowerTranslation;
@@ -99,7 +99,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(SliderShuttle, ZM_FIELD(SliderShuttle, Speed), ZM_FIELD(SliderShuttle, Pause))
 
-// WASD bilan yuradigan kub; Space bilan sakraydi.
+// A cube that walks with WASD and jumps with Space.
 class PlayerMover3D : public ScriptableEntity
 {
 public:
@@ -135,7 +135,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(PlayerMover3D, ZM_FIELD(PlayerMover3D, Speed), ZM_FIELD(PlayerMover3D, JumpVelocity), ZM_FIELD(PlayerMover3D, Gravity))
 
-// Space yoki sichqonchaning chap tugmasi: kamera yo'nalishida shar otadi (prefab + 3D fizika).
+// Space or the left mouse button: shoots a ball in the camera's direction (prefab + 3D physics).
 class BallShooter : public ScriptableEntity
 {
 public:
@@ -161,7 +161,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(BallShooter, ZM_FIELD(BallShooter, Prefab), ZM_FIELD(BallShooter, Speed), ZM_FIELD(BallShooter, Cooldown))
 
-// Obyektni N soniyadan keyin o'chiradi (otilgan sharlar uchun).
+// Destroys the entity after N seconds (for the balls that were shot).
 class Lifetime : public ScriptableEntity
 {
 public:
@@ -175,8 +175,8 @@ public:
 };
 ZM_REGISTER_SCRIPT(Lifetime, ZM_FIELD(Lifetime, Seconds))
 
-// Kub minorasini yaratadi (3D fizika demo). Har bir g'isht umumiy Clay.zmat materialining o'z
-// nusxasini (GetMaterial) qavatiga qarab bo'yaydi - umumiy asset va boshqa obyektlar o'zgarmaydi.
+// Builds a tower of cubes (a 3D physics demo). Each brick colors its own copy (GetMaterial) of the shared
+// Clay.zmat material by its floor - the shared asset and the other entities do not change.
 class TowerBuilder : public ScriptableEntity
 {
 public:
@@ -209,9 +209,9 @@ public:
 ZM_REGISTER_SCRIPT(TowerBuilder, ZM_FIELD(TowerBuilder, Levels), ZM_FIELD(TowerBuilder, Size), ZM_FIELD_COLOR(TowerBuilder, BottomColor),
                    ZM_FIELD_COLOR(TowerBuilder, TopColor))
 
-// DebugDraw namunasi (Scenes/DebugDraw.zscene): aylanib turuvchi raycast "radari", sharlar atrofida
-// shakllar, harakat o'qlari, iz (davomiyligi bor nuqtalar) va yozuvlar. Editor'da "Debug chizish"
-// menyusidan raycastlar va kontakt nuqtalarini ham yoqing.
+// The DebugDraw sample (Scenes/DebugDraw.zscene): a rotating raycast "radar", shapes around the spheres,
+// motion arrows, a trail (points with a duration) and labels. In the editor also turn on the raycasts and
+// contact points from the "Debug drawing" menu.
 class DebugDrawDemo : public ScriptableEntity
 {
 public:
@@ -341,11 +341,11 @@ private:
 ZM_REGISTER_SCRIPT(PatrolWalker, ZM_FIELD(PatrolWalker, Speed), ZM_FIELD(PatrolWalker, Width), ZM_FIELD(PatrolWalker, Depth),
                    ZM_FIELD(PatrolWalker, ShowRoute))
 
-// ---- Queries3D sahnasi: 3D fizika so'rovlari. "Raycastlar" debug chizish yoqiq bo'lsa dvigatel har
-// so'rovni o'zi chizadi (shakl, yo'l, tegish nuqtalari, normallar); aks holda skriptlar natijani o'zlari
-// ko'rsatadi.
+// ---- The Queries3D scene: 3D physics queries. When the "Raycasts" debug drawing is on, the engine draws
+// every query itself (the shape, the path, the hit points, the normals); otherwise the scripts show the
+// result themselves.
 
-// Obyekt ustida doim ko'rinadigan yozuv.
+// A label that is always visible above an entity.
 class Label3D : public ScriptableEntity
 {
 public:
@@ -356,16 +356,16 @@ public:
 };
 ZM_REGISTER_SCRIPT(Label3D, ZM_FIELD(Label3D, Text), ZM_FIELD(Label3D, Offset), ZM_FIELD_COLOR(Label3D, Color))
 
-// "Qalin nur": SphereCast3DAll yo'lidagi hamma obyektlarni tartib bilan topadi va u yoq-bu yoqqa buriladi.
-// Arvoh qatlamidagi obyektlar niqobdan chiqarilgan (LayerMask).
+// "A thick ray": SphereCast3DAll finds every entity on its path in order, and it sweeps from side to side.
+// The entities on the Ghost layer are left out of the mask (LayerMask).
 class SphereSweep3D : public ScriptableEntity
 {
 public:
     float Radius = 0.35f;
     float Range = 11.0f;
-    float Spread = 0.55f;    // radian: har tomonga qancha buriladi
+    float Spread = 0.55f;    // radians: how far it turns to each side
     float SweepSpeed = 0.5f;
-    bool SkipGhosts = true;  // "Ghost" qatlamini hisobga olmaydi
+    bool SkipGhosts = true;  // ignores the "Ghost" layer
 
     void OnUpdate(Timestep) override
     {
@@ -391,7 +391,7 @@ public:
 ZM_REGISTER_SCRIPT(SphereSweep3D, ZM_FIELD(SphereSweep3D, Radius), ZM_FIELD(SphereSweep3D, Range), ZM_FIELD(SphereSweep3D, Spread),
                    ZM_FIELD(SphereSweep3D, SweepSpeed), ZM_FIELD(SphereSweep3D, SkipGhosts))
 
-// Aylanib yuradigan OverlapSphere3D: ichiga tushgan obyektlar yorishadi (emissiya), chiqqanda asl holiga qaytadi.
+// An OverlapSphere3D that moves in a circle: the entities inside it light up (emission) and go back to normal when they leave.
 class OverlapGlow3D : public ScriptableEntity
 {
 public:
@@ -449,7 +449,7 @@ private:
 ZM_REGISTER_SCRIPT(OverlapGlow3D, ZM_FIELD(OverlapGlow3D, Radius), ZM_FIELD(OverlapGlow3D, OrbitRadius), ZM_FIELD(OverlapGlow3D, Speed),
                    ZM_FIELD_COLOR(OverlapGlow3D, Glow), ZM_FIELD(OverlapGlow3D, GlowStrength))
 
-// Lazer: Raycast3DAll nur yo'lidagi hamma oynalarni yaqinidan boshlab topadi (har biri bir marta).
+// A laser: Raycast3DAll finds every pane on the ray's path, nearest first (each one once).
 class LaserAll3D : public ScriptableEntity
 {
 public:
@@ -660,20 +660,20 @@ private:
 ZM_REGISTER_SCRIPT(TriggerGlow3D, ZM_FIELD(TriggerGlow3D, Title), ZM_FIELD_COLOR(TriggerGlow3D, Glow), ZM_FIELD(TriggerGlow3D, GlowStrength),
                    ZM_FIELD(TriggerGlow3D, Radius), ZM_FIELD(TriggerGlow3D, LabelOffset))
 
-// ---- Ragdoll3D sahnasi: Cone Joint 3D (yelka, son, bel, bo'yin) va Hinge Joint 3D (tirsak, tizza) bilan
-// bog'langan 11 bo'lakli ragdoll'lar zinadan yumalab tushadi.
+// ---- The Ragdoll3D scene: 11-part ragdolls joined with Cone Joint 3D (shoulders, hips, waist, neck) and
+// Hinge Joint 3D (elbows, knees) tumble down the stairs.
 
-// R - zina ustidan yana 3 ta ragdoll, sichqoncha chap tugmasi / F - kameradan sichqoncha tomonga otadi,
-// har AutoInterval soniyada o'zi bittasini tashlaydi. Ko'pi bilan MaxRagdolls ta (eskilari yo'qoladi).
+// R - 3 more ragdolls from above the stairs, left mouse button / F - throws one from the camera toward the
+// mouse, and every AutoInterval seconds it drops one by itself. At most MaxRagdolls (the old ones disappear).
 class RagdollSpawner3D : public ScriptableEntity
 {
 public:
     std::string Prefab = "Prefabs/Ragdoll3D.zprefab";
     float AutoInterval = 3.0f;
-    float Width = 4.0f;       // tashlash joyining kengligi (Z bo'ylab)
+    float Width = 4.0f;       // the width of the drop area (along Z)
     int MaxRagdolls = 8;
-    float Push = 4.5f;        // zina tomonga (+X) boshlang'ich tezlik
-    float ThrowSpeed = 14.0f; // kameradan otilganda
+    float Push = 4.5f;        // the initial velocity toward the stairs (+X)
+    float ThrowSpeed = 14.0f; // when thrown from the camera
 
     void OnUpdate(Timestep ts) override
     {
@@ -682,7 +682,7 @@ public:
         if (Input::IsKeyJustPressed(Key::R))
             for (int i = 0; i < 3; i++)
                 Spawn(SkyPoint(), { Push * Random::Range(0.6f, 1.4f), 0.0f, 0.0f });
-        // Sahnadan tushib ketganlari yo'qoladi.
+        // The ones that fell off the scene disappear.
         for (auto it = m_Spawned.begin(); it != m_Spawned.end();)
         {
             Entity root = GetScene().GetEntityByUUID(*it);
@@ -712,7 +712,7 @@ private:
         return { at.x + Random::Range(-1.0f, 1.0f), at.y + Random::Range(-0.3f, 0.8f), at.z + Random::Range(-Width * 0.5f, Width * 0.5f) };
     }
 
-    // Kameradan sichqoncha ko'rsatgan joyga (z = 0 tekisligida) qarab.
+    // From the camera toward the point the mouse points at (on the z = 0 plane).
     void Throw()
     {
         Entity camera = GetScene().GetPrimaryCameraEntity();
@@ -723,7 +723,7 @@ private:
         if (glm::length(dir) < 1e-3f)
             return;
         dir = glm::normalize(dir);
-        // Ildiz oyoq ostida: bo'laklar markazi ~0.8 yuqorida.
+        // The root is at the feet: the centers of the parts are ~0.8 higher.
         Spawn(from + dir * 3.0f - glm::vec3(0.0f, 0.8f, 0.0f), dir * ThrowSpeed);
     }
 
@@ -736,7 +736,7 @@ private:
             return;
         }
         Paint(root);
-        // Hamma bo'lak bir xil tezlikda, boshi biroz boshqacha: ragdoll aylanib uchadi.
+        // Every part at the same velocity, the head a little different: the ragdoll flies spinning.
         for (Entity part : GetScene().GetChildren(root))
         {
             if (!part.HasComponent<Rigidbody3DComponent>())
@@ -755,7 +755,7 @@ private:
         }
     }
 
-    // Ko'ylak (ko'krak, yelkalar), shim (bel, son, boldir) va teri uchun tasodifiy ranglar.
+    // Random colors for the shirt (chest, shoulders), the trousers (waist, thighs, shins) and the skin.
     void Paint(Entity root)
     {
         const float hue = Random::Float();
@@ -793,12 +793,12 @@ ZM_REGISTER_SCRIPT(RagdollSpawner3D,
     ZM_FIELD_RANGE(RagdollSpawner3D, Push, 0.0f, 20.0f).Tooltip("Initial speed towards the stairs (+X)"),
     ZM_FIELD_RANGE(RagdollSpawner3D, ThrowSpeed, 0.0f, 60.0f).Tooltip("Throw speed from the camera towards the mouse"))
 
-// ---- PhysicsDebug3D sahnasi: fizika debug ko'rinishlari - kontakt nuqtalari (normal, chuqurlik, zarba
-// halqasi, uxlayotganlari xira), qiymat yozuvlari (chuqurlik, zarba tezligi va impulsi) va joint'lar
-// (langarlar, o'q, uzilishga yaqinligi rangda, uzilgani qizil X).
+// ---- The PhysicsDebug3D scene: the physics debug views - contact points (normal, depth, impact ring,
+// sleeping ones dimmed), value labels (depth, impact speed and impulse) and joints (anchors, axis,
+// closeness to breaking as a color, a broken one as a red X).
 
-// O'yin boshlanganda debug chizishning fizika ko'rinishlarini yoqadi; C - kontaktlar, J - joint'lar,
-// V - qiymat yozuvlari. Editor'da o'yin to'xtaganda viewport sozlamalari qaytadi.
+// When the game starts it turns on the physics views of debug drawing; C - contacts, J - joints,
+// V - value labels. In the editor the viewport settings come back when the game stops.
 class PhysicsDebugView3D : public ScriptableEntity
 {
 public:
@@ -837,19 +837,19 @@ ZM_REGISTER_SCRIPT(PhysicsDebugView3D,
     ZM_FIELD(PhysicsDebugView3D, Joints).Tooltip("Joints: anchors, axis, load color (J)"),
     ZM_FIELD(PhysicsDebugView3D, Values).Tooltip("Depth, hit, impulse and force labels (V)"))
 
-// ---- Audio sahnasi: mixer guruhlari, musiqa crossfade, Audio Listener.
-// Tinglovchi (Audio Listener) qaysi zonada bo'lsa o'sha musiqa crossfade bilan yangraydi
-// (Audio::CrossfadeTo, Music guruhi, diskdan oqim bilan). UI guruhida vaqti-vaqti bilan signal chalinadi.
-// 1 / 2 - musiqani qo'lda tanlash, M - Music guruhini o'chirish (mute), P - pauza, S - musiqani so'ndirish.
+// ---- The Audio scene: mixer groups, music crossfade, Audio Listener.
+// The music of whichever zone the listener (Audio Listener) is in plays with a crossfade
+// (Audio::CrossfadeTo, the Music group, streamed from disk). A signal plays now and then in the UI group.
+// 1 / 2 - pick the music by hand, M - mute the Music group, P - pause, S - fade the music out.
 class MusicDirector : public ScriptableEntity
 {
 public:
     std::string CalmTrack = "Audio/MusicCalm.wav";
     std::string TenseTrack = "Audio/MusicTense.wav";
     float Crossfade = 2.0f;
-    float Border = 0.0f;       // zonalar chegarasi (X)
+    float Border = 0.0f;       // the border between the zones (X)
     std::string Ping = "Audio/UiPing.wav";
-    float PingInterval = 2.5f; // UI guruhidagi signal (0: yo'q)
+    float PingInterval = 2.5f; // the signal in the UI group (0: none)
 
     void OnStart() override
     {
@@ -922,9 +922,9 @@ ZM_REGISTER_SCRIPT(MusicDirector,
     ZM_FIELD(MusicDirector, Ping).Tooltip("The signal played in the UI group"),
     ZM_FIELD(MusicDirector, PingInterval))
 
-// Ovoz manbai bir o'q bo'ylab tez uchib o'tadi (kosinus bo'yicha borib-keladi) va tepasida jonli holati
-// yoziladi: tinglovchiga yaqinlashganda ton ko'tariladi, uzoqlashganda pasayadi (Doppler effekti; tezlik
-// obyekt harakatidan o'lchanadi, Audio Source'ning Doppler koeffitsiyenti uni kuchaytiradi).
+// A sound source flies fast along one axis (back and forth on a cosine) and its live state is written
+// above it: the pitch rises as it approaches the listener and falls as it moves away (the Doppler effect;
+// the velocity is measured from the entity's motion, and the Audio Source's Doppler factor amplifies it).
 class DopplerFlyby : public ScriptableEntity
 {
 public:
@@ -959,10 +959,10 @@ ZM_REGISTER_SCRIPT(DopplerFlyby,
     ZM_FIELD(DopplerFlyby, Distance).Tooltip("Back-and-forth distance, m"),
     ZM_FIELD(DopplerFlyby, Period).Tooltip("Time of one trip there and back, seconds (top speed: pi x distance / time)"))
 
-// Shamol qo'ng'iroqchalari: bitta qisqa qo'ng'iroq ovozi tasodifiy oraliqlarda chalinadi - har safar boshqa
-// ton va balandlikda (SoundParams::PitchRandom / VolumeRandom). Bir vaqtda ko'pi bilan MaxAtOnce tasi
-// eshitiladi: yangisi eng past eshitilganining o'rnini oladi (MaxInstances + Quietest). H - ziyoratgoh
-// g'uvillashini pauza / davom ettirish (Audio Source skript API: PauseAudio / ResumeAudio / GetAudioTime).
+// Wind chimes: one short chime sound plays at random intervals - each time with a different pitch and
+// volume (SoundParams::PitchRandom / VolumeRandom). At most MaxAtOnce of them are heard at the same time:
+// a new one takes the place of the quietest (MaxInstances + Quietest). H - pause / resume the shrine's
+// hum (the Audio Source script API: PauseAudio / ResumeAudio / GetAudioTime).
 class ChimeRinger : public ScriptableEntity
 {
 public:
@@ -1036,9 +1036,9 @@ ZM_REGISTER_SCRIPT(ChimeRinger,
     ZM_FIELD_RANGE(ChimeRinger, MaxAtOnce, 1, 16).Tooltip("How many can be heard at once"),
     ZM_FIELD(ChimeRinger, Hum).Header("Pause sample").Tooltip("The Audio Source paused with the H key"))
 
-// Radio: Audio Source'ning so'nishi va filtri. Manbada FadeIn 1.5 s / FadeOut 1.2 s va high-pass 700 Hz +
-// low-pass 3.5 kHz (kichik karnaydan chiqayotgandek). R - radioni yoqish / o'chirish (asta kiradi va so'nadi),
-// T - "karnay" filtrini yoqish / o'chirish (kesish chastotasi silliq siljiydi), G - FadeAudio bilan pasaytirish.
+// A radio: an Audio Source's fades and filters. The source has FadeIn 1.5 s / FadeOut 1.2 s and a high-pass 700 Hz +
+// low-pass 3.5 kHz (as if from a small speaker). R - turn the radio on / off (it fades in and out),
+// T - turn the "speaker" filter on / off (the cutoff frequency glides smoothly), G - lower it with FadeAudio.
 class RadioToggle : public ScriptableEntity
 {
 public:
@@ -1097,12 +1097,12 @@ ZM_REGISTER_SCRIPT(RadioToggle,
     ZM_FIELD_RANGE(RadioToggle, LowPass, 200.0f, 20000.0f).Tooltip("Low-pass turned on with T, Hz"),
     ZM_FIELD_RANGE(RadioToggle, DuckVolume, 0.0f, 1.0f).Tooltip("Fade level while G is pressed"))
 
-// Suv havzasi: tinglovchi (Audio Listener) havza ichiga kirsa SFX guruhi (bolasi Ambience bilan) va Music
-// guruhi low-pass bilan bo'g'iladi - suv ostidagidek; chiqsa filtr silliq ochiladi (Audio::SetGroupLowPass).
+// A pool: when the listener (Audio Listener) enters the pool, the SFX group (with its child Ambience) and the Music
+// group are muffled with a low-pass - as if under water; on leaving the filter opens smoothly (Audio::SetGroupLowPass).
 class UnderwaterZone : public ScriptableEntity
 {
 public:
-    float Cutoff = 450.0f;      // SFX (va Ambience)
+    float Cutoff = 450.0f;      // SFX (and Ambience)
     float MusicCutoff = 800.0f; // Music
 
     void OnUpdate(Timestep) override
@@ -1149,9 +1149,9 @@ ZM_REGISTER_SCRIPT(UnderwaterZone,
     ZM_FIELD_RANGE(UnderwaterZone, Cutoff, 50.0f, 20000.0f).Tooltip("Low-pass frequency of the SFX group under water, Hz"),
     ZM_FIELD_RANGE(UnderwaterZone, MusicCutoff, 50.0f, 20000.0f).Tooltip("Low-pass frequency of the Music group under water, Hz"))
 
-// Karnay e'lonlari: Audio Source (takrorlanmaydigan qo'ng'iroq, yo'nalish konusi bilan) tugaganda OnSoundFinished
-// keladi - skript Pause sekunddan keyin uni qayta chaladi va nechta e'lon bo'lganini ko'rsatadi. Ovozlar limiti
-// o'rnini olsa (sound.Stolen) ham xabar keladi.
+// Loudspeaker announcements: when an Audio Source (a non-looping chime, with a direction cone) finishes,
+// OnSoundFinished arrives - the script plays it again after Pause seconds and shows how many announcements
+// there have been. A message also arrives when the sound limit takes its place (sound.Stolen).
 class PaAnnouncer : public ScriptableEntity
 {
 public:
@@ -1195,8 +1195,8 @@ private:
 };
 ZM_REGISTER_SCRIPT(PaAnnouncer, ZM_FIELD_RANGE(PaAnnouncer, Pause, 0.0f, 30.0f).Tooltip("Break between announcements, seconds"))
 
-// Ambient zona yozuvi: zona (AmbientZoneComponent) ustida uning nomi va hozir eshitilayotgan darajasi - tinglovchi
-// hajm ichida bo'lsa to'liq, chetidan tashqarida aralashish masofasida asta so'nadi.
+// An ambient zone label: above the zone (AmbientZoneComponent), its name and the level heard right now - full
+// while the listener is inside the volume, fading slowly over the blend distance outside its edge.
 class AmbientZoneLabel : public ScriptableEntity
 {
 public:
@@ -1220,9 +1220,9 @@ public:
 ZM_REGISTER_SCRIPT(AmbientZoneLabel, ZM_FIELD(AmbientZoneLabel, Title).Tooltip("The label above the zone"),
     ZM_FIELD(AmbientZoneLabel, LabelHeight).Tooltip("How high the label is above the zone, m (so it does not overlap other labels)"))
 
-// O'yinchi ovoz sozlamalari: - / = Music guruhini 3 dB pasaytirish / ko'tarish, N - SFX'ni o'chirish (mute),
-// 9 - saqlash (Audio::SaveSettings: SaveData'ga, loyiha standartidan alohida), 0 - saqlanganini o'chirish.
-// Saqlangan sozlamalar o'yin boshlanganda (player va editorda Play) avtomatik yuklanadi.
+// The player's sound settings: - / = lower / raise the Music group by 3 dB, N - mute the SFX,
+// 9 - save (Audio::SaveSettings: to SaveData, separate from the project default), 0 - delete the saved ones.
+// The saved settings are loaded automatically when the game starts (in the player and with Play in the editor).
 class AudioOptions : public ScriptableEntity
 {
 public:
@@ -1259,8 +1259,8 @@ private:
 };
 ZM_REGISTER_SCRIPT(AudioOptions)
 
-// Animatsiya sahnasi (M13): obyektning Animation Player klipi chiqargan event'larni ko'rsatadi.
-// OnAnimationEvent hamma event'larni oladi; AddAnimationEventHandler esa bitta nomga usul bog'laydi.
+// The animation scene (M13): shows the events the entity's Animation Player clip emits.
+// OnAnimationEvent gets every event; AddAnimationEventHandler binds a method to one name.
 class AnimationEventDemo : public ScriptableEntity
 {
 public:
@@ -1299,9 +1299,9 @@ private:
 };
 ZM_REGISTER_SCRIPT(AnimationEventDemo, ZM_FIELD(AnimationEventDemo, Title), ZM_FIELD(AnimationEventDemo, Height))
 
-// Animator namoyishi (Scenes/Animator.zscene): float parametrni sekin to'lqin bilan o'zgartiradi
-// (blend tree aralashmasi yoki qatlam og'irligi), har TriggerEvery soniyada trigger yoqadi va
-// animatorning jonli holatini obyekt ustida yozib turadi.
+// The Animator demo (Scenes/Animator.zscene): changes a float parameter with a slow wave
+// (the blend tree's mix or a layer's weight), sets a trigger every TriggerEvery seconds and
+// keeps writing the animator's live state above the entity.
 class AnimatorDemo : public ScriptableEntity
 {
 public:
@@ -1358,8 +1358,8 @@ ZM_REGISTER_SCRIPT(AnimatorDemo, ZM_FIELD(AnimatorDemo, Title), ZM_FIELD(Animato
                    ZM_FIELD(AnimatorDemo, Max), ZM_FIELD(AnimatorDemo, Period), ZM_FIELD(AnimatorDemo, Trigger),
                    ZM_FIELD(AnimatorDemo, TriggerEvery), ZM_FIELD(AnimatorDemo, Height))
 
-// Blend shape'lar skriptdan (Scenes/Animator.zscene): Mesh Renderer'ning morph target og'irliklari
-// (SetMorphWeight) vaqt bo'yicha - tabassum, siqilish, tikanlar; qiymatlar obyekt ustida yoziladi.
+// Blend shapes from a script (Scenes/Animator.zscene): the Mesh Renderer's morph target weights
+// (SetMorphWeight) over time - a smile, a squash, spikes; the values are written above the entity.
 class BlendShapeDemo : public ScriptableEntity
 {
 public:
@@ -1389,8 +1389,8 @@ private:
 };
 ZM_REGISTER_SCRIPT(BlendShapeDemo, ZM_FIELD(BlendShapeDemo, Speed), ZM_FIELD(BlendShapeDemo, Height))
 
-// Kamera joyida turib chapga-o'ngga sekin buriladi (Scenes/Crowd.zscene): ko'rinish o'zgargani sari
-// ekrandan chiqqan paypoqlar animatsiyasi kesiladi, kirganlari yana pozalanadi.
+// The camera stands in place and turns slowly left and right (Scenes/Crowd.zscene): as the view changes,
+// the animation of the characters that leave the screen is culled and the ones that come in are posed again.
 class SweepCamera : public ScriptableEntity
 {
 public:
@@ -1408,8 +1408,8 @@ private:
 };
 ZM_REGISTER_SCRIPT(SweepCamera, ZM_FIELD(SweepCamera, Amplitude), ZM_FIELD(SweepCamera, Period))
 
-// Sahnadagi animatsiya ishini obyekt ustida yozib turadi (Scene::GetAnimationStats): nechta animator
-// pozalandi, nechtasi o'zgarmagani uchun o'tkazib yuborildi, nechtasi ekrandan tashqarida kesildi.
+// Keeps writing the scene's animation work above the entity (Scene::GetAnimationStats): how many animators
+// were posed, how many were skipped because nothing changed, how many were culled off screen.
 class AnimationStatsDemo : public ScriptableEntity
 {
 public:

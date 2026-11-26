@@ -4,7 +4,7 @@
 
 using namespace Zamin;
 
-// Uchinchi shaxs qahramoni: WASD / strelkalar / chap stick - yurish, Shift - yugurish, Space - sakrash.
+// A third-person hero: WASD / arrows / left stick - walk, Shift - run, Space - jump.
 class ThirdPersonController : public ScriptableEntity
 {
 public:
@@ -21,10 +21,10 @@ public:
         ZM_INFO("Hero ready: WASD - move, Shift - run, Space - jump, RMB - camera");
     }
 
-    // The island's guard caught the hero ("Ushlandi"): back to the start.
+    // The island's guard caught the hero ("Caught"): back to the start.
     void OnMessage(const ScriptMessage& message) override
     {
-        if (message.Name != "Ushlandi")
+        if (message.Name != "Caught")
             return;
         SetPosition3D(m_Spawn);
         m_Velocity = glm::vec3(0.0f);
@@ -37,7 +37,7 @@ public:
         auto* cc = TryGetComponent<CharacterController3DComponent>();
         if (!cc) return;
 
-        // ---- input (named actions / axes: Loyiha sozlamalari > Input)
+        // ---- input (named actions / axes: Project settings > Input)
         glm::vec2 input = Input::GetVector("Move"); // Horizontal + Vertical as one 2D value
         bool run = Input::IsActionPressed("Sprint");
 

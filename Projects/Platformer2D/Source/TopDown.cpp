@@ -4,11 +4,11 @@
 
 using namespace Zamin;
 
-// Top-down qahramon (TopDown2D sahnasi): "Horizontal" / "Vertical" o'qlari (WASD, strelkalar,
-// gamepad) bilan to'rt tomonga yuradi. Animatsiya - Sprite Animation'ning kliplari
-// (Animations/HeroDown|HeroUp|HeroSide.zsanim: topdown_objects.png atlasidagi "hero_*_N" kadrlari,
-// har qadamda "Step" event'i - qahramon biroz cho'kadi); klip bo'lmasa, kadrlar ketma-ketligi.
-// Chapga yurganda rasm aks ettiriladi.
+// The top-down hero (the TopDown2D scene): walks in four directions with the "Horizontal" / "Vertical" axes
+// (WASD, arrows, gamepad). The animation is the Sprite Animation's clips
+// (Animations/HeroDown|HeroUp|HeroSide.zsanim: the "hero_*_N" frames of the topdown_objects.png atlas,
+// a "Step" event on every step - the hero dips a little); without a clip, a sequence of frames.
+// When walking left the picture is mirrored.
 class TopDownController : public ScriptableEntity
 {
 public:
@@ -22,10 +22,10 @@ public:
         ZM_INFO("Top-down hero ready. WASD / arrows - move");
     }
 
-    // Chase2D: a guard caught the hero ("Ushlandi") - back to where it started, with a red flash.
+    // Chase2D: a guard caught the hero ("Caught") - back to where it started, with a red flash.
     void OnMessage(const ScriptMessage& message) override
     {
-        if (message.Name != "Ushlandi")
+        if (message.Name != "Caught")
             return;
         SetPosition2D(m_Spawn);
         SetVelocity({ 0.0f, 0.0f });
@@ -34,7 +34,7 @@ public:
 
     void OnUpdate(Timestep ts) override
     {
-        // The "Move" vector (Loyiha sozlamalari > Input > Vektorlar): Horizontal + Vertical, diagonals not faster.
+        // The "Move" vector (Project settings > Input > Vectors): Horizontal + Vertical, diagonals not faster.
         glm::vec2 input = Input::GetVector("Move");
 
         // Smooth start and stop (the body has no gravity in this scene).

@@ -111,7 +111,7 @@ void AdventureGame::Refresh()
 {
     if (auto* text = TryGetComponent<TextComponent>())
     {
-        text->Text = std::format("Kristallar: {} / {}", m_Collected, m_Total);
+        text->Text = std::format("Crystals: {} / {}", m_Collected, m_Total);
         if (m_Total > 0 && m_Collected >= m_Total) text->Text += "   -   Victory!";
         if (const float scale = Time::GetTimeScale(); scale < 0.999f)
             text->Text += std::format("   -   Slow: {:.0f}%", scale * 100.0f);
@@ -119,7 +119,7 @@ void AdventureGame::Refresh()
 }
 ZM_REGISTER_SCRIPT(AdventureGame, ZM_FIELD(AdventureGame, SlowMotionScale), ZM_FIELD(AdventureGame, SlowMotionEase))
 
-// Kristal: aylanadi, suzadi; o'yinchi yaqinlashsa yig'iladi.
+// A crystal: spins and floats; it is collected when the player comes near.
 class Crystal : public ScriptableEntity
 {
 public:
@@ -152,7 +152,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(Crystal, ZM_FIELD(Crystal, PickupRadius), ZM_FIELD(Crystal, Effect))
 
-// Kinematik platforma (ustidagi qahramonni olib yuradi).
+// A kinematic platform (carries the hero standing on it).
 class MovingPlatform3D : public ScriptableEntity
 {
 public:
@@ -185,11 +185,10 @@ public:
 };
 ZM_REGISTER_SCRIPT(AutoDestroy, ZM_FIELD(AutoDestroy, Seconds))
 
-// Darvoza: qahramon yaqinlashsa ochiladi, uzoqlashsa (biroz kutib) yopiladi. Harakatning o'zi
-// Animations/GateOpening.zanim klipida (Animation Player): ikki tabaqa oshiq atrofida buriladi,
-// chiroq qizil -> sariq -> yashil bo'ladi. Ovozlar klip event'laridan: "Creak" (ochilish /
-// yopilish boshida) va "Thud" (yopilib bo'lganda) - har biri qaysi yo'nalishda kerakligini
-// event parametri aytadi.
+// The gate: opens when the hero comes near and closes (after a short wait) when the hero moves away. The motion
+// itself is in the Animations/GateOpening.zanim clip (Animation Player): the two leaves turn on their hinges, the
+// lamp goes red -> yellow -> green. The sounds come from the clip's events: "Creak" (at the start of opening /
+// closing) and "Thud" (when it has closed) - the event parameter says which direction each one is for.
 class ProximityDoor : public ScriptableEntity
 {
 public:

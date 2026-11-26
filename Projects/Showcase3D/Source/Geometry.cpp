@@ -1,5 +1,5 @@
-// "Geometry" sahnasi skriptlari: Math/Geometry.h (AABB, Sphere, Ray, Plane) - fizikasiz, sof matematik
-// nur va kesishuv testlari DebugDraw bilan ko'rsatiladi.
+// Scripts of the "Geometry" scene: Math/Geometry.h (AABB, Sphere, Ray, Plane) - ray and intersection tests
+// without physics, pure math, shown with DebugDraw.
 #include <Zamin/Zamin.h>
 
 #include <cmath>
@@ -59,14 +59,14 @@ namespace {
 
 }
 
-// Aylanib turuvchi nurlar yelpig'ichi: har bir nur Geometry::Raycast bilan hamma nishonlarga (aylanuvchi
-// qutilar - yo'naltirilgan AABB, sharlar) tekshiriladi; eng yaqin tegish nuqtasi va normal chiziladi.
+// A rotating fan of rays: each ray is tested with Geometry::Raycast against every target (spinning
+// boxes - oriented AABBs, spheres); the nearest hit point and its normal are drawn.
 class GeometryRayFan : public ScriptableEntity
 {
 public:
     int Rays = 21;
     float Spread = 1.9f;      // radian
-    float SweepSpeed = 0.35f; // radian / sekund
+    float SweepSpeed = 0.35f; // radians / second
     float Range = 16.0f;
 
     void OnUpdate(Timestep) override
@@ -101,8 +101,8 @@ ZM_REGISTER_SCRIPT(GeometryRayFan, ZM_FIELD_RANGE(GeometryRayFan, Rays, 1, 64).L
                    ZM_FIELD_RANGE(GeometryRayFan, Spread, 0.1f, 3.1f).Label("Yoyilish (rad)"),
                    ZM_FIELD(GeometryRayFan, SweepSpeed).Label("Turn speed"), ZM_FIELD(GeometryRayFan, Range).Label("Range"))
 
-// Aylanib yuruvchi zond: har nishonning eng yaqin nuqtasigacha chiziq (ClosestPoint), zond sferasi
-// tekkan nishonlarning dunyo AABB'si to'q sariq (Geometry::Intersects(Sphere, AABB)).
+// A probe that moves in a circle: a line to the closest point of each target (ClosestPoint); the world
+// AABB of the targets the probe sphere touches is orange (Geometry::Intersects(Sphere, AABB)).
 class GeometryProbe : public ScriptableEntity
 {
 public:
@@ -143,8 +143,8 @@ private:
 ZM_REGISTER_SCRIPT(GeometryProbe, ZM_FIELD(GeometryProbe, Radius).Label("Probe radius"), ZM_FIELD(GeometryProbe, OrbitRadius).Label("Orbit radius"),
                    ZM_FIELD(GeometryProbe, Speed).Label("Speed"))
 
-// Hamma nishonlar atrofidagi sfera (Sphere::FromPoints) va qiya aylanuvchi tekislik: har nishonning
-// dunyo AABB'si tekislikka nisbatan rangda (Classify: oldida yashil, orqasida ko'k, kesib o'tsa pushti).
+// A sphere around all the targets (Sphere::FromPoints) and a tilted rotating plane: each target's world
+// AABB is colored relative to the plane (Classify: green in front, blue behind, pink when it crosses).
 class GeometryBoundsView : public ScriptableEntity
 {
 public:

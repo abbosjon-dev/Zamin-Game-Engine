@@ -9,16 +9,16 @@
 
 using namespace Zamin;
 
-// Sahnalar oqimi namunasi (M15): bosh menyu (Menu.zscene: GameMenu, GameMenu.cpp) -> yuklanish ekrani (Loading.zscene, daraja
-// fonda yuklanadi) -> 1-daraja (qora rangga so'nib-ochilish bilan). GameSession - o'yin sessiyasi
-// menejeri: menyuda yaratiladi va DontDestroyOnLoad bilan sahnalar almashganda ham saqlanadi - musiqa
-// uzilmaydi, hamma darajalarda yig'ilgan tangalar global holatda (GameState) jamlanadi, darajalar
-// bo'yicha statistika SessionStats servisida (Services), pastki chap burchakdagi HUD faqat
-// darajalarda ko'rinadi.
+// The scene flow sample (M15): the main menu (Menu.zscene: GameMenu, GameMenu.cpp) -> the loading screen (Loading.zscene,
+// the level loads in the background) -> level 1 (with a fade through black). GameSession is the game session
+// manager: it is created in the menu and kept across scene changes with DontDestroyOnLoad - the music does not
+// break off, the coins collected in every level add up in the global state (GameState), the per-level statistics
+// are in the SessionStats service (Services), and the HUD in the bottom left corner shows only in the
+// levels.
 
-// Yuklanish ekrani: keyingi sahnani LoadSceneAsync bilan fonda yuklaydi, progress bar va bosqichni
-// ko'rsatadi. Sahna tayyor bo'lsa ham kamida MinSeconds turadi (SetAllowSceneActivation(false)), keyin
-// ekran so'nadi, sahna almashadi va yangi daraja ochiladi.
+// The loading screen: loads the next scene in the background with LoadSceneAsync and shows a progress bar and
+// the stage. Even when the scene is ready it stays at least MinSeconds (SetAllowSceneActivation(false)), then
+// the screen fades, the scene changes and the new level opens.
 class LoadingScreen : public ScriptableEntity
 {
 public:
@@ -97,11 +97,11 @@ ZM_REGISTER_SCRIPT(LoadingScreen,
     ZM_FIELD(LoadingScreen, Percent).Tooltip("Percent text"),
     ZM_FIELD(LoadingScreen, Stage).Tooltip("Stage text"))
 
-// O'yin sessiyasi statistikasi - C++ servis (Services): sahnalardan tashqarida yashaydi, istalgan
-// skriptdan GetService<SessionStats>() bilan topiladi. Har darajada yig'ilgan tangalar.
+// The game session statistics - a C++ service (Services): it lives outside the scenes and any script finds it
+// with GetService<SessionStats>(). The coins collected in each level.
 struct SessionStats
 {
-    std::vector<std::pair<std::string, int>> Levels; // daraja nomi, undagi tangalar
+    std::vector<std::pair<std::string, int>> Levels; // the level name, its coins
     void AddCoin(const std::string& level)
     {
         if (Levels.empty() || Levels.back().first != level)
@@ -110,14 +110,14 @@ struct SessionStats
     }
 };
 
-// O'yin sessiyasi: DontDestroyOnLoad - menyudan boshlab hamma sahnalarda yashaydi. Musiqasi
-// (AudioSource, PlayOnStart + Loop) sahna almashganda uzilmaydi; "CoinCollected" hodisalarini
-// global holatga (GameState: "Session.Coins", "Session.Levels", "Session.Level") yozadi, rekord
-// ("Session.Best") doimiy kalit - SaveData orqali keyingi o'yinga qoladi.
+// The game session: DontDestroyOnLoad - it lives in every scene from the menu on. Its music
+// (AudioSource, PlayOnStart + Loop) does not break off when the scene changes; it writes the "CoinCollected"
+// events to the global state (GameState: "Session.Coins", "Session.Levels", "Session.Level"), and the record
+// ("Session.Best") is a persistent key - it stays for the next game through SaveData.
 class GameSession : public ScriptableEntity
 {
 public:
-    EntityRef Hud;   // sessiya matni (UI), faqat darajalarda ko'rinadi
+    EntityRef Hud;   // the session text (UI), shown only in the levels
 
     void OnCreate() override
     {
@@ -187,7 +187,7 @@ private:
         if (Entity hud = Resolve(Hud))
             if (auto* text = hud.TryGetComponent<TextComponent>())
             {
-                // "Sessiya: 5 tanga | Level1 | 2 ta daraja | rekord: 12" - the counts with their plural forms
+                // "Session: 5 coins | Level1 | 2 levels | best: 12" - the counts with their plural forms
                 // ("5 монет", "2 уровня"), from the language files.
                 const std::string level = GameState::GetString("Session.Level");
                 text->Text = Localize("hud.session", LocalizePlural("hud.session_coins", GameState::GetInt("Session.Coins")),
@@ -201,10 +201,10 @@ private:
 };
 ZM_REGISTER_SCRIPT(GameSession, ZM_FIELD(GameSession, Hud).Tooltip("Session text (UI): shown only in the levels"))
 
-// Sub-sahnalar namunasi (SubScenes.zscene): bitta "Camp" bo'lagi (Scenes/Parts/Camp.zscene) uch joyda.
-// Ikkitasi sahna bilan yuklanadi (SubSceneComponent, "Sahna bilan yuklash"), uchinchisini shu skript
-// Delay sekunddan keyin LoadSubScene() bilan yuklaydi - masalan, o'yinchi yaqinlashganda ochiladigan
-// xona. Label (ixtiyoriy) holatni ko'rsatadi.
+// The sub-scene sample (SubScenes.zscene): one "Camp" piece (Scenes/Parts/Camp.zscene) in three places.
+// Two of them load with the scene (SubSceneComponent, "Load with the scene"), this script loads the third
+// with LoadSubScene() after Delay seconds - for example a room that opens when the player comes near.
+// Label (optional) shows the state.
 class DelayedSubScene : public ScriptableEntity
 {
 public:

@@ -5,17 +5,17 @@
 
 using namespace Zamin;
 
-// Pauza menyusi (1-3 darajalar): Esc yoki gamepad Start o'yinni to'xtatadi va menyuni ochadi -
-// "Resume", "Settings", "Quit". O'yin vaqti to'xtaydi (PauseGame: fizika, animatsiyalar,
-// boshqa skriptlar), UI esa ishlayveradi - bu skript SetUpdateWhenPaused bilan pauzada ham ishlaydi.
-// Sozlamalar: ovoz guruhlari (Master, Music, SFX, UI) slayderlari audio mikserga ulangan, to'liq ekran
-// va VSync belgilashlari, gamma va yorqinlik slayderlari (Display::SetGamma / SetBrightness: player tasvirni
-// shu bilan ko'rsatadi), til tugmasi (o'zbek / rus / ingliz: menyu matnlari lokalizatsiya kalitlari bilan,
-// til o'zgarganda o'zi yangilanadi); hammasi SaveData'da saqlanadi (Audio::SaveSettings, Display::SaveSettings) va
-// keyingi safar o'yin boshlanganda qaytadi. Sozlamalar ro'yxati scroll view ichida (g'ildirak, sudrash,
-// klaviatura bilan tanlanganda o'zi aylanadi). Klaviatura / gamepad: strelkalar / D-pad tanlaydi,
-// Enter / A bosadi, Esc / B orqaga qaytadi (sozlamalardan menyuga, menyudan o'yinga). Menyu burchagida o'yin va
-// dvigatel versiyasi (kommiti bilan) - xato haqida xabar berishda kerak bo'ladi.
+// The pause menu (levels 1-3): Esc or the gamepad's Start pauses the game and opens the menu -
+// "Resume", "Settings", "Quit". Game time stops (PauseGame: physics, animations, the other scripts),
+// while the UI keeps working - this script runs during the pause too with SetUpdateWhenPaused.
+// Settings: the sliders of the sound groups (Master, Music, SFX, UI) are connected to the audio mixer, the
+// fullscreen and VSync toggles, the gamma and brightness sliders (Display::SetGamma / SetBrightness: the player
+// shows its picture with them), the language button (Uzbek / Russian / English: the menu texts use localization
+// keys and update by themselves when the language changes); everything is saved in SaveData (Audio::SaveSettings,
+// Display::SaveSettings) and comes back the next time the game starts. The settings list is inside a scroll view
+// (the wheel, dragging, and it scrolls by itself when selected with the keyboard). Keyboard / gamepad: the arrows /
+// D-pad select, Enter / A presses, Esc / B goes back (from the settings to the menu, from the menu to the game).
+// In the corner of the menu are the game's and the engine's versions (with the commit) - needed when reporting a bug.
 class PauseMenu : public ScriptableEntity
 {
 public:

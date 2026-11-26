@@ -4,20 +4,20 @@
 
 using namespace Zamin;
 
-// UILayout sahnasi: UI ierarxiyasi va avtomatik joylashtirish namunasi.
-// - Canvas: UI 1920 x 1080 uchun yasalgan, ekran o'lchami bilan birga masshtablanadi (UI Canvas);
-// - yuqori / pastki panellar chapdan o'ngga cho'zilgan (stretch anchor), ichidagilar ularning
-//   burchaklariga bog'langan;
-// - menyu - vertikal layout guruhi (balandligi tugmalarga moslashadi), inventar - panjara,
-//   pastki panel - gorizontal guruh (joyni teng bo'ladi);
-// - UI hodisalari (event bus): "UIPointerEnter" / "UIPointerExit" (sichqoncha ustida), "UIClick",
-//   "UISelected", "UICancel"; menyu tugmalari bosilganda o'z xabarini (UI Button > Xabar nomi) yuboradi;
-// - klaviatura / gamepad: strelkalar yoki D-pad tanlaydi, Enter / A bosadi, Tab - keyingisi;
-// - UI animatsiyalari (UI Animation): menyu va inventar chetdan surilib, tugmalar ketma-ket sakrab
-//   chiqadi, ustiga kelganda kattalashadi / bosilganda kichrayadi; uya bosilganda tangalar yozuvi
-//   "sakraydi" (PunchUIScale); "News" paneli X bilan yopiladi (HideUI), "Achievements" uni qaytaradi (ShowUI);
-// - matn: "News" matni so'z bo'yicha o'raladi, sig'magani uch nuqta bilan kesiladi; sarlavha
-//   markazda, sahifa raqami o'ng pastda, holat qatori uzun bo'lsa "..." bilan tugaydi.
+// The UILayout scene: a sample of the UI hierarchy and automatic layout.
+// - Canvas: the UI is made for 1920 x 1080 and scales with the screen size (UI Canvas);
+// - the top / bottom panels are stretched from left to right (stretch anchors), their contents are tied to
+//   their corners;
+// - the menu is a vertical layout group (its height fits the buttons), the inventory a grid,
+//   the bottom panel a horizontal group (shares the space equally);
+// - UI events (event bus): "UIPointerEnter" / "UIPointerExit" (the mouse over it), "UIClick",
+//   "UISelected", "UICancel"; the menu buttons send their own message when pressed (UI Button > Message name);
+// - keyboard / gamepad: the arrows or the D-pad select, Enter / A presses, Tab - the next one;
+// - UI animations (UI Animation): the menu and the inventory slide in from the edge, the buttons pop out one
+//   after another, grow when hovered / shrink when pressed; pressing a slot makes the coins label
+//   "jump" (PunchUIScale); the "News" panel closes with X (HideUI), "Achievements" brings it back (ShowUI);
+// - text: the "News" text wraps by words, what does not fit is cut with an ellipsis; the title is
+//   centered, the page number bottom right, and the status line ends with "..." when it is long.
 class UILayoutDemo : public ScriptableEntity
 {
 public:

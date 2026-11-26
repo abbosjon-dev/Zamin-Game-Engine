@@ -4,17 +4,17 @@
 
 using namespace Zamin;
 
-// 2D platformer qahramoni: "Horizontal" o'qi (A/D, strelkalar, gamepad) bilan yurish,
-// "Jump" harakati (Space, W, Up, gamepad A) bilan sakrash. Loyiha sozlamalari > Input.
+// The 2D platformer hero: walks with the "Horizontal" axis (A/D, arrows, gamepad) and jumps with the
+// "Jump" action (Space, W, Up, gamepad A). Project settings > Input.
 class PlayerController : public ScriptableEntity
 {
 public:
     float MoveSpeed = 7.0f;
     float JumpImpulse = 9.0f;
     float FallLimit = -15.0f;
-    float LandShake = 0.0f; // 0 = o'chiq; shundan tez qo'nsa kamera silkinadi (birlik/s)
-    bool DropThrough = false; // pastga + sakrash: bir tomonlama platformadan tushib ketadi
-    bool HitFlash = false;    // yiqilib qaytganda qizil, qattiq qo'nganda oq chaqnaydi
+    float LandShake = 0.0f; // 0 = off; a landing faster than this shakes the camera (units/s)
+    bool DropThrough = false; // down + jump: drops through a one-way platform
+    bool HitFlash = false;    // flashes red when it comes back after a fall, white on a hard landing
 
     void OnCreate() override
     {
@@ -72,8 +72,8 @@ public:
         }
     }
 
-    // Faqat qattiq to'qnashuvlar (yer, platformalar). Tangalar va bayroq sensor - ular
-    // OnTriggerBegin/End bo'lib keladi, shuning uchun bu yerda alohida tekshirish shart emas.
+    // Solid collisions only (the ground, platforms). The coins and the flag are sensors - they arrive as
+    // OnTriggerBegin/End, so no separate check is needed here.
     void OnCollisionBegin(Entity) override
     {
         m_GroundContacts++;

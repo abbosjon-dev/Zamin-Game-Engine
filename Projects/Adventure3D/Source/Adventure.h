@@ -2,7 +2,7 @@
 
 #include <Zamin/Zamin.h>
 
-// O'yin holati: kristallar hisobi va HUD matni; T (gamepad Y) - sekinlashtirish (Time::SetTimeScale).
+// The game state: the crystal count and the HUD text; T (gamepad Y) - slow motion (Time::SetTimeScale).
 class AdventureGame : public Zamin::ScriptableEntity
 {
 public:
@@ -23,7 +23,7 @@ private:
     bool m_SlowMotion = false;
 };
 
-// Kamera nishon atrofida aylanadi: sichqoncha RMB bilan sudrash, Q/E, yoki gamepad o'ng stick.
+// The camera orbits the target: drag with the right mouse button, Q/E, or the gamepad's right stick.
 class OrbitFollowCamera : public Zamin::ScriptableEntity
 {
 public:

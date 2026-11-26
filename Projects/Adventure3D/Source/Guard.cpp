@@ -7,9 +7,9 @@
 
 using namespace Zamin;
 
-// Orol qo'riqchisi: Patrul -> (OnTargetSpotted) Ta'qib -> (OnTargetLost) Qidiruv -> (vaqt) Qaytish ->
-// (patrul nuqtasiga yetdi) Patrul; ushlasa - Ushladi (qahramonga "Ushlandi" xabari) -> Qaytish.
-// Boshidagi chiroq holat rangida: yashil - patrul, qizil - ta'qib, to'q sariq - qidiruv, ko'k - qaytish.
+// The island guard: Patrol -> (OnTargetSpotted) Chase -> (OnTargetLost) Search -> (time) Return ->
+// (reached a patrol point) Patrol; on a catch - Caught (the "Caught" message to the hero) -> Return.
+// The lamp on its head is lit in the state's color: green - patrol, red - chase, orange - search, blue - return.
 class IslandGuard : public ScriptableEntity
 {
 public:
@@ -61,7 +61,7 @@ public:
                           Mood({ 0.8f, 0.35f, 1.0f }, m_PatrolSpeed);
                           StopMoving();
                           if (Entity hero = GetSeenTarget())
-                              SendMessage(hero, "Ushlandi");
+                              SendMessage(hero, "Caught");
                           m_Cooldown = 3.0f;
                           Say("The guard caught you! From the start...");
                           ZM_INFO("The island guard caught the hero");

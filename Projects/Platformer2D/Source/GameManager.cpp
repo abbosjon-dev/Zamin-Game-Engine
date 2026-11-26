@@ -4,8 +4,8 @@ using namespace Zamin;
 
 void GameManager::OnEnable()
 {
-    // Tanga yig'ilganini hodisalar shinasi orqali eshitamiz: tanga GameManager'ni bilishi shart emas.
-    // Faqat skript yoqilgan paytda tinglaymiz (OnDisable'da obuna bekor qilinadi).
+    // We hear that a coin was collected through the event bus: the coin does not need to know GameManager.
+    // We listen only while the script is enabled (the subscription is cancelled in OnDisable).
     m_CoinSubscription = Subscribe("CoinCollected", [this](const ScriptMessage&) { AddCoin(); });
 }
 
@@ -17,8 +17,8 @@ void GameManager::OnDisable()
 
 void GameManager::OnStart()
 {
-    // OnStart birinchi Update'dan oldin, sahnadagi hamma skriptlar OnCreate'dan o'tgach chaqiriladi:
-    // boshqa skriptlar yaratgan tangalar ham hisobga kiradi. Tangalar "Coin" tegi bilan belgilangan.
+    // OnStart is called before the first Update, after every script in the scene has gone through OnCreate:
+    // coins created by other scripts are counted too. The coins are marked with the "Coin" tag.
     m_TotalCoins = (int)FindEntitiesWithTag("Coin").size();
     RefreshText();
 }

@@ -4,11 +4,11 @@
 
 using namespace Zamin;
 
-// Shapes2D sahnasi: ko'pburchak / chiziq kolliderlari, fizik materiallar, to'qnashuv qatlamlari va
-// bir tomonlama platformalarni ko'rsatadigan kichik skriptlar.
+// The Shapes2D scene: small scripts that show polygon / edge colliders, physics materials, collision layers
+// and one-way platforms.
 
-// Yuqoridan tasodifiy shakllarni tashlaydi (shablonlar o'chiq "Templates" guruhida turadi).
-// "Fire" (sichqoncha / Ctrl) - bir yo'la bir nechtasi. Eng eskilari MaxShapes'dan oshganda yo'qoladi.
+// Drops random shapes from above (the templates sit in the inactive "Templates" group).
+// "Fire" (mouse / Ctrl) - several at once. The oldest disappear once there are more than MaxShapes.
 class ShapeSpawner : public ScriptableEntity
 {
 public:
@@ -67,7 +67,7 @@ ZM_REGISTER_SCRIPT(ShapeSpawner,
     ZM_FIELD_RANGE(ShapeSpawner, Width, 0.0f, 60.0f).Tooltip("Width of the area the shapes fall from"),
     ZM_FIELD_RANGE(ShapeSpawner, MaxShapes, 1, 300).Tooltip("At most this many shapes in the scene"))
 
-// Shablonni pastdan yuqoriga otadi: to'p bir tomonlama platformadan o'tib, ustiga tushadi.
+// Shoots a template upward from below: the ball passes through a one-way platform and lands on top of it.
 class ShapeLauncher : public ScriptableEntity
 {
 public:

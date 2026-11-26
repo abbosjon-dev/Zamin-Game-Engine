@@ -6,7 +6,7 @@
 
 using namespace Zamin;
 
-// Tanga: o'yinchi tegsa yig'iladi. Joyida tebranib turadi.
+// A coin: collected when the player touches it. It bobs in place.
 class Coin : public ScriptableEntity
 {
 public:
@@ -22,13 +22,13 @@ public:
         t.Translation.y = m_BaseY + std::sin(GetTime() * BobSpeed + m_Phase) * BobHeight;
     }
 
-    // Tanganing collider'i sensor: tegish OnTriggerBegin bo'lib keladi (OnCollisionBegin emas).
+    // The coin's collider is a sensor: a touch arrives as OnTriggerBegin (not OnCollisionBegin).
     void OnTriggerBegin(Entity other) override
     {
         if (m_Collected || !other.HasTag("Player"))
             return;
         m_Collected = true;
-        Emit("CoinCollected"); // GameManager obuna bo'lgan
+        Emit("CoinCollected"); // GameManager is subscribed
         Instantiate(Effect, GetWorldPosition());
         Destroy();
     }
@@ -42,7 +42,7 @@ ZM_REGISTER_SCRIPT(Coin,
     ZM_FIELD_RANGE(Coin, BobHeight, 0.0f, 1.0f).Tooltip("Height of the up-and-down bobbing (units)"),
     ZM_FIELD_TOOLTIP(Coin, Effect, "The prefab spawned when collected (path inside Assets)"))
 
-// Kamera o'yinchini silliq kuzatadi.
+// The camera follows the player smoothly.
 class CameraFollow : public ScriptableEntity
 {
 public:
@@ -65,7 +65,7 @@ public:
 ZM_REGISTER_SCRIPT(CameraFollow, ZM_FIELD(CameraFollow, Target), ZM_FIELD(CameraFollow, Smoothness),
                    ZM_FIELD(CameraFollow, Offset), ZM_FIELD(CameraFollow, MinY))
 
-// Kinematik platforma: oldinga-orqaga harakatlanadi (ustidagi o'yinchini ham olib yuradi).
+// A kinematic platform: moves back and forth (and carries the player standing on it).
 class MovingPlatform : public ScriptableEntity
 {
 public:
@@ -90,7 +90,7 @@ ZM_REGISTER_SCRIPT(MovingPlatform, ZM_FIELD(MovingPlatform, Direction), ZM_FIELD
                    ZM_FIELD_ENUM(MovingPlatform, Mode, "Smooth (sine)", "Linear").Label("Movement type")
                        .Tooltip("Smooth: slows down at the ends. Linear: goes back and forth at a constant speed"))
 
-// Bulutlar: sekin suzib yuradi va ekran chetidan qaytadi.
+// Clouds: drift slowly and come back from the edge of the screen.
 class Cloud : public ScriptableEntity
 {
 public:
@@ -106,7 +106,7 @@ public:
 };
 ZM_REGISTER_SCRIPT(Cloud, ZM_FIELD(Cloud, Speed))
 
-// Daraja oxiri: o'yinchi tegsa keyingi sahnaga o'tadi.
+// The end of a level: when the player touches it, the game goes to the next scene.
 class LevelGoal : public ScriptableEntity
 {
 public:
@@ -147,7 +147,7 @@ ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD_TOOLTIP(LevelGoal, NextScene, "Next level
                    ZM_FIELD_COLOR(LevelGoal, ReachedColor).Tooltip("Flag color when the player arrives"),
                    ZM_FIELD_RANGE(LevelGoal, FadeSeconds, 0.0f, 2.0f).Tooltip("Above 0: fades to the next level (seconds)"))
 
-// N soniyadan keyin obyektni o'chiradi (effektlar uchun).
+// Destroys the entity after N seconds (for effects).
 class AutoDestroy : public ScriptableEntity
 {
 public:
@@ -160,7 +160,7 @@ public:
 };
 ZM_REGISTER_SCRIPT(AutoDestroy, ZM_FIELD(AutoDestroy, Seconds))
 
-// Ekrandagi tugma: bosilganda sahnani qayta yuklaydi.
+// A button on the screen: reloads the scene when pressed.
 class RestartButton : public ScriptableEntity
 {
 public:

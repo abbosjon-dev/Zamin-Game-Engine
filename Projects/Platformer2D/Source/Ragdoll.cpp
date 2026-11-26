@@ -5,10 +5,10 @@
 
 using namespace Zamin;
 
-// Ragdoll2D sahnasi: Ragdoll prefabini (11 bo'lak, chegarali 10 ta Revolute Joint 2D) tashlaydi.
-// "Fire" (sichqoncha / Ctrl) - sichqoncha turgan joyga bittasi, R - osmondan uchtasi, AutoInterval > 0
-// bo'lsa o'zi ham har shuncha soniyada tashlaydi. Har ragdoll'ning ko'ylagi va shimi tasodifiy rangda.
-// Eng eskilari MaxRagdolls'dan oshganda yo'qoladi.
+// The Ragdoll2D scene: drops the Ragdoll prefab (11 parts, 10 limited Revolute Joint 2D).
+// "Fire" (mouse / Ctrl) - one where the mouse is, R - three from the sky, and when AutoInterval > 0
+// it also drops one by itself every that many seconds. Each ragdoll's shirt and trousers have a random color.
+// The oldest disappear once there are more than MaxRagdolls.
 class RagdollSpawner : public ScriptableEntity
 {
 public:
@@ -50,7 +50,7 @@ private:
             return;
         }
         Paint(root);
-        // Hamma bo'lak bir xil tezlikda uchadi, boshi biroz boshqacha: ragdoll aylanib tushadi.
+        // Every part flies at the same velocity, the head a little different: the ragdoll tumbles down spinning.
         const glm::vec2 velocity = Random::OnUnitCircle() * Speed * Random::Range(0.3f, 1.0f);
         for (Entity part : GetScene().GetChildren(root))
         {
@@ -70,7 +70,7 @@ private:
         }
     }
 
-    // Ko'ylak (ko'krak, yelkalar) va shim (bel, oyoqlar) uchun tasodifiy ranglar; orqadagi qo'l-oyoq to'qroq.
+    // Random colors for the shirt (chest, shoulders) and the trousers (waist, legs); the limbs at the back darker.
     void Paint(Entity root)
     {
         const float hue = Random::Float();

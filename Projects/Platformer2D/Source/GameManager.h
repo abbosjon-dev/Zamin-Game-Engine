@@ -2,22 +2,22 @@
 
 #include <Zamin/Zamin.h>
 
-// O'yin holati: hisob, tangalar soni va ekrandagi matn.
+// The game state: the score, the number of coins and the text on the screen.
 class GameManager : public Zamin::ScriptableEntity
 {
 public:
     std::string Title = "Coins";
-    // Til fayllaridagi kalit: bor bo'lsa sarlavha joriy tilda (Localize), aks holda Title.
+    // A key in the language files: when it exists the title is in the current language (Localize), otherwise Title.
     std::string TitleKey = "hud.coins_title";
-    glm::vec2 ScreenOffset = { -8.5f, 5.2f }; // kameraga nisbatan joylashuv
+    glm::vec2 ScreenOffset = { -8.5f, 5.2f }; // the position relative to the camera
 
     void OnEnable() override;
     void OnDisable() override;
     void OnStart() override;
     void OnLateUpdate(Zamin::Timestep ts) override;
-    // "PlayerFell" xabari (SendMessage orqali keladi).
+    // The "PlayerFell" message (arrives through SendMessage).
     void OnMessage(const Zamin::ScriptMessage& message) override;
-    // Til o'zgardi (pauza menyusi): hisob matni yangi tilda qayta yoziladi.
+    // The language changed (the pause menu): the score text is written again in the new language.
     void OnLanguageChanged(const std::string& language) override;
 
     void AddCoin();

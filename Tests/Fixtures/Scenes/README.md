@@ -1,6 +1,6 @@
-Eski formatdagi sahna fayllari (sahna versiya migratsiyasi testlari uchun, `SceneVersionMigration`):
+Scene files in old formats (for the scene version migration tests, `SceneVersionMigration`):
 
-- `LegacyV0.zscene` - "Version" kalitisiz: ID'lar matn sifatida, nom "Name" kalitida.
-- `LegacyV1.zscene` - 1-versiya: Text "Centered", UITransform "Anchor" (9 nuqtadan biri).
+- `LegacyV0.zscene` - without the "Version" key: IDs as text, the name in the "Name" key.
+- `LegacyV1.zscene` - version 1: Text "Centered", UITransform "Anchor" (one of 9 points).
 
-Bu fayllarni o'zgartirmang: ular eski formatni saqlab turadi.
+Do not change these files: they keep the old format.

@@ -242,8 +242,8 @@ public:
         if (ShowLabel)
         {
             const glm::vec3 p = GetWorldPosition() + glm::vec3(0.0f, LabelHeight, 0.9f);
-            const char* state = anim->IsPlaying() ? (m_Opening ? "ochilmoqda" : "yopilmoqda") : (m_Opening ? "open" : "closed");
-            DebugDraw::Text(p, std::format("Darvoza: {}", state), glm::vec4(0.9f, 0.92f, 0.98f, 1.0f));
+            const char* state = anim->IsPlaying() ? (m_Opening ? "opening" : "closing") : (m_Opening ? "open" : "closed");
+            DebugDraw::Text(p, std::format("Gate: {}", state), glm::vec4(0.9f, 0.92f, 0.98f, 1.0f));
             if (!m_LastEvent.empty())
                 DebugDraw::Text(p - glm::vec3(0.0f, 0.4f, 0.0f), "event: " + m_LastEvent, glm::vec4(1.0f, 0.82f, 0.3f, 1.0f));
         }

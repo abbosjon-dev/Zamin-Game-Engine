@@ -263,7 +263,7 @@ namespace Zamin {
             { 0x0020, 0x7F - 0x20 },    // Basic Latin
             { 0x00A0, 0x100 - 0xA0 },   // Latin-1 Supplement
             { 0x0100, 0x180 - 0x100 },  // Latin Extended-A
-            { 0x02BB, 2 },              // ʻ ʼ (o'zbek lotin)
+            { 0x02BB, 2 },              // ʻ ʼ (Uzbek Latin)
             { 0x0400, 0x500 - 0x400 },  // Cyrillic
             { 0x2018, 0x2027 - 0x2018 },// quotes, bullets, ellipsis
         };

@@ -813,7 +813,7 @@ follower.Pause();          // Play(), Restart()
 float progress = GetScene().GetSplineFollowerProgress(GetEntity());   // 0..1
 
 // Sampling the path (world coordinates; the distance is in the path's own units):
-Entity rail = FindEntity("Race track");
+Entity rail = FindEntity("Race path");
 float d = GetScene().GetSplineClosestDistance(rail, playerPosition);  // the point nearest to the player
 glm::vec3 p = GetScene().GetSplinePosition(rail, d);
 glm::vec3 dir = GetScene().GetSplineTangent(rail, d);

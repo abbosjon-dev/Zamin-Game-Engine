@@ -18,7 +18,7 @@ Cases:
   smoke - the three older samples (Platformer2D, Showcase3D, Adventure3D): they start, run, show a picture.
   records - with every demo (ZAMIN_DEMO_RECORDS=1: the bot's results count as records): the run must log a new record
           ("New record: ...") and leave it in the game's SaveData file (savedata.json under the run's HOME); a second,
-          short run with the same HOME (no bot) must read it back - "Rekordlar: ..." with the same value - and show
+          short run with the same HOME (no bot) must read it back - "Records: ..." with the same value - and show
           the main menu (with the record on it).
   gamepad - the six games driven by a simulated gamepad only (ZAMIN_PLAYER_INPUT pad= / stick=): A on "Play", the
           game's own controls bound in the project input map (stick, buttons, triggers), Start for the pause menu
@@ -167,7 +167,7 @@ def sokoban_menus():
             # still starts the player's level 1, and two quick taps (the second while the first step still moves)
             # both count: the crate reaches its target in 2 steps.
             Case("Sokoban", "menuwait", 330, [
-                present("bot orqada 1-darajani yechdi", r"Warehouse Keeper: level 2 behind the menu"),
+                present("the bot behind the menu solved level 1", r"Warehouse Keeper: level 2 behind the menu"),
                 in_order("play after waiting: level 1 (not the bot's), two quick moves -> solved",
                          [MAIN_MENU, r"Warehouse Keeper: level 1", r"Menu: results - level 1 solved, 2 steps"]),
                 absent("the bot's level did not start", r"Warehouse Keeper: level [2-9] \("),

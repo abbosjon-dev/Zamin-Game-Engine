@@ -295,7 +295,7 @@ namespace {
         for (auto e : scene->GetAllEntitiesWith<NativeScriptComponent>())
             if (auto* host = dynamic_cast<VisualGraphHost*>(scene->GetRegistry().get<NativeScriptComponent>(e).Instance); host && !host->VM.Error().empty())
             {
-                if (r.GraphErrors++ < 3) std::printf("    graf xatosi: %s\n", host->VM.Error().c_str());
+                if (r.GraphErrors++ < 3) std::printf("    graph error: %s\n", host->VM.Error().c_str());
             }
         auto& ai = G::AIWorld::For(*scene);
         for (Entity e : Enemies(*scene, nullptr))

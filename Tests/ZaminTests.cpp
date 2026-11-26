@@ -28428,7 +28428,7 @@ TEST(PauseMenuSampleScene)
     const fs::path module = Project::GetScriptModulePath();
     if (module.empty() || !fs::exists(module))
     {
-        std::printf("    (Platformer2D skript moduli topilmadi - jonli qism o'tkazib yuborildi)\n");
+        std::printf("    (the Platformer2D script module was not found - the live part was skipped)\n");
         return;
     }
     const bool audioWas = AudioEngine::IsAvailable();
@@ -36249,7 +36249,7 @@ TEST(GameMenuSampleScene)
     const fs::path module = Project::GetScriptModulePath();
     if (module.empty() || !fs::exists(module))
     {
-        std::printf("    (Platformer2D skript moduli topilmadi - jonli qism o'tkazib yuborildi)\n");
+        std::printf("    (the Platformer2D script module was not found - the live part was skipped)\n");
         return;
     }
     const bool audioWas = AudioEngine::IsAvailable();
@@ -44672,33 +44672,33 @@ namespace {
             Entity e(handle, &scene);
             const UUID id = e.GetUUID();
             if (scene.GetEntityByUUID(id) != e)
-                return why = std::format("'{}' UUID'si bo'yicha topilmadi", e.GetName()), false;
+                return why = std::format("'{}' not found by its UUID", e.GetName()), false;
             const auto& rel = e.GetComponent<RelationshipComponent>();
             if ((uint64_t)rel.Parent)
             {
                 Entity parent = scene.GetEntityByUUID(rel.Parent);
                 if (!parent)
-                    return why = std::format("'{}' ota obyekti yo'q", e.GetName()), false;
+                    return why = std::format("'{}' has no parent object", e.GetName()), false;
                 const auto& siblings = parent.GetComponent<RelationshipComponent>().Children;
                 if (std::count(siblings.begin(), siblings.end(), id) != 1)
-                    return why = std::format("'{}' ota obyektining farzandlari ro'yxatida emas (yoki ikki marta)", e.GetName()), false;
+                    return why = std::format("'{}' is not in its parent's list of children (or is there twice)", e.GetName()), false;
             }
             std::unordered_set<uint64_t> seen;
             for (UUID child : rel.Children)
             {
                 Entity c = scene.GetEntityByUUID(child);
                 if (!c)
-                    return why = std::format("'{}' farzandi yo'q", e.GetName()), false;
+                    return why = std::format("a child of '{}' is missing", e.GetName()), false;
                 if (c.GetComponent<RelationshipComponent>().Parent != id)
-                    return why = std::format("'{}' farzandi '{}' boshqa ota obyektni ko'rsatadi", e.GetName(), c.GetName()), false;
+                    return why = std::format("'{}''s child '{}' points to another parent", e.GetName(), c.GetName()), false;
                 if (!seen.insert((uint64_t)child).second)
-                    return why = std::format("'{}' farzandi ikki marta", e.GetName()), false;
+                    return why = std::format("a child of '{}' is listed twice", e.GetName()), false;
             }
             size_t steps = 0;
             for (UUID up = rel.Parent; (uint64_t)up; steps++)
             {
                 if (steps > count)
-                    return why = std::format("'{}' ota obyektlari halqa", e.GetName()), false;
+                    return why = std::format("the parents of '{}' form a cycle", e.GetName()), false;
                 Entity p = scene.GetEntityByUUID(up);
                 up = p ? p.GetComponent<RelationshipComponent>().Parent : UUID(0);
             }
@@ -44742,20 +44742,20 @@ namespace {
                 auto scene = CreateRef<Scene>();
                 SceneSerializer reader(scene);
                 const bool loaded = reader.DeserializeFromString(text);
-                if (!checkScene(*scene, "sahna"))
+                if (!checkScene(*scene, "scene"))
                     return why;
                 if (scene->GetRegistry().view<IDComponent>().size() > objects)
-                    return "sahna: kirishdagidan ko'p obyekt";
+                    return "scene: more objects than in the input";
                 if (loaded)
                 {
                     const std::string first = SceneSerializer(scene).SerializeToString();
                     auto again = CreateRef<Scene>();
                     if (!SceneSerializer(again).DeserializeFromString(first))
-                        return "sahna: saqlangani qayta yuklanmadi";
+                        return "scene: the saved copy did not load back";
                     if (const std::string second = SceneSerializer(again).SerializeToString(); second != first)
                     {
                         FuzzDumpPair(first, second);
-                        return "sahna: Serialize(Load(Serialize(Load(x)))) != Serialize(Load(x))";
+                        return "scene: Serialize(Load(Serialize(Load(x)))) != Serialize(Load(x))";
                     }
                     // Its binary cache, cut or with a byte changed.
                     std::vector<uint8_t> bytes = rng.Chance(50) ? SceneSerializer(scene).SerializeToBinary() : std::vector<uint8_t>();
@@ -44767,7 +44767,7 @@ namespace {
                             bytes[rng.Below(bytes.size())] ^= (uint8_t)(1 + rng.Below(255));
                         auto binary = CreateRef<Scene>();
                         SceneSerializer(binary).DeserializeFromBinary(bytes);
-                        if (!checkScene(*binary, "binar kesh"))
+                        if (!checkScene(*binary, "binary cache"))
                             return why;
                     }
                 }
@@ -44776,7 +44776,7 @@ namespace {
                 {
                     auto recovered = CreateRef<Scene>();
                     SceneSerializer(recovered).RecoverFromString(text);
-                    if (!checkScene(*recovered, "sahna (tiklash)"))
+                    if (!checkScene(*recovered, "scene (recovery)"))
                         return why;
                 }
             }
@@ -44798,10 +44798,10 @@ namespace {
                 options.Error = &error;
                 auto scene = CreateRef<Scene>();
                 std::vector<Entity> made = SceneSerializer::DeserializeEntities(*scene, text, options);
-                if (!checkScene(*scene, "obyektlar to'plami"))
+                if (!checkScene(*scene, "entity set"))
                     return why;
                 if (made.size() > objects || made.size() != scene->GetRegistry().view<IDComponent>().size())
-                    return "obyektlar to'plami: obyektlar soni noto'g'ri";
+                    return "entity set: wrong number of objects";
                 if (!made.empty())
                 {
                     SceneSerializer::EntitySetWriteOptions write;
@@ -44811,11 +44811,11 @@ namespace {
                     same.GenerateNewUUIDs = false;
                     auto again = CreateRef<Scene>();
                     if (SceneSerializer::DeserializeEntities(*again, first, same).size() != made.size())
-                        return "obyektlar to'plami: saqlangani qayta yuklanmadi";
+                        return "entity set: the saved copy did not load back";
                     if (const std::string second = SceneSerializer::SerializeEntities(*again, HierarchyOrder(*again), write); second != first)
                     {
                         FuzzDumpPair(first, second);
-                        return "obyektlar to'plami: Serialize(Load(Serialize(Load(x)))) != Serialize(Load(x))";
+                        return "entity set: Serialize(Load(Serialize(Load(x)))) != Serialize(Load(x))";
                     }
                 }
             }
@@ -44834,7 +44834,7 @@ namespace {
                     SceneSerializer::EntitySetReadOptions options;
                     SceneSerializer::DeserializeEntities(*scene, salvage.Text, options);
                     SceneSerializer(CreateRef<Scene>()).DeserializeFromString(salvage.Text);
-                    if (!checkScene(*scene, "tiklangan matn"))
+                    if (!checkScene(*scene, "recovered text"))
                         return why;
                 }
             }
@@ -44861,23 +44861,23 @@ namespace {
                 (void)db.Get("Prefabs/Fuzz.zprefab");
                 (void)db.ResolvedHash("Prefabs/Fuzz.zprefab");
                 PrefabUtility::SyncScene(*scene, db);
-                if (!checkScene(*scene, "prefab nusxalari (sinxron)"))
+                if (!checkScene(*scene, "prefab instances (sync)"))
                     return why;
                 PrefabUtility::RecordOverrides(*scene, {}, true, db);
                 if (b && b.IsValid() && rng.Chance(25))
                 {
                     PrefabUtility::Revert(b, PrefabScope::Instance, {}, db);
-                    if (!checkScene(*scene, "prefab nusxasi (revert)"))
+                    if (!checkScene(*scene, "prefab instance (revert)"))
                         return why;
                 }
                 if (a && a.IsValid() && rng.Chance(15))
                 {
                     PrefabUtility::Apply(a, PrefabScope::Instance, {}, db);
-                    if (!checkScene(*scene, "prefab nusxasi (apply)"))
+                    if (!checkScene(*scene, "prefab instance (apply)"))
                         return why;
                 }
                 PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Fuzz.zprefab");
-                if (!checkScene(*scene, "prefab nusxasi (yangi)"))
+                if (!checkScene(*scene, "prefab instance (new)"))
                     return why;
                 auto stage = CreateRef<Scene>();
                 SceneLoadReport report;
@@ -44886,17 +44886,17 @@ namespace {
                     std::string error;
                     (void)PrefabUtility::SerializeStage(*stage, db, &error);
                 }
-                if (!checkScene(*stage, "prefab rejimi"))
+                if (!checkScene(*stage, "prefab mode"))
                     return why;
             }
         }
         catch (const std::exception& e)
         {
-            return std::format("istisno chiqib ketdi: {}", e.what());
+            return std::format("an exception escaped: {}", e.what());
         }
         catch (...)
         {
-            return "noma'lum istisno chiqib ketdi";
+            return "an unknown exception escaped";
         }
         return {};
     }
@@ -45047,7 +45047,7 @@ TEST(SerializationFuzz)
             failed(input, why, std::format("fail-{:x}-{}", seed, i));
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    std::printf("    fuzz: %zu oldingi holat, %d kirish (%zu tasi to'g'ri JSON), %.2f s\n", replayed, iterations, parsedInputs, seconds);
+    std::printf("    fuzz: %zu earlier cases, %d inputs (%zu of them valid JSON), %.2f s\n", replayed, iterations, parsedInputs, seconds);
     // The samples themselves were never written.
     CHECK(FileSystem::ReadTextFile(source / "Projects/Platformer2D/Assets/Scenes/Menu.zscene") == samples[0].Text);
     CHECK(FileSystem::ReadTextFile(source / "Projects/Platformer2D/Assets/Prefabs/Ragdoll.zprefab") == samples[2].Text);
@@ -45887,7 +45887,7 @@ TEST(PrefabFieldLabelsExist)
         if (!found)
             found = writer.find(std::format("[\"{}\"] = ", parts.back())) != std::string::npos;
         if (!found)
-            printf("    yo'q: %s (%s)\n", std::string(label.Path).c_str(), std::string(label.Label).c_str());
+            printf("    missing: %s (%s)\n", std::string(label.Path).c_str(), std::string(label.Label).c_str());
         CHECK(found);
     }
     CHECK(PrefabFieldLabels::Find("SpriteRenderer", "Yo'q qator").empty() && PrefabFieldLabels::Find("Yo'q", "Rang").empty());
@@ -46015,7 +46015,7 @@ static PhysicsSnapshot TakePhysicsSnapshot(Ref<Scene>& scene)
 static std::string PhysicsSnapshotDiff(const PhysicsSnapshot& a, const PhysicsSnapshot& b)
 {
     if (a.Names != b.Names || a.Bits.size() != b.Bits.size())
-        return std::format("boshqa obyektlar ({} / {})", a.Names.size(), b.Names.size());
+        return std::format("different objects ({} / {})", a.Names.size(), b.Names.size());
     static const char* s_Fields[] = { "Translation.x", "Translation.y", "Translation.z", "Rotation.x", "Rotation.y", "Rotation.z" };
     for (size_t i = 0; i < a.Bits.size(); i++)
         if (a.Bits[i] != b.Bits[i])
@@ -46222,12 +46222,12 @@ static void CheckPhysicsDeterminism(const std::function<Ref<Scene>(bool)>& make,
     Ref<Scene> loaded = load(text);
     diff = PhysicsSnapshotDiff(first, RunPhysicsScene(loaded, frames));
     if (!diff.empty())
-        std::printf("    saqlab o'qilgandan keyin: %s\n", diff.c_str());
+        std::printf("    after saving and reading back: %s\n", diff.c_str());
     CHECK(diff.empty());
     // The exported game plays the scene it read itself (no copy): the same simulation.
     diff = PhysicsSnapshotDiff(first, RunPhysicsScene(load(text), frames, nullptr, true));
     if (!diff.empty())
-        std::printf("    o'yindagidek (nusxasiz): %s\n", diff.c_str());
+        std::printf("    as in the game (without a copy): %s\n", diff.c_str());
     CHECK(diff.empty());
 
     // The same entities made in reverse order (the same file): the same simulation.
@@ -47424,7 +47424,7 @@ TEST(IconGlyphRangesCoverIconsHeader)
             missing.push_back(line);
     }
     for (const std::string& m : missing)
-        std::printf("    ikonka IconRanges.inl'da yo'q (Tools/gen_icon_ranges.py): %s\n", m.c_str());
+        std::printf("    icon missing from IconRanges.inl (Tools/gen_icon_ranges.py): %s\n", m.c_str());
     CHECK(icons > 100);
     CHECK(missing.empty());
 }
@@ -47490,7 +47490,7 @@ TEST(EditorTranslationKeysComplete)
     std::sort(missing.begin(), missing.end());
     missing.erase(std::unique(missing.begin(), missing.end()), missing.end());
     for (const std::string& m : missing)
-        std::printf("    inglizchasi yo'q: %s\n", m.c_str());
+        std::printf("    no English text: %s\n", m.c_str());
     CHECK(files > 50 && labels > 1000);
     CHECK(missing.empty());
 }

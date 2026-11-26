@@ -77,7 +77,7 @@ namespace Zamin {
     }
 
     // TrueType font baked into texture atlases (stb_truetype).
-    // Covers Latin, Latin Extended (o'zbek: Oʻ, Gʻ), Cyrillic.
+    // Covers Latin, Latin Extended (Uzbek: Oʻ, Gʻ), Cyrillic.
     // The main atlas (64 px, mipmapped) gives the metrics every layout uses; text is drawn from an
     // atlas baked at about the size it has on the screen (GetAtlas), so small and large text both
     // stay crisp. Those are made the first time a size is drawn and kept per font (at most

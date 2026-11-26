@@ -14,7 +14,7 @@ GL; the 3D slice runs at 640x360 with the Low quality level to keep llvmpipe tim
   P3  fresh process, no replay: the menu offers no Continue after the victory and shows the best time
   P4  lose plan: three deaths -> defeat screen -> reload from the save -> level 1 completed
   P6  gamepad tape: menu (settings slider on the D-pad, back) -> new game -> stick, Bolt, strike, the bag, pause ->
-      "Saqlab, bosh menyuga" (the quit save) -> the menu offers Continue
+      "Save and quit to menu" (the quit save) -> the menu offers Continue
   E0  Editor Play of Orchards with the pilot
   E1  Editor Play of Crypt straight from the editor next to P1's stale Carry.json: a fresh level 2 run, no carry
   E2  Editor Play of the menu (demo): New game, the scene switch into Orchards inside Play mode

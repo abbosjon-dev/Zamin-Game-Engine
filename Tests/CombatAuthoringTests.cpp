@@ -339,7 +339,7 @@ TEST(VisualGraphPinChoicesAreTranslated)
             for (const char* label : *choices)
             {
                 CHECK(EditorText::HasTranslation(label));
-                if (!EditorText::HasTranslation(label)) std::printf("    tarjimasi yo'q: %s\n", label);
+                if (!EditorText::HasTranslation(label)) std::printf("    no translation: %s\n", label);
             }
             const double last = double(choices->size() - 1);
             CHECK(!Throws([&] { CCall(r, f.Hero, kind, { { pin.Name, last } }); }));

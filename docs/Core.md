@@ -228,7 +228,7 @@ Particle turbulence, camera shake and 2D light flicker use this module too.
 
 ![A spline in the editor](images/core-splines-editor.jpg)
 
-*Showcase3D `Scenes/Splines.zscene`: the `Poyga yo'li` (race track) entity selected — a Catmull-Rom loop (the thin line in the viewport),
+*Showcase3D `Scenes/Splines.zscene`: the `Race path` entity selected — a Catmull-Rom loop (the thin line in the viewport),
 the carts along it (`SplineFollowerComponent`); the Spline section in the inspector: the type, the length and 9 points.*
 
 ## 7. Colors (Color)

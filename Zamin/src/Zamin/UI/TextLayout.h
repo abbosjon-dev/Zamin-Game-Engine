@@ -1,7 +1,7 @@
 #pragma once
 
 // Text placed in a box: horizontal / vertical alignment, word wrap at the box's width (UTF-8:
-// o'zbek oʻ, gʻ, sh and Cyrillic letters are single characters, apostrophes stay inside words),
+// Uzbek oʻ, gʻ, sh and Cyrillic letters are single characters, apostrophes stay inside words),
 // what happens to text that does not fit (overflow, truncate, ellipsis) and line spacing. Pure
 // layout - no GPU - so the scene's UI pass, world-space text, the editor and the tests share it;
 // TextLayout::Draw draws a laid-out block with Renderer2D.

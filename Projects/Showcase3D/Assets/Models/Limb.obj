@@ -1,4 +1,4 @@
-# Zamin Engine: kapsula (ragdoll qo'l-oyoqlari): radius 0.5, uchlaridagi sharlar markazi y = +-1
+# Zamin Engine: a capsule (ragdoll limbs): radius 0.5, the centres of the end spheres at y = +-1
 v 0.00000 1.50000 0.00000
 v 0.00000 1.50000 0.00000
 v 0.00000 1.50000 0.00000

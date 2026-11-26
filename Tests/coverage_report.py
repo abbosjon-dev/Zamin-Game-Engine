@@ -152,7 +152,7 @@ def main():
             if code != 0 and not docs:
                 failed += 1
                 if failed <= 3:
-                    print(f"gcov xatosi: {err.strip()[:300]}", file=sys.stderr)
+                    print(f"gcov error: {err.strip()[:300]}", file=sys.stderr)
             for doc in docs:
                 cwd = doc.get("current_working_directory", build)
                 for entry in doc.get("files", []):

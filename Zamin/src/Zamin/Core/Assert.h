@@ -2,9 +2,9 @@
 
 // Checks with a message:
 //
-//     ZM_ASSERT(index < count, "indeks {} chegaradan tashqarida (jami {})", index, count);
-//     ZM_CORE_ASSERT(window, "oyna yaratilmadi");          // the engine's own (ZM_CORE_*)
-//     if (!ZM_VERIFY(texture, "'{}' rasmi yo'q", path))   // always checked, the code goes on
+//     ZM_ASSERT(index < count, "index {} out of bounds (total {})", index, count);
+//     ZM_CORE_ASSERT(window, "the window was not created");   // the engine's own (ZM_CORE_*)
+//     if (!ZM_VERIFY(texture, "no picture '{}'", path))       // always checked, the code goes on
 //         return;
 //
 // ZM_ASSERT / ZM_CORE_ASSERT: compiled in debug builds (and release builds with asserts: CMake
@@ -76,7 +76,7 @@ namespace Zamin {
         bool Fatal = true;          // ZM_ASSERT; false: ZM_VERIFY (the code goes on)
         uint32_t Count = 1;         // how many times this place has failed (this time included)
 
-        // "index < count - indeks 5 chegaradan tashqarida (Scene.cpp:123, Update)".
+        // "index < count - index 5 out of bounds (Scene.cpp:123, Update)".
         std::string Describe() const;
     };
 

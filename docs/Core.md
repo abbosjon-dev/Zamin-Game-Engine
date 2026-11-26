@@ -1,178 +1,178 @@
-# Zamin Engine: matematika va core yordamchilari
+# Zamin Engine: math and core helpers
 
-Bu qo'llanma dvigatelning "ichki asboblar qutisi" haqida: o'yin skriptlari, editor va dvigatelning o'zi ishlatadigan
-matematika (son utilitalari, kvaternionlar, geometriya, shovqin, egri chiziqlar, spline'lar, ranglar, tasodifiy
-sonlar), vazifalar tizimi (thread pool), xotira statistikasi, log, assert'lar, vaqt o'lchash, matn (string)
-yordamchilari, UUID va fayl tizimi yordamchilari. Har bo'limda API qisqacha va misol bilan.
+This guide is about the engine's "internal toolbox": the math that game scripts, the editor and the engine itself use
+(number utilities, quaternions, geometry, noise, curves, splines, colors, random
+numbers), the job system (thread pool), memory statistics, the log, asserts, timing, string
+helpers, UUIDs and file system helpers. Each section gives the API briefly with an example.
 
-Hamma narsa `#include <Zamin/Zamin.h>` bilan keladi. O'yin skriptlarida (`ScriptableEntity`) matematika, geometriya,
-`StringUtils`, `Stopwatch` / `Timer` va `Random` alohida include'siz ishlaydi (`Scripting/ScriptableEntity.h` ularni
-o'zi ulaydi).
+Everything comes with `#include <Zamin/Zamin.h>`. In game scripts (`ScriptableEntity`) math, geometry,
+`StringUtils`, `Stopwatch` / `Timer` and `Random` work without a separate include (`Scripting/ScriptableEntity.h` pulls
+them in itself).
 
-## Mundarija
+## Contents
 
-1. [Umumiy qoidalar](#1-umumiy-qoidalar)
-2. [Son utilitalari (MathUtils)](#2-son-utilitalari-mathutils)
-3. [Kvaternionlar](#3-kvaternionlar)
-4. [Geometriya: AABB, sfera, nur, tekislik](#4-geometriya-aabb-sfera-nur-tekislik)
-5. [Shovqin (Noise)](#5-shovqin-noise)
-6. [AnimationCurve, Easing va Spline](#6-animationcurve-easing-va-spline)
-7. [Ranglar (Color)](#7-ranglar-color)
-8. [Tasodifiy sonlar (Random)](#8-tasodifiy-sonlar-random)
-9. [Vazifalar tizimi (JobSystem)](#9-vazifalar-tizimi-jobsystem)
-10. [Xotira statistikasi (MemoryStats)](#10-xotira-statistikasi-memorystats)
+1. [General rules](#1-general-rules)
+2. [Number utilities (MathUtils)](#2-number-utilities-mathutils)
+3. [Quaternions](#3-quaternions)
+4. [Geometry: AABB, sphere, ray, plane](#4-geometry-aabb-sphere-ray-plane)
+5. [Noise](#5-noise)
+6. [AnimationCurve, Easing and Spline](#6-animationcurve-easing-and-spline)
+7. [Colors (Color)](#7-colors-color)
+8. [Random numbers (Random)](#8-random-numbers-random)
+9. [The job system (JobSystem)](#9-the-job-system-jobsystem)
+10. [Memory statistics (MemoryStats)](#10-memory-statistics-memorystats)
 11. [Log](#11-log)
-12. [Assert va Verify](#12-assert-va-verify)
-13. [Vaqt o'lchash: Stopwatch, ScopedLogTimer, Timer](#13-vaqt-olchash-stopwatch-scopedlogtimer-timer)
-14. [Matn yordamchilari (StringUtils)](#14-matn-yordamchilari-stringutils)
+12. [Assert and Verify](#12-assert-and-verify)
+13. [Timing: Stopwatch, ScopedLogTimer, Timer](#13-timing-stopwatch-scopedlogtimer-timer)
+14. [String helpers (StringUtils)](#14-string-helpers-stringutils)
 15. [UUID](#15-uuid)
-16. [Fayl tizimi (FileSystem)](#16-fayl-tizimi-filesystem)
-17. [Namuna sahna: Geometry](#17-namuna-sahna-geometry)
-18. [Testlar](#18-testlar)
-19. [Qisqa API ma'lumotnomasi](#19-qisqa-api-malumotnomasi)
+16. [The file system (FileSystem)](#16-the-file-system-filesystem)
+17. [Sample scene: Geometry](#17-sample-scene-geometry)
+18. [Tests](#18-tests)
+19. [A short API reference](#19-a-short-api-reference)
 
 ---
 
-## 1. Umumiy qoidalar
+## 1. General rules
 
-- **Burchaklar radianda** (`glm::radians(45.0f)` yoki `Math::Deg2Rad`). `TransformComponent::Rotation` ham radianda,
-  Euler tartibi: avval X, keyin Y, keyin Z.
-- **Yo'nalishlar**: obyekt `-Z` tomonga qaraydi, `+Y` - yuqori, `+X` - o'ng (`Math::Forward / Up / Right`).
-- **Qutilar inklyuziv**: chegarasiga tegish ham kesishish hisoblanadi.
-- **Nur masofalari** `Ray::Direction` bo'yicha o'lchanadi; `Ray` konstruktori yo'nalishni birlik uzunlikka
-  keltiradi, shuning uchun masofa dunyo birligida bo'ladi.
-- **Funksiyalar istisno (exception) tashlamaydi**: noto'g'ri kirishda (nol yo'nalish, bo'sh ro'yxat, yaroqsiz quti)
-  hujjatlashtirilgan "bo'sh" natija qaytadi (`std::nullopt`, bo'sh yo'l, nol vektor).
-- **Determinizm**: shovqin, `RandomGenerator` (urug' bilan), geometriya va matn funksiyalari bir xil kirishda har
-  doim bir xil natija beradi - testlar va tarmoq o'yinlari uchun muhim.
+- **Angles are in radians** (`glm::radians(45.0f)` or `Math::Deg2Rad`). `TransformComponent::Rotation` is in radians too,
+  with the Euler order: X first, then Y, then Z.
+- **Directions**: an entity faces `-Z`, `+Y` is up, `+X` is right (`Math::Forward / Up / Right`).
+- **Boxes are inclusive**: touching the boundary counts as an intersection too.
+- **Ray distances** are measured along `Ray::Direction`; the `Ray` constructor normalizes the direction to unit length,
+  so distances are in world units.
+- **The functions do not throw exceptions**: on invalid input (a zero direction, an empty list, an invalid box) a
+  documented "empty" result is returned (`std::nullopt`, an empty path, a zero vector).
+- **Determinism**: noise, `RandomGenerator` (with a seed), geometry and string functions always give the same result
+  for the same input - important for tests and network games.
 
-## 2. Son utilitalari (MathUtils)
+## 2. Number utilities (MathUtils)
 
-`Zamin/Math/MathUtils.h`, nomlar fazosi `Zamin::Math`.
+`Zamin/Math/MathUtils.h`, namespace `Zamin::Math`.
 
-| Funksiya | Nima qiladi |
+| Function | What it does |
 |---|---|
-| `Pi`, `TwoPi`, `HalfPi`, `Deg2Rad`, `Rad2Deg` | konstantalar |
-| `Clamp01(x)` | 0..1 ga qisish |
-| `Lerp(a, b, t)` / `LerpUnclamped` | chiziqli aralash (t 0..1 ga qisiladi / qisilmaydi); float va glm vektorlar |
-| `InverseLerp(a, b, v)` | `v` `a..b` ning qayerida (0..1); vec2/vec3 kesma bo'yicha ham |
-| `Remap(v, inMin, inMax, outMin, outMax)` / `RemapClamped` | bir oraliqdan boshqasiga o'tkazish |
-| `SmoothStep(e0, e1, x)` / `SmootherStep` | silliq 0..1 qadam (GLSL'dagidek) |
-| `Sign(x)`, `SignNonZero(x)` | ishora (0 uchun 0 / +1) |
-| `Repeat(t, len)`, `PingPong(t, len)`, `Wrap(v, min, max)` | takrorlash, borib-qaytish, oraliqqa o'rash |
-| `WrapAngle(a)`, `DeltaAngle(a, b)`, `LerpAngle`, `MoveTowardsAngle` | burchaklar: -Pi..Pi, eng qisqa burilish |
-| `Approximately(a, b, eps)` | nisbiy + mutlaq aniqlik bilan tenglik (float, vec2/3/4) |
-| `MoveTowards(cur, target, maxDelta)` | nishonga ko'pi bilan `maxDelta` qadam (o'tib ketmaydi) |
-| `SmoothDamp(cur, target, velocity, smoothTime, dt, maxSpeed)` | prujina kabi silliq yetib borish (float/vec2/vec3, `SmoothDampAngle`) |
-| `Damp(cur, target, sharpness, dt)` | kadr tezligiga bog'liq bo'lmagan eksponensial yumshatish |
+| `Pi`, `TwoPi`, `HalfPi`, `Deg2Rad`, `Rad2Deg` | constants |
+| `Clamp01(x)` | clamp to 0..1 |
+| `Lerp(a, b, t)` / `LerpUnclamped` | linear blend (t clamped / not clamped to 0..1); floats and glm vectors |
+| `InverseLerp(a, b, v)` | where `v` is in `a..b` (0..1); along a vec2/vec3 segment too |
+| `Remap(v, inMin, inMax, outMin, outMax)` / `RemapClamped` | mapping from one range to another |
+| `SmoothStep(e0, e1, x)` / `SmootherStep` | a smooth 0..1 step (as in GLSL) |
+| `Sign(x)`, `SignNonZero(x)` | the sign (0 / +1 for 0) |
+| `Repeat(t, len)`, `PingPong(t, len)`, `Wrap(v, min, max)` | repeating, going back and forth, wrapping into a range |
+| `WrapAngle(a)`, `DeltaAngle(a, b)`, `LerpAngle`, `MoveTowardsAngle` | angles: -Pi..Pi, the shortest turn |
+| `Approximately(a, b, eps)` | equality with a relative + absolute tolerance (float, vec2/3/4) |
+| `MoveTowards(cur, target, maxDelta)` | a step of at most `maxDelta` toward the target (does not overshoot) |
+| `SmoothDamp(cur, target, velocity, smoothTime, dt, maxSpeed)` | a smooth, spring-like approach (float/vec2/vec3, `SmoothDampAngle`) |
+| `Damp(cur, target, sharpness, dt)` | exponential smoothing independent of the frame rate |
 
 ```cpp
-// Kamera o'yinchiga silliq ergashadi (kadr tezligi qanday bo'lmasin, bir xil his)
+// The camera follows the player smoothly (the same feel whatever the frame rate)
 m_CameraPos = Math::SmoothDamp(m_CameraPos, target, m_CameraVelocity, 0.25f, ts);
 
-// Sog'liq 0..100 -> rang aralashmasi 0..1
+// Health 0..100 -> a color blend 0..1
 float t = Math::InverseLerp(0.0f, MaxHealth, Health);
 
-// Minora nishon tomon sekundiga 90 gradusdan tez burilmaydi
+// The turret turns toward the target no faster than 90 degrees per second
 m_Yaw = Math::MoveTowardsAngle(m_Yaw, targetYaw, Math::Deg2Rad * 90.0f * ts);
 ```
 
-`Transform`ni yoyish: `Math::DecomposeTransform(matrix, translation, rotation, scale)` (`Math/Math.h`).
+Decomposing a `Transform`: `Math::DecomposeTransform(matrix, translation, rotation, scale)` (`Math/Math.h`).
 
-## 3. Kvaternionlar
+## 3. Quaternions
 
-`Zamin/Math/Quaternion.h`, `Zamin::Math`. `glm::quat` ustida, dvigatel konventsiyalari bilan.
+`Zamin/Math/Quaternion.h`, `Zamin::Math`. On top of `glm::quat`, with the engine's conventions.
 
-| Funksiya | Nima qiladi |
+| Function | What it does |
 |---|---|
-| `AngleAxis(angle, axis)` / `ToAngleAxis(q, angle, axis)` | o'q atrofida burish va aksincha |
-| `FromEuler(euler)` / `ToEuler(q)` | `TransformComponent::Rotation` bilan bir xil konventsiya (gimbal lock'da barqaror) |
-| `LookRotation(forward, up)` | obyektning `-Z`'i `forward` tomonga qaraydi |
-| `FromToRotation(from, to)` | bir yo'nalishni boshqasiga buradigan eng qisqa burilish |
-| `Slerp`, `SlerpUnclamped`, `Nlerp` | burilishlar orasida aralash |
-| `RotateTowards(from, to, maxAngle)` | ko'pi bilan `maxAngle` radian burish |
-| `Angle(a, b)`, `Angle(v1, v2)`, `SignedAngle(v1, v2, axis)` | burchaklar |
-| `Forward(q)`, `Up(q)`, `Right(q)`, `LookEuler(dir)` | yo'nalishlar |
+| `AngleAxis(angle, axis)` / `ToAngleAxis(q, angle, axis)` | a rotation around an axis and back |
+| `FromEuler(euler)` / `ToEuler(q)` | the same convention as `TransformComponent::Rotation` (stable at gimbal lock) |
+| `LookRotation(forward, up)` | the entity's `-Z` faces `forward` |
+| `FromToRotation(from, to)` | the shortest rotation that turns one direction into another |
+| `Slerp`, `SlerpUnclamped`, `Nlerp` | blending between rotations |
+| `RotateTowards(from, to, maxAngle)` | a rotation of at most `maxAngle` radians |
+| `Angle(a, b)`, `Angle(v1, v2)`, `SignedAngle(v1, v2, axis)` | angles |
+| `Forward(q)`, `Up(q)`, `Right(q)`, `LookEuler(dir)` | directions |
 
 ```cpp
-// Nishonga qarash, sekundiga 2 radiangacha burilib
+// Look at the target, turning up to 2 radians per second
 glm::quat goal = Math::LookRotation(target - GetWorldPosition());
 glm::quat now = Math::RotateTowards(Math::FromEuler(Transform().Rotation), goal, 2.0f * ts);
 Transform().Rotation = Math::ToEuler(now);
 ```
 
-## 4. Geometriya: AABB, sfera, nur, tekislik
+## 4. Geometry: AABB, sphere, ray, plane
 
-`Zamin/Math/Geometry.h`. Turlar `Zamin` nomlar fazosida, testlar `Zamin::Geometry`da. Bu **sof matematika** -
-fizika dunyosisiz ishlaydi (fizika nurlari uchun `Raycast3D` / `Raycast2D`, ular kolayderlarga uradi). Renderer
-(frustum culling, chegaralar), editor (sichqoncha nuri, gizmolar) va skriptlar shu modulni ishlatadi.
+`Zamin/Math/Geometry.h`. The types are in the `Zamin` namespace, the tests in `Zamin::Geometry`. This is **pure math** -
+it works without a physics world (for physics rays use `Raycast3D` / `Raycast2D`, which hit colliders). The renderer
+(frustum culling, bounds), the editor (the mouse ray, gizmos) and scripts use this module.
 
-### Turlar
+### Types
 
-| Tur | Maydonlar | Asosiy metodlar |
+| Type | Fields | Main methods |
 |---|---|---|
 | `AABB` | `Min`, `Max` | `Empty()`, `FromPoints`, `FromCenterExtents`, `IsValid`, `GetCenter/Size/Extents`, `GetVolume`, `GetSurfaceArea`, `GetCorner(i)`, `Encapsulate`, `Merged`, `Expanded`, `Transformed(mat4)`, `Contains`, `Intersects`, `ClosestPoint`, `Distance` |
 | `Sphere` | `Center`, `Radius` | `FromAABB`, `FromPoints`, `Contains`, `Intersects`, `Encapsulate`, `ClosestPoint`, `SignedDistance`, `GetBounds`, `Transformed` |
-| `Ray` | `Origin`, `Direction` | `Ray(origin, dir)` (yo'nalish normallanadi), `FromPoints`, `FromNDC(ndc, invViewProj)`, `GetPoint(d)`, `Transformed` |
+| `Ray` | `Origin`, `Direction` | `Ray(origin, dir)` (the direction is normalized), `FromPoints`, `FromNDC(ndc, invViewProj)`, `GetPoint(d)`, `Transformed` |
 | `Plane` | `Normal`, `Distance` (`dot(N, p) + D = 0`) | `FromPointNormal`, `FromPoints(a, b, c)`, `FromVector`, `SignedDistance`, `IsInFront`, `ClosestPoint`, `Flipped`, `Transformed` |
 | `Frustum` | `Planes[6]` | `FromViewProjection`, `GetPlane`, `Intersects(AABB / Sphere)`, `Contains(point)` |
-| `RayHit` | `Distance`, `Point`, `Normal`, `Barycentric`, `Triangle` | nur tekkan joy |
+| `RayHit` | `Distance`, `Point`, `Normal`, `Barycentric`, `Triangle` | where a ray hit |
 
-Muhim nuqtalar:
+Important points:
 
-- Standart `AABB` - koordinata boshidagi nuqta. Nuqtalar atrofida quti yig'ish uchun `AABB::Empty()` dan boshlang:
-  `Encapsulate` uni aynan o'sha nuqta / qutiga aylantiradi. Bo'sh (yaroqsiz) quti hech narsaga tegmaydi.
-- `AABB::Transformed` aylantirilgan qutini o'rab turgan eng tor o'qqa parallel qutini beradi (Arvo usuli).
-- `Sphere::FromPoints` - Ritter usuli (yoki quti markazidan hisoblangani, qaysi kichik bo'lsa): har doim hamma
-  nuqtani o'z ichiga oladi, lekin eng kichik sfera bo'lishi shart emas (odatda ~10% ichida).
-- `Plane`ning old tomoni normal ko'rsatgan tomon (`SignedDistance > 0`).
+- The default `AABB` is the point at the origin. To build a box around points, start from `AABB::Empty()`:
+  `Encapsulate` turns it into exactly that point / box. An empty (invalid) box touches nothing.
+- `AABB::Transformed` gives the tightest axis-aligned box around the rotated box (Arvo's method).
+- `Sphere::FromPoints` - Ritter's method (or the one computed from the box center, whichever is smaller): it always
+  contains every point, but it is not necessarily the smallest sphere (usually within ~10%).
+- The front side of a `Plane` is the side its normal points to (`SignedDistance > 0`).
 
-### Nur testlari
+### Ray tests
 
 ```cpp
 std::optional<RayHit> Geometry::Raycast(const Ray&, const AABB&, float maxDistance = Infinity);
-std::optional<RayHit> Geometry::Raycast(const Ray&, const AABB& localBox, const glm::mat4& transform, float maxDistance = Infinity); // yo'naltirilgan quti
+std::optional<RayHit> Geometry::Raycast(const Ray&, const AABB& localBox, const glm::mat4& transform, float maxDistance = Infinity); // an oriented box
 std::optional<RayHit> Geometry::Raycast(const Ray&, const Sphere&, float maxDistance = Infinity);
 std::optional<RayHit> Geometry::Raycast(const Ray&, const Plane&, float maxDistance = Infinity);
-std::optional<RayHit> Geometry::Raycast(const Ray&, a, b, c, bool twoSided = true, float maxDistance = Infinity);      // uchburchak
-std::optional<RayHit> Geometry::Raycast(const Ray&, std::span<const glm::vec3> positions, std::span<const uint32_t> indices, ...); // uchburchaklar ro'yxati
-bool Geometry::IntersectRayAABB(const Ray&, const AABB&, float& tEnter, float& tExit);                                // slab: kirish..chiqish
+std::optional<RayHit> Geometry::Raycast(const Ray&, a, b, c, bool twoSided = true, float maxDistance = Infinity);      // a triangle
+std::optional<RayHit> Geometry::Raycast(const Ray&, std::span<const glm::vec3> positions, std::span<const uint32_t> indices, ...); // a list of triangles
+bool Geometry::IntersectRayAABB(const Ray&, const AABB&, float& tEnter, float& tExit);                                // slab: entry..exit
 ```
 
-- **ray-AABB** - "slab" usuli; o'qqa parallel nurlar (yo'nalishning nol komponentlari) to'g'ri ishlaydi.
-- **ray-sfera** - kvadrat tenglama; **ray-tekislik** - ikki tomonlama, tekislik bo'ylab ketgan nur tegmaydi.
-- **ray-uchburchak** - Möller–Trumbore; `twoSided = false` bo'lsa faqat old tomon (soat strelkasiga qarshi
-  `a, b, c`); `RayHit::Barycentric` = `(u, v)`, nuqta `= a(1-u-v) + b u + c v`.
-- Nur boshidan **orqadagi** narsaga tegmaydi. Nur quti yoki sfera **ichidan** boshlansa, `Distance = 0`, `Normal`
-  nol (nur boshida tegdi). `RayHit::Normal` har doim nur kelgan tomonga qaragan birlik vektor.
-- Yo'naltirilgan quti varianti obyektning lokal chegaralari (`Scene::GetEntityLocalBounds`) va dunyo matritsasi bilan
-  ishlaydi: masofa, nuqta va normal dunyo fazosida.
+- **ray-AABB** - the "slab" method; rays parallel to an axis (zero components of the direction) work correctly.
+- **ray-sphere** - a quadratic equation; **ray-plane** - two-sided, a ray running along the plane does not hit.
+- **ray-triangle** - Möller–Trumbore; with `twoSided = false` only the front side (counter-clockwise
+  `a, b, c`); `RayHit::Barycentric` = `(u, v)`, the point `= a(1-u-v) + b u + c v`.
+- A ray does not hit anything **behind** its origin. When a ray starts **inside** a box or sphere, `Distance = 0` and
+  `Normal` is zero (it hit at the origin). `RayHit::Normal` is always a unit vector facing where the ray came from.
+- The oriented box variant works with the entity's local bounds (`Scene::GetEntityLocalBounds`) and its world matrix:
+  the distance, point and normal are in world space.
 
 ```cpp
-// Sichqoncha ostidagi obyektni tanlash (fizikasiz): skriptda GetMouseRay()
-Ray ray = GetMouseRay();                   // asosiy kamera orqali (Scene::ScreenPointToRay)
+// Picking the entity under the mouse (without physics): GetMouseRay() in a script
+Ray ray = GetMouseRay();                   // through the main camera (Scene::ScreenPointToRay)
 AABB local;
 if (GetScene().GetEntityLocalBounds(chest, local))
     if (auto hit = Geometry::Raycast(ray, local, GetScene().GetWorldTransform(chest)))
-        ZM_INFO("Sandiq {:.1f} m uzoqlikda bosildi", hit->Distance);
+        ZM_INFO("The chest was clicked {:.1f} m away", hit->Distance);
 ```
 
-Editor kamerasi yoki o'z matritsangiz bilan: `Ray::FromNDC(ndc, glm::inverse(projection * view))` (ndc -1..1,
-x o'ngga, y yuqoriga; nur yaqin tekislikdan boshlanadi; perspektiv va ortografik).
+With the editor camera or your own matrix: `Ray::FromNDC(ndc, glm::inverse(projection * view))` (ndc -1..1,
+x to the right, y up; the ray starts at the near plane; perspective and orthographic).
 
-### Kesishuvlar (overlap) va tasniflash
+### Intersections (overlap) and classification
 
-| Funksiya | Tekshiradi |
+| Function | Checks |
 |---|---|
-| `Geometry::Intersects(AABB, AABB)` | ikki quti |
-| `Geometry::Intersects(Sphere, Sphere)` | ikki sfera |
-| `Geometry::Intersects(Sphere, AABB)` / `(AABB, Sphere)` | sfera va quti (eng yaqin nuqta orqali) |
-| `Geometry::Intersects(AABB, Plane)`, `(Sphere, Plane)` | tekislikni kesib o'tadimi |
-| `Geometry::Intersects(AABB, a, b, c)` | uchburchak va quti (ajratuvchi o'qlar, Akenine-Möller) |
+| `Geometry::Intersects(AABB, AABB)` | two boxes |
+| `Geometry::Intersects(Sphere, Sphere)` | two spheres |
+| `Geometry::Intersects(Sphere, AABB)` / `(AABB, Sphere)` | a sphere and a box (through the closest point) |
+| `Geometry::Intersects(AABB, Plane)`, `(Sphere, Plane)` | whether it crosses the plane |
+| `Geometry::Intersects(AABB, a, b, c)` | a triangle and a box (separating axes, Akenine-Möller) |
 | `Geometry::Classify(AABB / Sphere, Plane)` | `PlaneSide::Front` / `Back` / `Both` |
-| `Frustum::Intersects(AABB / Sphere)` | kamera ko'radimi (konservativ) |
+| `Frustum::Intersects(AABB / Sphere)` | whether the camera sees it (conservative) |
 
-### Eng yaqin nuqtalar
+### Closest points
 
 ```cpp
 glm::vec3 Geometry::ClosestPointOnSegment(p, a, b, float* t = nullptr);
@@ -182,340 +182,340 @@ glm::vec3 Geometry::ClosestPointOnAABB(p, box);     // = box.ClosestPoint(p)
 glm::vec3 Geometry::ClosestPointOnSphere(p, sphere);
 glm::vec3 Geometry::ClosestPointOnPlane(p, plane);
 glm::vec3 Geometry::ClosestPointOnTriangle(p, a, b, c, glm::vec3* barycentric = nullptr);
-float Geometry::ClosestPointsOnSegments(p1, q1, p2, q2, c1, c2, float* s = nullptr, float* t = nullptr); // masofa kvadrati
+float Geometry::ClosestPointsOnSegments(p1, q1, p2, q2, c1, c2, float* s = nullptr, float* t = nullptr); // the squared distance
 bool Geometry::ClosestPointsOnLines(o1, d1, o2, d2, float& t1, float& t2);                              // parallel: false
 ```
 
-Uchburchak yordamchilari: `TriangleNormal`, `TriangleArea`, `Barycentric(p, a, b, c)`.
+Triangle helpers: `TriangleNormal`, `TriangleArea`, `Barycentric(p, a, b, c)`.
 
 ```cpp
-// Zanjirli tok: o'yinchi simga 0.5 m dan yaqin kelsa zarar oladi
+// An electric wire: the player takes damage when closer than 0.5 m to it
 glm::vec3 nearest = Geometry::ClosestPointOnSegment(player, wireStart, wireEnd);
 if (glm::length(player - nearest) < 0.5f)
     Hurt();
 ```
 
-## 5. Shovqin (Noise)
+## 5. Noise
 
-`Zamin/Math/Noise.h`, `Zamin::Noise`. Hammasi urug' (`seed`) bilan deterministik, natija -1..1 (aks holda
-aytilgan).
+`Zamin/Math/Noise.h`, `Zamin::Noise`. Everything is deterministic with a `seed`, the result is -1..1 (unless stated
+otherwise).
 
-- `Perlin(x / vec2 / vec3, seed)`, `Simplex(vec2 / vec3, seed)`, `Value(x / vec2 / vec3, seed)` - bitta oktava.
-- `PerlinPeriodic(p, period, seed)` - takrorlanadigan (tile) shovqin; `PerlinVector` - uch mustaqil o'q.
-- `FractalSettings { Type, Octaves, Frequency, Lacunarity, Gain, Seed }` va `Fractal(p, settings)` (fBm),
-  `Ridged` (0..1, tog' tizmalari), `Turbulence` (0..1, bulut/tutun), `FractalVector`.
-- `Noise::To01(n)` -1..1 ni 0..1 ga o'tkazadi.
+- `Perlin(x / vec2 / vec3, seed)`, `Simplex(vec2 / vec3, seed)`, `Value(x / vec2 / vec3, seed)` - one octave.
+- `PerlinPeriodic(p, period, seed)` - repeating (tiling) noise; `PerlinVector` - three independent axes.
+- `FractalSettings { Type, Octaves, Frequency, Lacunarity, Gain, Seed }` and `Fractal(p, settings)` (fBm),
+  `Ridged` (0..1, mountain ridges), `Turbulence` (0..1, clouds/smoke), `FractalVector`.
+- `Noise::To01(n)` maps -1..1 to 0..1.
 
 ```cpp
 float height = Noise::Fractal(glm::vec2(x, z) * 0.05f, { .Octaves = 5, .Seed = 42 }) * 8.0f;
 float ridge = Noise::Ridged(glm::vec2(x, z) * 0.02f, { .Octaves = 6 });
 ```
 
-Particle turbulentligi, kamera silkinishi va 2D chiroq miltillashi ham shu modulni ishlatadi.
+Particle turbulence, camera shake and 2D light flicker use this module too.
 
-## 6. AnimationCurve, Easing va Spline
+## 6. AnimationCurve, Easing and Spline
 
-- **`AnimationCurve`** (`Math/AnimationCurve.h`) - vaqt bo'yicha bitta son: kalitlar, Bezier tangentlar,
+- **`AnimationCurve`** (`Math/AnimationCurve.h`) - one number over time: keys, Bezier tangents,
   `PreWrap` / `PostWrap` (`Once`, `Loop`, `PingPong`), `Evaluate(t)`, `AddKey`, `SmoothTangents`,
-  `AnimationCurve::Linear / EaseInOut / Constant`. Skript maydoni (`ZM_FIELD`) sifatida inspektorda tahrirlanadi.
-  Batafsil: [Animation.md, 18-bo'lim](Animation.md#18-animationcurve-skriptdagi-egri-chiziq).
+  `AnimationCurve::Linear / EaseInOut / Constant`. Edited in the inspector as a script field (`ZM_FIELD`).
+  More: [Animation.md, section 18](Animation.md#18-animationcurve-skriptdagi-egri-chiziq).
 - **Easing** (`Math/Easing.h`) - `ApplyEase(Ease::OutBack, t)`: `Linear`, `InQuad`, `OutQuad`, `InOutQuad`,
   `OutCubic`, `InOutCubic`, `OutBack`, `OutElastic`, `OutBounce` (0 -> 0, 1 -> 1).
-- **Spline** (`Math/Spline.h`) - Catmull-Rom (centripetal), Bezier va to'g'ri chiziq; `Evaluate(u)`,
-  `EvaluateTangent`, `FindClosest(point)`, `InsertPoint`, `AutoTangents`; masofa <-> parametr jadvali
-  `SplineLengthTable`. `SplineComponent` va `SplineFollowerComponent` bilan sahnada. Batafsil:
-  [Animation.md, 19-bo'lim](Animation.md#19-spline-yollar-va-spline-follower).
+- **Spline** (`Math/Spline.h`) - Catmull-Rom (centripetal), Bezier and straight lines; `Evaluate(u)`,
+  `EvaluateTangent`, `FindClosest(point)`, `InsertPoint`, `AutoTangents`; the distance <-> parameter table
+  `SplineLengthTable`. In a scene with `SplineComponent` and `SplineFollowerComponent`. More:
+  [Animation.md, section 19](Animation.md#19-spline-yollar-va-spline-follower).
 
-![Spline editorda](images/core-splines-editor.jpg)
+![A spline in the editor](images/core-splines-editor.jpg)
 
-*Showcase3D `Scenes/Splines.zscene`: `Poyga yo'li` obyekti tanlangan — Catmull-Rom halqa (viewport'dagi ingichka chiziq),
-uning bo'ylab vagonlar (`SplineFollowerComponent`); inspektorda Spline bo'limi: turi, uzunligi va 9 ta nuqta.*
+*Showcase3D `Scenes/Splines.zscene`: the `Poyga yo'li` (race track) entity selected — a Catmull-Rom loop (the thin line in the viewport),
+the carts along it (`SplineFollowerComponent`); the Spline section in the inspector: the type, the length and 9 points.*
 
-## 7. Ranglar (Color)
+## 7. Colors (Color)
 
-`Zamin/Math/Color.h`, `Zamin::Color`. Ranglar `glm::vec4` (0..1, sRGB, alfa bilan).
+`Zamin/Math/Color.h`, `Zamin::Color`. Colors are `glm::vec4` (0..1, sRGB, with alpha).
 
-| Funksiya | Nima qiladi |
+| Function | What it does |
 |---|---|
-| `RGBToHSV` / `HSVToRGB`, `RGBToHSL` / `HSLToRGB`, `FromHSV(h, s, v, a)`, `FromHSL` | rang modellari (h 0..1) |
+| `RGBToHSV` / `HSVToRGB`, `RGBToHSL` / `HSLToRGB`, `FromHSV(h, s, v, a)`, `FromHSL` | color models (h 0..1) |
 | `FromHex("#ff8800")`, `ToHex(color)` | `#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA` |
-| `FromName("qizil")`, `Parse(text)` | ingliz va o'zbek nomlari, hex yoki nom |
-| `SRGBToLinear` / `LinearToSRGB`, `GammaToLinear` / `LinearToGamma` | aniq sRGB va shaderlardagi 2.2 gamma |
-| `Lerp`, `LerpLinear`, `LerpHSV` | sRGB'da, chiziqli yorug'likda yoki rang g'ildiragi bo'ylab aralash |
-| `Luminance`, `PerceivedBrightness`, `ContrastingTextColor` | yorqinlik, fon ustidagi matn rangi |
-| `FromRGBA8(r, g, b, a)`, `WithAlpha` | 8-bitli rang, alfani almashtirish |
+| `FromName("red")`, `Parse(text)` | English and Uzbek names, hex or a name |
+| `SRGBToLinear` / `LinearToSRGB`, `GammaToLinear` / `LinearToGamma` | exact sRGB and the 2.2 gamma of the shaders |
+| `Lerp`, `LerpLinear`, `LerpHSV` | a blend in sRGB, in linear light or around the color wheel |
+| `Luminance`, `PerceivedBrightness`, `ContrastingTextColor` | brightness, the text color over a background |
+| `FromRGBA8(r, g, b, a)`, `WithAlpha` | an 8-bit color, replacing the alpha |
 
 ```cpp
 glm::vec4 hp = Color::LerpHSV(Color::FromHex("#e53935").value(), Color::FromHex("#43a047").value(), health01);
 ```
 
-## 8. Tasodifiy sonlar (Random)
+## 8. Random numbers (Random)
 
 `Zamin/Math/Random.h`. `Random::Range(1, 6)`, `Random::Float()`, `Random::Bool(0.25f)`, `Random::OnUnitSphere()`,
-`Random::Rotation()`, `Random::Gaussian()`, `Random::Pick(items)` - global generator. Takrorlanadigan ketma-ketlik
-uchun o'z generatoringiz: `RandomGenerator rng(seed); rng.Range(0.0f, 1.0f); rng.InsideBox(min, max);
+`Random::Rotation()`, `Random::Gaussian()`, `Random::Pick(items)` - the global generator. For a repeatable sequence
+use your own generator: `RandomGenerator rng(seed); rng.Range(0.0f, 1.0f); rng.InsideBox(min, max);
 rng.WeightedIndex(weights); rng.Shuffle(list);`.
 
-Boshqa global funksiyalar: `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::InsideCircle(r)`,
-`Random::InsideSphere(r)`, `Random::OnSphere(r)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`. Generator - PCG32: bir xil
-`seed` har qanday kompyuterda bir xil ketma-ketlik beradi (darajalarni qayta yaratish, replay uchun qulay).
+Other global functions: `Random::Int(1, 6)` (both bounds included), `Random::InsideCircle(r)`,
+`Random::InsideSphere(r)`, `Random::OnSphere(r)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`. The generator is PCG32: the same
+`seed` gives the same sequence on any computer (handy for regenerating levels and for replays).
 
-## 9. Vazifalar tizimi (JobSystem)
+## 9. The job system (JobSystem)
 
-`Zamin/Core/JobSystem.h`. Mustaqil bo'laklarga bo'linadigan ishlar uchun thread pool: ishchi oqimlar soni - apparat
-oqimlaridan bitta kam (asosiy oqim ham ishlaydi). Navbat mutex va condition variable bilan.
+`Zamin/Core/JobSystem.h`. A thread pool for work that splits into independent pieces: the number of worker threads is one less
+than the hardware threads (the main thread works too). The queue uses a mutex and a condition variable.
 
 ```cpp
-// Katta massivni parallel hisoblash: har bo'lak faqat o'z elementlariga yozadi
+// Computing a large array in parallel: each piece writes only to its own elements
 JobSystem::ParallelFor((uint32_t)items.size(), 0, [&](uint32_t begin, uint32_t end) {
     for (uint32_t i = begin; i < end; i++)
         results[i] = Compute(items[i]);
 });
 
-// Bog'liqliklar bilan
+// With dependencies
 JobHandle load = JobSystem::Schedule([&] { LoadData(); });
-JobHandle build = JobSystem::Schedule([&] { BuildIndex(); }, load);   // load tugagach
-JobSystem::Wait(build);                                                // kutayotgan oqim ham navbatdagi ishlarni bajaradi
+JobHandle build = JobSystem::Schedule([&] { BuildIndex(); }, load);   // after load finishes
+JobSystem::Wait(build);                                                // the waiting thread runs queued jobs too
 ```
 
 - `Schedule(job[, dependencies])`, `Combine(handles)`, `Wait(handle)`, `ParallelFor(count, grain, fn)`,
-  `ScheduleParallelFor(...)`, `GetThreadIndex()` (oqim uchun alohida xotira), `GetStats()` / `GetLastFrameStats()`.
-- **Qoida**: ishchi oqimdagi ish boshqa bir vaqtda ishlayotgan ishlar yozadigan narsaga tegmasin (sahna registri,
-  renderer, fizika, skriptlar). Dvigatel faqat ajratilgan ma'lumotdagi ishlarni parallel qiladi: mustaqil particle
-  tizimlari, **bitta katta tizimning particle'lari** (`ParticleSimulation::ParallelThreshold` = 4 096 tadan boshlab
-  2 048 talik bo'laklarda; dunyo to'qnashuvi, to'qnashuv hodisalari yoki izlar bo'lsa bitta oqimda), animator pozalari va
-  animatorlarning ko'rinishini belgilash (`Scene::MarkVisibleAnimators`, 32 tadan boshlab); natija bir oqimdagi bilan
-  bit-bitgacha bir xil.
-- **O'chirish** (hamma ish chaqirgan oqimda, tartib bilan): `JobSystem::SetEnabled(false)`, `ZAMIN_JOBS=0`,
-  playerda `--jobs 0`, `ApplicationSpecification::JobWorkers`. Profilerda ishlar "Ishchi N" tugunlari ostida.
+  `ScheduleParallelFor(...)`, `GetThreadIndex()` (per-thread memory), `GetStats()` / `GetLastFrameStats()`.
+- **The rule**: a job on a worker thread must not touch anything that other jobs running at the same time write (the scene
+  registry, the renderer, physics, scripts). The engine only parallelizes work on separated data: independent particle
+  systems, **the particles of one large system** (from `ParticleSimulation::ParallelThreshold` = 4 096 on, in pieces of
+  2 048; on one thread when there is world collision, collision events or trails), animator poses and marking the
+  animators' visibility (`Scene::MarkVisibleAnimators`, from 32 on); the result is bit for bit the same as on one
+  thread.
+- **Turning it off** (all work on the calling thread, in order): `JobSystem::SetEnabled(false)`, `ZAMIN_JOBS=0`,
+  `--jobs 0` in the player, `ApplicationSpecification::JobWorkers`. In the profiler the jobs are under "Worker N" nodes.
 
-**Fon yuklash** (`Zamin/Asset/AsyncLoader.h`) shu tizim ustida: `AsyncLoader::Enqueue(nom, ish, tugatish)` — `ish`
-ishchi oqimda (GPU va sahnaga tegmaydi), `tugatish` asosiy oqimda `AsyncLoader::Update(byudjet_ms)` ichida (ilova har
-kadr chaqiradi). Ishchi oqimda yasalgan tekstura va meshlar GPU obyektisiz qoladi (`AsyncLoader::DeferGPU`) va `Update`
-ularni byudjet ichida yuklaydi. `Wait(id)`, `WaitAll()` — kutish; o'chiq bo'lsa (`SetEnabled(false)`, testlar va
-`ZAMIN_SCREENSHOT` / `ZAMIN_MAX_FRAMES`) `LoadAsync` lar darhol yuklaydi.
+**Background loading** (`Zamin/Asset/AsyncLoader.h`) is built on this system: `AsyncLoader::Enqueue(name, work, finish)` — `work`
+runs on a worker thread (it does not touch the GPU or the scene), `finish` on the main thread inside `AsyncLoader::Update(budget_ms)` (the
+application calls it every frame). Textures and meshes built on a worker thread stay without GPU objects (`AsyncLoader::DeferGPU`) and `Update`
+uploads them within the budget. `Wait(id)`, `WaitAll()` — waiting; when it is off (`SetEnabled(false)`, tests and
+`ZAMIN_SCREENSHOT` / `ZAMIN_MAX_FRAMES`) the `LoadAsync` calls load at once.
 
-## 10. Xotira statistikasi (MemoryStats)
+## 10. Memory statistics (MemoryStats)
 
-`Zamin/Core/MemoryStats.h`. Kategoriyalar: teksturalar, render buferlari, mesh buferlari, audio, sahnalar,
-particle'lar, animatsiya poza keshi - har biri bayt, obyekt soni va eng yuqori qiymat (thread-safe).
-`MemoryStats::Get(MemoryCategory::Textures).Bytes`, `GetTrackedTotal()`, `GetProcessMemory()` (RSS, virtual, eng
-yuqori RSS: `/proc/self/statm`, `VmHWM`). O'z modulingiz uchun: `TrackedMemory m_Memory{ MemoryCategory::Scenes };
-m_Memory.Set(bytes);` (obyekt o'chganda hisobdan chiqadi). Editorda: Statistika paneli > "Xotira", viewport
-overlay'da "Xotira".
+`Zamin/Core/MemoryStats.h`. Categories: textures, render buffers, mesh buffers, audio, scenes,
+particles, the animation pose cache - each with bytes, an object count and a peak value (thread-safe).
+`MemoryStats::Get(MemoryCategory::Textures).Bytes`, `GetTrackedTotal()`, `GetProcessMemory()` (RSS, virtual, peak
+RSS: `/proc/self/statm`, `VmHWM`). For your own module: `TrackedMemory m_Memory{ MemoryCategory::Scenes };
+m_Memory.Set(bytes);` (it leaves the count when the object is destroyed). In the editor: the Statistics panel > "Memory", and
+"Memory" in the viewport overlay.
 
 ## 11. Log
 
-`Zamin/Core/Log.h`. Format - `std::format` sintaksisi; matnlar o'zbekcha.
+`Zamin/Core/Log.h`. The format is the `std::format` syntax.
 
 ```cpp
-ZM_INFO("O'yinchi {} ochko to'pladi", score);       // o'yin / editor ("APP" logger)
-ZM_WARN("Saqlash fayli eski: v{}", version);
-ZM_CORE_ERROR("Tekstura failed to load: '{}'", path);  // dvigatelning o'zi ("ZAMIN")
+ZM_INFO("The player scored {} points", score);       // the game / editor ("APP" logger)
+ZM_WARN("The save file is old: v{}", version);
+ZM_CORE_ERROR("Texture failed to load: '{}'", path);  // the engine itself ("ZAMIN")
 ```
 
-Darajalar: `Trace`, `Info`, `Warn`, `Error`, `Critical`, `Off`. Har logger o'z minimal darajasiga ega
-(`Log::SetLevel(LogSource::Engine, LogLevel::Warn)`), log faylining darajasi alohida (`Log::SetFileLevel`).
-Darajadan pastdagi xabar umuman formatlanmaydi (arzon). Sozlash tartibi (keyingisi ustun):
-Loyiha sozlamalari > Player > Log, `ZAMIN_LOG_LEVEL`, `--log-level` (`warn` yoki `engine=warn,app=info,file=error`).
-Editorda: Sozlamalar > Log va konsolning tishli g'ildirak menyusi. Log fayllari: [Runtime.md](Runtime.md#6-log-fayllari).
+Levels: `Trace`, `Info`, `Warn`, `Error`, `Critical`, `Off`. Every logger has its own minimum level
+(`Log::SetLevel(LogSource::Engine, LogLevel::Warn)`), the log file's level is separate (`Log::SetFileLevel`).
+A message below the level is not formatted at all (cheap). The configuration order (the later one wins):
+Project settings > Player > Log, `ZAMIN_LOG_LEVEL`, `--log-level` (`warn` or `engine=warn,app=info,file=error`).
+In the editor: Preferences > Log and the console's cog menu. Log files: [Runtime.md](Runtime.md#6-log-fayllari).
 
-## 12. Assert va Verify
+## 12. Assert and Verify
 
 `Zamin/Core/Assert.h`.
 
 ```cpp
-ZM_ASSERT(index < count, "indeks {} chegaradan tashqarida (jami {})", index, count);
-ZM_CORE_ASSERT(window, "oyna yaratilmadi");                 // dvigatel kodi uchun
-if (!ZM_VERIFY(texture, "'{}' rasmi yo'q", path))          // har doim tekshiriladi, kod davom etadi
+ZM_ASSERT(index < count, "index {} out of bounds (total {})", index, count);
+ZM_CORE_ASSERT(window, "the window was not created");       // for engine code
+if (!ZM_VERIFY(texture, "no picture '{}'", path))           // always checked, the code goes on
     return;
 ```
 
-- `ZM_ASSERT` / `ZM_CORE_ASSERT` - debug build'da (va CMake `-DZAMIN_ASSERTS=ON` bilan release'da). Muvaffaqiyatsiz
-  bo'lsa: ifoda, xabar, `fayl:qator` va funksiya log'ga yoziladi; debugger ulangan bo'lsa shu joyda to'xtaydi, aks
-  holda dastur to'xtatiladi va playerning crash hisobotida sabab sifatida assert ko'rsatiladi.
-- `ZM_VERIFY` / `ZM_CORE_VERIFY` - har build'da, natijani qaytaradi, hech qachon to'xtatmaydi; log'ga 1-, 10-,
-  100-... marta yoziladi (har kadr qaytarilsa log to'lib ketmaydi).
-- Rejim: `Assert::SetMode` yoki `ZAMIN_ASSERT=auto|break|abort|continue`. Editorda o'yin skriptidagi assert faqat
-  log'ga yoziladi - editor yopilmaydi.
+- `ZM_ASSERT` / `ZM_CORE_ASSERT` - in debug builds (and in release with CMake `-DZAMIN_ASSERTS=ON`). On a failure
+  the expression, the message, `file:line` and the function are written to the log; with a debugger attached it stops at
+  that place, otherwise the program aborts and the player's crash report shows the assert as the reason.
+- `ZM_VERIFY` / `ZM_CORE_VERIFY` - in every build, they return the result and never stop; they are logged the 1st, 10th,
+  100th... time (so the log does not fill up when it repeats every frame).
+- The mode: `Assert::SetMode` or `ZAMIN_ASSERT=auto|break|abort|continue`. In the editor an assert in a game script is only
+  written to the log - the editor does not close.
 
-## 13. Vaqt o'lchash: Stopwatch, ScopedLogTimer, Timer
+## 13. Timing: Stopwatch, ScopedLogTimer, Timer
 
 ```cpp
-Stopwatch watch;                        // Core/Stopwatch.h - yuqori aniqlikdagi soat
+Stopwatch watch;                        // Core/Stopwatch.h - a high-resolution clock
 LoadLevel();
-double loadMs = watch.Lap();            // davra (ms)
+double loadMs = watch.Lap();            // a lap (ms)
 BuildNavMesh();
-ZM_INFO("Jami: {}", watch.Format());   // "12.4 s", "850 ms" ...
+ZM_INFO("Total: {}", watch.Format());  // "12.4 s", "850 ms" ...
 
 {
-    ZM_LOG_SCOPE_TIME("Sahna generatsiyasi");          // blok tugaganda: "Sahna generatsiyasi: 3.21 ms"
-    ZM_LOG_SCOPE_TIME_OVER("AI yangilash", 2.0);      // faqat 2 ms dan oshsa
+    ZM_LOG_SCOPE_TIME("Scene generation");          // when the block ends: "Scene generation: 3.21 ms"
+    ZM_LOG_SCOPE_TIME_OVER("AI update", 2.0);       // only when over 2 ms
 }
 
-Timer reload{ 1.5f };                   // Core/Timer.h - o'yin vaqti bilan teskari sanoq
-if (reload.Tick(ts)) Reload();          // tugagan kadrda true; Timer(0.5f, true) - takrorlanadi
+Timer reload{ 1.5f };                   // Core/Timer.h - a countdown in game time
+if (reload.Tick(ts)) Reload();          // true in the frame it finishes; Timer(0.5f, true) - repeats
 ```
 
 `Stopwatch`: `Start`, `Stop`, `Reset`, `Restart`, `ElapsedMilliseconds / Microseconds / Nanoseconds`, `Lap`,
-`GetLaps`. Profiler uchun alohida: `ZM_PROFILE_SCOPE("Nom")` (Profiler oynasida ierarxik ko'rinadi).
+`GetLaps`. Separately for the profiler: `ZM_PROFILE_SCOPE("Name")` (shown hierarchically in the Profiler window).
 
-**Ishga tushish vaqti** (`Core/StartupTimer.h`): `Application` dvigatel kutubxonasi yuklangandan birinchi kadr
-ekranga chiqquncha vaqtni o'lchaydi va bir marta logga yozadi - `Ishga tushish: birinchi kadr 670 ms (dvigatel 182,
-layer'lar 88, birinchi kadr 422 ms; jarayon boshidan ~680 ms), RAM 325 MB (eng ko'pi 341 MB)`. Qismlari: dvigatel
-(oyna va GL konteksti, `Renderer::Init`, audio, ImGui), layer'lar (`OnAttach`: loyiha, sahna, editor panellari),
-birinchi kadrning o'zi; jarayon boshlanishi `/proc/self/stat` dan (10 ms aniqlik). `StartupTimer::Get()` natijani
-beradi (editorning Statistika paneli "Xotira" bo'limida ko'rsatadi). `ZAMIN_STARTUP_PROFILE=1` ishga tushish
-paytidagi profiler daraxtini (u ham `ZM_PROFILE_SCOPE` lar bilan yig'iladi) va birinchi kadrning daraxtini chiqaradi;
-`Tests/startup_bench.py` buni bir necha marta o'lchab, ikki build'ni solishtiradi ([Benchmarks.md](Benchmarks.md#ishga-tushish-vaqti-495)).
+**Startup time** (`Core/StartupTimer.h`): `Application` measures the time from loading the engine library until the first frame
+reaches the screen and logs it once - `Startup: first frame 670 ms (engine 182, layers 88, first frame 422 ms;
+~680 ms since the process started), RAM 325 MB (peak 341 MB)`. The parts: the engine
+(the window and GL context, `Renderer::Init`, audio, ImGui), the layers (`OnAttach`: the project, the scene, the editor panels),
+the first frame itself; the process start comes from `/proc/self/stat` (10 ms resolution). `StartupTimer::Get()` gives the result
+(the editor's Statistics panel shows it in the "Memory" section). `ZAMIN_STARTUP_PROFILE=1` prints the profiler tree of the
+startup (it is collected with `ZM_PROFILE_SCOPE`s too) and the first frame's tree;
+`Tests/startup_bench.py` measures it several times and compares two builds ([Benchmarks.md](Benchmarks.md#ishga-tushish-vaqti-495)).
 
-## 14. Matn yordamchilari (StringUtils)
+## 14. String helpers (StringUtils)
 
-`Zamin/Utils/StringUtils.h`, `Zamin::StringUtils`. Locale'ga bog'liq emas, istisno tashlamaydi.
+`Zamin/Utils/StringUtils.h`, `Zamin::StringUtils`. Locale independent, no exceptions.
 
-| Guruh | Funksiyalar |
+| Group | Functions |
 |---|---|
-| Kesish | `Trim`, `TrimStart`, `TrimEnd` (`string_view` qaytaradi) |
-| Harf registri (ASCII) | `ToLower`, `ToUpper`, `EqualsIgnoreCase`, `StartsWithIgnoreCase`, `EndsWithIgnoreCase`, `FindIgnoreCase`, `ContainsIgnoreCase` |
-| Bo'lish / birlashtirish | `Split(text, ',', SplitFlags::Trim \| SplitFlags::SkipEmpty)`, `SplitView`, `SplitLines`, `SplitWhitespace`, `SplitOnce`, `Join(parts, ", ")` |
-| Almashtirish | `Replace`, `ReplaceAll`, `RemoveAll`, `Repeat`, `PadLeft`, `PadRight` |
-| Formatlash | `Format(...)` (std::format), `FormatRuntime`, `FormatBytes` ("1.5 MB"), `FormatDuration`, `FormatThousands` ("12 345"), `ToHex` |
-| Sonlar | `ParseInt<int>("42")`, `ParseFloat<float>`, `ParseBool` - `std::optional`, chegaradan chiqsa ham xato |
+| Trimming | `Trim`, `TrimStart`, `TrimEnd` (return a `string_view`) |
+| Letter case (ASCII) | `ToLower`, `ToUpper`, `EqualsIgnoreCase`, `StartsWithIgnoreCase`, `EndsWithIgnoreCase`, `FindIgnoreCase`, `ContainsIgnoreCase` |
+| Splitting / joining | `Split(text, ',', SplitFlags::Trim \| SplitFlags::SkipEmpty)`, `SplitView`, `SplitLines`, `SplitWhitespace`, `SplitOnce`, `Join(parts, ", ")` |
+| Replacing | `Replace`, `ReplaceAll`, `RemoveAll`, `Repeat`, `PadLeft`, `PadRight` |
+| Formatting | `Format(...)` (std::format), `FormatRuntime`, `FormatBytes` ("1.5 MB"), `FormatDuration`, `FormatThousands` ("12 345"), `ToHex` |
+| Numbers | `ParseInt<int>("42")`, `ParseFloat<float>`, `ParseBool` - `std::optional`, out of range is an error too |
 | UTF-8 | `Utf8Length`, `Utf8Decode`, `Utf8Encode`, `Utf8IsValid`, `Utf8Sanitize`, `Utf8Truncate`, `Utf8ForEach`, `Utf8ToUtf32` |
 
-Registr funksiyalari faqat A-Z / a-z harflarini o'zgartiradi: UTF-8 baytlari buzilmaydi (o'zbek lotin yozuvi
-ASCII harflar va apostrof bilan to'liq ishlaydi; kirill harflari registri o'zgarmaydi).
+The case functions change only the A-Z / a-z letters: UTF-8 bytes are not broken (the Uzbek Latin alphabet works fully
+with the ASCII letters and the apostrophe; the case of Cyrillic letters does not change).
 
 ```cpp
-for (std::string_view part : StringUtils::SplitView("  qilich, qalqon ,, kamon ", ',', StringUtils::SplitFlags::Trim | StringUtils::SplitFlags::SkipEmpty))
-    AddItem(std::string(part));                                   // "qilich", "qalqon", "kamon"
+for (std::string_view part : StringUtils::SplitView("  sword, shield ,, bow ", ',', StringUtils::SplitFlags::Trim | StringUtils::SplitFlags::SkipEmpty))
+    AddItem(std::string(part));                                   // "sword", "shield", "bow"
 if (auto level = StringUtils::ParseInt<int>(args[1])) LoadLevel(*level);
 ```
 
 ## 15. UUID
 
-`Zamin/Core/UUID.h`. 64-bitli tasodifiy identifikator (har oqimda alohida generator - parallel ishlarda ham xavfsiz).
-`UUID id;` (yangi), `id.IsValid()`, `id.ToString()` ("00000000000000ff", 16 ta hex), `UUID::FromString(text)`,
-`std::hash<UUID>`. Sahnadagi har obyekt va har asset (`AssetHandle`) shunday id'ga ega.
+`Zamin/Core/UUID.h`. A 64-bit random identifier (a separate generator per thread - safe in parallel work too).
+`UUID id;` (a new one), `id.IsValid()`, `id.ToString()` ("00000000000000ff", 16 hex digits), `UUID::FromString(text)`,
+`std::hash<UUID>`. Every entity in a scene and every asset (`AssetHandle`) has such an id.
 
-## 16. Fayl tizimi (FileSystem)
+## 16. The file system (FileSystem)
 
 `Zamin/Utils/FileSystem.h`.
 
-### Fayllar
+### Files
 
-`ReadTextFile`, `WriteTextFile` (papkalarni o'zi yaratadi), `ReadBinaryFile`, `WriteBinaryFile`,
+`ReadTextFile`, `WriteTextFile` (creates the folders itself), `ReadBinaryFile`, `WriteBinaryFile`,
 `GetExecutablePath`, `GetExecutableDirectory`.
 
-### Yo'llar (leksik - diskka qaramaydi)
+### Paths (lexical - the disk is not looked at)
 
-Bu funksiyalar faqat matnni ko'radi: symlink'lar ochilmaydi, joriy papka o'qilmaydi. `/` ham, `\` ham ajratuvchi
-(Windows'da yozilgan yo'llar ham ishlaydi), natija har doim `/` bilan. `/` yoki disk (`C:/`) bilan boshlansa -
-absolyut.
+These functions only look at the text: symlinks are not resolved, the current folder is not read. Both `/` and `\` are
+separators (paths written on Windows work too), and the result always uses `/`. A path starting with `/` or a drive (`C:/`) is
+absolute.
 
-| Funksiya | Misol |
+| Function | Example |
 |---|---|
 | `NormalizePath(p)` | `"Assets\\Textures/./../Sprites//hero.png"` -> `"Assets/Sprites/hero.png"`; `"a/.."` -> `"."`; `"/../a"` -> `"/a"` |
-| `IsAbsolutePath(p)` | `"/a"`, `"C:/a"` - ha; `"a/b"`, `"a:b"` - yo'q |
-| `RelativePath(path, base)` | `("Assets/Scenes/A.zscene", "Assets/Textures")` -> `"../Scenes/A.zscene"`; imkonsiz bo'lsa `""` |
-| `IsSubPath(path, root, allowSame = true)` | butun qismlar bo'yicha: `"Assets2/x"` `"Assets"` ichida emas, `"Assets/../x"` ham emas |
-| `GetRelativeInside(path, root)` | `("/game/Assets/a/b.png", "/game/Assets")` -> `"a/b.png"`; tashqarida yoki root'ning o'zi - `""` |
-| `IsSafeRelativePath(p)` | nisbiy, disksiz, `..` bilan tashqariga chiqmaydi, NUL baytsiz (`"."` - xavfsiz, `""` - yo'q) |
-| `SafeJoin(root, relative)` | `root / relative` faqat xavfsiz bo'lsa, aks holda **bo'sh yo'l** |
-| `SanitizeRelativePath(p)` | tashqariga chiqaradigan qismlarni tashlaydi: `"/etc/x"` -> `"etc/x"`, `"../../a"` -> `"a"` |
+| `IsAbsolutePath(p)` | `"/a"`, `"C:/a"` - yes; `"a/b"`, `"a:b"` - no |
+| `RelativePath(path, base)` | `("Assets/Scenes/A.zscene", "Assets/Textures")` -> `"../Scenes/A.zscene"`; `""` when impossible |
+| `IsSubPath(path, root, allowSame = true)` | by whole components: `"Assets2/x"` is not inside `"Assets"`, nor is `"Assets/../x"` |
+| `GetRelativeInside(path, root)` | `("/game/Assets/a/b.png", "/game/Assets")` -> `"a/b.png"`; outside, or root itself - `""` |
+| `IsSafeRelativePath(p)` | relative, without a drive, does not leave with `..`, without NUL bytes (`"."` - safe, `""` - not) |
+| `SafeJoin(root, relative)` | `root / relative` only when it is safe, otherwise **an empty path** |
+| `SanitizeRelativePath(p)` | drops the parts that lead outside: `"/etc/x"` -> `"etc/x"`, `"../../a"` -> `"a"` |
 
 ```cpp
-// O'yinchi kiritgan saqlash nomi hech qachon saqlash papkasidan tashqariga chiqmaydi
+// A save name the player typed never leaves the save folder
 std::filesystem::path file = FileSystem::SafeJoin(SaveData::GetFilePath().parent_path() / "slots", slotName + ".json");
 if (file.empty())
 {
-    ZM_WARN("Noto'g'ri saqlash nomi: '{}'", slotName);
+    ZM_WARN("Invalid save name: '{}'", slotName);
     return;
 }
 ```
 
-`SafeJoin` leksik: `root` ichidagi symlink baribir boshqa joyga olib borishi mumkin - shuning uchun diskdagi
-tekshiruv ham bor (pastda).
+`SafeJoin` is lexical: a symlink inside `root` can still lead elsewhere - that is why there is also a check on disk
+(below).
 
-### Yo'llar (diskda)
+### Paths (on disk)
 
-- `AbsolutePath(p)` - joriy papkaga nisbatan absolyut va normallangan (symlink'lar qoladi).
-- `CanonicalPath(p)` - symlink'lar ochilgan (`weakly_canonical`: mavjud bo'lmagan qismi ham normallanadi).
-- `IsSubPathOnDisk(path, root)` - kanonik yo'llar bo'yicha `IsSubPath` (symlink orqali ichkariga olib borsa ham
-  true). `AssetFiles::IsInside` shuni ishlatadi.
+- `AbsolutePath(p)` - absolute relative to the current folder and normalized (the symlinks stay).
+- `CanonicalPath(p)` - with the symlinks resolved (`weakly_canonical`: the part that does not exist is normalized too).
+- `IsSubPathOnDisk(path, root)` - `IsSubPath` on the canonical paths (true even when a symlink leads inside).
+  `AssetFiles::IsInside` uses it.
 
-### Kengaytmalar
+### Extensions
 
-- `GetExtension(p)` - kichik harflarda, nuqta bilan: `"Hero.PNG"` -> `".png"`; `".gitignore"` - kengaytmasiz.
-- `HasExtension(p, ".glb")` / `HasExtension(p, "glb")` / `HasExtension(p, { ".gltf", ".glb" })` - registrga
-  qaramaydi, ko'p qismli ham bo'ladi (`"a.tar.gz"` -> `".tar.gz"`).
-- `ReplaceExtension(p, ".zmeta")` (`""` - olib tashlash), `GetStem(p)`.
+- `GetExtension(p)` - lower case, with the dot: `"Hero.PNG"` -> `".png"`; `".gitignore"` has no extension.
+- `HasExtension(p, ".glb")` / `HasExtension(p, "glb")` / `HasExtension(p, { ".gltf", ".glb" })` - case
+  insensitive, multi-part ones work too (`"a.tar.gz"` -> `".tar.gz"`).
+- `ReplaceExtension(p, ".zmeta")` (`""` - removes it), `GetStem(p)`.
 
-### Standart papkalar
+### Standard folders
 
-| Funksiya | Linux'da |
+| Function | On Linux |
 |---|---|
-| `GetTempDirectory()` | `$TMPDIR`, aks holda `/tmp` |
-| `CreateTempDirectory("prefiks")` | `<temp>/prefiks-XXXXXX` - yangi, faqat shu foydalanuvchiga ochiq (`mkdtemp`) |
-| `GetHomeDirectory()` | `$HOME` (yo'q bo'lsa foydalanuvchilar bazasidan) |
-| `GetUserDataDirectory()` | `$XDG_DATA_HOME` yoki `~/.local/share` (SaveData, log fayllari) |
-| `GetUserConfigDirectory()` | `$XDG_CONFIG_HOME` yoki `~/.config` (editor sozlamalari) |
-| `GetUserCacheDirectory()` | `$XDG_CACHE_HOME` yoki `~/.cache` |
-| `ShortenHomePath(p)` | `"/home/ali/.config/zamin"` -> `"~/.config/zamin"` (ko'rsatish uchun) |
+| `GetTempDirectory()` | `$TMPDIR`, otherwise `/tmp` |
+| `CreateTempDirectory("prefix")` | `<temp>/prefix-XXXXXX` - new, open only to this user (`mkdtemp`) |
+| `GetHomeDirectory()` | `$HOME` (from the user database when it is not set) |
+| `GetUserDataDirectory()` | `$XDG_DATA_HOME` or `~/.local/share` (SaveData, log files) |
+| `GetUserConfigDirectory()` | `$XDG_CONFIG_HOME` or `~/.config` (editor settings) |
+| `GetUserCacheDirectory()` | `$XDG_CACHE_HOME` or `~/.cache` |
+| `ShortenHomePath(p)` | `"/home/ali/.config/zamin"` -> `"~/.config/zamin"` (for display) |
 
-XDG o'zgaruvchilari faqat absolyut yo'l bo'lsa hisobga olinadi (spetsifikatsiya bo'yicha).
+The XDG variables are only taken into account when they are absolute paths (per the specification).
 
 ```cpp
 {
-    TempDirectory temp("zamin-eksport");             // blokdan chiqqanda ichidagisi bilan o'chiriladi
+    TempDirectory temp("zamin-export");              // deleted with its contents when the block ends
     FileSystem::WriteTextFile(temp.GetPath() / "manifest.json", manifest);
     Pack(temp.GetPath(), output);
-}                                                    // temp.Release() - o'chirmasdan qoldirish
+}                                                    // temp.Release() - keep it without deleting
 ```
 
-## 17. Namuna sahna: Geometry
+## 17. Sample scene: Geometry
 
-`Projects/Showcase3D/Assets/Scenes/Geometry.zscene` (skriptlar `Source/Geometry.cpp`) geometriya modulini fizikasiz
-ko'rsatadi; hamma narsa `DebugDraw` bilan chiziladi:
+`Projects/Showcase3D/Assets/Scenes/Geometry.zscene` (the scripts in `Source/Geometry.cpp`) shows the geometry module without
+physics; everything is drawn with `DebugDraw`:
 
-- **Nur yelpig'ichi** (`GeometryRayFan`) - 25 ta nur `Geometry::Raycast` bilan "Nishon" tegli obyektlarga
-  tekshiriladi: aylanayotgan qutilar yo'naltirilgan quti (lokal chegara + dunyo matritsasi) sifatida, sharlar
-  `Sphere` sifatida. Eng yaqin tegish nuqtasi (sariq), normal (moviy o'q), tegmagan nurlar qizil.
-- **Zond** (`GeometryProbe`) - aylanib yuruvchi nuqta har nishonning eng yaqin nuqtasiga chiziq tortadi
-  (`ClosestPoint`); zond sferasi tekkan nishonlarning dunyo AABB'si to'q sariq (`Intersects(Sphere, AABB)`).
-- **Chegaralar** (`GeometryBoundsView`) - hamma nishonlar atrofidagi sfera (`Sphere::FromPoints`) va aylanuvchi
-  qiya tekislik: har nishonning AABB'si tekislikka nisbatan rangda (`Classify`: oldida yashil, orqasida ko'k,
-  kesib o'tsa pushti).
+- **A fan of rays** (`GeometryRayFan`) - 25 rays are tested with `Geometry::Raycast` against the entities tagged "Nishon"
+  (target): the spinning boxes as oriented boxes (local bounds + world matrix), the spheres as
+  `Sphere`s. The nearest hit point (yellow), the normal (a light blue arrow), the rays that miss in red.
+- **A probe** (`GeometryProbe`) - a point moving in a circle draws a line to the closest point of each target
+  (`ClosestPoint`); the world AABB of the targets the probe sphere touches is orange (`Intersects(Sphere, AABB)`).
+- **Bounds** (`GeometryBoundsView`) - a sphere around all the targets (`Sphere::FromPoints`) and a rotating
+  tilted plane: each target's AABB is colored relative to the plane (`Classify`: green in front, blue behind,
+  pink when it crosses).
 
 ```bash
 ./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Geometry.zscene
 ```
 
-## 18. Testlar
+## 18. Tests
 
 `Tests/ZaminTests.cpp` (headless):
 
-- `FileSystemLexicalPaths`, `FileSystemDiskPathsAndFolders` - normallash, nisbiy yo'llar, `SafeJoin` (tasodifiy
-  yo'llar bilan ham: natija hech qachon root'dan chiqmaydi), symlink'lar, vaqtinchalik papkalar, XDG.
+- `FileSystemLexicalPaths`, `FileSystemDiskPathsAndFolders` - normalization, relative paths, `SafeJoin` (with random
+  paths too: the result never leaves the root), symlinks, temporary folders, XDG.
 - `GeometryBoundingVolumes`, `GeometryRayAABBAndSphere`, `GeometryRayPlaneAndTriangle`,
-  `GeometryOverlapsAndClosestPoints` - aniq qiymatlar va minglab tasodifiy holatlar: ray-AABB natijasi qutining
-  12 ta uchburchagiga otilgan nur bilan solishtiriladi (yo'naltirilgan qutilar ham), ray-sfera sirtda va undan oldin
-  ichkarida nuqta yo'q, uchburchak-quti va eng yaqin nuqtalar to'liq qidiruv bilan tekshiriladi.
-- `MathPropertiesRandomized` - hamma math modullarining qoidalari tasodifiy kirishlarda: `Remap`/`InverseLerp`
-  teskari, burchaklar oralig'i, `MoveTowards` o'tib ketmaydi, `SmoothDamp` yetib boradi, kvaternion va Euler
-  aylanishlari, `DecomposeTransform`, rang konvertatsiyalari va hex, easing chetlari, shovqin oralig'i va
-  uzluksizligi, `AnimationCurve` kalitlari, spline uzunlik jadvali.
-- Avvalgi modul testlari: `MathUtils*`, `Quaternion*`, `Noise*`, `AnimationCurve*`, `Spline*`, `ColorConversions`,
+  `GeometryOverlapsAndClosestPoints` - exact values and thousands of random cases: the ray-AABB result is compared with a
+  ray shot at the box's 12 triangles (oriented boxes too), ray-sphere has no point inside on the surface and before
+  it, triangle-box and the closest points are checked against a full search.
+- `MathPropertiesRandomized` - the rules of all the math modules on random inputs: `Remap`/`InverseLerp`
+  are inverses, the angle ranges, `MoveTowards` does not overshoot, `SmoothDamp` gets there, quaternion and Euler
+  rotations, `DecomposeTransform`, color conversions and hex, easing ends, the noise range and
+  continuity, `AnimationCurve` keys, the spline length table.
+- The earlier module tests: `MathUtils*`, `Quaternion*`, `Noise*`, `AnimationCurve*`, `Spline*`, `ColorConversions`,
   `JobSystem*`, `MemoryStats*`, `StringUtils*`, `StopwatchAndTimers`, `LogLevelsPerLogger`, `AssertsWithMessages`,
   `UUIDsAreUnique`.
 
 ```bash
-./build/bin/ZaminTests        # oxirida "0 xato"
+./build/bin/ZaminTests        # ends with "0 failures"
 ```
 
-## 19. Qisqa API ma'lumotnomasi
+## 19. A short API reference
 
-| Sarlavha fayli | Nimalar |
+| Header | What it has |
 |---|---|
 | `Math/MathUtils.h` | `Math::Clamp01`, `Lerp`, `InverseLerp`, `Remap`, `SmoothStep`, `Repeat`, `PingPong`, `DeltaAngle`, `MoveTowards`, `SmoothDamp`, `Damp`, `Approximately` |
 | `Math/Quaternion.h` | `Math::AngleAxis`, `FromEuler`, `ToEuler`, `LookRotation`, `FromToRotation`, `Slerp`, `RotateTowards`, `Angle` |
@@ -534,4 +534,4 @@ ko'rsatadi; hamma narsa `DebugDraw` bilan chiziladi:
 | `Utils/StringUtils.h` | `StringUtils::Split`, `Join`, `Trim`, `ParseInt`, `FormatBytes`, `Utf8*` ... |
 | `Core/UUID.h` | `UUID`, `ToString`, `FromString` |
 | `Utils/FileSystem.h` | `FileSystem::NormalizePath`, `RelativePath`, `IsSubPath`, `SafeJoin`, `GetExtension`, `CreateTempDirectory`, `TempDirectory` ... |
-| `Scene/Scene.h`, skriptlar | `Scene::ScreenPointToRay`, `ScriptableEntity::ScreenPointToRay` / `GetMouseRay`, `Scene::GetEntityLocalBounds` |
+| `Scene/Scene.h`, scripts | `Scene::ScreenPointToRay`, `ScriptableEntity::ScreenPointToRay` / `GetMouseRay`, `Scene::GetEntityLocalBounds` |

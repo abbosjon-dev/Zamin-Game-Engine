@@ -400,7 +400,7 @@ Dvigatelning deyarli hamma kodi **asosiy oqimda** ishlaydi (sahna, skriptlar, re
 
 | Oqim | Nima qiladi | Asosiy oqim bilan aloqa |
 |---|---|---|
-| `JobSystem` ishchilari | Mustaqil particle tizimlari va Animator pozalari (`ParallelFor`) | Kadr ichida kutiladi ([Core.md](Core.md#9-vazifalar-tizimi-jobsystem)) |
+| `JobSystem` ishchilari | Mustaqil particle tizimlari va Animator pozalari (`ParallelFor`) | Kadr ichida kutiladi ([Core.md](Core.md#9-the-job-system-jobsystem)) |
 | Jolt oqimlar puli | 3D fizika qadamining ichi | `PhysicsWorld3D::Step` tugaguncha kutadi |
 | miniaudio qurilma oqimi | Ovozlarni aralashtirish | Handle'lar, mutex'lar (`AudioEngine`) |
 | Fonda sahna yuklash | Fayl o'qish, JSON, rasmlarni dekodlash | `AsyncOperation`; entity'lar asosiy oqimda |

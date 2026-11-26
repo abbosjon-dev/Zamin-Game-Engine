@@ -95,7 +95,7 @@ ShakeCamera(1.0f, 1.2f, 25.0f);  // portlash
 ```
 
 Ekran va dunyo: `GetMousePosition()`, `GetViewportSize()`, `GetMouseWorldPosition()` (2D: z = 0 tekisligi),
-`ScreenToWorld(screen, depthZ)`, `ScreenPointToRay(screen)` / `GetMouseRay()` (3D picking, [Core.md](Core.md#4-geometriya-aabb-sfera-nur-tekislik)).
+`ScreenToWorld(screen, depthZ)`, `ScreenPointToRay(screen)` / `GetMouseRay()` (3D picking, [Core.md](Core.md#4-geometry-aabb-sphere-ray-plane)).
 
 ---
 

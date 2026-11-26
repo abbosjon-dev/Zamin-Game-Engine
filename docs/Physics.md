@@ -706,7 +706,7 @@ tartibida yaratiladi; editorning Play nusxasi (`Scene::Copy`) ierarxiya tartibid
 uchun editorda o'ynalgan va eksport qilingan o'yin bir xil harakat qiladi. Tekshiruv: `PhysicsDeterminism2D` va
 `PhysicsDeterminism3D` testlari.
 
-Determinizmni o'zingiz buzmaslik uchun: tasodifiy sonlar uchun `Random` ni seed bilan ishlating ([Core.md](Core.md#8-tasodifiy-sonlar-random)),
+Determinizmni o'zingiz buzmaslik uchun: tasodifiy sonlar uchun `Random` ni seed bilan ishlating ([Core.md](Core.md#8-random-numbers-random)),
 fizik qiymatlarni `OnUpdate` da o'zgaruvchan `ts` emas, qat'iy qadamga mos tarzda bering (kuch / tezlik), bitta funksiya
 argumentlarida bir nechta tasodifiy son olmang (hisoblash tartibi kompilyatorga bog'liq — `BlastOnClick` dagi izohga qarang).
 

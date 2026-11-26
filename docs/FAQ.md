@@ -1,429 +1,429 @@
-# Zamin Engine: savollar va muammolarni hal qilish (FAQ)
+# Zamin Engine: questions and troubleshooting (FAQ)
 
-Ko'p beriladigan savollar va tez-tez uchraydigan muammolar - dvigatel yozadigan **haqiqiy xabarlar** bilan. Xabar
-qayerda ko'rinadi: editorda - **Konsol** oynasi (va editorni ishga tushirgan terminal), o'yinda - terminal va log
-fayli (`~/.local/share/<kompaniya>/<o'yin>/logs/`, [Runtime.md, 6-bo'lim](Runtime.md#6-log-fayllari)). Quyida
-xabarlar aynan dastur yozganidek; `<...>` - o'rniga aniq qiymat (fayl, nom, son) qo'yiladigan joy. Konsolda
-xabarning bir qismini qidiruv maydoniga yozib, shu sahifadan topishingiz mumkin.
+Frequently asked questions and common problems - with the **real messages** the engine writes. Where a message
+shows up: in the editor - the **Console** window (and the terminal that started the editor), in a game - the terminal and the log
+file (`~/.local/share/<company>/<game>/logs/`, [Runtime.md, section 6](Runtime.md#6-log-fayllari)). Below, the
+messages are exactly as the program writes them; `<...>` marks a place where a concrete value (a file, a name, a number) goes. Type a part
+of a message into the Console's search field, or find it on this page.
 
-Har bir tizimning batafsil "muammolar" bo'limi ham bor: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
+Every system also has its own detailed "problems" section: [Scripting.md, 23](Scripting.md#23-kop-uchraydigan-xatolar),
 [Physics.md, 18](Physics.md#18-kop-uchraydigan-muammolar), [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar),
 [Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar), [Runtime.md, 15](Runtime.md#15-muammolar-va-yechimlar),
 [BuildAndExport.md, 13](BuildAndExport.md#13-muammolar-va-yechimlar).
 
-## Mundarija
+## Contents
 
-1. [Umumiy savollar](#1-umumiy-savollar)
-2. [O'rnatish va build](#2-ornatish-va-build)
+1. [General questions](#1-general-questions)
+2. [Installing and building](#2-installing-and-building)
 3. [Editor](#3-editor)
-4. [C++ skriptlar](#4-c-skriptlar)
-5. [Sahnalar va loyiha](#5-sahnalar-va-loyiha)
-6. [Fizika](#6-fizika)
-7. [Grafika](#7-grafika)
+4. [C++ scripts](#4-c-scripts)
+5. [Scenes and the project](#5-scenes-and-the-project)
+6. [Physics](#6-physics)
+7. [Graphics](#7-graphics)
 8. [Audio](#8-audio)
 9. [Input](#9-input)
-10. [Eksport va player](#10-eksport-va-player)
-11. [Qulash va xatoni topish](#11-qulash-va-xatoni-topish)
-12. [Hech narsa yordam bermasa](#12-hech-narsa-yordam-bermasa)
+10. [Export and the player](#10-export-and-the-player)
+11. [Crashes and finding bugs](#11-crashes-and-finding-bugs)
+12. [When nothing helps](#12-when-nothing-helps)
 
 ---
 
-## 1. Umumiy savollar
+## 1. General questions
 
-### Zamin Engine nima va qaysi platformalarda ishlaydi?
+### What is Zamin Engine and which platforms does it run on?
 
-C++20 da yozilgan 2D va 3D o'yin dvigateli: editor (`ZaminEditor`), o'yinni editorsiz ishga tushiruvchi player
-(`ZaminPlayer`) va C++ skriptli o'yinlar. Hozir **Linux** (x86_64, OpenGL 4.1+). Windows, macOS va mobil
-platformalar [yo'l xaritasida](Features.md#yol-xaritasi), hali yo'q.
+A 2D and 3D game engine written in C++20: an editor (`ZaminEditor`), a player that runs a game without the editor
+(`ZaminPlayer`) and games with C++ scripts. For now **Linux** (x86_64, OpenGL 4.1+). Windows, macOS and mobile
+platforms are on the [roadmap](Features.md#yol-xaritasi), not there yet.
 
-### O'yin mantig'i qanday tilda yoziladi?
+### What language is the game logic written in?
 
-C++ da: `ScriptableEntity` dan meros olgan klasslar, `ZM_REGISTER_SCRIPT` bilan ro'yxatga olinadi va loyihaning
-skript moduli (`lib<O'yin>.so`) bo'lib kompilyatsiya qilinadi. Alohida skript tili (Lua, C#) yo'q.
-Boshlash: [Scripting.md](Scripting.md), birinchi o'yinlar: [Tutorial-2D.md](Tutorial-2D.md),
+C++: classes derived from `ScriptableEntity`, registered with `ZM_REGISTER_SCRIPT` and compiled into the project's
+script module (`lib<Game>.so`). There is no separate scripting language (Lua, C#).
+Getting started: [Scripting.md](Scripting.md), first games: [Tutorial-2D.md](Tutorial-2D.md),
 [Tutorial-3D.md](Tutorial-3D.md).
 
-### Bitta o'yinda 2D va 3D ni aralashtirsa bo'ladimi?
+### Can 2D and 3D be mixed in one game?
 
-Ha: bitta sahnada sprite'lar va mesh'lar birga chiziladi (avval 3D, ustidan 2D va UI). Lekin fizika dunyolari
-alohida: 2D jismlar (Box2D) 3D jismlar (Jolt) bilan to'qnashmaydi ([Physics.md](Physics.md#1-asosiy-tushunchalar)).
+Yes: sprites and meshes are drawn together in one scene (3D first, then 2D and UI on top). But the physics worlds are
+separate: 2D bodies (Box2D) do not collide with 3D bodies (Jolt) ([Physics.md](Physics.md#1-asosiy-tushunchalar)).
 
-### Editor tilini o'zgartirsa bo'ladimi?
+### Can the editor language be changed?
 
-Ha - o'zbekcha yoki inglizcha: **Tahrirlash → Sozlamalar... → Ko'rinish** ([Editor.md, 12](Editor.md#12-sozlamalar-joylashuvlar-til)).
-O'yinning o'z tillari alohida - Project settings > Localization ([ProjectSettings.md, 13](ProjectSettings.md#13-lokalizatsiya)).
+Yes - English or Uzbek: **Edit → Preferences... → View** ([Editor.md, 12](Editor.md#12-sozlamalar-joylashuvlar-til)).
+The game's own languages are separate - Project settings > Localization ([ProjectSettings.md, 13](ProjectSettings.md#13-lokalizatsiya)).
 
-### Litsenziya qanday? O'yinimni sotsam bo'ladimi?
+### What is the license? Can I sell my game?
 
-Dvigatel - MIT ([LICENSE](../LICENSE)). Uchinchi tomon kutubxonalari va shriftlarning litsenziyalari [README](../README.md#-third-party-libraries)'ning
-oxirida (MIT, zlib, Public Domain, SIL OFL); o'yiningiz bilan birga tarqatiladigan shriftlar litsenziyalari
-`Resources/fonts/` da.
+The engine is MIT ([LICENSE](../LICENSE)). The licenses of the third-party libraries and fonts are at the end of the [README](../README.md#-third-party-libraries)
+(MIT, zlib, Public Domain, SIL OFL); the licenses of the fonts distributed with your game are
+in `Resources/fonts/`.
 
-### Loyihaning qaysi fayllarini git'ga qo'shish kerak?
+### Which files of a project belong in git?
 
-`<O'yin>.zproject`, `CMakeLists.txt`, `Source/`, `Assets/` (har asset yonidagi **`.zmeta`** fayllari bilan - ular
-assetning UUID'si, ularsiz havolalar uziladi). Yangi loyiha `.gitignore` bilan yaratiladi: `Build/`, `Binaries/`
-(kompilyatsiya natijasi) va `.zamin/` (editor keshi) kirmaydi.
+`<Game>.zproject`, `CMakeLists.txt`, `Source/`, `Assets/` (with the **`.zmeta`** file next to each asset - it holds the
+asset's UUID, and without it the references break). A new project is created with a `.gitignore`: `Build/`, `Binaries/`
+(the compile output) and `.zamin/` (the editor cache) are left out.
 
-### O'yin saqlagan ma'lumotlar (SaveData) va editor sozlamalari qayerda?
+### Where are the data a game saves (SaveData) and the editor settings?
 
-O'yinniki: `~/.local/share/<kompaniya>/<o'yin>/savedata.json` ([Runtime.md, 3](Runtime.md#3-sozlamalar-va-ustunlik-tartibi)).
-Editorniki: `~/.config/zamin/preferences.json` (barcha loyihalar uchun umumiy). Fayl buzilgan bo'lsa o'yin uni
-chetga olib qo'yadi va bo'shidan boshlaydi:
+The game's: `~/.local/share/<company>/<game>/savedata.json` ([Runtime.md, 3](Runtime.md#3-sozlamalar-va-ustunlik-tartibi)).
+The editor's: `~/.config/zamin/preferences.json` (shared by all projects). When the file is broken the game moves it
+aside and starts from an empty one:
 
-> `The SaveData file is broken (<sabab>): <fayl> -> <nusxa>`
+> `The SaveData file is broken (<reason>): <file> -> <copy>`
 
-## 2. O'rnatish va build
+## 2. Installing and building
 
-### Qanday build qilinadi va nima kerak?
+### How is it built and what is needed?
 
-GCC 13+ yoki Clang 17+, CMake 3.20+, OpenGL 4.1 drayveri va X11/Wayland dev paketlari; bog'liqliklar birinchi
-configure'da o'zi yuklab olinadi. Buyruqlar va variantlar - [BuildAndExport.md](BuildAndExport.md).
+GCC 13+ or Clang 17+, CMake 3.20+, an OpenGL 4.1 driver and the X11/Wayland dev packages; the dependencies are downloaded
+by themselves on the first configure. The commands and options - [BuildAndExport.md](BuildAndExport.md).
 
-### Editor ishga tushmaydi: displey yoki OpenGL xatosi
+### The editor does not start: a display or OpenGL error
 
 > `GLFW failed to start! Check that a display (X11/Wayland) is available.`
 
-Grafik sessiya yo'q (SSH, server, konteyner). Displeysiz ishlatish uchun `xvfb-run -a ./build/bin/ZaminEditor ...`
-(dasturiy chizish - sekin, lekin ishlaydi; testlar shunday).
+There is no graphical session (SSH, a server, a container). To run without a display use `xvfb-run -a ./build/bin/ZaminEditor ...`
+(software drawing - slow, but it works; the tests run like this).
 
-> `Could not create the window (is OpenGL <versiya> core supported?)`
+> `Could not create the window (is OpenGL <version> core supported?)`
 
-Drayver so'ralgan OpenGL versiyasini bermadi. Dvigatelga 4.1 core kerak: `glxinfo | grep "OpenGL core"` bilan
-tekshiring, drayverni yangilang. Loyihada yuqoriroq versiya tanlangan bo'lsa, avval o'zi pastroq bilan qayta urinadi:
+The driver did not give the requested OpenGL version. The engine needs 4.1 core: check with `glxinfo | grep "OpenGL core"`
+and update the driver. When the project asks for a higher version, it first retries with a lower one by itself:
 
 > `Could not create an OpenGL <v> core context (MSAA <n>, sRGB <yes/no>) - retrying with OpenGL <v> (MSAA <n>, sRGB <yes/no>)`
 
-Player'da kontekstni buyruq qatoridan ham berish mumkin: `--gl 4.1`, `--msaa 0`, `--no-srgb`
+In the player the context can also be given on the command line: `--gl 4.1`, `--msaa 0`, `--no-srgb`
 ([Runtime.md, 4](Runtime.md#4-buyruq-qatori)).
 
-### Fayl ochish / saqlash oynasi chiqmaydi
+### The open / save file dialog does not appear
 
 > `Install 'zenity' or 'kdialog' for the file dialog`
 
-Editor tizimning dialoglarini ishlatadi: `sudo apt install zenity` (yoki KDE'da `kdialog`).
+The editor uses the system's dialogs: `sudo apt install zenity` (or `kdialog` on KDE).
 
-### Yangi `.cpp` fayl qo'shdim, build uni ko'rmayapti
+### I added a new `.cpp` file and the build does not see it
 
-Manbalar glob bilan yig'iladi: `cmake -S . -B build` ni qayta ishga tushiring (o'yin loyihasida - editordan qayta
-kompilyatsiya yetarli).
+The sources are collected with a glob: run `cmake -S . -B build` again (in a game project, recompiling from the editor
+is enough).
 
 ## 3. Editor
 
-### Oynalar joylashuvi buzildi yoki biror oyna yo'qoldi
+### The window layout is broken or a window is gone
 
-**Oyna → Joylashuvni tiklash (standart)**, yoki **Oyna → Joylashuv** dan tayyor joylashuv (**Standart**, **2D**,
-**Animatsiya**, **4 ko'rinish**). Yopilgan oynalar **Oyna** menyusidan qayta ochiladi
+**Window → Reset layout (default)**, or a ready-made layout from **Window → Layout** (**Default**, **2D**,
+**Animation**, **4 views**). Closed windows are reopened from the **Window** menu
 ([Editor.md, 3](Editor.md#3-menyular)).
 
-### Viewport'da "kamera yo'q" yozuvi chiqyapti
+### The viewport says there is no camera
 
-> `Sahnada asosiy (Primary) kamera yo'q!`
+> `The scene has no main (Primary) camera!`
 
-O'yin asosiy kamera orqali ko'rinadi: kamera obyektida **Camera** komponentining **Primary** belgisi yoqilgan
-bo'lsin. Kamera bor, lekin obyekt o'chirilgan bo'lsa:
+The game is seen through the main camera: the **Primary** checkbox of the **Camera** component must be on on the camera
+entity. If there is a camera but its entity is turned off:
 
-> `Asosiy kamera nofaol: '<obyekt>' (boshqa faol asosiy kamera yo'q)`
+> `The main camera is inactive: '<entity>' (there is no other active main camera)`
 
-### Editor bo'sh turganda sekin / tez ishlaydi
+### The editor runs slowly / fast while idle
 
-Editor hech narsa bo'lmayotganda kadrlar sonini kamaytiradi (protsessorni tejash). **Tahrirlash → Sozlamalar... →
-Ishlash** sahifasida o'zgartiriladi.
+When nothing is happening the editor lowers its frame rate (to save the processor). This is changed on the
+**Edit → Preferences... → Performance** page.
 
-### O'zgarishlarim yo'qoldi / editor qulab tushdi
+### My changes are gone / the editor crashed
 
-Editor saqlanmagan sahnaning xavfsizlik nusxasini muntazam yozadi (`<loyiha>/.zamin/autosave/`); sahna qayta
-ochilganda tiklash taklif qilinadi. Undo tarixi - `Ctrl+H` ([Editor.md, 11](Editor.md#11-undo-avtosaqlash-va-tiklash)).
+The editor regularly writes a safety copy of an unsaved scene (`<project>/.zamin/autosave/`); when the scene is opened
+again, recovering it is offered. The undo history - `Ctrl+H` ([Editor.md, 11](Editor.md#11-undo-avtosaqlash-va-tiklash)).
 
-## 4. C++ skriptlar
+## 4. C++ scripts
 
-### Skript yozdim, lekin "+ Komponent → C++ Script" ro'yxatida yo'q
+### I wrote a script, but it is not in the "+ Component → Script / Visual graph" list
 
-Skript moduli kompilyatsiya qilinmagan yoki klass ro'yxatga olinmagan:
+The script module is not compiled or the class is not registered:
 
-1. **Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) va Konsolda natijani ko'ring.
-2. Fayl oxirida `ZM_REGISTER_SCRIPT(KlassNomi, ...)` bormi?
+1. **Scripts → Compile + reload** (`Ctrl+B`) and look at the result in the Console.
+2. Is there a `ZM_REGISTER_SCRIPT(ClassName, ...)` at the end of the file?
 
-> `Script module not found: '<fayl>' (compile the scripts first)`
+> `Script module not found: '<file>' (compile the scripts first)`
 
-Modul fayli (`Binaries/lib<O'yin>.so`) hali yo'q - kompilyatsiya qiling.
+The module file (`Binaries/lib<Game>.so`) does not exist yet - compile.
 
-### Kompilyatsiya xato bilan tugadi
+### The compile ended with errors
 
 > `Script compile failed: <N> errors, <M> warnings (Window > Compilation)`
 
-**Oyna → Kompilyatsiya** oynasida har xato fayl va qatori bilan; bosilsa tashqi muharrirda o'sha qatorda ochiladi.
+The **Window → Compilation** window lists every error with its file and line; clicking one opens the external editor at that line.
 
-![Kompilyatsiya oynasi: ikki xato - yozuv xatosi va ZM_FIELD_COLOR noto'g'ri turdagi maydonga](images/compile-errors-editor.jpg)
+![The Compilation window: two errors - a typo and ZM_FIELD_COLOR on a field of the wrong type](images/compile-errors-editor.jpg)
 
-*GCC'ning haqiqiy chiqishi: maydon nomidagi xato (`Spead`) va `float` maydonga `ZM_FIELD_COLOR`.*
- Kompilyator
-xabarlari inglizcha (GCC / Clang). Kompilyatsiya ketayotganda qayta bosilsa:
+*The real GCC output: a typo in a field name (`Spead`) and `ZM_FIELD_COLOR` on a `float` field.*
+ The compiler's
+messages are in English (GCC / Clang). When pressed again while a compile is running:
 
 > `A compile is already running...`
 
-Loyiha ochilmagan bo'lsa:
+When no project is open:
 
 > `Open a project first`
 
-### Modul yuklanmadi
+### The module did not load
 
-> `Script module failed to load: <dlerror xabari>`
+> `Script module failed to load: <dlerror message>`
 
-Odatda `undefined symbol: ...` - e'lon qilingan, lekin yozilmagan funksiya (masalan klass metodining tanasi
-unutilgan) yoki dvigatel qayta build qilinib, modul eskisi bilan qolgan: skriptlarni qayta kompilyatsiya qiling.
+Usually `undefined symbol: ...` - a function that is declared but not written (for example a forgotten body of a class
+method), or the engine was rebuilt and the module is left from the old one: recompile the scripts.
 
-### Sahnani ochganimda "Skript klassi topilmadi"
+### "Script class not found" when I open a scene
 
-> `Script class not found: '<klass>' (entity '<obyekt>')`
+> `Script class not found: '<class>' (entity '<entity>')`
 
-Obyektdagi C++ Script komponenti modulda yo'q klassni ko'rsatyapti: klass nomi o'zgartirilgan yoki o'chirilgan,
-yoki modul hali kompilyatsiya qilinmagan. Inspektorda yangi klassni tanlang yoki kompilyatsiya qiling.
+The C++ Script component on the entity points to a class the module does not have: the class was renamed or deleted,
+or the module is not compiled yet. Pick the new class in the inspector, or compile.
 
-### Yangi skript yaratib bo'lmayapti: nom rad etildi
+### A new script cannot be created: the name was rejected
 
-**Skriptlar → Yangi C++ skript...** nomni tekshiradi: faqat lotin harflari, raqamlar va `_`, raqam bilan boshlanmaydi,
-C++ kalit so'zi bo'lmaydi va dvigateldagi nom bilan to'qnashmaydi:
+**Scripts → New C++ script...** checks the name: only Latin letters, digits and `_`, not starting with a digit,
+not a C++ keyword and not clashing with a name in the engine:
 
-> `'<Nom>' clashes with a name in the Zamin engine (using namespace Zamin). Name it '<Nom>Controller' or '<Nom>Script', for example`
+> `'<Name>' clashes with a name in the Zamin engine (using namespace Zamin). Name it '<Name>Controller' or '<Name>Script', for example`
 
-> `The class '<Nom>' already exists (registered in the script module)`
+> `The class '<Name>' already exists (registered in the script module)`
 
-### Kodni o'zgartirdim, lekin o'yin eski kod bilan ishlayapti
+### I changed the code, but the game runs the old code
 
-**Skriptlar → Kompilyatsiya + qayta yuklash** (`Ctrl+B`) - kompilyatsiya + qayta yuklash. Tashqarida (IDE, terminal) build qilsangiz
-editor modulni o'zi qayta yuklaydi, agar **Skriptlar → Avtomatik hot-reload** yoqilgan bo'lsa. Qayta yuklashda Play
-to'xtaydi. Batafsil: [Scripting.md, 20](Scripting.md#20-kompilyatsiya-va-hot-reload).
+**Scripts → Compile + reload** (`Ctrl+B`) - compile + reload. If you build outside (an IDE, a terminal), the editor
+reloads the module by itself when **Scripts → Automatic hot reload** is on. A reload stops Play.
+More: [Scripting.md, 20](Scripting.md#20-kompilyatsiya-va-hot-reload).
 
-### Maydonim inspektorda ko'rinmayapti
+### My field does not show up in the inspector
 
-Maydon `ZM_REGISTER_SCRIPT(Klass, ZM_FIELD(Klass, Maydon), ...)` ichida sanab o'tilishi kerak; qo'llanadigan
-turlar - [Scripting.md, 4](Scripting.md#4-inspektor-maydonlari-zm_field). Noto'g'ri tur kompilyatsiyada aytiladi,
-masalan:
+The field has to be listed inside `ZM_REGISTER_SCRIPT(Class, ZM_FIELD(Class, Field), ...)`; the supported
+types - [Scripting.md, 4](Scripting.md#4-inspektor-maydonlari-zm_field). A wrong type is reported when compiling,
+for example:
 
 > `ZM_FIELD_RANGE: the field must be float, int, glm::vec2, glm::vec3, glm::vec4 or AnimationCurve`
 
 > `ZM_FIELD_COLOR: the field must be glm::vec3 or glm::vec4`
 
-### O'yin osilib qoldi yoki xabarlar tashlab yuborildi
+### The game hung or messages were dropped
 
-Skriptlar bir-biriga cheksiz xabar / hodisa yuborsa, dvigatel zanjirni uzadi:
+When scripts send each other messages / events endlessly, the engine breaks the chain:
 
-> `The message '<nom>' was sent nested too deep (<N> levels) and was dropped (an endless loop?)`
+> `The message '<name>' was sent nested too deep (<N> levels) and was dropped (an endless loop?)`
 
-> `The event '<nom>' was raised nested too deep (<N> levels) and was dropped (an endless loop?)`
+> `The event '<name>' was raised nested too deep (<N> levels) and was dropped (an endless loop?)`
 
-`OnEnable` / `OnDisable` skriptni o'zi yoqib-o'chirib tursa:
+When `OnEnable` / `OnDisable` keep turning the script itself on and off:
 
-> `'<obyekt>': OnEnable/OnDisable keeps turning the script on and off - stopped`
+> `'<entity>': OnEnable/OnDisable keeps turning the script on and off - stopped`
 
-## 5. Sahnalar va loyiha
+## 5. Scenes and the project
 
-### Sahna ochilmayapti
+### A scene does not open
 
-> `Scene failed to load: <fayl> - <sabab>`
+> `Scene failed to load: <file> - <reason>`
 
-Sabab fayl yo'qligi, JSON xatosi yoki boshqa narsa bo'lishi mumkin. Fayl qisman buzilgan bo'lsa editor tiklashni
-taklif qiladi, o'yin esa yaroqli qismini yuklaydi:
+The reason may be a missing file, a JSON error or something else. When the file is partly broken the editor offers to
+recover it, and a game loads its valid part:
 
-> `Scene '<nom>' loaded partly (<nima>): the valid objects were kept`
+> `Scene '<name>' loaded partly (<what>): the valid objects were kept`
 
-Sahna dvigatelning yangiroq versiyasida saqlangan bo'lsa:
+When the scene was saved by a newer version of the engine:
 
-> `The scene file is in a newer format (v<N>, this engine knows up to v<M>): <fayl> - the known part was read`
+> `The scene file is in a newer format (v<N>, this engine knows up to v<M>): <file> - the known part was read`
 
-Batafsil: [Scenes.md, 10](Scenes.md#10-yuklash-xatolari).
+More: [Scenes.md, 10](Scenes.md#10-yuklash-xatolari).
 
-### `LoadScene` / additive yuklash editorda ishlamayapti
+### `LoadScene` / additive loading does not work in the editor
 
-Sahna almashtirish faqat o'yin ishlab turganda (editorning Play'i yoki player) - uni `SceneManager` boshqaradi:
+Switching scenes only works while the game is running (the editor's Play or the player) - the `SceneManager` handles it:
 
-> `'<fayl>': loading an additive scene needs the SceneManager (play mode / player)`
+> `'<file>': loading an additive scene needs the SceneManager (play mode / player)`
 
-Build ro'yxatida yo'q indeks so'ralsa:
+When an index that is not in the build list is asked for:
 
 > `The build list has no scene with index <N>`
 
-Oxirgi yuklangan sahnani yopib bo'lmaydi:
+The last loaded scene cannot be closed:
 
-> `The last scene cannot be closed: '<nom>' (load another one in Single mode)`
+> `The last scene cannot be closed: '<name>' (load another one in Single mode)`
 
-### Loyiha ochilmayapti
+### A project does not open
 
-> `The project file could not be read '<fayl>': <sabab>`
+> `The project file could not be read '<file>': <reason>`
 
-`.zproject` - JSON; qo'lda tahrirlangan bo'lsa vergul / qavslarni tekshiring (versiya nazoratidagi oldingi nusxa
-bilan solishtiring). Format va migratsiya: [ProjectSettings.md, 17](ProjectSettings.md#17-zproject-fayli-format-versiya-migratsiya).
+A `.zproject` is JSON; if it was edited by hand, check the commas / brackets (compare it with the previous copy in version
+control). The format and migration: [ProjectSettings.md, 17](ProjectSettings.md#17-zproject-fayli-format-versiya-migratsiya).
 
-### Material yoki rasm yuklanmadi
+### A material or picture did not load
 
-> `Material failed to load: <fayl> (<sabab>)`
+> `Material failed to load: <file> (<reason>)`
 
-Asset ko'chirilgan yoki o'chirilgan. Fayllarni editorning kontent brauzerida ko'chiring - havolalar `.zmeta` dagi
-UUID orqali yangilanadi; editor tashqarisida ko'chirilsa, `.zmeta` ni ham birga ko'chiring.
+The asset was moved or deleted. Move files in the editor's content browser - the references are updated through the UUID
+in the `.zmeta`; when moving outside the editor, move the `.zmeta` along with it.
 
-## 6. Fizika
+## 6. Physics
 
-### Jism tushib ketyapti / hech narsaga urilmayapti
+### A body falls through / does not hit anything
 
-3D jismga collider kerak:
+A 3D body needs a collider:
 
-> `'<obyekt>': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)`
+> `'<entity>': the Rigidbody3D has no collider (add a Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D)`
 
-Boshqa sabablar: jism va pol turli fizika dunyosida (biri 2D, biri 3D), to'qnashuv qatlamlari bir-birini
-ko'rmaydi (Project settings > Physics), collider sensor (`IsSensor`) - u faqat trigger beradi.
+Other causes: the body and the floor are in different physics worlds (one 2D, one 3D), the collision layers do not see
+each other (Project settings > Physics), the collider is a sensor (`IsSensor`) - it only gives triggers.
 
-### Tez obyekt devordan o'tib ketyapti
+### A fast object passes through a wall
 
-2D: Rigidbody 2D'da **Tez obyekt (bullet)** (`Bullet`); 3D: Rigidbody 3D'da **Uzluksiz (CCD)**
-(`ContinuousCollision`). Yoki qadamni
-oshiring (sahna sozlamalaridagi fizika bo'limi: **Qadam chastotasi**, `StepRate`) ([Physics.md, 2](Physics.md#2-qadam-gravitatsiya-va-simulyatsiya-sozlamalari)).
+2D: **Fast object (bullet)** (`Bullet`) on the Rigidbody 2D; 3D: **Continuous (CCD)** on the Rigidbody 3D
+(`ContinuousCollision`). Or raise the
+step rate (the physics part of the scene settings: **Step rate**, `StepRate`) ([Physics.md, 2](Physics.md#2-qadam-gravitatsiya-va-simulyatsiya-sozlamalari)).
 
-### Mesh Collider dinamik jismda ishlamayapti
+### A Mesh Collider does not work on a dynamic body
 
-> `'<obyekt>': a Mesh Collider 3D only works on a static or kinematic body - a dynamic body ignores it (use a Convex Hull Collider 3D)`
+> `'<entity>': a Mesh Collider 3D only works on a static or kinematic body - a dynamic body ignores it (use a Convex Hull Collider 3D)`
 
-Harakatlanadigan jism uchun Convex Hull Collider 3D yoki oddiy shakllardan foydalaning.
+For a moving body use a Convex Hull Collider 3D or simple shapes.
 
-### Joint yaratilmadi
+### A joint was not created
 
-> `The connected body (<UUID>) of the <joint> on the object '<obyekt>' is not in the scene - no joint is created`
+> `The connected body (<UUID>) of the <joint> on the object '<entity>' is not in the scene - no joint is created`
 
-Joint ko'rsatgan ikkinchi obyekt o'chirilgan yoki boshqa sahnada: inspektorda **Ulangan jism** ni qayta tanlang.
+The second entity the joint points to was deleted or is in another scene: pick the **Connected body** again in the inspector.
 
-## 7. Grafika
+## 7. Graphics
 
-### O'yin ekrani qora
+### The game screen is black
 
-1. Asosiy kamera bormi va faolmi (3-bo'limdagi xabarlar)?
-2. Kamera obyektlarga qarab turibdimi va ular uning ko'rinish oralig'idami (near / far, ortografik kameraning
-   o'lchami)?
-3. 3D sahnada yorug'lik bormi (Directional / Point / Spot Light yoki osmon)?
+1. Is there a main camera, and is it active (the messages in section 3)?
+2. Is the camera looking at the entities, and are they within its view range (near / far, the size of an orthographic
+   camera)?
+3. Is there a light in a 3D scene (a Directional / Point / Spot Light or the sky)?
 
-Ko'proq: [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar).
+More: [Rendering.md, 18](Rendering.md#18-kop-uchraydigan-muammolar).
 
-### Shader xatosi
+### A shader error
 
-> `Shader '<nom>' (<tur>) compile error:`
+> `Shader '<name>' (<type>) compile error:`
 
-Drayver dvigatel shaderini kompilyatsiya qila olmadi (keyingi qatorlarda drayverning o'z xabari): odatda OpenGL 4.1
-ni to'liq qo'llamaydigan eski yoki dasturiy drayver. Drayverni yangilang; xabarni GL renderer nomi bilan
-(log boshida) yuboring.
+The driver could not compile an engine shader (the driver's own message follows on the next lines): usually an old or
+software driver that does not fully support OpenGL 4.1. Update the driver; send the message with the GL renderer name
+(at the start of the log).
 
-### Matn xira yoki piksellangan
+### Text is blurry or pixelated
 
-Matnlar ekrandagi o'lchamiga yaqin atlasdan chiziladi; pixel-art o'yinlarda pixel-perfect kamera va butun sonli
-masshtab ishlating ([Rendering.md, 5](Rendering.md#5-2d-yoruglik-va-pixel-perfect-kamera), [UI.md](UI.md)).
+Text is drawn from the atlas closest to its size on the screen; in pixel-art games use a pixel-perfect camera and an integer
+scale ([Rendering.md, 5](Rendering.md#5-2d-yoruglik-va-pixel-perfect-kamera), [UI.md](UI.md)).
 
-### O'yin sekin
+### The game is slow
 
-Player'da **F10** FPS'ni log'ga yozadi; `ZAMIN_PLAYER_STATS=1` chiqishda chizish statistikasini beradi;
-`--benchmark 300` aniq o'lchaydi. Sifat darajasi (`--quality Low`), render masshtabi, soyalar va post-effektlar
-eng ko'p vaqt oladi ([Rendering.md, 15](Rendering.md#15-samaradorlik-va-sifat-darajalari)). `xvfb-run` ostida
-GPU yo'q - u yerdagi FPS haqiqiy emas.
+In the player **F10** writes the FPS to the log; `ZAMIN_PLAYER_STATS=1` gives the draw statistics on exit;
+`--benchmark 300` measures it precisely. The quality level (`--quality Low`), the render scale, shadows and post effects
+take the most time ([Rendering.md, 15](Rendering.md#15-samaradorlik-va-sifat-darajalari)). Under `xvfb-run` there is
+no GPU - the FPS there is not real.
 
 ## 8. Audio
 
-### Ovoz eshitilmayapti
+### No sound is heard
 
 > `No audio device found - sound is off`
 
-Tizimda ovoz qurilmasi yo'q (yoki band): o'yin ishlaydi, faqat jim. Qurilma bo'lsa: Audio Mixer'da guruh
-o'chirilmaganmi (mute / solo), Audio Source'ning **Volume** i va 3D ovozda tinglovchigacha masofa
+The system has no sound device (or it is busy): the game runs, just silently. If there is a device: is the group muted
+in the Audio Mixer (mute / solo), the Audio Source's **Volume**, and for 3D sound the distance to the listener
 ([Audio.md, 18](Audio.md#18-kop-uchraydigan-muammolar)).
 
-### `.ogg` fayl ijro etilmayapti
+### An `.ogg` file does not play
 
-Bu build'da OGG dekoderi yo'q: WAV, MP3 yoki FLAC ishlating ([Audio.md, 14](Audio.md#14-audio-fayllar-va-import-sozlamalari)).
+This build has no OGG decoder: use WAV, MP3 or FLAC ([Audio.md, 14](Audio.md#14-audio-fayllar-va-import-sozlamalari)).
 
-### Ba'zi ovozlar chiqmay qoldi
+### Some sounds stopped playing
 
 > `The voice limit (<N>) is full: new sounds are not played (Audio Mixer > Settings)`
 
-Bir vaqtda juda ko'p ovoz: limitni oshiring yoki ovozlarga ustuvorlik bering
+Too many sounds at the same time: raise the limit or give the sounds priorities
 ([Audio.md, 10](Audio.md#10-ovozlar-limiti-va-tasodifiy-variatsiya)).
 
-> `Unknown audio group '<nom>' - the sound plays in the SFX group`
+> `Unknown audio group '<name>' - the sound plays in the SFX group`
 
-Audio Source yoki kod mixerda yo'q guruhni ko'rsatyapti - guruhni Audio Mixer'da yarating yoki nomini tuzating.
+An Audio Source or the code points to a group the mixer does not have - create the group in the Audio Mixer or fix the name.
 
 ## 9. Input
 
-### `IsActionPressed("Jump")` ishlamayapti
+### `IsActionPressed("Jump")` does not work
 
-> `Input: '<nom>' is not a known <action / axis> (Project settings > Input)`
+> `Input: '<name>' is not a known <action / axis> (Project settings > Input)`
 
-Harakat nomi loyihaning input xaritasida yo'q (katta-kichik harf muhim). Project settings > Input'da qo'shing
-yoki nomni tuzating ([ProjectSettings.md, 10](ProjectSettings.md#10-input), [Scripting.md, 8](Scripting.md#8-input)).
+The action name is not in the project's input map (case matters). Add it in Project settings > Input
+or fix the name ([ProjectSettings.md, 10](ProjectSettings.md#10-input), [Scripting.md, 8](Scripting.md#8-input)).
 
-### Gamepad ishlamayapti
+### The gamepad does not work
 
-`Input::IsGamepadConnected(0)` ni tekshiring. Gamepad bog'lanishlari hamma ulangan gamepad'larni tinglaydi;
-GLFW gamepad'ni o'z ma'lumotlar bazasidan taniydi - noma'lum qurilma oddiy joystick bo'lib qoladi.
+Check `Input::IsGamepadConnected(0)`. Gamepad bindings listen to every connected gamepad;
+GLFW recognizes a gamepad from its own database - an unknown device stays a plain joystick.
 
-## 10. Eksport va player
+## 10. Export and the player
 
-### Eksport qilingan o'yinda skriptlar ishlamayapti
+### The scripts do not work in the exported game
 
-> `skript moduli topilmadi - o'yin skriptlarsiz eksport qilinadi`
+> `script module not found - the game is exported without scripts`
 
-Eksportdan oldin skriptlarni kompilyatsiya qiling. Eksport hisobotida (**Fayl → Eksport hisoboti**) skript moduli
-qatoriga qarang ([BuildAndExport.md, 8](BuildAndExport.md#8-oyinni-eksport-qilish-editor)).
+Compile the scripts before exporting. Look at the script module line in the export report (**File → Export report**)
+([BuildAndExport.md, 8](BuildAndExport.md#8-oyinni-eksport-qilish-editor)).
 
-### Eksport hisobotini qayta ochib bo'lmayapti
+### The export report cannot be opened again
 
 > `No export report: build the game first (File > Build game)`
 
-### Player loyihani topmayapti
+### The player does not find the project
 
 > `Project not found. Usage: ZaminPlayer <Game.zproject> (all options: --help)`
 
-Player'ga `.zproject` faylini yoki loyiha papkasini bering; eksport qilingan o'yinni `<O'yin>.sh` bilan ishga
-tushiring (u o'z papkasidagi `Game/*.zproject` ni ochadi).
+Give the player a `.zproject` file or the project folder; run an exported game with `<Game>.sh`
+(it opens the `Game/*.zproject` in its own folder).
 
-### Buyruq qatori varianti ishlamadi
+### A command-line option did not work
 
-Tushunilmagan qiymat log'ga yoziladi va o'yin standart qiymat bilan davom etadi, masalan:
+A value that is not understood is written to the log and the game goes on with the default value, for example:
 
-> `--quality <nom>: there is no such quality level (available: <ro'yxat>) - the default level stays`
+> `--quality <name>: there is no such quality level (available: <list>) - the default level stays`
 
-> `--scene <qiymat>: the build list has no such index (it has <N> scenes)`
+> `--scene <value>: the build list has no such index (it has <N> scenes)`
 
 > `No monitor <N> (<M> monitors found) - the primary monitor is used`
 
-Hamma variantlar: `ZaminPlayer --help` va [Runtime.md, 4](Runtime.md#4-buyruq-qatori).
+All the options: `ZaminPlayer --help` and [Runtime.md, 4](Runtime.md#4-buyruq-qatori).
 
-### Log fayli yozilmayapti
+### The log file is not written
 
-> `The log file could not be opened (<sabab>) - the log is in the terminal only`
+> `The log file could not be opened (<reason>) - the log is in the terminal only`
 
-Log papkasiga yozish huquqi yo'q (yoki disk to'lgan): `--log-file <fayl>` bilan boshqa joy bering.
+There is no permission to write to the log folder (or the disk is full): give another place with `--log-file <file>`.
 
-## 11. Qulash va xatoni topish
+## 11. Crashes and finding bugs
 
-### O'yin qulab tushdi
+### The game crashed
 
-Player log papkasiga `crash-<sana_vaqt>.txt` yozadi: sabab (signal yoki istisno), backtrace, oxirgi log qatorlari,
-dvigatel kommiti. O'yinchidan shu faylni so'rang. Debugger bilan ishlash uchun `--no-crash-handler`
+The player writes `crash-<date_time>.txt` to the log folder: the reason (a signal or an exception), the backtrace, the last log
+lines, the engine commit. Ask the player for this file. To work with a debugger use `--no-crash-handler`
 ([Runtime.md, 7](Runtime.md#7-crash-hisobotlari)).
 
-### Assert bajarilmadi
+### An assert failed
 
-Debug build'da (yoki `-DZAMIN_ASSERTS=ON`) `ZM_ASSERT` sharti yolg'on bo'lsa log'ga `CRITICAL` (ifoda, xabar,
-`fayl:qator`) yoziladi va dastur to'xtaydi; editorda o'yin skriptining assert'i faqat log'ga yoziladi
-([Core.md, 12](Core.md#12-assert-va-verify)).
+In a Debug build (or with `-DZAMIN_ASSERTS=ON`), when a `ZM_ASSERT` condition is false a `CRITICAL` line (the expression, the message,
+`file:line`) is written to the log and the program stops; in the editor a game script's assert is only written to the log
+([Core.md, 12](Core.md#12-assert-and-verify)).
 
-### Xatoni o'zim qanday topaman?
+### How do I find a bug myself?
 
-- Log darajasini oshiring: `--log-level trace` yoki `ZAMIN_LOG_LEVEL=trace` ([Runtime.md, 6](Runtime.md#6-log-fayllari)).
-- OpenGL xatolari: `--gl-debug` (player) yoki `ZAMIN_GL_DEBUG=1`.
-- Xotira xatolari: AddressSanitizer build'i - `Tests/sanitize.sh address --smoke` ([Testing.md, 6](Testing.md#6-sanitizers)).
-- Fizika: `--debug-contacts`, `--debug-raycasts`; navigatsiya: `--debug-nav`.
+- Raise the log level: `--log-level trace` or `ZAMIN_LOG_LEVEL=trace` ([Runtime.md, 6](Runtime.md#6-log-fayllari)).
+- OpenGL errors: `--gl-debug` (player) or `ZAMIN_GL_DEBUG=1`.
+- Memory errors: an AddressSanitizer build - `Tests/sanitize.sh address --smoke` ([Testing.md, 6](Testing.md#6-sanitizers)).
+- Physics: `--debug-contacts`, `--debug-raycasts`; navigation: `--debug-nav`.
 
-## 12. Hech narsa yordam bermasa
+## 12. When nothing helps
 
-1. Xabarni to'liq nusxa oling (Konsol: o'ng tugma → nusxalash) va log faylini saqlang.
-2. Versiyani yozing: `ZaminPlayer --version` yoki editorda **Yordam → Zamin haqida** (kommit bilan).
-3. Muammoni namuna loyihada (`Projects/Platformer2D`, `Showcase3D`, `Adventure3D`) takrorlab ko'ring - dvigatel
-   xatosimi yoki loyiha xatosimi, shunda ma'lum bo'ladi.
-4. Dvigatel ichi qanday ishlashi: [Architecture.md](Architecture.md); testlar: [Testing.md](Testing.md).
+1. Copy the whole message (Console: right-click → copy) and keep the log file.
+2. Write down the version: `ZaminPlayer --version` or **Help → About Zamin** in the editor (with the commit).
+3. Try to reproduce the problem in a sample project (`Projects/Platformer2D`, `Showcase3D`, `Adventure3D`) - that shows
+   whether it is an engine bug or a project bug.
+4. How the engine works inside: [Architecture.md](Architecture.md); the tests: [Testing.md](Testing.md).

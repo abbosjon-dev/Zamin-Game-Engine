@@ -201,7 +201,7 @@ The full list: **[docs/README.md](docs/README.md)** (the documentation index).
 | [C++ scripts](docs/Scripting.md) | [AI](docs/AI.md), [Project settings](docs/ProjectSettings.md), [Player](docs/Runtime.md) | [Build and export](docs/BuildAndExport.md), [FAQ](docs/FAQ.md) |
 
 The API reference (Doxygen): `cmake --build build --target docs` → `build/docs/html/index.html`
-([BuildAndExport.md](docs/BuildAndExport.md#7-api-malumotnomasi-doxygen)).
+([BuildAndExport.md](docs/BuildAndExport.md#7-the-api-reference-doxygen)).
 
 ---
 

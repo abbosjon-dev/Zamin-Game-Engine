@@ -21,7 +21,7 @@ Contents:
 
 ## 1. Building and running
 
-Requirements and other distributions: [BuildAndExport.md](docs/BuildAndExport.md#1-talablar). A Debug build is
+Requirements and other distributions: [BuildAndExport.md](docs/BuildAndExport.md#1-requirements). A Debug build is
 convenient for development (asserts are on):
 
 ```bash
@@ -35,10 +35,10 @@ cmake --build build 2>&1 | grep -E "error|warning"       # must print nothing
 - The sample games (`Projects/Platformer2D`, `Showcase3D`, `Adventure3D`) are part of the main build: when the engine API
   changes their scripts are compiled too — they must not break either.
 - Presets (`CMakePresets.json`): `debug`, `release`, `clang`, `asan`, `ubsan`, `lsan`, `tsan`, `coverage`.
-  The CMake options: [BuildAndExport.md, section 3](docs/BuildAndExport.md#3-cmake-variantlari).
+  The CMake options: [BuildAndExport.md, section 3](docs/BuildAndExport.md#3-cmake-options).
 - Checking the editor and the player without a display (headless, `xvfb-run`; the automation variables of the editor
-  and the player — [Editor.md, section 15](docs/Editor.md#15-avtomatlashtirish-skrinshotlar-ci) and
-  [Runtime.md, section 14](docs/Runtime.md#14-avtomatlashtirish-uchun-muhit-ozgaruvchilari)):
+  and the player — [Editor.md, section 15](docs/Editor.md#15-automation-screenshots-ci) and
+  [Runtime.md, section 14](docs/Runtime.md#14-environment-variables-for-automation)):
 
 ```bash
 ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=/tmp/editor.png xvfb-run -a -s "-screen 0 1600x900x24" \
@@ -62,7 +62,7 @@ reformatting the code base.
 - Logging: `ZM_CORE_INFO` / `ZM_CORE_WARN` / `ZM_CORE_ERROR` in the engine, `ZM_INFO` /
   `ZM_WARN` / `ZM_ERROR` in the editor, the player and games — with `std::format` syntax (`ZM_WARN("File not found: {}", path)`). Checks:
   `ZM_ASSERT` / `ZM_CORE_ASSERT` (only in builds with asserts on) and `ZM_VERIFY` (always evaluated) — with a message
-  ([Core.md, section 12](docs/Core.md#12-assert-va-verify)).
+  ([Core.md, section 12](docs/Core.md#12-assert-and-verify)).
 - Code comments are in **English**. Public headers carry Doxygen comments (`///`, `///<`): write a short, precise
   comment for a new public class or function — `cmake --build build --target docs` must stay free of warnings
   (`build/docs/doxygen-warnings.log`).

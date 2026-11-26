@@ -2,7 +2,7 @@
 
 Zamin Visual Script is the engine's built-in `.zgraph` node editor and a bounded execution system.
 It works the same for 2D and 3D projects. A graph-based project needs neither a C++ compiler nor a game `.so` module.
-The gameplay graph authoring and execution part works with typed functions, collections, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
+The gameplay graph authoring and execution part works with typed functions, collections, enums, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
 
 ## Getting started
 
@@ -24,7 +24,9 @@ The file is written atomically; on a write error the edits stay in the window.
 - Collision/trigger, UI pointer/click/select/input, animation, audio finished, AI target/patrol, scene and language events.
 - Number, Bool, String, Vec2/3/4, Entity values; strictly typed pins; graph variables and per-instance overrides.
 - Branch, Sequence, For/Index/Completed, While, Break, Delay.
-- Typed Function.Entry/Call/Return: parameters, several results, separate local variables for each call, nested/delayed calls. Old Function/Call graphs still work.
+- Typed Function.Entry/Call/Return: parameters, several results, separate local variables for each call, nested/delayed/recursive calls (depth 32). Old Function/Call graphs still work.
+- Enums: graph-local enums and enums imported from reflected C++ enum fields; Enum pins, variables, parameters, results and locals; Switch, Equal, ToNumber/ToText, FromNumber/FromText and ReadField/WriteField.Enum.
+- Collapse to function: the selected nodes become a typed function with a call in their place.
 - Bool/Number/String/Vec2/Vec3/Vec4/Entity arrays: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat and a snapshot ForEach.
 - Event.Custom + EmitEvent: a named event inside a graph instance, with a Number/Text/Bool/Vector3/Other payload. SendMessage is used for a message to another entity.
 - Math, logic and vector operations, joining text, turning a number into text (`FormatNumber` — 0..6 decimal places, `FormatTime` — `mm:ss` / `h:mm:ss`).
@@ -49,8 +51,40 @@ In the function tree edit the type, name and initial value of the Inputs/Outputs
 Connect the Entry's parameter outputs to the body's operations and the result to the Return's input. Return works only in its own function.
 If the execution path of a function with results ends without a Return, the VM stops with a clear error; a function without results may end freely.
 Local.Get/Set touch only the value of the current call; recursion and parallel Delay tasks do not share them.
-Renaming a function/graph variable updates the names of its nodes too. When a pin's name/type changes,
-the wires/literals that no longer fit are removed; Undo restores them. Pass event data to a function through an argument.
+Renaming a function/graph variable updates the names of its nodes too. A parameter/result renamed with Enter keeps its wires and the
+call literals. When a pin's type changes, the wires/literals that no longer fit are removed; Undo restores them. Pass event data to a function through an argument.
+
+Every typed function is also in the **Node library** as `Functions / Call <name>` (search `call` or the name). Double-clicking a
+Function.Call/Entry/Return node, or **Open function** in the function tree, opens the function: its entry, the nodes its execution reaches
+and their data sources are framed and selected, the rest of the graph is dimmed, and the header shows **Function: <name>** with a
+**Whole graph** button. Every signature, local, enum and collapse edit is one Undo/Redo step.
+
+The compiler checks the call side: an argument that is not in the signature (`Argument Y is not in the signature of F`), a wire to a pin the
+signature does not have, an unknown function, and wrong argument types. A function with results whose entry cannot reach any of its
+Returns is a compile error. When only some execution paths end without a Return, the status line shows a yellow **warning** (hover: the
+list, click: the function's entry); such a path stops the VM with a clear error if it runs. A loop counts through its Completed output,
+a Sequence when one of its outputs returns on every path, a Branch/Switch when all of its outputs do.
+
+**Collapse to function** (toolbar button or Ctrl+G) moves the selected nodes into a new typed function (the name in **Function name**;
+taken names get a number) and puts a call where they were. Data wires entering the selection become parameters (evaluated when the call
+starts), wires leaving it become results, the one execution wire in becomes the call's In and the one wire out its Then. The body moves
+below the graph between a new entry and return. Events, entries/returns, locals, a selection without one execution entry or with more than
+one exit, and a selected pure node that also feeds unselected nodes are refused with a message; a collapse that would add a compile error
+does not change the graph.
+
+## Enums
+
+**Enums → Enum name → Create enum** adds a graph enum with one entry; add, rename (Enter) and remove entries and set their integer
+values (Enter; unique, within ±2^53). Renaming an entry keeps the wires of the Switch outputs named after it; renaming an enum retypes
+every node, variable and signature pin that uses it. An enum in use is not deleted. **Import from C++ field** copies the named options of
+a loaded script class's `ZM_FIELD_ENUM` field (`Visual::EnumDefinition`, Source `Class.Field`) with their C++ names and values.
+
+A graph variable, a function parameter/result and a local can have the Enum type with one of the graph's enums; literals show the
+entries as a combo and store the entry's integer value. Enum nodes name their enum in the literal **Enum** input (Get/Set.Enum may
+leave it empty: the variable's enum). `Enum.Switch` has one execution output per entry. `Enum.FromNumber`/`FromText` stop with an
+error for a number/name that is no entry; a value outside the enum is rejected on literals, variable defaults, overrides, arguments,
+returns and bridge results. `ReadField.Enum`/`WriteField.Enum` read and write a reflected C++ enum field; a written value must be one of
+the field's options. Two pins connect only when they name the same enum. Enum arrays are not available yet.
 
 An array literal has Add/Remove, pages of 16 elements and **Paste array JSON**. The index of `Array.Get/Set/Remove`
 starts at 0; a fractional/negative/out-of-range index is an execution error. Slice Start/Count must be integers within range.
@@ -83,6 +117,10 @@ An error stops that graph instance and is printed to the console/debug panel.
 
 ## Saving, C++ and export
 
+`.zgraph` files are format version 2: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals.
+Version 1 files (all graphs written before) load unchanged, including legacy Function/Call nodes and typed functions; the window header
+says `(format 1: saving writes format 2)` until the graph is saved. A version 1 file that contains an enum type, or a newer version, is rejected.
+
 A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
 That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
 To combine the two, use separate controller entities, messages and reflected fields.
@@ -91,7 +129,7 @@ The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine
 EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
 (a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
 [combat state](GameplayCombat.md#editor-authoring) of the selected actor.
-Curve/Enum/custom struct pins, macros/collapse, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions and the seven array types above are part of this one.
+Curve and custom struct pins, reusable inline macros, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums and the seven array types above are part of this one.
 
 Graph assets are listed in the registry, open in the Content Browser, and the asset inspector shows their diagnostics.
 Asset paths inside a graph take part in the reference scan and in renames. Rather than hiding an asset path that overrides a graph variable
@@ -105,12 +143,13 @@ C++ hot reload keeps the graph variables, but, like other native timers, restart
 
 - `Visual2D`: WASD/arrow input → 2D velocity; touching a trigger changes the color for a while.
 - `Visual3D`: two cubes with one graph spin at opposite speeds through different Speed overrides.
-- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18.
+- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18. The Finished event then calls `RankOf(Total)`, which returns the `Rank` enum through one of three Returns into the `FinalRank` variable and prints `BLUEPRINT_RANK rank=Silver` (2D) / `rank=Gold` (3D).
 
 `ZaminTests --filter VisualGraph` runs the VM, the type/format/cycle checks, continuing delays/loops/functions, the budget, debugging, isolation,
 the C++ field bridge, a real scene lifecycle and the null target protection.
 
-The real ImGui mouse regression (adding nodes, a typed wire, rejection, save/undo/redo):
+The real ImGui mouse regression (adding nodes, a typed wire, rejection, save/undo/redo; then a typed function created in the UI, a parameter
+added, called from the node library, wired, undone/redone, opened with a double-click, and the saved graph run in the Player):
 
 ```bash
 ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2 \
@@ -124,6 +163,11 @@ The 2026-11-10 check: 173 node definitions; 26 VisualGraph tests (including a re
 In real X11/ImGui operations, adding nodes, save, undo/redo, a typed wire and rejecting a wrong wire were checked.
 In the Player without UI, the 3D rotation and the chain 2D physics trigger → graph → GameState → disk save worked.
 These tests ran in a Linux/Mesa software rendering environment; they are not a certification for other platforms or physical GPUs.
+
+The 2026-11-26 check (typed functions, enums, collapse): `ZaminTests --filter Blueprint` covers return-path errors/warnings, call
+arity diagnostics, format 2 round trips and the version 1 migration, enum Switch/conversions/type checks/parameters/locals/renames/paste,
+recursion with enum arguments, collapse equivalence and refusals; `VisualGraphReadsAndWritesReflectedCppEnums` imports and drives a real
+reflected C++ enum field.
 
 ## World navigation and traversal
 

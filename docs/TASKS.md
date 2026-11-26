@@ -830,8 +830,11 @@ Check (2026-11-10): 707/707 unit, 12/12 reference render, GL 4.1 terrain and GPU
 - [x] Breakpoints, pause/step/continue, watches and a bounded execution trace.
 - [x] Asset registry / content browser / inspector / reference scan and rename integration.
 - [x] The `VisualWorkshop` 2D/3D sample and the [guide](VisualScripting.md).
-- [ ] Functions with parameters/return values, array/struct/enum/curve pins, macros/collapse and inheritance.
+- [x] Functions with parameters/return values (node library calls, double-click open, return-path diagnostics), array and enum pins (graph-local and reflected C++), collapse to function, `.zgraph` format 2 with version 1 migration.
+- [ ] Struct/curve pins, reusable inline macros and graph inheritance.
 - [ ] RPC/replication nodes, full native method reflection, bytecode/native cook and large graph profiling.
+
+Visual Script evidence (2026-11-26): `ZaminTests --filter Blueprint` and `VisualGraphReadsAndWritesReflectedCppEnums` cover the VM, validation, format 2 round trips, the version 1 migration, enum checks and collapse; `Tests/visual_graph_editor_test.py` creates a function in the real editor, adds a parameter, calls it from the node library, undoes/redoes, opens it by double-click and runs it in the Player; VisualWorkshop's `RankOf` returns a `Rank` enum (Silver in 2D, Gold in 3D) in the Player and the editor. Struct/curve pins, macros and inheritance are not started.
 
 ### The built-in C++ code editor — 2026-11-10
 
@@ -864,7 +867,7 @@ Parity with these engines is not decided by a single feature or by the amount of
 |---|---|---|
 | 2D | Tilemaps, sprites, animation, Box2D, UI and large-map visibility exist | A finished 2D game; atlas/residency, input/UI and a stress profile |
 | 3D maps | Heightfield authoring, collision, patch LOD; GPU PBR layers passed the GL/editor/export tests | A map with real assets, foliage/streaming and a physical GPU frame-time budget |
-| Gameplay authoring | A C++ editor and a typed visual graph v1 exist | Function arguments/returns, complex types, LSP, a large graph/debug workflow |
+| Gameplay authoring | A C++ editor and a typed visual graph with functions, arrays and enums exist | Struct/curve types, LSP, a large graph/debug workflow |
 | World | Render chunks and a bounded world-cell manifest exist; disk streaming is planned | Async load/unload/cancel with bounded RAM/VRAM and a large world test |
 | Team networking | Multiplayer production acceptance not done yet | Authoritative replication, latency/loss/reconnect tests, security and monitoring |
 | Product quality | Linux tests and an export workflow exist | A native SDK ABI gate exists; an OS/driver matrix, crash/recovery and long sessions |

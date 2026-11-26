@@ -45,7 +45,7 @@ Namunalarning oxirgi kadrlari profilidan (1280x720, 300 kadr o'rtachasi; `Tests/
    birinchi o'qiydi), 2D sahnaniki (har piksel uchun 20+ ta 2D chiroq) "Bloom" ichida ko'rinadi.
 2. **Sahnani chizish 13–38 ms** — shundan dvigatelning o'z ishi kam: chizish buyruqlarining CPU vaqti (instancing,
    batching, culling, uniform buferlar) ZaminBench'da o'lchangan; qolgani — llvmpipe'ning vertex ishi va soya
-   xaritalari (2048 px, kaskadlar — oyna o'lchamiga bog'liq emas). Eng ko'pi Ipak Yo'li (EndlessRunner):
+   xaritalari (2048 px, kaskadlar — oyna o'lchamiga bog'liq emas). Eng ko'pi Silk Road (EndlessRunner):
    155 284 uchburchak.
 3. **O'yin kodi** (skriptlar, fizika, particle'lar, animatsiya, audio, AI) hamma namunada 0.04–0.55 ms.
 

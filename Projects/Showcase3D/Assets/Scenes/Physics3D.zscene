@@ -182,7 +182,7 @@
     },
     {
       "Entity": 5866460706580390,
-      "Tag": "Qiya",
+      "Tag": "Slope",
       "Transform": {
         "Translation": [
           -8.5,
@@ -239,7 +239,7 @@
     },
     {
       "Entity": 7861282378908134,
-      "Tag": "Muz qutisi",
+      "Tag": "Ice crate",
       "Transform": {
         "Translation": [
           -10.1087,
@@ -292,7 +292,7 @@
         "Friction": 0.5,
         "Restitution": 0.0,
         "IsSensor": false,
-        "Material": "Physics/Muz.zphysmat",
+        "Material": "Physics/Ice.zphysmat",
         "MaterialUUID": "e9c96d08c6092011"
       },
       "NativeScript": {
@@ -307,7 +307,7 @@
     },
     {
       "Entity": 6847898302951409,
-      "Tag": "Oddiy quti",
+      "Tag": "Plain crate",
       "Transform": {
         "Translation": [
           -10.1087,
@@ -373,7 +373,7 @@
     },
     {
       "Entity": 6077736571312368,
-      "Tag": "Rezina quti",
+      "Tag": "Rubber crate",
       "Transform": {
         "Translation": [
           -10.1087,
@@ -426,7 +426,7 @@
         "Friction": 0.5,
         "Restitution": 0.0,
         "IsSensor": false,
-        "Material": "Physics/Rezina.zphysmat",
+        "Material": "Physics/Rubber.zphysmat",
         "MaterialUUID": "3c9cde57e4b86f8d"
       },
       "NativeScript": {
@@ -441,7 +441,7 @@
     },
     {
       "Entity": 6691112888465455,
-      "Tag": "Yozuv: materiallar",
+      "Tag": "Label: materials",
       "Transform": {
         "Translation": [
           -8.5,
@@ -464,7 +464,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Fizik material 3D (.zphysmat)\nMuz | Oddiy | Rezina"
+            "Value": "Physics material 3D (.zphysmat)\nIce | Plain | Rubber"
           },
           "Offset": {
             "Type": "Vec3",
@@ -488,7 +488,7 @@
     },
     {
       "Entity": 5730246756443031,
-      "Tag": "Bosish plitasi",
+      "Tag": "Pressure plate",
       "Transform": {
         "Translation": [
           -3.6,
@@ -585,7 +585,7 @@
     },
     {
       "Entity": 4549964367701064,
-      "Tag": "To'siq",
+      "Tag": "Obstacle",
       "Transform": {
         "Translation": [
           -2.55,
@@ -642,7 +642,7 @@
     },
     {
       "Entity": 7700329351983539,
-      "Tag": "Sakraydigan shar",
+      "Tag": "Bouncy ball",
       "Transform": {
         "Translation": [
           -10.0,
@@ -691,7 +691,7 @@
         "Friction": 0.5,
         "Restitution": 0.0,
         "IsSensor": false,
-        "Material": "Physics/Sakraydigan.zphysmat",
+        "Material": "Physics/Bouncy.zphysmat",
         "MaterialUUID": "356df6f2647f416d"
       },
       "NativeScript": {
@@ -706,7 +706,7 @@
     },
     {
       "Entity": 8333579268904641,
-      "Tag": "Oddiy shar",
+      "Tag": "Plain ball",
       "Transform": {
         "Translation": [
           -8.5,
@@ -768,7 +768,7 @@
     },
     {
       "Entity": 7779887175452371,
-      "Tag": "Yozuv: sharlar",
+      "Tag": "Label: balls",
       "Transform": {
         "Translation": [
           -9.25,
@@ -791,7 +791,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Sakraydigan | Oddiy"
+            "Value": "Bouncy | Plain"
           },
           "Offset": {
             "Type": "Vec3",
@@ -815,7 +815,7 @@
     },
     {
       "Entity": 5936905333880444,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           1.48,
@@ -887,7 +887,7 @@
     },
     {
       "Entity": 7156631771578451,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           2.2,
@@ -959,7 +959,7 @@
     },
     {
       "Entity": 8419966405553359,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           2.92,
@@ -1031,7 +1031,7 @@
     },
     {
       "Entity": 5686060030312359,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           1.84,
@@ -1103,7 +1103,7 @@
     },
     {
       "Entity": 7164202072663684,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           2.56,
@@ -1175,7 +1175,7 @@
     },
     {
       "Entity": 5898692536702529,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           2.2,
@@ -1247,7 +1247,7 @@
     },
     {
       "Entity": 5598119759030601,
-      "Tag": "Supurgich",
+      "Tag": "Sweeper",
       "Transform": {
         "Translation": [
           -1.2,
@@ -1335,7 +1335,7 @@
     },
     {
       "Entity": 4673618586440077,
-      "Tag": "Yozuv: uxlash",
+      "Tag": "Label: sleeping",
       "Transform": {
         "Translation": [
           2.2,
@@ -1358,7 +1358,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Uxlash: ko'k - uxlayapti\n(Uxlab boshlanadi, urilsa uyg'onadi)"
+            "Value": "Sleeping: blue - asleep\n(it starts asleep and wakes when hit)"
           },
           "Offset": {
             "Type": "Vec3",
@@ -1382,7 +1382,7 @@
     },
     {
       "Entity": 5694752659655831,
-      "Tag": "Tez shar (CCD)",
+      "Tag": "Fast ball (CCD)",
       "Transform": {
         "Translation": [
           -1.5,
@@ -1463,7 +1463,7 @@
     },
     {
       "Entity": 4711867594730633,
-      "Tag": "Yupqa oyna",
+      "Tag": "Thin window",
       "Transform": {
         "Translation": [
           4.0,
@@ -1521,7 +1521,7 @@
     },
     {
       "Entity": 7063602502559770,
-      "Tag": "Tez shar",
+      "Tag": "Fast ball",
       "Transform": {
         "Translation": [
           -1.5,
@@ -1602,7 +1602,7 @@
     },
     {
       "Entity": 4966171724807682,
-      "Tag": "Yupqa oyna",
+      "Tag": "Thin window",
       "Transform": {
         "Translation": [
           4.0,
@@ -1660,7 +1660,7 @@
     },
     {
       "Entity": 5866587931376417,
-      "Tag": "Qahramon",
+      "Tag": "Hero",
       "Transform": {
         "Translation": [
           11.5,
@@ -1788,7 +1788,7 @@
     },
     {
       "Entity": 6301561914172226,
-      "Tag": "Itariladigan quti",
+      "Tag": "Pushable crate",
       "Transform": {
         "Translation": [
           11.5,
@@ -1845,7 +1845,7 @@
     },
     {
       "Entity": 7213469268775046,
-      "Tag": "Itariladigan quti",
+      "Tag": "Pushable crate",
       "Transform": {
         "Translation": [
           8.6,
@@ -1902,7 +1902,7 @@
     },
     {
       "Entity": 7173577951559914,
-      "Tag": "Itariladigan quti",
+      "Tag": "Pushable crate",
       "Transform": {
         "Translation": [
           5.5,
@@ -1959,7 +1959,7 @@
     },
     {
       "Entity": 7526381912840443,
-      "Tag": "Itariladigan quti",
+      "Tag": "Pushable crate",
       "Transform": {
         "Translation": [
           8.0,
@@ -2016,7 +2016,7 @@
     },
     {
       "Entity": 8585974687843758,
-      "Tag": "Radar quti",
+      "Tag": "Radar box",
       "Transform": {
         "Translation": [
           8.5,
@@ -2092,7 +2092,7 @@
         "Fields": {
           "Title": {
             "Type": "String",
-            "Value": "Radar (qattiq quti + trigger shar)"
+            "Value": "Radar (a solid box + a trigger sphere)"
           },
           "Glow": {
             "Type": "Vec4",
@@ -2124,7 +2124,7 @@
     },
     {
       "Entity": 8874270787862345,
-      "Tag": "Yozuv: itarish",
+      "Tag": "Label: push",
       "Transform": {
         "Translation": [
           8.5,
@@ -2147,7 +2147,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Qahramon qutilarni itaradi (160 N)"
+            "Value": "The hero pushes crates (160 N)"
           },
           "Offset": {
             "Type": "Vec3",

@@ -7,13 +7,13 @@
 
 using namespace Zamin;
 
-// Poyga: to'rt mashina (o'yinchi va uch raqib - botlar) start chizig'i orqasidan chiqadi. Start svetofori: beshta
-// chiroq birin-ketin yonadi, so'ng hammasi o'chadi - GO! Trassa CheckpointCount bo'lakka bo'lingan: nuqtalardan
-// tartib bilan o'tib start chizig'ini kesib o'tilsa - aylana. Laps aylanadan keyin marra; o'rinlar trassa bo'ylab
-// bosib o'tilgan masofa bo'yicha. Rekord: eng yaxshi aylana (SaveData::SubmitRecord "Racing.BestLap", har aylana
-// tugaganda; ZAMIN_DEMO_RECORDS=1 bilan demo boti ham - testlar). Mashinalar bir-biriga
-// urilsa itarishadi. Bosh menyu orqasida to'rt bot poyga qiladi. Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - o'yinchi
-// mashinasini bot haydaydi, jurnalga "Demo: ..." yoziladi; marradan keyin yangi poyga.
+// The race: four cars (the player and three rivals - bots) start from behind the start line. The start lights: five
+// lights come on one after another, then all go out - GO! The track is split into CheckpointCount parts: pass the
+// checkpoints in order and cross the start line - a lap. The finish comes after Laps laps; positions go by the
+// distance covered along the track. The record: the best lap (SaveData::SubmitRecord "Racing.BestLap", at the end of
+// every lap; with ZAMIN_DEMO_RECORDS=1 the demo bot's too - tests). Cars push each other
+// when they collide. Four bots race behind the main menu. Demo: ZAMIN_DEMO=1 (or AutoDemo) - a bot drives the
+// player's car and "Demo: ..." goes to the log; a new race after the finish.
 
 // ZAMIN_DEMO_RECORDS=1: a demo run's laps count as records too (the headless tests check that a record is written and
 // read back the next time; normally the bots never touch the player's records).
@@ -32,7 +32,7 @@ void RaceGame::OnCreate()
     m_BestLap = SaveData::GetFloat("Racing.BestLap", 0.0f);
     ZM_INFO("Records: best lap {}", m_BestLap > 0.0f ? FormatTime(m_BestLap) : std::string("-"));
     if (!m_Track.Parse(TrackPoints))
-        ZM_ERROR("Vodiy Poygasi: the track points could not be read (TrackPoints)");
+        ZM_ERROR("Valley Race: the track points could not be read (TrackPoints)");
 }
 
 void RaceGame::OnStart()
@@ -125,7 +125,7 @@ void RaceGame::StartRace(bool bot)
     StyleCheckpoints();
     SetActiveRef(DemoBadge, m_Bot && m_State != State::Menu);
     if (!m_Bot)
-        ZM_INFO("Vodiy Poygasi: race started ({} laps)", Laps);
+        ZM_INFO("Valley Race: race started ({} laps)", Laps);
     RefreshTexts();
 }
 

@@ -1,13 +1,13 @@
 #pragma once
 
-// FPS Arena (Zamin Engine namuna o'yini): birinchi shaxs boshqaruvi va nishonga otish.
-// Skriptlar: FirstPersonController (sichqoncha / o'ng stik bilan qarash, yurish, yugurish va chidamlilik, sakrash -
-// "coyote time" va oldindan bosish buferi bilan, cho'kkalash, sakratgich, bosh tebranishi, qadam tovushlari, FOV,
-// qo'nish silkinishi, otishdagi tepki; avtomatik o'yinchi - bot), Blaster (qurol: raycast bilan otish, o'q-dori va
-// qayta o'qlash, tepki, nur izi, uchqunlar, chaqnash; botning nishon tanlashi), Target (nishonlar: turg'un,
-// sirpanuvchi, chiquvchi, uchar dron - urilganda yiqiladi / portlaydi va qaytadi), TracerFx (nur izi effekti),
-// ArenaGame (ikki rejim: parkur yo'lagi va 60 soniyalik "Nishon otish" raundi; ochko, seriya, aniqlik, rekordlar,
-// HUD, menyular, demo rejimi).
+// FPS Arena (a Zamin Engine sample game): a first-person controller and target shooting.
+// Scripts: FirstPersonController (looking with the mouse / right stick, walking, sprinting and stamina, jumping -
+// with "coyote time" and a press-ahead buffer, crouching, the jump pad, head bob, footsteps, FOV,
+// the landing shake, the recoil of a shot; an automatic player - the bot), Blaster (the weapon: raycast shooting, ammo
+// and reloading, recoil, the tracer, sparks, the muzzle flash; the bot's choice of target), Target (targets: standing,
+// sliding, pop-up, a flying drone - they fall / explode when hit and come back), TracerFx (the tracer effect),
+// ArenaGame (two modes: the parkour course and the 60-second "Target range" round; score, streak, accuracy, records,
+// the HUD, menus, the demo mode).
 
 #include <Zamin/Zamin.h>
 

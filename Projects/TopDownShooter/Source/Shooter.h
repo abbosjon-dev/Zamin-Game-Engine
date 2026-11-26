@@ -1,9 +1,9 @@
 #pragma once
 
-// Neon Maydon - top-down shooter (Zamin Engine namuna o'yini).
-// Skriptlar: ShooterGame (o'yin oqimi: menyular, to'lqinlar, hisob/kombo, rekord, effektlar, demo rejimi),
-// PlayerShip (o'yinchi kemasi: yurish, nishon olish, otish, siltanish, bonuslar, avtomatik o'yinchi - bot),
-// Enemy (5 xil dushman), Projectile (o'qlar), Pickup (bonuslar), FxAnimator (halqa / ochko effektlari).
+// Neon Arena - a top-down shooter (a Zamin Engine sample game).
+// Scripts: ShooterGame (the game flow: menus, waves, score/combo, the record, effects, the demo mode),
+// PlayerShip (the player's ship: moving, aiming, firing, dashing, power-ups, an automatic player - the bot),
+// Enemy (5 kinds of enemy), Projectile (shots), Pickup (power-ups), FxAnimator (the ring / score effects).
 
 #include <Zamin/Zamin.h>
 
@@ -13,11 +13,11 @@
 
 enum class EnemyKind
 {
-    Chaser = 0,  // Quvg'in: runs at the player and explodes on contact
-    Swarmer,     // To'da: small and fast, comes in groups, weaves
-    Shooter,     // O'qchi: keeps its distance, circles and fires
-    Dasher,      // Hujumchi: winds up, then charges in a straight line
-    Tank         // Tank: slow and armoured, fires rings of shots, splits into swarmers
+    Chaser = 0,  // runs at the player and explodes on contact
+    Swarmer,     // small and fast, comes in groups, weaves
+    Shooter,     // keeps its distance, circles and fires
+    Dasher,      // winds up, then charges in a straight line
+    Tank         // slow and armoured, fires rings of shots, splits into swarmers
 };
 
 enum class PickupKind

@@ -182,7 +182,7 @@
     },
     {
       "Entity": 5315662456811944,
-      "Tag": "Fizika debug",
+      "Tag": "Physics debug",
       "Transform": {
         "Translation": [
           -0.8,
@@ -220,7 +220,7 @@
     },
     {
       "Entity": 2057230967729355,
-      "Tag": "To'sin",
+      "Tag": "Beam",
       "Transform": {
         "Translation": [
           -4.0,
@@ -277,7 +277,7 @@
     },
     {
       "Entity": 5026072609907729,
-      "Tag": "To'sin ustuni",
+      "Tag": "Beam post",
       "Transform": {
         "Translation": [
           -6.0,
@@ -334,7 +334,7 @@
     },
     {
       "Entity": 5281072156196017,
-      "Tag": "To'sin ustuni",
+      "Tag": "Beam post",
       "Transform": {
         "Translation": [
           -2.0,
@@ -391,7 +391,7 @@
     },
     {
       "Entity": 5323349354692402,
-      "Tag": "Tebranuvchi chiroq",
+      "Tag": "Swinging lamp",
       "Transform": {
         "Translation": [
           -4.19696222283796,
@@ -480,7 +480,7 @@
     },
     {
       "Entity": 2538311418067936,
-      "Tag": "Og'ir chiroq",
+      "Tag": "Heavy lamp",
       "Transform": {
         "Translation": [
           -3.0,
@@ -569,7 +569,7 @@
     },
     {
       "Entity": 5512277652795258,
-      "Tag": "Yozuv: joint'lar",
+      "Tag": "Label: joints",
       "Transform": {
         "Translation": [
           -4.0,
@@ -592,7 +592,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Joint yuki: yashil - sariq - qizil\n(chapda 300 N, o'ngda 140 N chegara)"
+            "Value": "Joint load: green - yellow - red\n(limit 300 N on the left, 140 N on the right)"
           },
           "Offset": {
             "Type": "Vec3",
@@ -616,7 +616,7 @@
     },
     {
       "Entity": 6596050322907173,
-      "Tag": "Javon",
+      "Tag": "Shelf",
       "Transform": {
         "Translation": [
           -0.9,
@@ -690,7 +690,7 @@
     },
     {
       "Entity": 3302227898025597,
-      "Tag": "Javonga shar",
+      "Tag": "Ball for the shelf",
       "Transform": {
         "Translation": [
           -0.9,
@@ -752,7 +752,7 @@
     },
     {
       "Entity": 1442655118627782,
-      "Tag": "Yozuv: javon",
+      "Tag": "Label: shelf",
       "Transform": {
         "Translation": [
           -0.9,
@@ -775,7 +775,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Fixed Joint 3D (150 N):\nshar urilsa uziladi - qizil X"
+            "Value": "Fixed Joint 3D (150 N):\nbreaks when the ball hits - a red X"
           },
           "Offset": {
             "Type": "Vec3",
@@ -799,7 +799,7 @@
     },
     {
       "Entity": 2556634565515220,
-      "Tag": "Quti",
+      "Tag": "Crate",
       "Transform": {
         "Translation": [
           1.6,
@@ -856,7 +856,7 @@
     },
     {
       "Entity": 3639574357759580,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           4.2,
@@ -928,7 +928,7 @@
     },
     {
       "Entity": 2513998950018891,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           4.2,
@@ -1000,7 +1000,7 @@
     },
     {
       "Entity": 6383855707547867,
-      "Tag": "Uxlagan quti",
+      "Tag": "Sleeping crate",
       "Transform": {
         "Translation": [
           4.2,
@@ -1072,7 +1072,7 @@
     },
     {
       "Entity": 6074492889960921,
-      "Tag": "Sakraydigan shar",
+      "Tag": "Bouncy ball",
       "Transform": {
         "Translation": [
           2.6,
@@ -1134,7 +1134,7 @@
     },
     {
       "Entity": 3714773901834133,
-      "Tag": "Yozuv: kontaktlar",
+      "Tag": "Label: contacts",
       "Transform": {
         "Translation": [
           2.4,
@@ -1157,7 +1157,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Kontaktlar: normal (sariq), chuqurlik (qizil),\nzarba halqasi; uxlayotganlari xira"
+            "Value": "Contacts: normal (yellow), depth (red),\nthe impact ring; sleeping ones are dim"
           },
           "Offset": {
             "Type": "Vec3",

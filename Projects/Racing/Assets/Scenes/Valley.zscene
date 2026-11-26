@@ -44,15 +44,15 @@
     "Gravity3D": [0, -9.81, 0]
   },
   "Metadata": {
-    "Description": "Vodiy Poygasi: mashina fizikasi (tezlanish, rul, ilashish va drift), aylanma trassa, nazorat nuqtalari, aylana vaqti, 3 ta bot raqib",
+    "Description": "Valley Race: car physics (acceleration, steering, grip and drift), a circuit, checkpoints, lap times, 3 bot rivals",
     "Author": "Zamin",
-    "Tags": ["namuna", "3D", "racing"]
+    "Tags": ["sample", "3D", "racing"]
   },
   "RootOrder": [8860000000000001, 8860000000000002, 8860000000000003, 8860000000000042, 8860000000000118, 8860000000000414, 8860000000000439, 8860000000000463, 8860000000000487, 8860000000000511, 8860000000000512, 8860000000000513],
   "Entities": [
     {
       "Entity": 8860000000000001,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [-0.8377580409572782, 0.5235987755982988, 0.0],
@@ -66,7 +66,7 @@
     },
     {
       "Entity": 8860000000000002,
-      "Tag": "Kamera",
+      "Tag": "Camera",
       "Transform": {
         "Translation": [0.0, 4.0, 75.0],
         "Rotation": [-0.20943951023931956, 0.0, 0.0],
@@ -97,7 +97,7 @@
     },
     {
       "Entity": 8860000000000003,
-      "Tag": "Trassa",
+      "Tag": "Track",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -107,7 +107,7 @@
     },
     {
       "Entity": 8860000000000004,
-      "Tag": "O't",
+      "Tag": "Grass",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [70.0, -0.04, 5.0],
@@ -141,7 +141,7 @@
     },
     {
       "Entity": 8860000000000005,
-      "Tag": "Asfalt",
+      "Tag": "Asphalt",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -175,7 +175,7 @@
     },
     {
       "Entity": 8860000000000006,
-      "Tag": "Bordyurlar",
+      "Tag": "Kerbs",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -209,7 +209,7 @@
     },
     {
       "Entity": 8860000000000007,
-      "Tag": "To'siqlar",
+      "Tag": "Barriers",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -243,7 +243,7 @@
     },
     {
       "Entity": 8860000000000008,
-      "Tag": "Start chizig'i",
+      "Tag": "Start line",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [0.0, 0.015, 60.0],
@@ -277,7 +277,7 @@
     },
     {
       "Entity": 8860000000000009,
-      "Tag": "Start darvozasi",
+      "Tag": "Start gantry",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [0.0, 0.0, 60.0],
@@ -288,7 +288,7 @@
     },
     {
       "Entity": 8860000000000010,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000009,
       "Transform": {
         "Translation": [-11.1, 3.5, 0.0],
@@ -322,7 +322,7 @@
     },
     {
       "Entity": 8860000000000011,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000009,
       "Transform": {
         "Translation": [11.1, 3.5, 0.0],
@@ -356,7 +356,7 @@
     },
     {
       "Entity": 8860000000000012,
-      "Tag": "To'sin",
+      "Tag": "Beam",
       "Parent": 8860000000000009,
       "Transform": {
         "Translation": [0.0, 6.6, 0.0],
@@ -390,7 +390,7 @@
     },
     {
       "Entity": 8860000000000013,
-      "Tag": "Start chiroqlari",
+      "Tag": "Start lights",
       "Parent": 8860000000000009,
       "Transform": {
         "Translation": [0.0, 5.6, -0.42],
@@ -401,7 +401,7 @@
     },
     {
       "Entity": 8860000000000014,
-      "Tag": "Chiroq 1",
+      "Tag": "Light 1",
       "Parent": 8860000000000013,
       "Transform": {
         "Translation": [-2.4, 0.0, 0.0],
@@ -435,7 +435,7 @@
     },
     {
       "Entity": 8860000000000015,
-      "Tag": "Chiroq 2",
+      "Tag": "Light 2",
       "Parent": 8860000000000013,
       "Transform": {
         "Translation": [-1.2, 0.0, 0.0],
@@ -469,7 +469,7 @@
     },
     {
       "Entity": 8860000000000016,
-      "Tag": "Chiroq 3",
+      "Tag": "Light 3",
       "Parent": 8860000000000013,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -503,7 +503,7 @@
     },
     {
       "Entity": 8860000000000017,
-      "Tag": "Chiroq 4",
+      "Tag": "Light 4",
       "Parent": 8860000000000013,
       "Transform": {
         "Translation": [1.1999999999999997, 0.0, 0.0],
@@ -537,7 +537,7 @@
     },
     {
       "Entity": 8860000000000018,
-      "Tag": "Chiroq 5",
+      "Tag": "Light 5",
       "Parent": 8860000000000013,
       "Transform": {
         "Translation": [2.4, 0.0, 0.0],
@@ -571,7 +571,7 @@
     },
     {
       "Entity": 8860000000000019,
-      "Tag": "Chiroqlar qutisi",
+      "Tag": "Light box",
       "Parent": 8860000000000009,
       "Transform": {
         "Translation": [0.0, 5.6, -0.25],
@@ -605,7 +605,7 @@
     },
     {
       "Entity": 8860000000000020,
-      "Tag": "Nazorat nuqtalari",
+      "Tag": "Checkpoints",
       "Parent": 8860000000000003,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -616,7 +616,7 @@
     },
     {
       "Entity": 8860000000000021,
-      "Tag": "Nuqta 1",
+      "Tag": "Checkpoint 1",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -627,7 +627,7 @@
     },
     {
       "Entity": 8860000000000022,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000021,
       "Transform": {
         "Translation": [-12.027927382357678, 1.3, -34.371056015976],
@@ -661,7 +661,7 @@
     },
     {
       "Entity": 8860000000000023,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000021,
       "Transform": {
         "Translation": [8.155655019676125, 1.3, -33.55680702438223],
@@ -695,7 +695,7 @@
     },
     {
       "Entity": 8860000000000024,
-      "Tag": "Nuqta 2",
+      "Tag": "Checkpoint 2",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -706,7 +706,7 @@
     },
     {
       "Entity": 8860000000000025,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000024,
       "Transform": {
         "Translation": [25.22796363949372, 1.3, -126.37097834503209],
@@ -740,7 +740,7 @@
     },
     {
       "Entity": 8860000000000026,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000024,
       "Transform": {
         "Translation": [35.08837820655212, 1.3, -108.7411109443469],
@@ -774,7 +774,7 @@
     },
     {
       "Entity": 8860000000000027,
-      "Tag": "Nuqta 3",
+      "Tag": "Checkpoint 3",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -785,7 +785,7 @@
     },
     {
       "Entity": 8860000000000028,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000027,
       "Transform": {
         "Translation": [123.52754499827849, 1.3, -114.3769703925037],
@@ -819,7 +819,7 @@
     },
     {
       "Entity": 8860000000000029,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000027,
       "Transform": {
         "Translation": [108.95325483233934, 1.3, -100.39018855539015],
@@ -853,7 +853,7 @@
     },
     {
       "Entity": 8860000000000030,
-      "Tag": "Nuqta 4",
+      "Tag": "Checkpoint 4",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -864,7 +864,7 @@
     },
     {
       "Entity": 8860000000000031,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000030,
       "Transform": {
         "Translation": [103.4835493201488, 1.3, -18.993923418221282],
@@ -898,7 +898,7 @@
     },
     {
       "Entity": 8860000000000032,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000030,
       "Transform": {
         "Translation": [94.71249876024146, 1.3, -37.190315150527695],
@@ -932,7 +932,7 @@
     },
     {
       "Entity": 8860000000000033,
-      "Tag": "Nuqta 5",
+      "Tag": "Checkpoint 5",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -943,7 +943,7 @@
     },
     {
       "Entity": 8860000000000034,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000033,
       "Transform": {
         "Translation": [104.64689450765407, 1.3, 38.068720205484546],
@@ -977,7 +977,7 @@
     },
     {
       "Entity": 8860000000000035,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000033,
       "Transform": {
         "Translation": [93.1511381021448, 1.3, 54.678584282748766],
@@ -1011,7 +1011,7 @@
     },
     {
       "Entity": 8860000000000036,
-      "Tag": "Nuqta 6",
+      "Tag": "Checkpoint 6",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1022,7 +1022,7 @@
     },
     {
       "Entity": 8860000000000037,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000036,
       "Transform": {
         "Translation": [143.68069930605606, 1.3, 120.3295537793309],
@@ -1056,7 +1056,7 @@
     },
     {
       "Entity": 8860000000000038,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000036,
       "Transform": {
         "Translation": [126.16917657513913, 1.3, 110.26046386789503],
@@ -1090,7 +1090,7 @@
     },
     {
       "Entity": 8860000000000039,
-      "Tag": "Nuqta 7",
+      "Tag": "Checkpoint 7",
       "Parent": 8860000000000020,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1101,7 +1101,7 @@
     },
     {
       "Entity": 8860000000000040,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000039,
       "Transform": {
         "Translation": [44.76705868724649, 1.3, 143.53868785745144],
@@ -1135,7 +1135,7 @@
     },
     {
       "Entity": 8860000000000041,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8860000000000039,
       "Transform": {
         "Translation": [52.07563965042195, 1.3, 124.7072077163497],
@@ -1169,7 +1169,7 @@
     },
     {
       "Entity": 8860000000000042,
-      "Tag": "Tribuna",
+      "Tag": "Grandstand",
       "Transform": {
         "Translation": [-20.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -1179,7 +1179,7 @@
     },
     {
       "Entity": 8860000000000043,
-      "Tag": "Pog'ona 1",
+      "Tag": "Tier 1",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 0.5, 0.0],
@@ -1213,7 +1213,7 @@
     },
     {
       "Entity": 8860000000000044,
-      "Tag": "Pog'ona 2",
+      "Tag": "Tier 2",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 1.4, 0.0],
@@ -1247,7 +1247,7 @@
     },
     {
       "Entity": 8860000000000045,
-      "Tag": "Pog'ona 3",
+      "Tag": "Tier 3",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 2.3, 0.0],
@@ -1281,7 +1281,7 @@
     },
     {
       "Entity": 8860000000000046,
-      "Tag": "Pog'ona 4",
+      "Tag": "Tier 4",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 3.2, 0.0],
@@ -1315,7 +1315,7 @@
     },
     {
       "Entity": 8860000000000047,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 25.080460194107545],
@@ -1349,7 +1349,7 @@
     },
     {
       "Entity": 8860000000000048,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -23.943567946617605],
@@ -1383,7 +1383,7 @@
     },
     {
       "Entity": 8860000000000049,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -7.521420652895209],
@@ -1417,7 +1417,7 @@
     },
     {
       "Entity": 8860000000000050,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -25.900243127248846],
@@ -1451,7 +1451,7 @@
     },
     {
       "Entity": 8860000000000051,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -24.08809627982134],
@@ -1485,7 +1485,7 @@
     },
     {
       "Entity": 8860000000000052,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -24.689811659576606],
@@ -1519,7 +1519,7 @@
     },
     {
       "Entity": 8860000000000053,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 25.0571832396193],
@@ -1553,7 +1553,7 @@
     },
     {
       "Entity": 8860000000000054,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 4.317765122579928],
@@ -1587,7 +1587,7 @@
     },
     {
       "Entity": 8860000000000055,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 26.67028591320352],
@@ -1621,7 +1621,7 @@
     },
     {
       "Entity": 8860000000000056,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -11.781879965426128],
@@ -1655,7 +1655,7 @@
     },
     {
       "Entity": 8860000000000057,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 3.971166620217126],
@@ -1689,7 +1689,7 @@
     },
     {
       "Entity": 8860000000000058,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -22.228880103158886],
@@ -1723,7 +1723,7 @@
     },
     {
       "Entity": 8860000000000059,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -7.145737607359052],
@@ -1757,7 +1757,7 @@
     },
     {
       "Entity": 8860000000000060,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 3.604624415469651],
@@ -1791,7 +1791,7 @@
     },
     {
       "Entity": 8860000000000061,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -0.20078827364445928],
@@ -1825,7 +1825,7 @@
     },
     {
       "Entity": 8860000000000062,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, 15.524811398925195],
@@ -1859,7 +1859,7 @@
     },
     {
       "Entity": 8860000000000063,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -7.751388067104287],
@@ -1893,7 +1893,7 @@
     },
     {
       "Entity": 8860000000000064,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, 11.14368828885599],
@@ -1927,7 +1927,7 @@
     },
     {
       "Entity": 8860000000000065,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 4.167727774485577],
@@ -1961,7 +1961,7 @@
     },
     {
       "Entity": 8860000000000066,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, 21.007699752112018],
@@ -1995,7 +1995,7 @@
     },
     {
       "Entity": 8860000000000067,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 6.101705066038605],
@@ -2029,7 +2029,7 @@
     },
     {
       "Entity": 8860000000000068,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 0.6682385162627504],
@@ -2063,7 +2063,7 @@
     },
     {
       "Entity": 8860000000000069,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -19.488866059011734],
@@ -2097,7 +2097,7 @@
     },
     {
       "Entity": 8860000000000070,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -25.804393605343492],
@@ -2131,7 +2131,7 @@
     },
     {
       "Entity": 8860000000000071,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -8.95314771729305],
@@ -2165,7 +2165,7 @@
     },
     {
       "Entity": 8860000000000072,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, 4.4741314398195655],
@@ -2199,7 +2199,7 @@
     },
     {
       "Entity": 8860000000000073,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 19.038195708702318],
@@ -2233,7 +2233,7 @@
     },
     {
       "Entity": 8860000000000074,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, 11.034355798307985],
@@ -2267,7 +2267,7 @@
     },
     {
       "Entity": 8860000000000075,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 12.944922739889861],
@@ -2301,7 +2301,7 @@
     },
     {
       "Entity": 8860000000000076,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -12.062650202727642],
@@ -2335,7 +2335,7 @@
     },
     {
       "Entity": 8860000000000077,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -26.73647602888704],
@@ -2369,7 +2369,7 @@
     },
     {
       "Entity": 8860000000000078,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -18.589290781233505],
@@ -2403,7 +2403,7 @@
     },
     {
       "Entity": 8860000000000079,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -24.69855251744662],
@@ -2437,7 +2437,7 @@
     },
     {
       "Entity": 8860000000000080,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, 13.34834925730847],
@@ -2471,7 +2471,7 @@
     },
     {
       "Entity": 8860000000000081,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, 23.34170866608344],
@@ -2505,7 +2505,7 @@
     },
     {
       "Entity": 8860000000000082,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -18.68348818157245],
@@ -2539,7 +2539,7 @@
     },
     {
       "Entity": 8860000000000083,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 21.469494280724696],
@@ -2573,7 +2573,7 @@
     },
     {
       "Entity": 8860000000000084,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 11.558215731804104],
@@ -2607,7 +2607,7 @@
     },
     {
       "Entity": 8860000000000085,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, 25.63294742198351],
@@ -2641,7 +2641,7 @@
     },
     {
       "Entity": 8860000000000086,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -18.131807204539264],
@@ -2675,7 +2675,7 @@
     },
     {
       "Entity": 8860000000000087,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -27.324468648747263],
@@ -2709,7 +2709,7 @@
     },
     {
       "Entity": 8860000000000088,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -13.286189319281876],
@@ -2743,7 +2743,7 @@
     },
     {
       "Entity": 8860000000000089,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -4.538995936981635],
@@ -2777,7 +2777,7 @@
     },
     {
       "Entity": 8860000000000090,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 25.373483829405338],
@@ -2811,7 +2811,7 @@
     },
     {
       "Entity": 8860000000000091,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -2.427951556639016],
@@ -2845,7 +2845,7 @@
     },
     {
       "Entity": 8860000000000092,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -5.708100688883555],
@@ -2879,7 +2879,7 @@
     },
     {
       "Entity": 8860000000000093,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -1.0347221827490962],
@@ -2913,7 +2913,7 @@
     },
     {
       "Entity": 8860000000000094,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -17.325865896258758],
@@ -2947,7 +2947,7 @@
     },
     {
       "Entity": 8860000000000095,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -18.911021484762546],
@@ -2981,7 +2981,7 @@
     },
     {
       "Entity": 8860000000000096,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -22.266742527387564],
@@ -3015,7 +3015,7 @@
     },
     {
       "Entity": 8860000000000097,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, 2.0506465262323914],
@@ -3049,7 +3049,7 @@
     },
     {
       "Entity": 8860000000000098,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -24.062327735404576],
@@ -3083,7 +3083,7 @@
     },
     {
       "Entity": 8860000000000099,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -19.681172821470078],
@@ -3117,7 +3117,7 @@
     },
     {
       "Entity": 8860000000000100,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 5.727634581872465],
@@ -3151,7 +3151,7 @@
     },
     {
       "Entity": 8860000000000101,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -21.540203097906208],
@@ -3185,7 +3185,7 @@
     },
     {
       "Entity": 8860000000000102,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-4.199999999999999, 6.550000000000001, -1.0978741415236826],
@@ -3219,7 +3219,7 @@
     },
     {
       "Entity": 8860000000000103,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -19.929420547764707],
@@ -3253,7 +3253,7 @@
     },
     {
       "Entity": 8860000000000104,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -1.197171163440494],
@@ -3287,7 +3287,7 @@
     },
     {
       "Entity": 8860000000000105,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, -16.50795962471372],
@@ -3321,7 +3321,7 @@
     },
     {
       "Entity": 8860000000000106,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -19.790257821650922],
@@ -3355,7 +3355,7 @@
     },
     {
       "Entity": 8860000000000107,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 14.456005734012486],
@@ -3389,7 +3389,7 @@
     },
     {
       "Entity": 8860000000000108,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [0.0, 1.15, 10.987020010836908],
@@ -3423,7 +3423,7 @@
     },
     {
       "Entity": 8860000000000109,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 22.862478445130243],
@@ -3457,7 +3457,7 @@
     },
     {
       "Entity": 8860000000000110,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, 1.8251742596012264],
@@ -3491,7 +3491,7 @@
     },
     {
       "Entity": 8860000000000111,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 7.640747819023829],
@@ -3525,7 +3525,7 @@
     },
     {
       "Entity": 8860000000000112,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, 17.140400747997383],
@@ -3559,7 +3559,7 @@
     },
     {
       "Entity": 8860000000000113,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-1.4, 2.95, -16.804592929871617],
@@ -3593,7 +3593,7 @@
     },
     {
       "Entity": 8860000000000114,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, 12.93622357862359],
@@ -3627,7 +3627,7 @@
     },
     {
       "Entity": 8860000000000115,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -1.554556500064102],
@@ -3661,7 +3661,7 @@
     },
     {
       "Entity": 8860000000000116,
-      "Tag": "Tomoshabin",
+      "Tag": "Spectator",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.8, 4.75, -2.9552500450634867],
@@ -3695,7 +3695,7 @@
     },
     {
       "Entity": 8860000000000117,
-      "Tag": "Soyabon",
+      "Tag": "Canopy",
       "Parent": 8860000000000042,
       "Transform": {
         "Translation": [-2.0, 7.2, 0.0],
@@ -3729,7 +3729,7 @@
     },
     {
       "Entity": 8860000000000118,
-      "Tag": "Tabiat",
+      "Tag": "Scenery",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3739,7 +3739,7 @@
     },
     {
       "Entity": 8860000000000119,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [206.50018939639995, 0.0, -50.49928700163491],
@@ -3750,7 +3750,7 @@
     },
     {
       "Entity": 8860000000000120,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000119,
       "Transform": {
         "Translation": [0.0, 1.2204623229962375, 0.0],
@@ -3784,7 +3784,7 @@
     },
     {
       "Entity": 8860000000000121,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000119,
       "Transform": {
         "Translation": [0.0, 3.0267465610306687, 0.0],
@@ -3818,7 +3818,7 @@
     },
     {
       "Entity": 8860000000000122,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-18.687991017133093, 0.0, 55.867222949505475],
@@ -3829,7 +3829,7 @@
     },
     {
       "Entity": 8860000000000123,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000122,
       "Transform": {
         "Translation": [0.0, 1.9003083378841144, 0.0],
@@ -3863,7 +3863,7 @@
     },
     {
       "Entity": 8860000000000124,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000122,
       "Transform": {
         "Translation": [0.0, 4.712764677952603, 0.0],
@@ -3897,7 +3897,7 @@
     },
     {
       "Entity": 8860000000000125,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-54.56645406488597, 0.0, 70.84011658400658],
@@ -3908,7 +3908,7 @@
     },
     {
       "Entity": 8860000000000126,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000125,
       "Transform": {
         "Translation": [0.0, 1.909777137551723, 0.0],
@@ -3942,7 +3942,7 @@
     },
     {
       "Entity": 8860000000000127,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000125,
       "Transform": {
         "Translation": [0.0, 4.736247301128273, 0.0],
@@ -3976,7 +3976,7 @@
     },
     {
       "Entity": 8860000000000128,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [156.74062930608292, 0.0, -63.667948055509925],
@@ -3987,7 +3987,7 @@
     },
     {
       "Entity": 8860000000000129,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000128,
       "Transform": {
         "Translation": [0.0, 1.800823568896691, 0.0],
@@ -4021,7 +4021,7 @@
     },
     {
       "Entity": 8860000000000130,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000128,
       "Transform": {
         "Translation": [0.0, 4.466042450863793, 0.0],
@@ -4055,7 +4055,7 @@
     },
     {
       "Entity": 8860000000000131,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [40.41604536031045, 0.0, 188.1867726506061],
@@ -4066,7 +4066,7 @@
     },
     {
       "Entity": 8860000000000132,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000131,
       "Transform": {
         "Translation": [0.0, 1.7247986656342151, 0.0],
@@ -4100,7 +4100,7 @@
     },
     {
       "Entity": 8860000000000133,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000131,
       "Transform": {
         "Translation": [0.0, 4.277500690772854, 0.0],
@@ -4134,7 +4134,7 @@
     },
     {
       "Entity": 8860000000000134,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-34.65478988555306, 0.0, 170.98935925062813],
@@ -4145,7 +4145,7 @@
     },
     {
       "Entity": 8860000000000135,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000134,
       "Transform": {
         "Translation": [0.0, 1.8065019820321961, 0.0],
@@ -4179,7 +4179,7 @@
     },
     {
       "Entity": 8860000000000136,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000134,
       "Transform": {
         "Translation": [0.0, 4.480124915439847, 0.0],
@@ -4213,7 +4213,7 @@
     },
     {
       "Entity": 8860000000000137,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [214.09178303410914, 0.0, 69.48000002176815],
@@ -4224,7 +4224,7 @@
     },
     {
       "Entity": 8860000000000138,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000137,
       "Transform": {
         "Translation": [0.0, 1.3504075121575028, 0.0],
@@ -4258,7 +4258,7 @@
     },
     {
       "Entity": 8860000000000139,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000137,
       "Transform": {
         "Translation": [0.0, 3.3490106301506066, 0.0],
@@ -4292,7 +4292,7 @@
     },
     {
       "Entity": 8860000000000140,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-75.72711855316834, 0.0, 198.0649726674834],
@@ -4303,7 +4303,7 @@
     },
     {
       "Entity": 8860000000000141,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000140,
       "Transform": {
         "Translation": [0.0, 1.6496746696738307, 0.0],
@@ -4337,7 +4337,7 @@
     },
     {
       "Entity": 8860000000000142,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000140,
       "Transform": {
         "Translation": [0.0, 4.0911931807911, 0.0],
@@ -4371,7 +4371,7 @@
     },
     {
       "Entity": 8860000000000143,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [50.14283102724568, 0.0, 157.41460047565567],
@@ -4382,7 +4382,7 @@
     },
     {
       "Entity": 8860000000000144,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000143,
       "Transform": {
         "Translation": [0.0, 1.826155251815221, 0.0],
@@ -4416,7 +4416,7 @@
     },
     {
       "Entity": 8860000000000145,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000143,
       "Transform": {
         "Translation": [0.0, 4.528865024501748, 0.0],
@@ -4450,7 +4450,7 @@
     },
     {
       "Entity": 8860000000000146,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [95.9311504497885, 0.0, -93.66043393921383],
@@ -4461,7 +4461,7 @@
     },
     {
       "Entity": 8860000000000147,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000146,
       "Transform": {
         "Translation": [0.0, 1.4190125527545436, 0.0],
@@ -4495,7 +4495,7 @@
     },
     {
       "Entity": 8860000000000148,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000146,
       "Transform": {
         "Translation": [0.0, 3.5191511308312684, 0.0],
@@ -4529,7 +4529,7 @@
     },
     {
       "Entity": 8860000000000149,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [26.135207185977677, 0.0, -12.153995546589215],
@@ -4540,7 +4540,7 @@
     },
     {
       "Entity": 8860000000000150,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000149,
       "Transform": {
         "Translation": [0.0, 1.58334877204185, 0.0],
@@ -4574,7 +4574,7 @@
     },
     {
       "Entity": 8860000000000151,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000149,
       "Transform": {
         "Translation": [0.0, 3.926704954663788, 0.0],
@@ -4608,7 +4608,7 @@
     },
     {
       "Entity": 8860000000000152,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [195.31632530279927, 0.0, 5.6760658592949085],
@@ -4619,7 +4619,7 @@
     },
     {
       "Entity": 8860000000000153,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000152,
       "Transform": {
         "Translation": [0.0, 1.531824962435934, 0.0],
@@ -4653,7 +4653,7 @@
     },
     {
       "Entity": 8860000000000154,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000152,
       "Transform": {
         "Translation": [0.0, 3.798925906841116, 0.0],
@@ -4687,7 +4687,7 @@
     },
     {
       "Entity": 8860000000000155,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-78.8202554523074, 0.0, 127.65988470181088],
@@ -4698,7 +4698,7 @@
     },
     {
       "Entity": 8860000000000156,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000155,
       "Transform": {
         "Translation": [0.0, 1.1723467122134488, 0.0],
@@ -4732,7 +4732,7 @@
     },
     {
       "Entity": 8860000000000157,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000155,
       "Transform": {
         "Translation": [0.0, 2.907419846289353, 0.0],
@@ -4766,7 +4766,7 @@
     },
     {
       "Entity": 8860000000000158,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [86.94268747066397, 0.0, -66.34731806996572],
@@ -4777,7 +4777,7 @@
     },
     {
       "Entity": 8860000000000159,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000158,
       "Transform": {
         "Translation": [0.0, 1.5183487127030368, 0.0],
@@ -4811,7 +4811,7 @@
     },
     {
       "Entity": 8860000000000160,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000158,
       "Transform": {
         "Translation": [0.0, 3.765504807503531, 0.0],
@@ -4845,7 +4845,7 @@
     },
     {
       "Entity": 8860000000000161,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-48.16717486852151, 0.0, 29.72141476942042],
@@ -4856,7 +4856,7 @@
     },
     {
       "Entity": 8860000000000162,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000161,
       "Transform": {
         "Translation": [0.0, 1.2484943210430899, 0.0],
@@ -4890,7 +4890,7 @@
     },
     {
       "Entity": 8860000000000163,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000161,
       "Transform": {
         "Translation": [0.0, 3.096265916186863, 0.0],
@@ -4924,7 +4924,7 @@
     },
     {
       "Entity": 8860000000000164,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [147.997942777005, 0.0, 174.1200948952229],
@@ -4935,7 +4935,7 @@
     },
     {
       "Entity": 8860000000000165,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000164,
       "Transform": {
         "Translation": [0.0, 1.4432483935774387, 0.0],
@@ -4969,7 +4969,7 @@
     },
     {
       "Entity": 8860000000000166,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000164,
       "Transform": {
         "Translation": [0.0, 3.579256016072048, 0.0],
@@ -5003,7 +5003,7 @@
     },
     {
       "Entity": 8860000000000167,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [73.6484417305958, 0.0, 84.01971104477394],
@@ -5014,7 +5014,7 @@
     },
     {
       "Entity": 8860000000000168,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000167,
       "Transform": {
         "Translation": [0.0, 1.4523457922649097, 0.0],
@@ -5048,7 +5048,7 @@
     },
     {
       "Entity": 8860000000000169,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000167,
       "Transform": {
         "Translation": [0.0, 3.601817564816976, 0.0],
@@ -5082,7 +5082,7 @@
     },
     {
       "Entity": 8860000000000170,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [202.4503382615502, 0.0, 86.67933169391716],
@@ -5093,7 +5093,7 @@
     },
     {
       "Entity": 8860000000000171,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000170,
       "Transform": {
         "Translation": [0.0, 1.8765354817805933, 0.0],
@@ -5127,7 +5127,7 @@
     },
     {
       "Entity": 8860000000000172,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000170,
       "Transform": {
         "Translation": [0.0, 4.653807994815871, 0.0],
@@ -5161,7 +5161,7 @@
     },
     {
       "Entity": 8860000000000173,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [87.85414194931445, 0.0, 186.73948394552832],
@@ -5172,7 +5172,7 @@
     },
     {
       "Entity": 8860000000000174,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000173,
       "Transform": {
         "Translation": [0.0, 1.8399997833932058, 0.0],
@@ -5206,7 +5206,7 @@
     },
     {
       "Entity": 8860000000000175,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000173,
       "Transform": {
         "Translation": [0.0, 4.563199462815151, 0.0],
@@ -5240,7 +5240,7 @@
     },
     {
       "Entity": 8860000000000176,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [52.63542648251308, 0.0, -170.2560991408398],
@@ -5251,7 +5251,7 @@
     },
     {
       "Entity": 8860000000000177,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000176,
       "Transform": {
         "Translation": [0.0, 1.2406387584532699, 0.0],
@@ -5285,7 +5285,7 @@
     },
     {
       "Entity": 8860000000000178,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000176,
       "Transform": {
         "Translation": [0.0, 3.0767841209641094, 0.0],
@@ -5319,7 +5319,7 @@
     },
     {
       "Entity": 8860000000000179,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [155.18080515194657, 0.0, 167.7808374802944],
@@ -5330,7 +5330,7 @@
     },
     {
       "Entity": 8860000000000180,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000179,
       "Transform": {
         "Translation": [0.0, 1.1544466237686921, 0.0],
@@ -5364,7 +5364,7 @@
     },
     {
       "Entity": 8860000000000181,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000179,
       "Transform": {
         "Translation": [0.0, 2.8630276269463564, 0.0],
@@ -5398,7 +5398,7 @@
     },
     {
       "Entity": 8860000000000182,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-37.106300622728845, 0.0, 161.96146179940092],
@@ -5409,7 +5409,7 @@
     },
     {
       "Entity": 8860000000000183,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000182,
       "Transform": {
         "Translation": [0.0, 1.9675447826663839, 0.0],
@@ -5443,7 +5443,7 @@
     },
     {
       "Entity": 8860000000000184,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000182,
       "Transform": {
         "Translation": [0.0, 4.879511061012632, 0.0],
@@ -5477,7 +5477,7 @@
     },
     {
       "Entity": 8860000000000185,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [39.477062415181564, 0.0, -0.22308225373913615],
@@ -5488,7 +5488,7 @@
     },
     {
       "Entity": 8860000000000186,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000185,
       "Transform": {
         "Translation": [0.0, 1.9898714547442866, 0.0],
@@ -5522,7 +5522,7 @@
     },
     {
       "Entity": 8860000000000187,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000185,
       "Transform": {
         "Translation": [0.0, 4.934881207765831, 0.0],
@@ -5556,7 +5556,7 @@
     },
     {
       "Entity": 8860000000000188,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [49.456545399291656, 0.0, 11.398073699787204],
@@ -5567,7 +5567,7 @@
     },
     {
       "Entity": 8860000000000189,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000188,
       "Transform": {
         "Translation": [0.0, 1.3391161443388198, 0.0],
@@ -5601,7 +5601,7 @@
     },
     {
       "Entity": 8860000000000190,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000188,
       "Transform": {
         "Translation": [0.0, 3.321008037960273, 0.0],
@@ -5635,7 +5635,7 @@
     },
     {
       "Entity": 8860000000000191,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [136.6452505423557, 0.0, -192.0119994985188],
@@ -5646,7 +5646,7 @@
     },
     {
       "Entity": 8860000000000192,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000191,
       "Transform": {
         "Translation": [0.0, 1.554050247808328, 0.0],
@@ -5680,7 +5680,7 @@
     },
     {
       "Entity": 8860000000000193,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000191,
       "Transform": {
         "Translation": [0.0, 3.8540446145646534, 0.0],
@@ -5714,7 +5714,7 @@
     },
     {
       "Entity": 8860000000000194,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [19.449366742597192, 0.0, 55.81010029566423],
@@ -5725,7 +5725,7 @@
     },
     {
       "Entity": 8860000000000195,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000194,
       "Transform": {
         "Translation": [0.0, 1.5122622844634557, 0.0],
@@ -5759,7 +5759,7 @@
     },
     {
       "Entity": 8860000000000196,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000194,
       "Transform": {
         "Translation": [0.0, 3.75041046546937, 0.0],
@@ -5793,7 +5793,7 @@
     },
     {
       "Entity": 8860000000000197,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [156.50891682927426, 0.0, 198.39534304530042],
@@ -5804,7 +5804,7 @@
     },
     {
       "Entity": 8860000000000198,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000197,
       "Transform": {
         "Translation": [0.0, 1.1047795942728316, 0.0],
@@ -5838,7 +5838,7 @@
     },
     {
       "Entity": 8860000000000199,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000197,
       "Transform": {
         "Translation": [0.0, 2.739853393796622, 0.0],
@@ -5872,7 +5872,7 @@
     },
     {
       "Entity": 8860000000000200,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [153.69922902036768, 0.0, -89.11710001626327],
@@ -5883,7 +5883,7 @@
     },
     {
       "Entity": 8860000000000201,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000200,
       "Transform": {
         "Translation": [0.0, 1.1295555593056772, 0.0],
@@ -5917,7 +5917,7 @@
     },
     {
       "Entity": 8860000000000202,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000200,
       "Transform": {
         "Translation": [0.0, 2.8012977870780795, 0.0],
@@ -5951,7 +5951,7 @@
     },
     {
       "Entity": 8860000000000203,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [165.6936939343845, 0.0, -93.9703039345249],
@@ -5962,7 +5962,7 @@
     },
     {
       "Entity": 8860000000000204,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000203,
       "Transform": {
         "Translation": [0.0, 1.149367947404078, 0.0],
@@ -5996,7 +5996,7 @@
     },
     {
       "Entity": 8860000000000205,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000203,
       "Transform": {
         "Translation": [0.0, 2.8504325095621135, 0.0],
@@ -6030,7 +6030,7 @@
     },
     {
       "Entity": 8860000000000206,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [130.12523396398535, 0.0, -163.32049478280885],
@@ -6041,7 +6041,7 @@
     },
     {
       "Entity": 8860000000000207,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000206,
       "Transform": {
         "Translation": [0.0, 1.0575265124409463, 0.0],
@@ -6075,7 +6075,7 @@
     },
     {
       "Entity": 8860000000000208,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000206,
       "Transform": {
         "Translation": [0.0, 2.622665750853547, 0.0],
@@ -6109,7 +6109,7 @@
     },
     {
       "Entity": 8860000000000209,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-58.275771583042854, 0.0, 184.72338070646674],
@@ -6120,7 +6120,7 @@
     },
     {
       "Entity": 8860000000000210,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000209,
       "Transform": {
         "Translation": [0.0, 1.6344395062965595, 0.0],
@@ -6154,7 +6154,7 @@
     },
     {
       "Entity": 8860000000000211,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000209,
       "Transform": {
         "Translation": [0.0, 4.053409975615468, 0.0],
@@ -6188,7 +6188,7 @@
     },
     {
       "Entity": 8860000000000212,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [176.86859091164467, 0.0, -172.6847607014708],
@@ -6199,7 +6199,7 @@
     },
     {
       "Entity": 8860000000000213,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000212,
       "Transform": {
         "Translation": [0.0, 1.8627749690538462, 0.0],
@@ -6233,7 +6233,7 @@
     },
     {
       "Entity": 8860000000000214,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000212,
       "Transform": {
         "Translation": [0.0, 4.619681923253538, 0.0],
@@ -6267,7 +6267,7 @@
     },
     {
       "Entity": 8860000000000215,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [85.91923553741051, 0.0, 179.93440646920317],
@@ -6278,7 +6278,7 @@
     },
     {
       "Entity": 8860000000000216,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000215,
       "Transform": {
         "Translation": [0.0, 1.2678597466774542, 0.0],
@@ -6312,7 +6312,7 @@
     },
     {
       "Entity": 8860000000000217,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000215,
       "Transform": {
         "Translation": [0.0, 3.1442921717600862, 0.0],
@@ -6346,7 +6346,7 @@
     },
     {
       "Entity": 8860000000000218,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-8.469149161593819, 0.0, -155.12489931749363],
@@ -6357,7 +6357,7 @@
     },
     {
       "Entity": 8860000000000219,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000218,
       "Transform": {
         "Translation": [0.0, 1.1614490915976114, 0.0],
@@ -6391,7 +6391,7 @@
     },
     {
       "Entity": 8860000000000220,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000218,
       "Transform": {
         "Translation": [0.0, 2.8803937471620764, 0.0],
@@ -6425,7 +6425,7 @@
     },
     {
       "Entity": 8860000000000221,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [147.84947649956837, 0.0, -81.11605776301315],
@@ -6436,7 +6436,7 @@
     },
     {
       "Entity": 8860000000000222,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000221,
       "Transform": {
         "Translation": [0.0, 1.5000885998618394, 0.0],
@@ -6470,7 +6470,7 @@
     },
     {
       "Entity": 8860000000000223,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000221,
       "Transform": {
         "Translation": [0.0, 3.7202197276573616, 0.0],
@@ -6504,7 +6504,7 @@
     },
     {
       "Entity": 8860000000000224,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-74.55106781162549, 0.0, -97.31600995995674],
@@ -6515,7 +6515,7 @@
     },
     {
       "Entity": 8860000000000225,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000224,
       "Transform": {
         "Translation": [0.0, 1.0153461174550196, 0.0],
@@ -6549,7 +6549,7 @@
     },
     {
       "Entity": 8860000000000226,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000224,
       "Transform": {
         "Translation": [0.0, 2.5180583712884483, 0.0],
@@ -6583,7 +6583,7 @@
     },
     {
       "Entity": 8860000000000227,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [200.39285193470613, 0.0, -156.4246485388925],
@@ -6594,7 +6594,7 @@
     },
     {
       "Entity": 8860000000000228,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000227,
       "Transform": {
         "Translation": [0.0, 1.818920140341714, 0.0],
@@ -6628,7 +6628,7 @@
     },
     {
       "Entity": 8860000000000229,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000227,
       "Transform": {
         "Translation": [0.0, 4.51092194804745, 0.0],
@@ -6662,7 +6662,7 @@
     },
     {
       "Entity": 8860000000000230,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [170.38417999906682, 0.0, -38.834709019749766],
@@ -6673,7 +6673,7 @@
     },
     {
       "Entity": 8860000000000231,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000230,
       "Transform": {
         "Translation": [0.0, 1.5066859521551657, 0.0],
@@ -6707,7 +6707,7 @@
     },
     {
       "Entity": 8860000000000232,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000230,
       "Transform": {
         "Translation": [0.0, 3.736581161344811, 0.0],
@@ -6741,7 +6741,7 @@
     },
     {
       "Entity": 8860000000000233,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [22.811387625242347, 0.0, 141.23748273842432],
@@ -6752,7 +6752,7 @@
     },
     {
       "Entity": 8860000000000234,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000233,
       "Transform": {
         "Translation": [0.0, 1.7067254016462279, 0.0],
@@ -6786,7 +6786,7 @@
     },
     {
       "Entity": 8860000000000235,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000233,
       "Transform": {
         "Translation": [0.0, 4.232678996082645, 0.0],
@@ -6820,7 +6820,7 @@
     },
     {
       "Entity": 8860000000000236,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [24.26565404656961, 0.0, -177.70069991674114],
@@ -6831,7 +6831,7 @@
     },
     {
       "Entity": 8860000000000237,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000236,
       "Transform": {
         "Translation": [0.0, 1.1298185811508827, 0.0],
@@ -6865,7 +6865,7 @@
     },
     {
       "Entity": 8860000000000238,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000236,
       "Transform": {
         "Translation": [0.0, 2.8019500812541893, 0.0],
@@ -6899,7 +6899,7 @@
     },
     {
       "Entity": 8860000000000239,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-3.321836969090924, 0.0, -133.06892668668593],
@@ -6910,7 +6910,7 @@
     },
     {
       "Entity": 8860000000000240,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000239,
       "Transform": {
         "Translation": [0.0, 1.0844848727079306, 0.0],
@@ -6944,7 +6944,7 @@
     },
     {
       "Entity": 8860000000000241,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000239,
       "Transform": {
         "Translation": [0.0, 2.6895224843156678, 0.0],
@@ -6978,7 +6978,7 @@
     },
     {
       "Entity": 8860000000000242,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [53.74738247012209, 0.0, -92.07034253107048],
@@ -6989,7 +6989,7 @@
     },
     {
       "Entity": 8860000000000243,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000242,
       "Transform": {
         "Translation": [0.0, 1.9617865333626132, 0.0],
@@ -7023,7 +7023,7 @@
     },
     {
       "Entity": 8860000000000244,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000242,
       "Transform": {
         "Translation": [0.0, 4.865230602739281, 0.0],
@@ -7057,7 +7057,7 @@
     },
     {
       "Entity": 8860000000000245,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-6.666051817431935, 0.0, 195.9233757241019],
@@ -7068,7 +7068,7 @@
     },
     {
       "Entity": 8860000000000246,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000245,
       "Transform": {
         "Translation": [0.0, 1.3095479176779528, 0.0],
@@ -7102,7 +7102,7 @@
     },
     {
       "Entity": 8860000000000247,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000245,
       "Transform": {
         "Translation": [0.0, 3.247678835841323, 0.0],
@@ -7136,7 +7136,7 @@
     },
     {
       "Entity": 8860000000000248,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [34.48798198377466, 0.0, -5.396112767153738],
@@ -7147,7 +7147,7 @@
     },
     {
       "Entity": 8860000000000249,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000248,
       "Transform": {
         "Translation": [0.0, 1.5027640063763996, 0.0],
@@ -7181,7 +7181,7 @@
     },
     {
       "Entity": 8860000000000250,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000248,
       "Transform": {
         "Translation": [0.0, 3.726854735813471, 0.0],
@@ -7215,7 +7215,7 @@
     },
     {
       "Entity": 8860000000000251,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-78.514840548817, 0.0, -91.6908388213206],
@@ -7226,7 +7226,7 @@
     },
     {
       "Entity": 8860000000000252,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000251,
       "Transform": {
         "Translation": [0.0, 1.08975339788098, 0.0],
@@ -7260,7 +7260,7 @@
     },
     {
       "Entity": 8860000000000253,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000251,
       "Transform": {
         "Translation": [0.0, 2.70258842674483, 0.0],
@@ -7294,7 +7294,7 @@
     },
     {
       "Entity": 8860000000000254,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-73.25175590892275, 0.0, -75.25973030802125],
@@ -7305,7 +7305,7 @@
     },
     {
       "Entity": 8860000000000255,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000254,
       "Transform": {
         "Translation": [0.0, 1.232809566590806, 0.0],
@@ -7339,7 +7339,7 @@
     },
     {
       "Entity": 8860000000000256,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000254,
       "Transform": {
         "Translation": [0.0, 3.057367725145199, 0.0],
@@ -7373,7 +7373,7 @@
     },
     {
       "Entity": 8860000000000257,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [134.79803200969343, 0.0, 160.42718436262987],
@@ -7384,7 +7384,7 @@
     },
     {
       "Entity": 8860000000000258,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000257,
       "Transform": {
         "Translation": [0.0, 1.38951647106045, 0.0],
@@ -7418,7 +7418,7 @@
     },
     {
       "Entity": 8860000000000259,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000257,
       "Transform": {
         "Translation": [0.0, 3.446000848229916, 0.0],
@@ -7452,7 +7452,7 @@
     },
     {
       "Entity": 8860000000000260,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-35.1610552873241, 0.0, 96.90386707834853],
@@ -7463,7 +7463,7 @@
     },
     {
       "Entity": 8860000000000261,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000260,
       "Transform": {
         "Translation": [0.0, 1.6432194497045294, 0.0],
@@ -7497,7 +7497,7 @@
     },
     {
       "Entity": 8860000000000262,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000260,
       "Transform": {
         "Translation": [0.0, 4.0751842352672325, 0.0],
@@ -7531,7 +7531,7 @@
     },
     {
       "Entity": 8860000000000263,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [187.58270676355335, 0.0, 57.20617097608988],
@@ -7542,7 +7542,7 @@
     },
     {
       "Entity": 8860000000000264,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000263,
       "Transform": {
         "Translation": [0.0, 1.7338521234769617, 0.0],
@@ -7576,7 +7576,7 @@
     },
     {
       "Entity": 8860000000000265,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000263,
       "Transform": {
         "Translation": [0.0, 4.2999532662228654, 0.0],
@@ -7610,7 +7610,7 @@
     },
     {
       "Entity": 8860000000000266,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [170.4812780311079, 0.0, 129.917818356996],
@@ -7621,7 +7621,7 @@
     },
     {
       "Entity": 8860000000000267,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000266,
       "Transform": {
         "Translation": [0.0, 1.8264091215019802, 0.0],
@@ -7655,7 +7655,7 @@
     },
     {
       "Entity": 8860000000000268,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000266,
       "Transform": {
         "Translation": [0.0, 4.529494621324911, 0.0],
@@ -7689,7 +7689,7 @@
     },
     {
       "Entity": 8860000000000269,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [124.86861085015019, 0.0, 84.26371547270429],
@@ -7700,7 +7700,7 @@
     },
     {
       "Entity": 8860000000000270,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000269,
       "Transform": {
         "Translation": [0.0, 1.229940720536498, 0.0],
@@ -7734,7 +7734,7 @@
     },
     {
       "Entity": 8860000000000271,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000269,
       "Transform": {
         "Translation": [0.0, 3.050252986930515, 0.0],
@@ -7768,7 +7768,7 @@
     },
     {
       "Entity": 8860000000000272,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [28.21224293004586, 0.0, -156.9842468618342],
@@ -7779,7 +7779,7 @@
     },
     {
       "Entity": 8860000000000273,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000272,
       "Transform": {
         "Translation": [0.0, 1.835821199799971, 0.0],
@@ -7813,7 +7813,7 @@
     },
     {
       "Entity": 8860000000000274,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000272,
       "Transform": {
         "Translation": [0.0, 4.552836575503928, 0.0],
@@ -7847,7 +7847,7 @@
     },
     {
       "Entity": 8860000000000275,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [107.86793767983579, 0.0, 79.07231219313644],
@@ -7858,7 +7858,7 @@
     },
     {
       "Entity": 8860000000000276,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000275,
       "Transform": {
         "Translation": [0.0, 1.4892943148597544, 0.0],
@@ -7892,7 +7892,7 @@
     },
     {
       "Entity": 8860000000000277,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000275,
       "Transform": {
         "Translation": [0.0, 3.693449900852191, 0.0],
@@ -7926,7 +7926,7 @@
     },
     {
       "Entity": 8860000000000278,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [144.47961106711173, 0.0, 6.218131468606032],
@@ -7937,7 +7937,7 @@
     },
     {
       "Entity": 8860000000000279,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000278,
       "Transform": {
         "Translation": [0.0, 1.535199814229771, 0.0],
@@ -7971,7 +7971,7 @@
     },
     {
       "Entity": 8860000000000280,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000278,
       "Transform": {
         "Translation": [0.0, 3.8072955392898318, 0.0],
@@ -8005,7 +8005,7 @@
     },
     {
       "Entity": 8860000000000281,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [141.03649856267515, 0.0, -96.60065210029707],
@@ -8016,7 +8016,7 @@
     },
     {
       "Entity": 8860000000000282,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000281,
       "Transform": {
         "Translation": [0.0, 1.0744499999741735, 0.0],
@@ -8050,7 +8050,7 @@
     },
     {
       "Entity": 8860000000000283,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000281,
       "Transform": {
         "Translation": [0.0, 2.66463599993595, 0.0],
@@ -8084,7 +8084,7 @@
     },
     {
       "Entity": 8860000000000284,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-18.434741875374044, 0.0, 103.32972248250417],
@@ -8095,7 +8095,7 @@
     },
     {
       "Entity": 8860000000000285,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000284,
       "Transform": {
         "Translation": [0.0, 1.9757350941027705, 0.0],
@@ -8129,7 +8129,7 @@
     },
     {
       "Entity": 8860000000000286,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000284,
       "Transform": {
         "Translation": [0.0, 4.8998230333748705, 0.0],
@@ -8163,7 +8163,7 @@
     },
     {
       "Entity": 8860000000000287,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [63.7030492211878, 0.0, 80.31559070796408],
@@ -8174,7 +8174,7 @@
     },
     {
       "Entity": 8860000000000288,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000287,
       "Transform": {
         "Translation": [0.0, 1.7669701058175227, 0.0],
@@ -8208,7 +8208,7 @@
     },
     {
       "Entity": 8860000000000289,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000287,
       "Transform": {
         "Translation": [0.0, 4.382085862427457, 0.0],
@@ -8242,7 +8242,7 @@
     },
     {
       "Entity": 8860000000000290,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-56.758454144659794, 0.0, -139.55572012046795],
@@ -8253,7 +8253,7 @@
     },
     {
       "Entity": 8860000000000291,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000290,
       "Transform": {
         "Translation": [0.0, 1.2539402816558953, 0.0],
@@ -8287,7 +8287,7 @@
     },
     {
       "Entity": 8860000000000292,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000290,
       "Transform": {
         "Translation": [0.0, 3.1097718985066205, 0.0],
@@ -8321,7 +8321,7 @@
     },
     {
       "Entity": 8860000000000293,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [90.32850936079248, 0.0, -194.88762253677484],
@@ -8332,7 +8332,7 @@
     },
     {
       "Entity": 8860000000000294,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000293,
       "Transform": {
         "Translation": [0.0, 1.0606610140636419, 0.0],
@@ -8366,7 +8366,7 @@
     },
     {
       "Entity": 8860000000000295,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000293,
       "Transform": {
         "Translation": [0.0, 2.630439314877832, 0.0],
@@ -8400,7 +8400,7 @@
     },
     {
       "Entity": 8860000000000296,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [59.39885601229432, 0.0, -8.800946738275883],
@@ -8411,7 +8411,7 @@
     },
     {
       "Entity": 8860000000000297,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000296,
       "Transform": {
         "Translation": [0.0, 1.1185028627015678, 0.0],
@@ -8445,7 +8445,7 @@
     },
     {
       "Entity": 8860000000000298,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000296,
       "Transform": {
         "Translation": [0.0, 2.773887099499888, 0.0],
@@ -8479,7 +8479,7 @@
     },
     {
       "Entity": 8860000000000299,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [213.43772102710807, 0.0, 183.8642797910237],
@@ -8490,7 +8490,7 @@
     },
     {
       "Entity": 8860000000000300,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000299,
       "Transform": {
         "Translation": [0.0, 1.0175044558166628, 0.0],
@@ -8524,7 +8524,7 @@
     },
     {
       "Entity": 8860000000000301,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000299,
       "Transform": {
         "Translation": [0.0, 2.5234110504253238, 0.0],
@@ -8558,7 +8558,7 @@
     },
     {
       "Entity": 8860000000000302,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [210.43247549520987, 0.0, -15.725102443050957],
@@ -8569,7 +8569,7 @@
     },
     {
       "Entity": 8860000000000303,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000302,
       "Transform": {
         "Translation": [0.0, 1.2686572401735807, 0.0],
@@ -8603,7 +8603,7 @@
     },
     {
       "Entity": 8860000000000304,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000302,
       "Transform": {
         "Translation": [0.0, 3.1462699556304803, 0.0],
@@ -8637,7 +8637,7 @@
     },
     {
       "Entity": 8860000000000305,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-16.787360739828223, 0.0, 38.403670765640356],
@@ -8648,7 +8648,7 @@
     },
     {
       "Entity": 8860000000000306,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000305,
       "Transform": {
         "Translation": [0.0, 1.1417406778595312, 0.0],
@@ -8682,7 +8682,7 @@
     },
     {
       "Entity": 8860000000000307,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000305,
       "Transform": {
         "Translation": [0.0, 2.831516881091637, 0.0],
@@ -8716,7 +8716,7 @@
     },
     {
       "Entity": 8860000000000308,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-40.21847813569218, 0.0, 136.28897435206147],
@@ -8727,7 +8727,7 @@
     },
     {
       "Entity": 8860000000000309,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000308,
       "Transform": {
         "Translation": [0.0, 1.508744353648781, 0.0],
@@ -8761,7 +8761,7 @@
     },
     {
       "Entity": 8860000000000310,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000308,
       "Transform": {
         "Translation": [0.0, 3.741685997048977, 0.0],
@@ -8795,7 +8795,7 @@
     },
     {
       "Entity": 8860000000000311,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-10.584919084859024, 0.0, 168.05933519616383],
@@ -8806,7 +8806,7 @@
     },
     {
       "Entity": 8860000000000312,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000311,
       "Transform": {
         "Translation": [0.0, 1.4861406564271489, 0.0],
@@ -8840,7 +8840,7 @@
     },
     {
       "Entity": 8860000000000313,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000311,
       "Transform": {
         "Translation": [0.0, 3.685628827939329, 0.0],
@@ -8874,7 +8874,7 @@
     },
     {
       "Entity": 8860000000000314,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [10.585312382540323, 0.0, -142.3100396943518],
@@ -8885,7 +8885,7 @@
     },
     {
       "Entity": 8860000000000315,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000314,
       "Transform": {
         "Translation": [0.0, 1.3439601464279454, 0.0],
@@ -8919,7 +8919,7 @@
     },
     {
       "Entity": 8860000000000316,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000314,
       "Transform": {
         "Translation": [0.0, 3.3330211631413045, 0.0],
@@ -8953,7 +8953,7 @@
     },
     {
       "Entity": 8860000000000317,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-79.47758542474901, 0.0, 107.80095688023994],
@@ -8964,7 +8964,7 @@
     },
     {
       "Entity": 8860000000000318,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000317,
       "Transform": {
         "Translation": [0.0, 1.839110794650462, 0.0],
@@ -8998,7 +8998,7 @@
     },
     {
       "Entity": 8860000000000319,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000317,
       "Transform": {
         "Translation": [0.0, 4.560994770733146, 0.0],
@@ -9032,7 +9032,7 @@
     },
     {
       "Entity": 8860000000000320,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [133.90706973907712, 0.0, 169.64229087056373],
@@ -9043,7 +9043,7 @@
     },
     {
       "Entity": 8860000000000321,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000320,
       "Transform": {
         "Translation": [0.0, 1.2898329589755253, 0.0],
@@ -9077,7 +9077,7 @@
     },
     {
       "Entity": 8860000000000322,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000320,
       "Transform": {
         "Translation": [0.0, 3.1987857382593026, 0.0],
@@ -9111,7 +9111,7 @@
     },
     {
       "Entity": 8860000000000323,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [219.6377517356841, 0.0, 41.56242870781034],
@@ -9122,7 +9122,7 @@
     },
     {
       "Entity": 8860000000000324,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000323,
       "Transform": {
         "Translation": [0.0, 1.3607093239234052, 0.0],
@@ -9156,7 +9156,7 @@
     },
     {
       "Entity": 8860000000000325,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000323,
       "Transform": {
         "Translation": [0.0, 3.374559123330045, 0.0],
@@ -9190,7 +9190,7 @@
     },
     {
       "Entity": 8860000000000326,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-65.51957097507038, 0.0, -158.2989582332732],
@@ -9201,7 +9201,7 @@
     },
     {
       "Entity": 8860000000000327,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8860000000000326,
       "Transform": {
         "Translation": [0.0, 1.8346759949771925, 0.0],
@@ -9235,7 +9235,7 @@
     },
     {
       "Entity": 8860000000000328,
-      "Tag": "Barglar",
+      "Tag": "Foliage",
       "Parent": 8860000000000326,
       "Transform": {
         "Translation": [0.0, 4.549996467543437, 0.0],
@@ -9269,7 +9269,7 @@
     },
     {
       "Entity": 8860000000000329,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [516.0116833369987, 58.89466756106651, -17.379574715638558],
@@ -9304,7 +9304,7 @@
     },
     {
       "Entity": 8860000000000330,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000329,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9338,7 +9338,7 @@
     },
     {
       "Entity": 8860000000000331,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [493.5528363960241, 74.92194953112985, 177.50574369671963],
@@ -9373,7 +9373,7 @@
     },
     {
       "Entity": 8860000000000332,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000331,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9407,7 +9407,7 @@
     },
     {
       "Entity": 8860000000000333,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [351.48292838910277, 63.21224893928692, 419.68665125731127],
@@ -9442,7 +9442,7 @@
     },
     {
       "Entity": 8860000000000334,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000333,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9476,7 +9476,7 @@
     },
     {
       "Entity": 8860000000000335,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [142.6076634782414, 60.2722133347667, 513.9165157111561],
@@ -9511,7 +9511,7 @@
     },
     {
       "Entity": 8860000000000336,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000335,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9545,7 +9545,7 @@
     },
     {
       "Entity": 8860000000000337,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-42.65621569323902, 66.86468886428995, 414.7426542828812],
@@ -9580,7 +9580,7 @@
     },
     {
       "Entity": 8860000000000338,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000337,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9614,7 +9614,7 @@
     },
     {
       "Entity": 8860000000000339,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-234.97343007467992, 63.7016655750665, 395.23122766642956],
@@ -9649,7 +9649,7 @@
     },
     {
       "Entity": 8860000000000340,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000339,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9683,7 +9683,7 @@
     },
     {
       "Entity": 8860000000000341,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-304.58933217804946, 73.86397367569727, 205.55143881204515],
@@ -9718,7 +9718,7 @@
     },
     {
       "Entity": 8860000000000342,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000341,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9752,7 +9752,7 @@
     },
     {
       "Entity": 8860000000000343,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-395.9211062264156, 52.87186269568546, 39.79316373465824],
@@ -9787,7 +9787,7 @@
     },
     {
       "Entity": 8860000000000344,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000343,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9821,7 +9821,7 @@
     },
     {
       "Entity": 8860000000000345,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-383.2925297156057, 75.64666235075475, -191.1282829122867],
@@ -9856,7 +9856,7 @@
     },
     {
       "Entity": 8860000000000346,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000345,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9890,7 +9890,7 @@
     },
     {
       "Entity": 8860000000000347,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-250.62184479744633, 51.330106477398814, -359.70335713172534],
@@ -9925,7 +9925,7 @@
     },
     {
       "Entity": 8860000000000348,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000347,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -9959,7 +9959,7 @@
     },
     {
       "Entity": 8860000000000349,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-27.092613590958194, 46.52396883931295, -444.06032685381825],
@@ -9994,7 +9994,7 @@
     },
     {
       "Entity": 8860000000000350,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000349,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -10028,7 +10028,7 @@
     },
     {
       "Entity": 8860000000000351,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [138.80247524825415, 73.11455676872846, -430.384451979669],
@@ -10063,7 +10063,7 @@
     },
     {
       "Entity": 8860000000000352,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000351,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -10097,7 +10097,7 @@
     },
     {
       "Entity": 8860000000000353,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [345.3819147074038, 73.12533804760898, -340.7326038327747],
@@ -10132,7 +10132,7 @@
     },
     {
       "Entity": 8860000000000354,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000353,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -10166,7 +10166,7 @@
     },
     {
       "Entity": 8860000000000355,
-      "Tag": "Tog'",
+      "Tag": "Mountain",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [506.8836386941837, 45.52545830399, -154.22941785388028],
@@ -10201,7 +10201,7 @@
     },
     {
       "Entity": 8860000000000356,
-      "Tag": "Qor",
+      "Tag": "Snow",
       "Parent": 8860000000000355,
       "Transform": {
         "Translation": [0.0, 0.33, 0.0],
@@ -10235,7 +10235,7 @@
     },
     {
       "Entity": 8860000000000357,
-      "Tag": "Tepalik",
+      "Tag": "Hill",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-63.41680690766475, -6.0, -211.0141656224776],
@@ -10269,7 +10269,7 @@
     },
     {
       "Entity": 8860000000000358,
-      "Tag": "Tepalik",
+      "Tag": "Hill",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [249.26315664527397, -6.0, 144.8151081065265],
@@ -10303,7 +10303,7 @@
     },
     {
       "Entity": 8860000000000359,
-      "Tag": "Tepalik",
+      "Tag": "Hill",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [-122.07321692879758, -6.0, -110.1411726317435],
@@ -10337,7 +10337,7 @@
     },
     {
       "Entity": 8860000000000360,
-      "Tag": "Tepalik",
+      "Tag": "Hill",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [133.33210763067268, -6.0, 205.9451284875082],
@@ -10371,7 +10371,7 @@
     },
     {
       "Entity": 8860000000000361,
-      "Tag": "Tepalik",
+      "Tag": "Hill",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [279.2746088684142, -6.0, 198.2891851644444],
@@ -10405,7 +10405,7 @@
     },
     {
       "Entity": 8860000000000362,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [15.405574300637756, 0.0, -80.45363431943143],
@@ -10416,7 +10416,7 @@
     },
     {
       "Entity": 8860000000000363,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000362,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -10450,7 +10450,7 @@
     },
     {
       "Entity": 8860000000000364,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000362,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -10484,7 +10484,7 @@
     },
     {
       "Entity": 8860000000000365,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000362,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -10518,7 +10518,7 @@
     },
     {
       "Entity": 8860000000000366,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [38.75142643169376, 0.0, -109.06776591554136],
@@ -10529,7 +10529,7 @@
     },
     {
       "Entity": 8860000000000367,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000366,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -10563,7 +10563,7 @@
     },
     {
       "Entity": 8860000000000368,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000366,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -10597,7 +10597,7 @@
     },
     {
       "Entity": 8860000000000369,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000366,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -10631,7 +10631,7 @@
     },
     {
       "Entity": 8860000000000370,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [78.33783427826319, 0.0, -116.61382019140198],
@@ -10642,7 +10642,7 @@
     },
     {
       "Entity": 8860000000000371,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000370,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -10676,7 +10676,7 @@
     },
     {
       "Entity": 8860000000000372,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000370,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -10710,7 +10710,7 @@
     },
     {
       "Entity": 8860000000000373,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000370,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -10744,7 +10744,7 @@
     },
     {
       "Entity": 8860000000000374,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [111.08986489920696, 0.0, -95.80242589445655],
@@ -10755,7 +10755,7 @@
     },
     {
       "Entity": 8860000000000375,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000374,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -10789,7 +10789,7 @@
     },
     {
       "Entity": 8860000000000376,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000374,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -10823,7 +10823,7 @@
     },
     {
       "Entity": 8860000000000377,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000374,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -10857,7 +10857,7 @@
     },
     {
       "Entity": 8860000000000378,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [113.17633626274578, 0.0, -60.23901324837073],
@@ -10868,7 +10868,7 @@
     },
     {
       "Entity": 8860000000000379,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000378,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -10902,7 +10902,7 @@
     },
     {
       "Entity": 8860000000000380,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000378,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -10936,7 +10936,7 @@
     },
     {
       "Entity": 8860000000000381,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000378,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -10970,7 +10970,7 @@
     },
     {
       "Entity": 8860000000000382,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [97.16329323361155, 0.0, -14.358684560926527],
@@ -10981,7 +10981,7 @@
     },
     {
       "Entity": 8860000000000383,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000382,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11015,7 +11015,7 @@
     },
     {
       "Entity": 8860000000000384,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000382,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11049,7 +11049,7 @@
     },
     {
       "Entity": 8860000000000385,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000382,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11083,7 +11083,7 @@
     },
     {
       "Entity": 8860000000000386,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [91.19175977662483, 0.0, 12.789298612828945],
@@ -11094,7 +11094,7 @@
     },
     {
       "Entity": 8860000000000387,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000386,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11128,7 +11128,7 @@
     },
     {
       "Entity": 8860000000000388,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000386,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11162,7 +11162,7 @@
     },
     {
       "Entity": 8860000000000389,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000386,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11196,7 +11196,7 @@
     },
     {
       "Entity": 8860000000000390,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [114.34175814465846, 0.0, 41.84502453445545],
@@ -11207,7 +11207,7 @@
     },
     {
       "Entity": 8860000000000391,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000390,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11241,7 +11241,7 @@
     },
     {
       "Entity": 8860000000000392,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000390,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11275,7 +11275,7 @@
     },
     {
       "Entity": 8860000000000393,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000390,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11309,7 +11309,7 @@
     },
     {
       "Entity": 8860000000000394,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [130.86439960221622, 0.0, 83.39135393850718],
@@ -11320,7 +11320,7 @@
     },
     {
       "Entity": 8860000000000395,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000394,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11354,7 +11354,7 @@
     },
     {
       "Entity": 8860000000000396,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000394,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11388,7 +11388,7 @@
     },
     {
       "Entity": 8860000000000397,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000394,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11422,7 +11422,7 @@
     },
     {
       "Entity": 8860000000000398,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [119.14318222106587, 0.0, 116.32966116763986],
@@ -11433,7 +11433,7 @@
     },
     {
       "Entity": 8860000000000399,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000398,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11467,7 +11467,7 @@
     },
     {
       "Entity": 8860000000000400,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000398,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11501,7 +11501,7 @@
     },
     {
       "Entity": 8860000000000401,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000398,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11535,7 +11535,7 @@
     },
     {
       "Entity": 8860000000000402,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [79.20153736450665, 0.0, 126.72721878823576],
@@ -11546,7 +11546,7 @@
     },
     {
       "Entity": 8860000000000403,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000402,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11580,7 +11580,7 @@
     },
     {
       "Entity": 8860000000000404,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000402,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11614,7 +11614,7 @@
     },
     {
       "Entity": 8860000000000405,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000402,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11648,7 +11648,7 @@
     },
     {
       "Entity": 8860000000000406,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [40.68361105695316, 0.0, 117.1531252595794],
@@ -11659,7 +11659,7 @@
     },
     {
       "Entity": 8860000000000407,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000406,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11693,7 +11693,7 @@
     },
     {
       "Entity": 8860000000000408,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000406,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11727,7 +11727,7 @@
     },
     {
       "Entity": 8860000000000409,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000406,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11761,7 +11761,7 @@
     },
     {
       "Entity": 8860000000000410,
-      "Tag": "Shinalar",
+      "Tag": "Tyres",
       "Parent": 8860000000000118,
       "Transform": {
         "Translation": [16.278552968758035, 0.0, 86.00237914023657],
@@ -11772,7 +11772,7 @@
     },
     {
       "Entity": 8860000000000411,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000410,
       "Transform": {
         "Translation": [0.0, 0.2, 0.0],
@@ -11806,7 +11806,7 @@
     },
     {
       "Entity": 8860000000000412,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000410,
       "Transform": {
         "Translation": [0.0, 0.6000000000000001, 0.0],
@@ -11840,7 +11840,7 @@
     },
     {
       "Entity": 8860000000000413,
-      "Tag": "Shina",
+      "Tag": "Tyre",
       "Parent": 8860000000000410,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -11874,7 +11874,7 @@
     },
     {
       "Entity": 8860000000000414,
-      "Tag": "O'yinchi mashinasi",
+      "Tag": "Player car",
       "Transform": {
         "Translation": [-2.6, 0.0, 69.0],
         "Rotation": [0.0, 0.09936660486911435, 0.0],
@@ -11948,7 +11948,7 @@
     },
     {
       "Entity": 8860000000000415,
-      "Tag": "Kuzov",
+      "Tag": "Body",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -11959,7 +11959,7 @@
     },
     {
       "Entity": 8860000000000416,
-      "Tag": "Shassi",
+      "Tag": "Chassis",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 0.52, 0.0],
@@ -11993,7 +11993,7 @@
     },
     {
       "Entity": 8860000000000417,
-      "Tag": "Kapot",
+      "Tag": "Bonnet",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 0.75, -1.25],
@@ -12027,7 +12027,7 @@
     },
     {
       "Entity": 8860000000000418,
-      "Tag": "Salon",
+      "Tag": "Cabin",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 0.92, 0.35],
@@ -12061,7 +12061,7 @@
     },
     {
       "Entity": 8860000000000419,
-      "Tag": "Tom",
+      "Tag": "Roof",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 1.15, 0.4],
@@ -12095,7 +12095,7 @@
     },
     {
       "Entity": 8860000000000420,
-      "Tag": "Chiziq",
+      "Tag": "Stripe",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 1.19, 0.4],
@@ -12129,7 +12129,7 @@
     },
     {
       "Entity": 8860000000000421,
-      "Tag": "Chiziq 2",
+      "Tag": "Stripe 2",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 0.82, -1.25],
@@ -12163,7 +12163,7 @@
     },
     {
       "Entity": 8860000000000422,
-      "Tag": "Qanot",
+      "Tag": "Wing",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 1.22, 1.85],
@@ -12197,7 +12197,7 @@
     },
     {
       "Entity": 8860000000000423,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [-0.6, 0.98, 1.85],
@@ -12231,7 +12231,7 @@
     },
     {
       "Entity": 8860000000000424,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [-0.6, 0.6, -2.06],
@@ -12265,7 +12265,7 @@
     },
     {
       "Entity": 8860000000000425,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.6, 0.98, 1.85],
@@ -12299,7 +12299,7 @@
     },
     {
       "Entity": 8860000000000426,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.6, 0.6, -2.06],
@@ -12333,7 +12333,7 @@
     },
     {
       "Entity": 8860000000000427,
-      "Tag": "Stop chiroqlari",
+      "Tag": "Brake lights",
       "Parent": 8860000000000415,
       "Transform": {
         "Translation": [0.0, 0.62, 2.06],
@@ -12367,7 +12367,7 @@
     },
     {
       "Entity": 8860000000000428,
-      "Tag": "G'ildirak o'qi FL",
+      "Tag": "Wheel pivot FL",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [-0.98, 0.38, -1.35],
@@ -12378,7 +12378,7 @@
     },
     {
       "Entity": 8860000000000429,
-      "Tag": "G'ildirak FL",
+      "Tag": "Wheel FL",
       "Parent": 8860000000000428,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -12412,7 +12412,7 @@
     },
     {
       "Entity": 8860000000000430,
-      "Tag": "G'ildirak o'qi FR",
+      "Tag": "Wheel pivot FR",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [0.98, 0.38, -1.35],
@@ -12423,7 +12423,7 @@
     },
     {
       "Entity": 8860000000000431,
-      "Tag": "G'ildirak FR",
+      "Tag": "Wheel FR",
       "Parent": 8860000000000430,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -12457,7 +12457,7 @@
     },
     {
       "Entity": 8860000000000432,
-      "Tag": "G'ildirak o'qi RL",
+      "Tag": "Wheel pivot RL",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [-0.98, 0.38, 1.35],
@@ -12468,7 +12468,7 @@
     },
     {
       "Entity": 8860000000000433,
-      "Tag": "G'ildirak RL",
+      "Tag": "Wheel RL",
       "Parent": 8860000000000432,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -12502,7 +12502,7 @@
     },
     {
       "Entity": 8860000000000434,
-      "Tag": "G'ildirak o'qi RR",
+      "Tag": "Wheel pivot RR",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [0.98, 0.38, 1.35],
@@ -12513,7 +12513,7 @@
     },
     {
       "Entity": 8860000000000435,
-      "Tag": "G'ildirak RR",
+      "Tag": "Wheel RR",
       "Parent": 8860000000000434,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -12547,7 +12547,7 @@
     },
     {
       "Entity": 8860000000000436,
-      "Tag": "Tutun",
+      "Tag": "Smoke",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [0.0, 0.25, 1.5],
@@ -12587,7 +12587,7 @@
     },
     {
       "Entity": 8860000000000437,
-      "Tag": "Chang",
+      "Tag": "Dust",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [0.0, 0.2, 1.6],
@@ -12627,7 +12627,7 @@
     },
     {
       "Entity": 8860000000000438,
-      "Tag": "Sirpanish ovozi",
+      "Tag": "Skid sound",
       "Parent": 8860000000000414,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -12648,7 +12648,7 @@
     },
     {
       "Entity": 8860000000000439,
-      "Tag": "Raqib 1",
+      "Tag": "Rival 1",
       "Transform": {
         "Translation": [2.6, 0.0, 69.0],
         "Rotation": [0.0, 0.09936660486911435, 0.0],
@@ -12711,7 +12711,7 @@
     },
     {
       "Entity": 8860000000000440,
-      "Tag": "Kuzov",
+      "Tag": "Body",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -12722,7 +12722,7 @@
     },
     {
       "Entity": 8860000000000441,
-      "Tag": "Shassi",
+      "Tag": "Chassis",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 0.52, 0.0],
@@ -12756,7 +12756,7 @@
     },
     {
       "Entity": 8860000000000442,
-      "Tag": "Kapot",
+      "Tag": "Bonnet",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 0.75, -1.25],
@@ -12790,7 +12790,7 @@
     },
     {
       "Entity": 8860000000000443,
-      "Tag": "Salon",
+      "Tag": "Cabin",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 0.92, 0.35],
@@ -12824,7 +12824,7 @@
     },
     {
       "Entity": 8860000000000444,
-      "Tag": "Tom",
+      "Tag": "Roof",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 1.15, 0.4],
@@ -12858,7 +12858,7 @@
     },
     {
       "Entity": 8860000000000445,
-      "Tag": "Chiziq",
+      "Tag": "Stripe",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 1.19, 0.4],
@@ -12892,7 +12892,7 @@
     },
     {
       "Entity": 8860000000000446,
-      "Tag": "Chiziq 2",
+      "Tag": "Stripe 2",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 0.82, -1.25],
@@ -12926,7 +12926,7 @@
     },
     {
       "Entity": 8860000000000447,
-      "Tag": "Qanot",
+      "Tag": "Wing",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 1.22, 1.85],
@@ -12960,7 +12960,7 @@
     },
     {
       "Entity": 8860000000000448,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [-0.6, 0.98, 1.85],
@@ -12994,7 +12994,7 @@
     },
     {
       "Entity": 8860000000000449,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [-0.6, 0.6, -2.06],
@@ -13028,7 +13028,7 @@
     },
     {
       "Entity": 8860000000000450,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.6, 0.98, 1.85],
@@ -13062,7 +13062,7 @@
     },
     {
       "Entity": 8860000000000451,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.6, 0.6, -2.06],
@@ -13096,7 +13096,7 @@
     },
     {
       "Entity": 8860000000000452,
-      "Tag": "Stop chiroqlari",
+      "Tag": "Brake lights",
       "Parent": 8860000000000440,
       "Transform": {
         "Translation": [0.0, 0.62, 2.06],
@@ -13130,7 +13130,7 @@
     },
     {
       "Entity": 8860000000000453,
-      "Tag": "G'ildirak o'qi FL",
+      "Tag": "Wheel pivot FL",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [-0.98, 0.38, -1.35],
@@ -13141,7 +13141,7 @@
     },
     {
       "Entity": 8860000000000454,
-      "Tag": "G'ildirak FL",
+      "Tag": "Wheel FL",
       "Parent": 8860000000000453,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13175,7 +13175,7 @@
     },
     {
       "Entity": 8860000000000455,
-      "Tag": "G'ildirak o'qi FR",
+      "Tag": "Wheel pivot FR",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [0.98, 0.38, -1.35],
@@ -13186,7 +13186,7 @@
     },
     {
       "Entity": 8860000000000456,
-      "Tag": "G'ildirak FR",
+      "Tag": "Wheel FR",
       "Parent": 8860000000000455,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13220,7 +13220,7 @@
     },
     {
       "Entity": 8860000000000457,
-      "Tag": "G'ildirak o'qi RL",
+      "Tag": "Wheel pivot RL",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [-0.98, 0.38, 1.35],
@@ -13231,7 +13231,7 @@
     },
     {
       "Entity": 8860000000000458,
-      "Tag": "G'ildirak RL",
+      "Tag": "Wheel RL",
       "Parent": 8860000000000457,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13265,7 +13265,7 @@
     },
     {
       "Entity": 8860000000000459,
-      "Tag": "G'ildirak o'qi RR",
+      "Tag": "Wheel pivot RR",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [0.98, 0.38, 1.35],
@@ -13276,7 +13276,7 @@
     },
     {
       "Entity": 8860000000000460,
-      "Tag": "G'ildirak RR",
+      "Tag": "Wheel RR",
       "Parent": 8860000000000459,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13310,7 +13310,7 @@
     },
     {
       "Entity": 8860000000000461,
-      "Tag": "Tutun",
+      "Tag": "Smoke",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [0.0, 0.25, 1.5],
@@ -13350,7 +13350,7 @@
     },
     {
       "Entity": 8860000000000462,
-      "Tag": "Chang",
+      "Tag": "Dust",
       "Parent": 8860000000000439,
       "Transform": {
         "Translation": [0.0, 0.2, 1.6],
@@ -13390,7 +13390,7 @@
     },
     {
       "Entity": 8860000000000463,
-      "Tag": "Raqib 2",
+      "Tag": "Rival 2",
       "Transform": {
         "Translation": [-2.6, 0.0, 76.0],
         "Rotation": [0.0, 0.09936660486911435, 0.0],
@@ -13453,7 +13453,7 @@
     },
     {
       "Entity": 8860000000000464,
-      "Tag": "Kuzov",
+      "Tag": "Body",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13464,7 +13464,7 @@
     },
     {
       "Entity": 8860000000000465,
-      "Tag": "Shassi",
+      "Tag": "Chassis",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 0.52, 0.0],
@@ -13498,7 +13498,7 @@
     },
     {
       "Entity": 8860000000000466,
-      "Tag": "Kapot",
+      "Tag": "Bonnet",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 0.75, -1.25],
@@ -13532,7 +13532,7 @@
     },
     {
       "Entity": 8860000000000467,
-      "Tag": "Salon",
+      "Tag": "Cabin",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 0.92, 0.35],
@@ -13566,7 +13566,7 @@
     },
     {
       "Entity": 8860000000000468,
-      "Tag": "Tom",
+      "Tag": "Roof",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 1.15, 0.4],
@@ -13600,7 +13600,7 @@
     },
     {
       "Entity": 8860000000000469,
-      "Tag": "Chiziq",
+      "Tag": "Stripe",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 1.19, 0.4],
@@ -13634,7 +13634,7 @@
     },
     {
       "Entity": 8860000000000470,
-      "Tag": "Chiziq 2",
+      "Tag": "Stripe 2",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 0.82, -1.25],
@@ -13668,7 +13668,7 @@
     },
     {
       "Entity": 8860000000000471,
-      "Tag": "Qanot",
+      "Tag": "Wing",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 1.22, 1.85],
@@ -13702,7 +13702,7 @@
     },
     {
       "Entity": 8860000000000472,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [-0.6, 0.98, 1.85],
@@ -13736,7 +13736,7 @@
     },
     {
       "Entity": 8860000000000473,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [-0.6, 0.6, -2.06],
@@ -13770,7 +13770,7 @@
     },
     {
       "Entity": 8860000000000474,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.6, 0.98, 1.85],
@@ -13804,7 +13804,7 @@
     },
     {
       "Entity": 8860000000000475,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.6, 0.6, -2.06],
@@ -13838,7 +13838,7 @@
     },
     {
       "Entity": 8860000000000476,
-      "Tag": "Stop chiroqlari",
+      "Tag": "Brake lights",
       "Parent": 8860000000000464,
       "Transform": {
         "Translation": [0.0, 0.62, 2.06],
@@ -13872,7 +13872,7 @@
     },
     {
       "Entity": 8860000000000477,
-      "Tag": "G'ildirak o'qi FL",
+      "Tag": "Wheel pivot FL",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [-0.98, 0.38, -1.35],
@@ -13883,7 +13883,7 @@
     },
     {
       "Entity": 8860000000000478,
-      "Tag": "G'ildirak FL",
+      "Tag": "Wheel FL",
       "Parent": 8860000000000477,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13917,7 +13917,7 @@
     },
     {
       "Entity": 8860000000000479,
-      "Tag": "G'ildirak o'qi FR",
+      "Tag": "Wheel pivot FR",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [0.98, 0.38, -1.35],
@@ -13928,7 +13928,7 @@
     },
     {
       "Entity": 8860000000000480,
-      "Tag": "G'ildirak FR",
+      "Tag": "Wheel FR",
       "Parent": 8860000000000479,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -13962,7 +13962,7 @@
     },
     {
       "Entity": 8860000000000481,
-      "Tag": "G'ildirak o'qi RL",
+      "Tag": "Wheel pivot RL",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [-0.98, 0.38, 1.35],
@@ -13973,7 +13973,7 @@
     },
     {
       "Entity": 8860000000000482,
-      "Tag": "G'ildirak RL",
+      "Tag": "Wheel RL",
       "Parent": 8860000000000481,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14007,7 +14007,7 @@
     },
     {
       "Entity": 8860000000000483,
-      "Tag": "G'ildirak o'qi RR",
+      "Tag": "Wheel pivot RR",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [0.98, 0.38, 1.35],
@@ -14018,7 +14018,7 @@
     },
     {
       "Entity": 8860000000000484,
-      "Tag": "G'ildirak RR",
+      "Tag": "Wheel RR",
       "Parent": 8860000000000483,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14052,7 +14052,7 @@
     },
     {
       "Entity": 8860000000000485,
-      "Tag": "Tutun",
+      "Tag": "Smoke",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [0.0, 0.25, 1.5],
@@ -14092,7 +14092,7 @@
     },
     {
       "Entity": 8860000000000486,
-      "Tag": "Chang",
+      "Tag": "Dust",
       "Parent": 8860000000000463,
       "Transform": {
         "Translation": [0.0, 0.2, 1.6],
@@ -14132,7 +14132,7 @@
     },
     {
       "Entity": 8860000000000487,
-      "Tag": "Raqib 3",
+      "Tag": "Rival 3",
       "Transform": {
         "Translation": [2.6, 0.0, 76.0],
         "Rotation": [0.0, 0.09936660486911435, 0.0],
@@ -14195,7 +14195,7 @@
     },
     {
       "Entity": 8860000000000488,
-      "Tag": "Kuzov",
+      "Tag": "Body",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14206,7 +14206,7 @@
     },
     {
       "Entity": 8860000000000489,
-      "Tag": "Shassi",
+      "Tag": "Chassis",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 0.52, 0.0],
@@ -14240,7 +14240,7 @@
     },
     {
       "Entity": 8860000000000490,
-      "Tag": "Kapot",
+      "Tag": "Bonnet",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 0.75, -1.25],
@@ -14274,7 +14274,7 @@
     },
     {
       "Entity": 8860000000000491,
-      "Tag": "Salon",
+      "Tag": "Cabin",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 0.92, 0.35],
@@ -14308,7 +14308,7 @@
     },
     {
       "Entity": 8860000000000492,
-      "Tag": "Tom",
+      "Tag": "Roof",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 1.15, 0.4],
@@ -14342,7 +14342,7 @@
     },
     {
       "Entity": 8860000000000493,
-      "Tag": "Chiziq",
+      "Tag": "Stripe",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 1.19, 0.4],
@@ -14376,7 +14376,7 @@
     },
     {
       "Entity": 8860000000000494,
-      "Tag": "Chiziq 2",
+      "Tag": "Stripe 2",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 0.82, -1.25],
@@ -14410,7 +14410,7 @@
     },
     {
       "Entity": 8860000000000495,
-      "Tag": "Qanot",
+      "Tag": "Wing",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 1.22, 1.85],
@@ -14444,7 +14444,7 @@
     },
     {
       "Entity": 8860000000000496,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [-0.6, 0.98, 1.85],
@@ -14478,7 +14478,7 @@
     },
     {
       "Entity": 8860000000000497,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [-0.6, 0.6, -2.06],
@@ -14512,7 +14512,7 @@
     },
     {
       "Entity": 8860000000000498,
-      "Tag": "Qanot ustuni",
+      "Tag": "Wing strut",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.6, 0.98, 1.85],
@@ -14546,7 +14546,7 @@
     },
     {
       "Entity": 8860000000000499,
-      "Tag": "Fara",
+      "Tag": "Headlight",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.6, 0.6, -2.06],
@@ -14580,7 +14580,7 @@
     },
     {
       "Entity": 8860000000000500,
-      "Tag": "Stop chiroqlari",
+      "Tag": "Brake lights",
       "Parent": 8860000000000488,
       "Transform": {
         "Translation": [0.0, 0.62, 2.06],
@@ -14614,7 +14614,7 @@
     },
     {
       "Entity": 8860000000000501,
-      "Tag": "G'ildirak o'qi FL",
+      "Tag": "Wheel pivot FL",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [-0.98, 0.38, -1.35],
@@ -14625,7 +14625,7 @@
     },
     {
       "Entity": 8860000000000502,
-      "Tag": "G'ildirak FL",
+      "Tag": "Wheel FL",
       "Parent": 8860000000000501,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14659,7 +14659,7 @@
     },
     {
       "Entity": 8860000000000503,
-      "Tag": "G'ildirak o'qi FR",
+      "Tag": "Wheel pivot FR",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [0.98, 0.38, -1.35],
@@ -14670,7 +14670,7 @@
     },
     {
       "Entity": 8860000000000504,
-      "Tag": "G'ildirak FR",
+      "Tag": "Wheel FR",
       "Parent": 8860000000000503,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14704,7 +14704,7 @@
     },
     {
       "Entity": 8860000000000505,
-      "Tag": "G'ildirak o'qi RL",
+      "Tag": "Wheel pivot RL",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [-0.98, 0.38, 1.35],
@@ -14715,7 +14715,7 @@
     },
     {
       "Entity": 8860000000000506,
-      "Tag": "G'ildirak RL",
+      "Tag": "Wheel RL",
       "Parent": 8860000000000505,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14749,7 +14749,7 @@
     },
     {
       "Entity": 8860000000000507,
-      "Tag": "G'ildirak o'qi RR",
+      "Tag": "Wheel pivot RR",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [0.98, 0.38, 1.35],
@@ -14760,7 +14760,7 @@
     },
     {
       "Entity": 8860000000000508,
-      "Tag": "G'ildirak RR",
+      "Tag": "Wheel RR",
       "Parent": 8860000000000507,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -14794,7 +14794,7 @@
     },
     {
       "Entity": 8860000000000509,
-      "Tag": "Tutun",
+      "Tag": "Smoke",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [0.0, 0.25, 1.5],
@@ -14834,7 +14834,7 @@
     },
     {
       "Entity": 8860000000000510,
-      "Tag": "Chang",
+      "Tag": "Dust",
       "Parent": 8860000000000487,
       "Transform": {
         "Translation": [0.0, 0.2, 1.6],
@@ -14874,7 +14874,7 @@
     },
     {
       "Entity": 8860000000000511,
-      "Tag": "Uchqunlar",
+      "Tag": "Sparks",
       "Transform": {
         "Translation": [0.0, -20.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -15125,7 +15125,7 @@
     },
     {
       "Entity": 8860000000000515,
-      "Tag": "Yuqori fon",
+      "Tag": "Top backdrop",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15152,7 +15152,7 @@
     },
     {
       "Entity": 8860000000000516,
-      "Tag": "O'rin",
+      "Tag": "Position",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15180,7 +15180,7 @@
     },
     {
       "Entity": 8860000000000517,
-      "Tag": "Aylana",
+      "Tag": "Lap",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15208,7 +15208,7 @@
     },
     {
       "Entity": 8860000000000518,
-      "Tag": "Vaqt",
+      "Tag": "Time",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15236,7 +15236,7 @@
     },
     {
       "Entity": 8860000000000519,
-      "Tag": "Eng yaxshi",
+      "Tag": "Best lap",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15264,7 +15264,7 @@
     },
     {
       "Entity": 8860000000000520,
-      "Tag": "Nuqta",
+      "Tag": "Checkpoint",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15292,7 +15292,7 @@
     },
     {
       "Entity": 8860000000000521,
-      "Tag": "Tezlik",
+      "Tag": "Speed",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15320,7 +15320,7 @@
     },
     {
       "Entity": 8860000000000522,
-      "Tag": "km/soat",
+      "Tag": "km/h",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15337,7 +15337,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "km/soat",
+        "Text": "km/h",
         "Color": [0.85, 0.85, 0.9, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15349,7 +15349,7 @@
     },
     {
       "Entity": 8860000000000523,
-      "Tag": "Tezlik shkalasi",
+      "Tag": "Speed gauge",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15408,7 +15408,7 @@
     },
     {
       "Entity": 8860000000000525,
-      "Tag": "E'lon",
+      "Tag": "Banner",
       "Parent": 8860000000000514,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15450,7 +15450,7 @@
     },
     {
       "Entity": 8860000000000526,
-      "Tag": "E'lon izohi",
+      "Tag": "Banner note",
       "Parent": 8860000000000525,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15478,7 +15478,7 @@
     },
     {
       "Entity": 8860000000000527,
-      "Tag": "Demo belgisi",
+      "Tag": "Demo badge",
       "Active": false,
       "Parent": 8860000000000514,
       "Transform": {
@@ -15496,7 +15496,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "DEMO - avtomatik o'yin",
+        "Text": "DEMO - autoplay",
         "Color": [1.0, 0.85, 0.5, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15508,7 +15508,7 @@
     },
     {
       "Entity": 8860000000000528,
-      "Tag": "Bosh menyu",
+      "Tag": "Main menu",
       "Parent": 8860000000000513,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15549,7 +15549,7 @@
     },
     {
       "Entity": 8860000000000529,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15582,7 +15582,7 @@
     },
     {
       "Entity": 8860000000000530,
-      "Tag": "Sarlavha soyasi",
+      "Tag": "Title shadow",
       "Parent": 8860000000000529,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15599,7 +15599,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "VODIY POYGASI",
+        "Text": "VALLEY RACE",
         "Color": [0.35, 0.05, 0.02, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15611,7 +15611,7 @@
     },
     {
       "Entity": 8860000000000531,
-      "Tag": "Sarlavha matni",
+      "Tag": "Title text",
       "Parent": 8860000000000529,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15628,7 +15628,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "VODIY POYGASI",
+        "Text": "VALLEY RACE",
         "Color": [1.0, 0.6, 0.3, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15640,7 +15640,7 @@
     },
     {
       "Entity": 8860000000000532,
-      "Tag": "Taglavha foni",
+      "Tag": "Subtitle backdrop",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15669,7 +15669,7 @@
     },
     {
       "Entity": 8860000000000533,
-      "Tag": "Taglavha",
+      "Tag": "Subtitle",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15686,7 +15686,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Mashina fizikasi va aylanma trassa  ·  Zamin Engine namunasi",
+        "Text": "Car physics and a circuit  ·  a Zamin Engine sample",
         "Color": [1.0, 0.95, 0.9, 0.95],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15698,7 +15698,7 @@
     },
     {
       "Entity": 8860000000000534,
-      "Tag": "Menyu paneli",
+      "Tag": "Menu panel",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15754,7 +15754,7 @@
     },
     {
       "Entity": 8860000000000535,
-      "Tag": "O'ynash",
+      "Tag": "Play",
       "Parent": 8860000000000534,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15789,7 +15789,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "O'ynash",
+        "Text": "Play",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15824,7 +15824,7 @@
     },
     {
       "Entity": 8860000000000536,
-      "Tag": "Til",
+      "Tag": "Language",
       "Parent": 8860000000000534,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15893,7 +15893,7 @@
     },
     {
       "Entity": 8860000000000537,
-      "Tag": "Chiqish",
+      "Tag": "Quit",
       "Parent": 8860000000000534,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15928,7 +15928,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Chiqish",
+        "Text": "Quit",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -15963,7 +15963,7 @@
     },
     {
       "Entity": 8860000000000538,
-      "Tag": "Bosh menyu rekordi",
+      "Tag": "Main menu best",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -15991,7 +15991,7 @@
     },
     {
       "Entity": 8860000000000539,
-      "Tag": "Boshqaruv foni",
+      "Tag": "Controls backdrop",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16020,7 +16020,7 @@
     },
     {
       "Entity": 8860000000000540,
-      "Tag": "Boshqaruv",
+      "Tag": "Controls",
       "Parent": 8860000000000528,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16037,7 +16037,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "[Throttle] - gaz   ·   [Brake] - tormoz / orqaga   ·   [Steer] - rul   ·   [Handbrake] - qo'l tormozi (drift)   ·   [Reset] - trassaga qaytish   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
+        "Text": "[Throttle] - throttle   ·   [Brake] - brake / reverse   ·   [Steer] - steer   ·   [Handbrake] - handbrake (drift)   ·   [Reset] - back on track   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]",
         "Color": [0.95, 0.95, 1.0, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16050,7 +16050,7 @@
     },
     {
       "Entity": 8860000000000541,
-      "Tag": "Pauza menyusi",
+      "Tag": "Pause menu",
       "Active": false,
       "Parent": 8860000000000513,
       "Transform": {
@@ -16092,7 +16092,7 @@
     },
     {
       "Entity": 8860000000000542,
-      "Tag": "Pauza paneli",
+      "Tag": "Pause panel",
       "Parent": 8860000000000541,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16148,7 +16148,7 @@
     },
     {
       "Entity": 8860000000000543,
-      "Tag": "Pauza sarlavhasi",
+      "Tag": "Pause title",
       "Parent": 8860000000000542,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16165,7 +16165,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "PAUZA",
+        "Text": "PAUSED",
         "Color": [1.0, 0.6, 0.35, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16177,7 +16177,7 @@
     },
     {
       "Entity": 8860000000000544,
-      "Tag": "Davom etish",
+      "Tag": "Resume",
       "Parent": 8860000000000542,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16212,7 +16212,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Resume",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16247,7 +16247,7 @@
     },
     {
       "Entity": 8860000000000545,
-      "Tag": "Qaytadan",
+      "Tag": "Restart",
       "Parent": 8860000000000542,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16282,7 +16282,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Qaytadan",
+        "Text": "Restart",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16317,7 +16317,7 @@
     },
     {
       "Entity": 8860000000000546,
-      "Tag": "Bosh menyuga",
+      "Tag": "To main menu",
       "Parent": 8860000000000542,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16352,7 +16352,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16387,7 +16387,7 @@
     },
     {
       "Entity": 8860000000000547,
-      "Tag": "Natijalar",
+      "Tag": "Results",
       "Active": false,
       "Parent": 8860000000000513,
       "Transform": {
@@ -16429,7 +16429,7 @@
     },
     {
       "Entity": 8860000000000548,
-      "Tag": "Natijalar paneli",
+      "Tag": "Results panel",
       "Parent": 8860000000000547,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16485,7 +16485,7 @@
     },
     {
       "Entity": 8860000000000549,
-      "Tag": "Natija sarlavhasi",
+      "Tag": "Results title",
       "Parent": 8860000000000548,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16502,7 +16502,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "MARRA!",
+        "Text": "FINISH!",
         "Color": [1.0, 0.75, 0.35, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16513,7 +16513,7 @@
     },
     {
       "Entity": 8860000000000550,
-      "Tag": "Natija o'rni",
+      "Tag": "Results position",
       "Parent": 8860000000000548,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16541,7 +16541,7 @@
     },
     {
       "Entity": 8860000000000551,
-      "Tag": "Natija vaqtlari",
+      "Tag": "Results times",
       "Parent": 8860000000000548,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16569,7 +16569,7 @@
     },
     {
       "Entity": 8860000000000552,
-      "Tag": "Natija rekordi",
+      "Tag": "Results best",
       "Parent": 8860000000000548,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16597,7 +16597,7 @@
     },
     {
       "Entity": 8860000000000553,
-      "Tag": "Yana poyga",
+      "Tag": "Race again",
       "Parent": 8860000000000548,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16632,7 +16632,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Qaytadan",
+        "Text": "Restart",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -16667,7 +16667,7 @@
     },
     {
       "Entity": 8860000000000554,
-      "Tag": "Natijadan menyuga",
+      "Tag": "Results to menu",
       "Parent": 8860000000000548,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -16702,7 +16702,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,

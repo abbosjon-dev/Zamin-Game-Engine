@@ -1,4 +1,4 @@
-"""Projects/Sokoban: "Omborchi" (Sokoban) - its textures, sounds, scene and project file.
+"""Projects/Sokoban: "Warehouse Keeper" (Sokoban) - its textures, sounds, scene and project file.
 
     python3 Tools/samples/gen_sokoban.py
 
@@ -284,96 +284,96 @@ def build_scene():
                  "SSAORadius": 0.5, "SSAOIntensity": 1.3, "SSAOBias": 0.03, "FXAA": True},
         "Gravity3D": [0, -9.81, 0],
     }
-    s.metadata = {"Description": "Omborchi (Sokoban): 10 ta daraja, orqaga qaytarish (undo), darajalar menyusi, rekordlar va "
-                                 "yechuvchi bot", "Author": "Zamin", "Tags": ["namuna", "3D", "puzzle"]}
+    s.metadata = {"Description": "Warehouse Keeper (Sokoban): 10 levels, undo, a level menu, records and "
+                                 "a solver bot", "Author": "Zamin", "Tags": ["sample", "3D", "puzzle"]}
 
-    s.entity("Quyosh", rot=(math.radians(-52), math.radians(28), 0), DirectionalLight=k.dir_light((1.0, 0.86, 0.7), 2.8, True))
-    s.entity("To'ldiruvchi yorug'lik", pos=(0, 6, 8), PointLight=k.point_light((0.45, 0.6, 1.0), 2.5, 22.0))
-    camera = s.entity("Kamera", pos=(0, 10, 7), rot=(math.radians(-56), 0, 0),
+    s.entity("Sun", rot=(math.radians(-52), math.radians(28), 0), DirectionalLight=k.dir_light((1.0, 0.86, 0.7), 2.8, True))
+    s.entity("Fill light", pos=(0, 6, 8), PointLight=k.point_light((0.45, 0.6, 1.0), 2.5, 22.0))
+    camera = s.entity("Camera", pos=(0, 10, 7), rot=(math.radians(-56), 0, 0),
                       Camera=k.camera_persp(math.radians(40), 0.1, 200.0, (0.05, 0.06, 0.1, 1.0)),
                       AudioListener={"Enabled": True, "Priority": 0, "TrackVelocity": False})
 
     # ---- the warehouse around the level
-    env = s.entity("Ombor")
-    s.entity("Pol", parent=env, pos=(0, -0.13, 0), scale=(70, 1, 70),
+    env = s.entity("Warehouse")
+    s.entity("Floor", parent=env, pos=(0, -0.13, 0), scale=(70, 1, 70),
              MeshRenderer=k.mesh("Plane", (1, 1, 1, 1), 0.85, 0.0, albedo_map="Textures/ground.png", tiling=(35, 35)))
     crate = dict(albedo_map="Textures/crate.png", normal_map="Textures/crate_normal.png")
     for i, (x, z, stack, rot) in enumerate(((-8.5, -5.5, 3, 0.2), (8.8, -6.0, 2, -0.3), (-9.5, 4.0, 2, 0.5), (9.2, 3.5, 1, 0.1),
                                            (-3.5, -8.5, 2, 0.0), (4.0, -9.0, 3, 0.4))):
         for j in range(stack):
-            s.entity(f"Quti uyumi {i + 1}.{j + 1}", parent=env, pos=(x + 0.08 * j, 0.45 + 0.9 * j, z - 0.05 * j), rot=(0, rot + 0.3 * j, 0),
+            s.entity(f"Crate stack {i + 1}.{j + 1}", parent=env, pos=(x + 0.08 * j, 0.45 + 0.9 * j, z - 0.05 * j), rot=(0, rot + 0.3 * j, 0),
                      scale=(0.9, 0.9, 0.9), MeshRenderer=k.mesh("Cube", (0.85, 0.85, 0.85, 1), 0.7, 0.0, **crate))
     for i, (x, z, col) in enumerate(((-7.5, -7.0, (0.7, 0.15, 0.12)), (-7.0, -7.9, (0.15, 0.3, 0.65)), (7.5, 6.5, (0.7, 0.15, 0.12)),
                                      (-10.5, 0.5, (0.2, 0.5, 0.25)), (10.5, -1.5, (0.15, 0.3, 0.65)), (8.2, 7.4, (0.85, 0.6, 0.12)))):
-        b = s.entity(f"Bochka {i + 1}", parent=env, pos=(x, 0.55, z), scale=(0.7, 1.1, 0.7),
+        b = s.entity(f"Barrel {i + 1}", parent=env, pos=(x, 0.55, z), scale=(0.7, 1.1, 0.7),
                      MeshRenderer=k.mesh("Cylinder", (*col, 1), 0.45, 0.6))
-        s.entity("Halqa", parent=b, pos=(0, 0.25, 0), scale=(1.04, 0.04, 1.04), MeshRenderer=k.mesh("Cylinder", (0.2, 0.2, 0.22, 1), 0.4, 0.8))
+        s.entity("Ring", parent=b, pos=(0, 0.25, 0), scale=(1.04, 0.04, 1.04), MeshRenderer=k.mesh("Cylinder", (0.2, 0.2, 0.22, 1), 0.4, 0.8))
     # shelves along the back wall
     for i in range(5):
         x = -10 + i * 5
-        shelf = s.entity(f"Javon {i + 1}", parent=env, pos=(x, 0, -12))
+        shelf = s.entity(f"Shelf {i + 1}", parent=env, pos=(x, 0, -12))
         for lx in (-2, 2):
-            s.entity("Ustun", parent=shelf, pos=(lx, 2, 0), scale=(0.15, 4, 0.15), MeshRenderer=k.mesh("Cube", (0.9, 0.45, 0.12, 1), 0.5, 0.5))
+            s.entity("Post", parent=shelf, pos=(lx, 2, 0), scale=(0.15, 4, 0.15), MeshRenderer=k.mesh("Cube", (0.9, 0.45, 0.12, 1), 0.5, 0.5))
         for ly in (1.0, 2.2, 3.4):
-            s.entity("Tokcha", parent=shelf, pos=(0, ly, 0), scale=(4.2, 0.1, 1.2), MeshRenderer=k.mesh("Cube", (0.3, 0.32, 0.36, 1), 0.5, 0.6))
-            s.entity("Yuk", parent=shelf, pos=((i % 3) - 1.0, ly + 0.45, 0), scale=(0.8, 0.8, 0.8), MeshRenderer=k.mesh("Cube", (0.85, 0.85, 0.85, 1), 0.7, 0.0, **crate))
+            s.entity("Rack", parent=shelf, pos=(0, ly, 0), scale=(4.2, 0.1, 1.2), MeshRenderer=k.mesh("Cube", (0.3, 0.32, 0.36, 1), 0.5, 0.6))
+            s.entity("Load", parent=shelf, pos=((i % 3) - 1.0, ly + 0.45, 0), scale=(0.8, 0.8, 0.8), MeshRenderer=k.mesh("Cube", (0.85, 0.85, 0.85, 1), 0.7, 0.0, **crate))
     # hanging lamps
     for i, (x, z) in enumerate(((-7, -4), (7, -4), (0, -8))):
-        lamp = s.entity(f"Chiroq {i + 1}", parent=env, pos=(x, 6.5, z), PointLight=k.point_light((1.0, 0.75, 0.45), 6.0, 13.0))
-        s.entity("Abajur", parent=lamp, pos=(0, 0.25, 0), scale=(0.9, 0.35, 0.9), MeshRenderer=k.mesh("Cone", (0.15, 0.25, 0.2, 1), 0.4, 0.5, cast_shadows=False))
-        s.entity("Lampochka", parent=lamp, scale=(0.3, 0.3, 0.3),
+        lamp = s.entity(f"Light {i + 1}", parent=env, pos=(x, 6.5, z), PointLight=k.point_light((1.0, 0.75, 0.45), 6.0, 13.0))
+        s.entity("Lampshade", parent=lamp, pos=(0, 0.25, 0), scale=(0.9, 0.35, 0.9), MeshRenderer=k.mesh("Cone", (0.15, 0.25, 0.2, 1), 0.4, 0.5, cast_shadows=False))
+        s.entity("Bulb", parent=lamp, scale=(0.3, 0.3, 0.3),
                  MeshRenderer=k.mesh("Sphere", (1, 0.85, 0.6, 1), emission=(1.0, 0.75, 0.45), emission_strength=10.0, cast_shadows=False))
-    s.entity("Chang", pos=(0, 2, 0), ParticleSystem=k.particles(
+    s.entity("Dust", pos=(0, 2, 0), ParticleSystem=k.particles(
         EmissionRate=6.0, MaxParticles=150, Shape=3, ShapeExtents=(10, 3, 8), LifetimeMin=6.0, LifetimeMax=10.0, SpeedMin=0.05,
         SpeedMax=0.2, Direction=(0, 1, 0), Spread=180.0, StartColor=(1.0, 0.85, 0.6, 0.35), EndColor=(1.0, 0.8, 0.6, 0.0),
         StartSize=0.05, EndSize=0.05, Prewarm=True))
 
-    # ---- the level's blocks: templates (switched off), the game copies them under "Daraja"
-    templates = s.entity("Shablonlar", active=False)
-    s.entity("Devor", parent=templates, pos=(0, 0.42, 0), scale=(1, 0.84, 1),
+    # ---- the level's blocks: templates (switched off), the game copies them under "Level"
+    templates = s.entity("Templates", active=False)
+    s.entity("Wall", parent=templates, pos=(0, 0.42, 0), scale=(1, 0.84, 1),
              MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, albedo_map="Textures/brick.png", normal_map="Textures/brick_normal.png"))
-    s.entity("Pol plitasi", parent=templates, pos=(0, -0.06, 0), scale=(0.98, 0.12, 0.98),
+    s.entity("Floor tile", parent=templates, pos=(0, -0.06, 0), scale=(0.98, 0.12, 0.98),
              MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.7, 0.0, albedo_map="Textures/floor.png", normal_map="Textures/floor_normal.png"))
-    goal = s.entity("Maqsad", parent=templates, pos=(0, 0.012, 0), scale=(0.78, 0.02, 0.78),
+    goal = s.entity("Goal", parent=templates, pos=(0, 0.012, 0), scale=(0.78, 0.02, 0.78),
                     MeshRenderer=k.mesh("Cylinder", (0.4, 0.85, 1.0, 1), 0.3, 0.0, emission=(0.25, 0.8, 1.0), emission_strength=3.0,
                                         albedo_map="Textures/goal.png", cast_shadows=False))
     s.get(goal)["MeshRenderer"]["EmissiveMap"] = "Textures/goal.png"
-    s.entity("Maqsad chirog'i", parent=goal, pos=(0, 30, 0), PointLight=k.point_light((0.25, 0.8, 1.0), 1.4, 2.2))
-    s.entity("Quti", parent=templates, pos=(0, 0.42, 0), scale=(0.84, 0.84, 0.84),
+    s.entity("Goal light", parent=goal, pos=(0, 30, 0), PointLight=k.point_light((0.25, 0.8, 1.0), 1.4, 2.2))
+    s.entity("Crate", parent=templates, pos=(0, 0.42, 0), scale=(0.84, 0.84, 0.84),
              MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.65, 0.0, **crate))
-    board = s.entity("Daraja")
+    board = s.entity("Level")
 
     # ---- the robot (its root on the floor, facing +Z; the body bobs and leans)
     robot = s.entity("Robot")
-    body = s.entity("Robot tanasi", parent=robot)
+    body = s.entity("Robot body", parent=robot)
     orange = (1.0, 0.5, 0.12, 1)
     white = (0.92, 0.93, 0.95, 1)
-    s.entity("Tana", parent=body, pos=(0, 0.36, 0), scale=(0.5, 0.42, 0.46), MeshRenderer=k.mesh("Cube", orange, 0.4, 0.3))
-    s.entity("Ko'krak chirog'i", parent=body, pos=(0, 0.4, 0.235), scale=(0.2, 0.08, 0.02),
+    s.entity("Torso", parent=body, pos=(0, 0.36, 0), scale=(0.5, 0.42, 0.46), MeshRenderer=k.mesh("Cube", orange, 0.4, 0.3))
+    s.entity("Chest light", parent=body, pos=(0, 0.4, 0.235), scale=(0.2, 0.08, 0.02),
              MeshRenderer=k.mesh("Cube", (0.4, 1.0, 0.6, 1), emission=(0.3, 1.0, 0.5), emission_strength=3.0, cast_shadows=False))
-    s.entity("Bosh", parent=body, pos=(0, 0.74, 0), scale=(0.42, 0.34, 0.4), MeshRenderer=k.mesh("Sphere", white, 0.3, 0.2))
-    eye = s.entity("Ko'zlar", parent=body, pos=(0, 0.76, 0.18), scale=(0.3, 0.09, 0.06),
+    s.entity("Head", parent=body, pos=(0, 0.74, 0), scale=(0.42, 0.34, 0.4), MeshRenderer=k.mesh("Sphere", white, 0.3, 0.2))
+    eye = s.entity("Eyes", parent=body, pos=(0, 0.76, 0.18), scale=(0.3, 0.09, 0.06),
                    MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=6.0, cast_shadows=False))
     s.entity("Antenna", parent=body, pos=(0, 0.98, 0), scale=(0.03, 0.18, 0.03), MeshRenderer=k.mesh("Cylinder", (0.3, 0.3, 0.32, 1), 0.4, 0.8))
-    s.entity("Antenna uchi", parent=body, pos=(0, 1.09, 0), scale=(0.08, 0.08, 0.08),
+    s.entity("Antenna tip", parent=body, pos=(0, 1.09, 0), scale=(0.08, 0.08, 0.08),
              MeshRenderer=k.mesh("Sphere", (1, 0.3, 0.2, 1), emission=(1.0, 0.25, 0.15), emission_strength=6.0, cast_shadows=False))
     for side in (-1, 1):
-        s.entity("G'ildirak", parent=body, pos=(0.27 * side, 0.14, 0), rot=(0, 0, math.radians(90)), scale=(0.26, 0.08, 0.26),
+        s.entity("Wheel", parent=body, pos=(0.27 * side, 0.14, 0), rot=(0, 0, math.radians(90)), scale=(0.26, 0.08, 0.26),
                  MeshRenderer=k.mesh("Cylinder", (0.12, 0.12, 0.14, 1), 0.6, 0.2))
-        s.entity("Qo'l", parent=body, pos=(0.29 * side, 0.4, 0.08), scale=(0.08, 0.08, 0.3), MeshRenderer=k.mesh("Cube", white, 0.4, 0.2))
-    s.entity("Robot chirog'i", parent=robot, pos=(0, 1.4, 0.4), PointLight=k.point_light((1.0, 0.7, 0.4), 1.2, 3.0))
+        s.entity("Arm", parent=body, pos=(0.29 * side, 0.4, 0.08), scale=(0.08, 0.08, 0.3), MeshRenderer=k.mesh("Cube", white, 0.4, 0.2))
+    s.entity("Robot light", parent=robot, pos=(0, 1.4, 0.4), PointLight=k.point_light((1.0, 0.7, 0.4), 1.2, 3.0))
 
     # ---- effects
-    fx = s.entity("Effektlar")
-    dust = s.entity("Chang bulut", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
+    fx = s.entity("Effects")
+    dust = s.entity("Dust cloud", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=300, Shape=2, ShapeRadius=0.25, LifetimeMin=0.4, LifetimeMax=0.8, SpeedMin=0.4,
         SpeedMax=1.2, Direction=(0, 1, 0), Spread=70.0, Drag=2.0, StartColor=(0.75, 0.65, 0.55, 0.5), EndColor=(0.6, 0.55, 0.5, 0.0),
         StartSize=0.18, EndSize=0.4, Additive=False))
-    burst = s.entity("Maqsad uchqunlari", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
+    burst = s.entity("Goal sparks", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=400, Shape=2, ShapeRadius=0.3, LifetimeMin=0.5, LifetimeMax=1.0, SpeedMin=1.0,
         SpeedMax=3.0, Direction=(0, 1, 0), Spread=40.0, Gravity=(0, -2, 0), StartColor=(0.6, 2.4, 1.2, 1.0), EndColor=(0.3, 1.0, 0.5, 0.0),
         StartSize=0.1, EndSize=0.0))
-    confetti = s.entity("Konfetti", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
+    confetti = s.entity("Confetti", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=600, Shape=2, ShapeRadius=0.3, LifetimeMin=1.2, LifetimeMax=2.2, SpeedMin=3.0,
         SpeedMax=6.0, Direction=(0, 1, 0), Spread=45.0, Gravity=(0, -6, 0), Drag=0.8, StartColor=(2.0, 1.4, 0.4, 1.0),
         EndColor=(1.0, 0.3, 0.8, 0.0), StartSize=0.12, EndSize=0.06, AngularVelocityMax=6.0))
@@ -383,72 +383,72 @@ def build_scene():
     canvas = s.entity("UI", UITransform=k.ui_stretch(), UICanvas=k.ui_canvas())
     ui = k.UIKit(s, canvas, ATLAS, game, (0.85, 0.5, 0.15, 1.0), (1.0, 0.65, 0.25, 1.0), (0.6, 0.32, 0.08, 1.0))
     hud = s.entity("HUD", parent=canvas, UITransform=k.ui_stretch())
-    s.entity("Yuqori fon", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 140)),
+    s.entity("Top backdrop", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 140)),
              UIImage=k.ui_image((0.0, 0.0, 0.0, 0.35), raycast=False))
-    level_text = ui.text("Daraja nomi", hud, "", (0, 1), (0, 1), (50, -34), (900, 52), 44, (1.0, 0.85, 0.55, 1.0))
-    best = ui.text("Rekord", hud, "", (0, 1), (0, 1), (50, -88), (900, 34), 28, (0.85, 0.85, 0.9, 0.9))
-    boxes = ui.text("Qutilar", hud, "", (0.5, 1), (0.5, 1), (0, -36), (700, 60), 50, h="Center")
-    moves = ui.text("Qadamlar", hud, "", (1, 1), (1, 1), (-50, -34), (600, 46), 40, h="Right")
-    pushes = ui.text("Surishlar", hud, "", (1, 1), (1, 1), (-50, -84), (600, 36), 30, (0.85, 0.85, 0.9, 0.9), h="Right")
-    s.entity("Pastki fon", parent=hud, UITransform=k.ui_rect((0, 0), (1, 0), (0.5, 0), (0, 0), (0, 80)),
+    level_text = ui.text("Level name", hud, "", (0, 1), (0, 1), (50, -34), (900, 52), 44, (1.0, 0.85, 0.55, 1.0))
+    best = ui.text("Best", hud, "", (0, 1), (0, 1), (50, -88), (900, 34), 28, (0.85, 0.85, 0.9, 0.9))
+    boxes = ui.text("Crates", hud, "", (0.5, 1), (0.5, 1), (0, -36), (700, 60), 50, h="Center")
+    moves = ui.text("Moves", hud, "", (1, 1), (1, 1), (-50, -34), (600, 46), 40, h="Right")
+    pushes = ui.text("Pushes", hud, "", (1, 1), (1, 1), (-50, -84), (600, 36), 30, (0.85, 0.85, 0.9, 0.9), h="Right")
+    s.entity("Bottom backdrop", parent=hud, UITransform=k.ui_rect((0, 0), (1, 0), (0.5, 0), (0, 0), (0, 80)),
              UIImage=k.ui_image((0.0, 0.0, 0.0, 0.3), raycast=False))
-    hint = ui.text("Maslahat", hud, "", (0.5, 0), (0.5, 0), (0, 40), (1700, 36), 26, (0.9, 0.9, 1.0, 0.85), h="Center")
-    banner = ui.text("E'lon", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 250), (1400, 110), 92, (1.0, 0.92, 0.7, 1.0), h="Center",
+    hint = ui.text("Hint", hud, "", (0.5, 0), (0.5, 0), (0, 40), (1700, 36), 26, (0.9, 0.9, 1.0, 0.85), h="Center")
+    banner = ui.text("Banner", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 250), (1400, 110), 92, (1.0, 0.92, 0.7, 1.0), h="Center",
                      UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
-    banner_sub = ui.text("E'lon izohi", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 46), 36, (1.0, 0.8, 0.5, 1.0), h="Center")
-    demo_badge = ui.text("Demo belgisi", hud, "DEMO - avtomatik o'yin", (1, 0), (1, 0), (-50, 110), (600, 32), 26, (1.0, 0.8, 0.35, 0.9),
+    banner_sub = ui.text("Banner note", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 46), 36, (1.0, 0.8, 0.5, 1.0), h="Center")
+    demo_badge = ui.text("Demo badge", hud, "DEMO - autoplay", (1, 0), (1, 0), (-50, 110), (600, 32), 26, (1.0, 0.8, 0.35, 0.9),
                          h="Right", key="hud.demo", active=False)
 
-    main_menu = ui.dim("Bosh menyu", True, 0.35, (0.02, 0.02, 0.05))
-    title = s.entity("Sarlavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 300), size=(1700, 180), font=156),
+    main_menu = ui.dim("Main menu", True, 0.35, (0.02, 0.02, 0.05))
+    title = s.entity("Title", parent=main_menu, UITransform=k.ui_rect(pos=(0, 300), size=(1700, 180), font=156),
                      UIAnimation=k.ui_anim("SlideDown", "None", 0.6, slide=120))
-    s.entity("Sarlavha soyasi", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=156),
-             Text=k.ui_text("OMBORCHI", (0.4, 0.18, 0.04, 0.9), "Center", key="menu.title"))
-    s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
-             Text=k.ui_text("OMBORCHI", (1.0, 0.75, 0.35, 1.0), "Center", key="menu.title"))
-    s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 186), size=(1500, 50), font=38),
-             Text=k.ui_text("Sokoban - qutilarni joyiga itaring  ·  Zamin Engine namunasi", (1.0, 0.92, 0.85, 0.95), "Center", key="menu.subtitle"))
-    menu_panel = ui.panel("Menyu paneli", main_menu, (0, -90), (560, 420))
-    play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    ui.button("Darajalar", menu_panel, "Darajalar", "menu.levels", "Levels")
-    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
-    ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
-    progress = s.entity("Yechilganlar", parent=main_menu, UITransform=k.ui_rect(pos=(0, -340), size=(1200, 44), font=32),
+    s.entity("Title shadow", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=156),
+             Text=k.ui_text("WAREHOUSE KEEPER", (0.4, 0.18, 0.04, 0.9), "Center", key="menu.title"))
+    s.entity("Title text", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
+             Text=k.ui_text("WAREHOUSE KEEPER", (1.0, 0.75, 0.35, 1.0), "Center", key="menu.title"))
+    s.entity("Subtitle", parent=main_menu, UITransform=k.ui_rect(pos=(0, 186), size=(1500, 50), font=38),
+             Text=k.ui_text("Sokoban - push every crate into place  ·  a Zamin Engine sample", (1.0, 0.92, 0.85, 0.95), "Center", key="menu.subtitle"))
+    menu_panel = ui.panel("Menu panel", main_menu, (0, -90), (560, 420))
+    play_button = ui.button("Play", menu_panel, "Play", "menu.play", "Play", True)
+    ui.button("Levels", menu_panel, "Levels", "menu.levels", "Levels")
+    language_button = ui.button("Language", menu_panel, "Language: English", None, "Language")
+    ui.button("Quit", menu_panel, "Quit", "menu.quit", "Quit")
+    progress = s.entity("Solved", parent=main_menu, UITransform=k.ui_rect(pos=(0, -340), size=(1200, 44), font=32),
                         Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1800, 70), font=25),
-             Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
+    s.entity("Controls", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1800, 70), font=25),
+             Text=k.ui_text(EN["menu"]["controls"], (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
 
-    levels_menu = ui.dim("Darajalar menyusi", False, 0.55)
-    levels_panel = ui.panel("Darajalar paneli", levels_menu, (0, 0), (900, 600))
-    ui.label("Darajalar sarlavhasi", levels_panel, "DARAJALAR", (800, 80), 60, (1.0, 0.8, 0.45, 1.0), "levels.title")
-    grid = s.entity("Daraja tugmalari", parent=levels_panel, UITransform=k.ui_rect(size=(800, 270)),
+    levels_menu = ui.dim("Levels menu", False, 0.55)
+    levels_panel = ui.panel("Levels panel", levels_menu, (0, 0), (900, 600))
+    ui.label("Levels title", levels_panel, "LEVELS", (800, 80), 60, (1.0, 0.8, 0.45, 1.0), "levels.title")
+    grid = s.entity("Level buttons", parent=levels_panel, UITransform=k.ui_rect(size=(800, 270)),
                     UILayoutGroup={"Type": "Grid", "Padding": [10, 10, 10, 10], "Alignment": 4, "FitWidth": False, "FitHeight": False,
                                    "CellSize": [140, 110], "GridSpacing": [16, 16], "StartCorner": 0, "StartAxisVertical": False,
                                    "Constraint": "FixedColumnCount", "ConstraintCount": 5})
     n, h, p = (0.3, 0.45, 0.85, 1.0), (0.45, 0.6, 1.0, 1.0), (0.2, 0.3, 0.6, 1.0)
     for i in range(LEVEL_COUNT):
-        s.entity(f"Daraja {i + 1}", parent=grid, UITransform=k.ui_rect(size=(140, 110), font=34),
+        s.entity(f"Level {i + 1}", parent=grid, UITransform=k.ui_rect(size=(140, 110), font=34),
                  UIButton=k.ui_button(n, h, p, f"Level{i + 1}", game),
                  UIImage=k.ui_image(texture=ATLAS, frame="button", kind="Sliced", border_scale=1.0),
                  Text=k.ui_text(str(i + 1), (1, 1, 1, 1), "Center"), UINavigation=k.ui_nav("Automatic"),
                  UIAnimation=k.ui_anim(hover=1.06, press=0.94))
-    back_button = ui.button("Orqaga", levels_panel, "Orqaga", "levels.back", "LevelsBack")
+    back_button = ui.button("Back", levels_panel, "Back", "levels.back", "LevelsBack")
 
-    pause_menu = ui.dim("Pauza menyusi", False)
-    pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 460))
-    ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (520, 80), 60, (1.0, 0.8, 0.45, 1.0), "pause.title")
-    resume_button = ui.button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    ui.button("Qaytadan", pause_panel, "Qaytadan", "pause.restart", "Restart")
-    ui.button("Bosh menyuga", pause_panel, "Bosh menyu", "pause.menu", "Menu")
+    pause_menu = ui.dim("Pause menu", False)
+    pause_panel = ui.panel("Pause panel", pause_menu, (0, 0), (620, 460))
+    ui.label("Pause title", pause_panel, "PAUSED", (520, 80), 60, (1.0, 0.8, 0.45, 1.0), "pause.title")
+    resume_button = ui.button("Resume", pause_panel, "Resume", "pause.resume", "Resume", True)
+    ui.button("Restart", pause_panel, "Restart", "pause.restart", "Restart")
+    ui.button("To main menu", pause_panel, "Main menu", "pause.menu", "Menu")
 
-    complete_menu = ui.dim("Natija oynasi", False, 0.45)
-    complete_panel = ui.panel("Natija paneli", complete_menu, (0, -40), (760, 560))
-    complete_title = ui.label("Natija sarlavhasi", complete_panel, "", (680, 84), 56, (0.6, 1.0, 0.7, 1.0))
-    complete_stats = ui.label("Natija statistikasi", complete_panel, "", (680, 44), 32, (1.0, 0.95, 0.85, 1.0))
-    complete_record = ui.label("Natija rekordi", complete_panel, "", (680, 40), 30, (1.0, 0.7, 0.3, 1.0))
-    next_button = ui.button("Keyingi", complete_panel, "Keyingi daraja", "complete.next", "Next", True)
-    ui.button("Yana bir bor", complete_panel, "Qaytadan", "pause.restart", "Restart")
-    ui.button("Natijadan menyuga", complete_panel, "Bosh menyu", "pause.menu", "Menu")
+    complete_menu = ui.dim("Results window", False, 0.45)
+    complete_panel = ui.panel("Results panel", complete_menu, (0, -40), (760, 560))
+    complete_title = ui.label("Results title", complete_panel, "", (680, 84), 56, (0.6, 1.0, 0.7, 1.0))
+    complete_stats = ui.label("Results stats", complete_panel, "", (680, 44), 32, (1.0, 0.95, 0.85, 1.0))
+    complete_record = ui.label("Results best", complete_panel, "", (680, 40), 30, (1.0, 0.7, 0.3, 1.0))
+    next_button = ui.button("Next", complete_panel, "Next level", "complete.next", "Next", True)
+    ui.button("Once more", complete_panel, "Restart", "pause.restart", "Restart")
+    ui.button("Results to menu", complete_panel, "Main menu", "pause.menu", "Menu")
 
     s.add(game, "NativeScript", k.script(
         "SokobanGame", BoardRoot=k.ref(board), WallTemplate=k.ref(s.children[templates][0]), FloorTemplate=k.ref(s.children[templates][1]),
@@ -504,7 +504,7 @@ def main():
     for i, lv in enumerate(levels):
         pushes = check_level(lv)
         assert pushes, f"level {i + 1} has no solution"
-        print(f"  {i + 1}-daraja: {pushes} surishda yechiladi")
+        print(f"  level {i + 1}: solved in {pushes} pushes")
     make_textures()
     make_ui_atlas()
     make_icon()
@@ -523,11 +523,11 @@ def main():
         k.axis("MoveY", ["Key:S", "Key:Down", "Gamepad:DPadDown"], ["Key:W", "Key:Up", "Gamepad:DPadUp"], "LeftY", invert=True, deadzone=0.4),
     ]
     vectors = [{"Name": "Move", "X": "MoveX", "Y": "MoveY", "Mode": "Clamp", "Deadzone": 0.0}]
-    k.write_project(PROJECT, NAME, "Omborchi", "Scenes/Warehouse.zscene", uuid, "1.0.0", [("Scenes/Warehouse.zscene", uuid)], actions, axes,
-                    vectors, description="3D Sokoban: qutilarni joyiga itaring - 10 ta daraja, orqaga qaytarish (undo), "
-                                         "darajalar menyusi va yechuvchi bot")
-    k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Omborchi (Sokoban) - C++ skriptlar moduli (libSokoban.so)")
-    print("Sokoban: tayyor")
+    k.write_project(PROJECT, NAME, "Warehouse Keeper", "Scenes/Warehouse.zscene", uuid, "1.0.0", [("Scenes/Warehouse.zscene", uuid)], actions, axes,
+                    vectors, description="3D Sokoban: push the crates into place - 10 levels, undo, "
+                                         "a level menu and a solver bot")
+    k.write_module_cmake(PROJECT, NAME, "Zamin sample game: Warehouse Keeper (Sokoban) - the C++ script module (libSokoban.so)")
+    print("Sokoban: done")
 
 
 if __name__ == "__main__":

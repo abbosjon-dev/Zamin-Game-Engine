@@ -1,5 +1,5 @@
 {
-  "Name": "Gulxan",
+  "Name": "Campfire",
   "System": {
     "Additive": true,
     "AngularVelocityMax": 1.0,
@@ -184,7 +184,7 @@
   },
   "Templates": [
     {
-      "Name": "Gulxan uchqunlari",
+      "Name": "Campfire sparks",
       "System": {
         "Additive": true,
         "AngularVelocityMax": 0.0,

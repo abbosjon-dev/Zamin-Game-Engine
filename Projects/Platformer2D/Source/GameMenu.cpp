@@ -10,9 +10,9 @@ using namespace Zamin;
 
 // O'yin menyusi (qayta ishlatiladigan namuna: Prefabs/GameMenu.zprefab - istalgan sahnaga sudrab qo'ying).
 // Ikki rejim:
-//   - bosh menyu (PauseMenu o'chiq, Menu.zscene): doim ko'rinadi - "O'ynash" PlayScene'ga so'nib o'tadi,
-//     "Sozlamalar", "Chiqish";
-//   - pauza menyusi (PauseMenu yoqiq): Esc / Start o'yinni to'xtatib ochadi - "Davom etish", "Sozlamalar", "Chiqish".
+//   - bosh menyu (PauseMenu o'chiq, Menu.zscene): doim ko'rinadi - "Play" PlayScene'ga so'nib o'tadi,
+//     "Settings", "Quit";
+//   - pauza menyusi (PauseMenu yoqiq): Esc / Start o'yinni to'xtatib ochadi - "Resume", "Settings", "Quit".
 // Sozlamalar: ekran o'lchami (Display::GetResolutions - monitor rejimlari), to'liq ekran, VSync, grafika sifati
 // (Quality darajalari), gamma, ovoz (Master / Music / SFX), til. O'lcham, sifat va til tugmalari bosilganda
 // keyingisiga o'tadi, tanlangan bo'lsa chap / o'ng strelka (D-pad) oldingi / keyingisini tanlaydi. Hammasi
@@ -23,7 +23,7 @@ class GameMenu : public ScriptableEntity
 {
 public:
     bool PauseMenu = false;                        // false: the main menu; true: Esc opens it over the game
-    std::string PlayScene = "Scenes/Loading.zscene"; // the main menu's "O'ynash"
+    std::string PlayScene = "Scenes/Loading.zscene"; // the main menu's "Play"
     float FadeOut = 0.35f, FadeIn = 0.35f;
     EntityRef Overlay, MainPanel, SettingsPanel;
     EntityRef Title;                               // the game's name (Project settings > Player)
@@ -86,7 +86,7 @@ public:
             panel.SetActive(false);
         if (PauseMenu)
         {
-            // "O'ynash" goes back to the game here: "Davom etish".
+            // "Play" goes back to the game here: "Resume".
             if (Entity play = Resolve(PlayButton))
                 if (auto* text = play.TryGetComponent<TextComponent>())
                 {
@@ -169,7 +169,7 @@ public:
         return IsOpen() && panel && panel.IsActive();
     }
 
-    // A pause menu: the game stops, the menu opens with "Davom etish" selected.
+    // A pause menu: the game stops, the menu opens with "Resume" selected.
     void Open()
     {
         PauseGame();
@@ -199,7 +199,7 @@ private:
             GetScene().SetSelectedUI(button);
     }
 
-    // "O'ynash": the main menu goes to the game (a fade); a pause menu goes back to it.
+    // "Play": the main menu goes to the game (a fade); a pause menu goes back to it.
     void Play()
     {
         if (PauseMenu)

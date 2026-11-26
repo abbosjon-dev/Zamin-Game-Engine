@@ -8,12 +8,12 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libSokoban.so",
         "EngineVersion": "0.1.0",
-        "Description": "3D Sokoban: qutilarni joyiga itaring - 10 ta daraja, orqaga qaytarish (undo), darajalar menyusi va yechuvchi bot",
+        "Description": "3D Sokoban: push the crates into place - 10 levels, undo, a level menu and a solver bot",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",
-        "Product": "Omborchi",
+        "Product": "Warehouse Keeper",
         "Version": "1.0.0",
         "Width": 1280,
         "Height": 720,

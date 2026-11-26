@@ -2798,7 +2798,7 @@ namespace Zamin {
                     TilemapLayer layer;
                     layer.Name = l.value("Name", std::string());
                     if (layer.Name.empty() || c.FindLayer(layer.Name) >= 0)
-                        layer.Name = c.MakeUniqueLayerName(layer.Name.empty() ? "Qatlam" : layer.Name);
+                        layer.Name = c.MakeUniqueLayerName(layer.Name.empty() ? "Layer" : layer.Name);
                     layer.Visible = l.value("Visible", true);
                     layer.Collision = l.value("Collision", true);
                     layer.SortingOrder = l.value("SortingOrder", 0);
@@ -2811,6 +2811,9 @@ namespace Zamin {
             else
             {
                 c.Layers.emplace_back();
+                // Such a file stores no layer name: its one layer keeps the name it has always loaded with
+                // (the default of the time), whatever a new layer is called now.
+                c.Layers.back().Name = "Asosiy";
                 if (j.contains("Tiles"))
                     readTiles(j["Tiles"], c.Layers.back().Tiles);
             }

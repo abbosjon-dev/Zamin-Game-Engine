@@ -5,7 +5,7 @@
 // shows while the first scene loads in the background; F11 / Alt+Enter switch fullscreen. The finished
 // frame goes through a last pass with the player's gamma and brightness (the game's options menu,
 // --gamma / --brightness); a game that does not run in the background stands still when its window
-// loses the focus (time, physics, audio) and shows its last frame dimmed with "Pauza" until it is back.
+// loses the focus (time, physics, audio) and shows its last frame dimmed with "Paused" until it is back.
 //   ZaminPlayer [path/to/Game.zproject] [--windowed | --fullscreen | --borderless] [--resolution WxH]
 //               [--monitor N] [--vsync | --no-vsync] [--fps N] [--scene <path | build index | name>]
 //               [--quality <level>] [--lang <code>] [--no-splash] [--gamma G] [--brightness B] [--gl ...] [--msaa N] [--debug-...]
@@ -1156,7 +1156,7 @@ namespace Zamin {
         }
 
         // Paused in the background (Project settings > Player > "Fonda ishlash" off, the window lost the focus):
-        // the last frame dimmed, "Pauza" over it. Nothing of the game runs meanwhile (Application).
+        // the last frame dimmed, "Paused" over it. Nothing of the game runs meanwhile (Application).
         bool OnRenderPaused() override
         {
             auto& window = Application::Get().GetWindow();

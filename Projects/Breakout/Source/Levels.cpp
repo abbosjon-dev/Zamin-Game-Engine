@@ -1,13 +1,13 @@
 #include "Breakout.h"
 
-// Darajalar: har biri 13 ustunli qatorlar (yuqoridan pastga). Belgilar:
-//   .            bo'sh
-//   r o y g c b p k w   oddiy g'isht (qizil, to'q sariq, sariq, yashil, moviy, ko'k, binafsha, pushti, oq) - bir zarba
-//   R O Y G C B P K      qattiq g'isht (shu ranglarda) - ikki zarba, birinchisidan keyin yoriladi
-//   S            po'lat - uch zarba
-//   #            oltin - sinmaydi (to'siq)
-//   X            bomba - sinsa, atrofidagi g'ishtlarni ham sindiradi
-// Daraja tugashi uchun sinadigan hamma g'isht sinishi kerak (oltin hisobga kirmaydi).
+// Levels: each is rows of 13 columns (top to bottom). Characters:
+//   .            empty
+//   r o y g c b p k w   a plain brick (red, orange, yellow, green, cyan, blue, purple, pink, white) - one hit
+//   R O Y G C B P K      a hard brick (in the same colours) - two hits, it cracks after the first
+//   S            steel - three hits
+//   #            gold - unbreakable (an obstacle)
+//   X            a bomb - when it breaks it breaks the bricks around it too
+// A level is cleared when every breakable brick is broken (gold does not count).
 
 const std::vector<LevelLayout>& GetLevelLayouts()
 {

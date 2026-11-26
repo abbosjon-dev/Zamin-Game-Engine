@@ -5,13 +5,13 @@
 
 using namespace Zamin;
 
-// Qurol (Blaster): kameraning bolasi. "Fire" bosib turilsa FireRate marta / soniya otadi:
-// ko'zdan kamera yo'nalishi bo'ylab nur (Raycast3DAll - o'yinchining o'z kapsulasi tashlab o'tiladi) yuboriladi,
-// harakatda / havoda tarqoqlik oshadi. Har o'q: ko'rinish tepadi (FirstPersonController::AddRecoil), qurol
-// orqaga siltanadi, uchida chaqnash va yorug'lik, ko'zdan tegan joygacha nur izi (TracerFx), tegan joyda uchqunlar
-// va yorug'lik chaqnashi; dinamik jism (quti) itariladi, nishon yiqiladi. O'q-dori tugasa yoki "Reload" bosilsa
-// qayta o'qlanadi. Devorga yaqinlashganda qurol orqaga tortiladi (devor ichiga kirmaydi).
-// Bot: yaqin, ko'rinib turgan (nur yetadigan) nishonni tanlaydi, unga qaraydi va nishon to'g'ri kelganda otadi.
+// The weapon (Blaster): a child of the camera. While "Fire" is held it fires FireRate times a second:
+// a ray is cast from the eye along the camera's direction (Raycast3DAll - the player's own capsule is skipped),
+// the spread grows when moving / in the air. Every shot: the view kicks (FirstPersonController::AddRecoil), the weapon
+// jerks back, a flash and a light at the muzzle, a tracer from the eye to the hit point (TracerFx), sparks and a flash
+// of light at the hit point; a dynamic body (a crate) is pushed, a target falls. When the ammo runs out or "Reload" is
+// pressed it reloads. Close to a wall the weapon is pulled back (it does not go into the wall).
+// The bot: picks a near, visible target (one the ray reaches), looks at it and fires when the aim is on it.
 
 void Blaster::OnCreate()
 {

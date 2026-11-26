@@ -8,7 +8,7 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libShowcase3D.so",
         "EngineVersion": "0.1.0",
-        "Description": "3D imkoniyatlar ko'rgazmasi: PBR materiallar, soyalar, post-processing, zarralar, fizika va animatsiya sahnalari",
+        "Description": "A showcase of the 3D features: PBR materials, shadows, post-processing, particles, physics and animation scenes",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
@@ -47,8 +47,8 @@
         ],
         "Names": [
             "Default",
-            "Arvoh",
-            "Panjara",
+            "Ghost",
+            "Grate",
             "",
             "",
             "",

@@ -153,7 +153,7 @@
         "FlipY": false,
         "TextureUUID": "a5aec7978306d03b",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "Parallax": {
         "Factor": [
@@ -203,7 +203,7 @@
         "FlipY": false,
         "TextureUUID": "f3f49249dc28ff90",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "Parallax": {
         "Factor": [
@@ -253,7 +253,7 @@
         "FlipY": false,
         "TextureUUID": "e255accb1a466884",
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parallax": {
         "Factor": [
@@ -299,7 +299,7 @@
         "Fade": 0.05,
         "SortingOrder": -11,
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "Parallax": {
         "Factor": [
@@ -379,7 +379,7 @@
         "Fade": 0.08,
         "SortingOrder": 5,
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "NativeScript": {
         "Class": "Cloud",
@@ -423,7 +423,7 @@
         "Fade": 0.08,
         "SortingOrder": 5,
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "NativeScript": {
         "Class": "Cloud",
@@ -467,7 +467,7 @@
         "Fade": 0.08,
         "SortingOrder": 5,
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "NativeScript": {
         "Class": "Cloud",
@@ -511,7 +511,7 @@
         "Fade": 0.08,
         "SortingOrder": 5,
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "NativeScript": {
         "Class": "Cloud",
@@ -555,7 +555,7 @@
         "Fade": 0.08,
         "SortingOrder": 5,
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "NativeScript": {
         "Class": "Cloud",
@@ -2939,7 +2939,7 @@
         ]
       },
       "Text": {
-        "Text": "Tangalar: 0",
+        "Text": "Coins: 0",
         "Color": [
           1,
           1,
@@ -2990,7 +2990,7 @@
         ]
       },
       "Text": {
-        "Text": "Zamin 2D vitrina",
+        "Text": "Zamin 2D showcase",
         "Color": [
           1,
           1,

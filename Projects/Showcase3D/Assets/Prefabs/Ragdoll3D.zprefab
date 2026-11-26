@@ -24,7 +24,7 @@
   },
   {
    "Entity": 2,
-   "Tag": "Bel",
+   "Tag": "Waist",
    "Transform": {
     "Translation": [
      0,
@@ -82,7 +82,7 @@
   },
   {
    "Entity": 3,
-   "Tag": "Ko'krak",
+   "Tag": "Chest",
    "Transform": {
     "Translation": [
      0,
@@ -166,7 +166,7 @@
   },
   {
    "Entity": 4,
-   "Tag": "Bosh",
+   "Tag": "Head",
    "Transform": {
     "Translation": [
      0,
@@ -246,7 +246,7 @@
   },
   {
    "Entity": 5,
-   "Tag": "Ko'z",
+   "Tag": "Eye",
    "Transform": {
     "Translation": [
      -0.2,
@@ -281,7 +281,7 @@
   },
   {
    "Entity": 6,
-   "Tag": "Ko'z",
+   "Tag": "Eye",
    "Transform": {
     "Translation": [
      0.2,
@@ -316,7 +316,7 @@
   },
   {
    "Entity": 7,
-   "Tag": "Yelka chap",
+   "Tag": "Upper arm left",
    "Transform": {
     "Translation": [
      -0.25,
@@ -398,7 +398,7 @@
   },
   {
    "Entity": 8,
-   "Tag": "Bilak chap",
+   "Tag": "Forearm left",
    "Transform": {
     "Translation": [
      -0.25,
@@ -486,7 +486,7 @@
   },
   {
    "Entity": 9,
-   "Tag": "Yelka o'ng",
+   "Tag": "Upper arm right",
    "Transform": {
     "Translation": [
      0.25,
@@ -568,7 +568,7 @@
   },
   {
    "Entity": 10,
-   "Tag": "Bilak o'ng",
+   "Tag": "Forearm right",
    "Transform": {
     "Translation": [
      0.25,
@@ -656,7 +656,7 @@
   },
   {
    "Entity": 11,
-   "Tag": "Son chap",
+   "Tag": "Thigh left",
    "Transform": {
     "Translation": [
      -0.09,
@@ -738,7 +738,7 @@
   },
   {
    "Entity": 12,
-   "Tag": "Boldir chap",
+   "Tag": "Shin left",
    "Transform": {
     "Translation": [
      -0.09,
@@ -826,7 +826,7 @@
   },
   {
    "Entity": 13,
-   "Tag": "Son o'ng",
+   "Tag": "Thigh right",
    "Transform": {
     "Translation": [
      0.09,
@@ -908,7 +908,7 @@
   },
   {
    "Entity": 14,
-   "Tag": "Boldir o'ng",
+   "Tag": "Shin right",
    "Transform": {
     "Translation": [
      0.09,

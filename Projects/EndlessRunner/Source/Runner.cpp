@@ -5,10 +5,10 @@
 
 using namespace Zamin;
 
-// Yuguruvchi: oldinga (-Z) RunnerGame bergan tezlikda yuguradi, uch yo'lak orasida silliq o'tadi ("Left" / "Right"
-// yoki chap stikni siltash), sakraydi ("Jump"), sirpanadi ("Slide" - havoda bosilsa tez tushadi). Qo'l-oyoqlar
-// yugurish fazasi bilan tebranadi, sakrashda oyoqlar yig'iladi, sirpanishda tana orqaga yotadi; oyoq ostidan chang
-// ko'tariladi. Bot: oldindagi to'siqqa qarab sakraydi, sirpanadi yoki bo'sh yo'lakka o'tadi, tangalarga intiladi.
+// The runner: runs forward (-Z) at the speed RunnerGame gives, moves smoothly between three lanes ("Left" / "Right"
+// or a flick of the left stick), jumps ("Jump"), slides ("Slide" - pressed in the air it drops fast). Arms and legs
+// swing with the run phase, the legs tuck in a jump, the body leans back in a slide; dust rises from under the
+// feet. The bot: looks at the obstacle ahead and jumps, slides or moves to a free lane, and goes for the coins.
 
 void Runner::OnCreate()
 {

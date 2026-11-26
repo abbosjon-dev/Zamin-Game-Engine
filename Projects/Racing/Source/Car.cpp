@@ -6,13 +6,13 @@
 
 using namespace Zamin;
 
-// Mashina: tekislikdagi arkada fizikasi (x, z, burilish burchagi). Tezlik oldinga va yonga ajratiladi: dvigatel
-// oldinga itaradi (maksimal tezlikka yaqinlashgan sari kuchsizroq), tormoz / orqaga yurish, havo qarshiligi; yon
-// tezlik ilashish (Grip) bilan so'nadi - qo'l tormozida kam ilashadi va mashina sirpanadi (drift). Rul tezlikka
-// qarab: past tezlikda burilmaydi, yuqori tezlikda kamroq buriladi. Trassa chetidagi to'siq (WallOffset) mashinani
-// qaytaradi va sekinlashtiradi; asfaltdan chiqsa (o't) sekinlashadi va kam ilashadi.
-// Bot: trassa chizig'idagi oldinroq nuqtaga rul buradi, oldindagi burilish keskinligiga qarab tezlikni tanlaydi,
-// keskin burilishda qo'l tormozi bilan sirpanadi; tiqilib qolsa trassaga qaytadi.
+// The car: arcade physics on a plane (x, z, the heading angle). The velocity is split into forward and sideways: the
+// engine pushes forward (weaker as it nears the top speed), braking / reversing, air drag; the sideways
+// velocity dies with the grip (Grip) - under the handbrake there is little grip and the car slides (drift). Steering
+// depends on speed: no turning at low speed, less turning at high speed. The barrier at the track's edge (WallOffset)
+// bounces the car back and slows it; off the asphalt (grass) it slows down and grips less.
+// The bot: steers at a point further along the track line, picks its speed by how sharp the coming bend is,
+// slides with the handbrake in a sharp bend; when stuck it returns to the track.
 
 // ------------------------------------------------------------------------------------------- track
 
@@ -321,7 +321,7 @@ void Car::OnUpdate(Timestep ts)
         SetAudioVolume(0.35f + 0.35f * m_Controls.Throttle);
     }
     for (Entity child : GetChildren())
-        if (child.GetName() == "Sirpanish ovozi" && child.HasComponent<AudioSourceComponent>())
+        if (child.GetName() == "Skid sound" && child.HasComponent<AudioSourceComponent>())
             SetAudioVolume(child, std::clamp((drift - 2.5f) / 6.0f, 0.0f, 0.9f));
 }
 

@@ -2,10 +2,10 @@
   "Scene": "Navigation3D",
   "Version": 4,
   "Metadata": {
-    "Description": "M20: NavGrid 3D va Nav Agent'lar - uch NPC devorlar, ustunlar, qiyalik va supa orasida yo'l topib, halqa bo'ylab yuruvchi mayoq ortidan yuradi",
-    "Author": "Zamin",
+    "Description": "M20: NavGrid 3D and Nav Agents - three NPCs find their way between walls, pillars, an incline and a dais and follow a beacon that travels around a loop",
+    "Author": "Floor",
     "Tags": [
-      "navigatsiya",
+      "navigation",
       "AI",
       "M20"
     ]
@@ -109,7 +109,7 @@
     },
     {
       "Entity": 7950000000000002,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [
           0,
@@ -139,7 +139,7 @@
     },
     {
       "Entity": 7950000000000003,
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Translation": [
           0,
@@ -206,7 +206,7 @@
     },
     {
       "Entity": 7950000000000004,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -6,
@@ -273,7 +273,7 @@
     },
     {
       "Entity": 7950000000000005,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           2,
@@ -340,7 +340,7 @@
     },
     {
       "Entity": 7950000000000006,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -1,
@@ -407,7 +407,7 @@
     },
     {
       "Entity": 7950000000000007,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -12,
@@ -474,7 +474,7 @@
     },
     {
       "Entity": 7950000000000008,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           12,
@@ -541,7 +541,7 @@
     },
     {
       "Entity": 7950000000000009,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -15.2,
@@ -608,7 +608,7 @@
     },
     {
       "Entity": 7950000000000010,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           15.2,
@@ -675,7 +675,7 @@
     },
     {
       "Entity": 7950000000000011,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           0,
@@ -742,7 +742,7 @@
     },
     {
       "Entity": 7950000000000012,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           0,
@@ -809,7 +809,7 @@
     },
     {
       "Entity": 7950000000000013,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           3,
@@ -876,7 +876,7 @@
     },
     {
       "Entity": 7950000000000014,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           6,
@@ -943,7 +943,7 @@
     },
     {
       "Entity": 7950000000000015,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           -10,
@@ -1010,7 +1010,7 @@
     },
     {
       "Entity": 7950000000000016,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           -3,
@@ -1077,7 +1077,7 @@
     },
     {
       "Entity": 7950000000000017,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           8,
@@ -1144,7 +1144,7 @@
     },
     {
       "Entity": 7950000000000018,
-      "Tag": "Supa",
+      "Tag": "Dais",
       "Transform": {
         "Translation": [
           11,
@@ -1211,7 +1211,7 @@
     },
     {
       "Entity": 7950000000000019,
-      "Tag": "Qiyalik",
+      "Tag": "Incline",
       "Transform": {
         "Translation": [
           5.5,
@@ -1278,7 +1278,7 @@
     },
     {
       "Entity": 7950000000000020,
-      "Tag": "Navigatsiya",
+      "Tag": "Navigation",
       "Transform": {
         "Translation": [
           0,
@@ -1320,7 +1320,7 @@
     },
     {
       "Entity": 7950000000000021,
-      "Tag": "Mayoq yo'li",
+      "Tag": "Beacon path",
       "Transform": {
         "Translation": [
           0,
@@ -1394,7 +1394,7 @@
     },
     {
       "Entity": 7950000000000022,
-      "Tag": "Mayoq",
+      "Tag": "Beacon",
       "Transform": {
         "Translation": [
           -12,
@@ -1505,7 +1505,7 @@
     },
     {
       "Entity": 7950000000000024,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7950000000000023,
       "Transform": {
         "Translation": [
@@ -1549,7 +1549,7 @@
     },
     {
       "Entity": 7950000000000025,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7950000000000023,
       "Transform": {
         "Translation": [
@@ -1593,7 +1593,7 @@
     },
     {
       "Entity": 7950000000000026,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7950000000000023,
       "Transform": {
         "Translation": [
@@ -1683,7 +1683,7 @@
     },
     {
       "Entity": 7950000000000028,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7950000000000027,
       "Transform": {
         "Translation": [
@@ -1727,7 +1727,7 @@
     },
     {
       "Entity": 7950000000000029,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7950000000000027,
       "Transform": {
         "Translation": [
@@ -1771,7 +1771,7 @@
     },
     {
       "Entity": 7950000000000030,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7950000000000027,
       "Transform": {
         "Translation": [
@@ -1861,7 +1861,7 @@
     },
     {
       "Entity": 7950000000000032,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7950000000000031,
       "Transform": {
         "Translation": [
@@ -1905,7 +1905,7 @@
     },
     {
       "Entity": 7950000000000033,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7950000000000031,
       "Transform": {
         "Translation": [
@@ -1949,7 +1949,7 @@
     },
     {
       "Entity": 7950000000000034,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7950000000000031,
       "Transform": {
         "Translation": [

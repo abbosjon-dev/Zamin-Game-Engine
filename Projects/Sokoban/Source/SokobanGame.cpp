@@ -9,14 +9,14 @@
 using namespace Zamin;
 using namespace Sokoban;
 
-// O'yin oqimi: bosh menyu (orqada bot darajalarni yechadi) -> daraja (bloklar yuqoridan tushib keladi) -> yechildi
-// (konfetti, robot aylanadi, natija oynasi: keyingi / qaytadan / menyu) -> ... -> hammasi yechildi.
-// Boshqaruv (Loyiha sozlamalari > Input): "Move" vektori (WASD / strelkalar / D-pad / chap stik - bosib turilsa
-// takrorlanadi), "Undo" (Z / Backspace / gamepad X), "Restart" (R / gamepad Y), "Pause" (Esc / P / Start).
-// Rekord: har daraja uchun eng kam qadam (SaveData::SubmitRecord "Sokoban.Best.N", RecordOrder::Lower), keyingi
-// o'ynaladigan daraja "Sokoban.Level".
-// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot har darajani yechuvchi bilan yechadi (ikkinchi darajadan boshlab bir
-// noto'g'ri qadam qo'yib, uni orqaga qaytaradi - undo ham ko'rinsin); jurnalga "Demo: ..." yoziladi.
+// The game flow: the main menu (a bot solves the levels behind it) -> a level (the blocks drop in from above) -> solved
+// (confetti, the robot spins, the results window: next / again / menu) -> ... -> everything solved.
+// Controls (Project settings > Input): the "Move" vector (WASD / arrows / D-pad / left stick - repeats while
+// held), "Undo" (Z / Backspace / gamepad X), "Restart" (R / gamepad Y), "Pause" (Esc / P / Start).
+// Record: the fewest moves for each level (SaveData::SubmitRecord "Sokoban.Best.N", RecordOrder::Lower), the next
+// level to play is "Sokoban.Level".
+// Demo: ZAMIN_DEMO=1 (or AutoDemo) - the bot solves every level with the solver (from the second level on it makes one
+// wrong move and undoes it - so undo is seen too); "Demo: ..." goes to the log.
 
 static constexpr char UndoLetter = 'z';
 
@@ -163,7 +163,7 @@ void SokobanGame::StartLevel(int index, bool bot)
     m_Bot = bot || m_DemoRun;
     const bool menu = m_State == State::Menu && bot && !m_DemoRun;
     if (menu)
-        ZM_INFO("Omborchi: level {} behind the menu (bot)", m_Level + 1);
+        ZM_INFO("Warehouse Keeper: level {} behind the menu (bot)", m_Level + 1);
     else
     {
         m_State = State::Playing;
@@ -177,12 +177,12 @@ void SokobanGame::StartLevel(int index, bool bot)
         {
             m_PlayerLevel = m_Level;
             SaveData::SetInt("Sokoban.Level", m_Level);
-            ZM_INFO("Omborchi: level {} ({})", m_Level + 1, GetLevels()[(size_t)m_Level].Name);
+            ZM_INFO("Warehouse Keeper: level {} ({})", m_Level + 1, GetLevels()[(size_t)m_Level].Name);
         }
     }
     SetActiveRef(CompleteMenu, false);
     if (!m_Board.Load(GetLevels()[(size_t)m_Level].Map))
-        ZM_ERROR("Omborchi: level {} is written incorrectly (the numbers of targets and crates differ)", m_Level + 1);
+        ZM_ERROR("Warehouse Keeper: level {} is written incorrectly (the numbers of targets and crates differ)", m_Level + 1);
     BuildBoard();
     m_Anim = {};
     m_QueuedDir = -1;
@@ -660,7 +660,7 @@ void SokobanGame::PlanBot()
     m_BotIndex = 0;
     if (m_BotPath.empty())
     {
-        ZM_WARN("Omborchi: no solution found for level {} ({} states)", m_Level + 1, states);
+        ZM_WARN("Warehouse Keeper: no solution found for level {} ({} states)", m_Level + 1, states);
         return;
     }
     if (m_DemoRun)

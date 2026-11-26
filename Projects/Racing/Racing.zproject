@@ -8,12 +8,12 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libRacing.so",
         "EngineVersion": "0.1.0",
-        "Description": "3D poyga: mashina fizikasi (rul, ilashish, drift), aylanma trassa, nazorat nuqtalari, aylana vaqti, 3 ta raqib",
+        "Description": "3D racing: car physics (steering, grip, drift), a circuit, checkpoints, lap times, 3 rivals",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",
-        "Product": "Vodiy Poygasi",
+        "Product": "Valley Race",
         "Version": "1.0.0",
         "Width": 1280,
         "Height": 720,

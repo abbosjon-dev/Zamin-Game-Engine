@@ -161,7 +161,7 @@
         "FlipY": false,
         "TextureUUID": "a5aec7978306d03b",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "Parallax": {
         "Factor": [
@@ -211,7 +211,7 @@
         "FlipY": false,
         "TextureUUID": "f3f49249dc28ff90",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       },
       "Parallax": {
         "Factor": [
@@ -257,7 +257,7 @@
         "TileSize": 1.0,
         "Layers": [
           {
-            "Name": "Fon bezaklari",
+            "Name": "Background decor",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 0,
@@ -1806,7 +1806,7 @@
             ]
           },
           {
-            "Name": "Asosiy",
+            "Name": "Main",
             "Visible": true,
             "Collision": true,
             "SortingOrder": 0,
@@ -3355,7 +3355,7 @@
             ]
           },
           {
-            "Name": "Old plan",
+            "Name": "Foreground",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 10,
@@ -5979,7 +5979,7 @@
         ]
       },
       "Text": {
-        "Text": "Tangalar: 0",
+        "Text": "Coins: 0",
         "Color": [
           1,
           1,
@@ -6174,7 +6174,7 @@
         ]
       },
       "Text": {
-        "Text": "Tilemap vitrinasi",
+        "Text": "Tilemap showcase",
         "Color": [
           1,
           1,

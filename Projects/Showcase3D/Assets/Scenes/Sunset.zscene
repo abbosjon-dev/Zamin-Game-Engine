@@ -129,7 +129,7 @@
         },
         {
             "Entity": 7420000000000002,
-            "Tag": "Quyosh (soya)",
+            "Tag": "Sun (shadow)",
             "Transform": {
                 "Translation": [
                     0,
@@ -159,7 +159,7 @@
         },
         {
             "Entity": 7420000000000003,
-            "Tag": "Osmon nuri (soyasiz)",
+            "Tag": "Sky light (no shadow)",
             "Transform": {
                 "Translation": [
                     0,
@@ -189,7 +189,7 @@
         },
         {
             "Entity": 7420000000000004,
-            "Tag": "Yon nur (soya bermaydi)",
+            "Tag": "Side light (casts no shadow)",
             "Transform": {
                 "Translation": [
                     -10,
@@ -219,7 +219,7 @@
         },
         {
             "Entity": 7420000000000005,
-            "Tag": "Yer",
+            "Tag": "Ground",
             "Transform": {
                 "Translation": [
                     0,
@@ -262,7 +262,7 @@
         },
         {
             "Entity": 7420000000000006,
-            "Tag": "Supa",
+            "Tag": "Dais",
             "Transform": {
                 "Translation": [
                     0,
@@ -305,7 +305,7 @@
         },
         {
             "Entity": 7420000000000007,
-            "Tag": "Oltin shar",
+            "Tag": "Gold ball",
             "Transform": {
                 "Translation": [
                     0,
@@ -348,7 +348,7 @@
         },
         {
             "Entity": 7420000000000008,
-            "Tag": "Shisha",
+            "Tag": "Glass",
             "Transform": {
                 "Translation": [
                     -3.2,
@@ -391,7 +391,7 @@
         },
         {
             "Entity": 7420000000000009,
-            "Tag": "Ustun 1",
+            "Tag": "Pillar 1",
             "Transform": {
                 "Translation": [
                     -9,
@@ -434,7 +434,7 @@
         },
         {
             "Entity": 7420000000000010,
-            "Tag": "Ustun 2",
+            "Tag": "Pillar 2",
             "Transform": {
                 "Translation": [
                     -6,
@@ -477,7 +477,7 @@
         },
         {
             "Entity": 7420000000000011,
-            "Tag": "Ustun 3",
+            "Tag": "Pillar 3",
             "Transform": {
                 "Translation": [
                     -3,
@@ -520,7 +520,7 @@
         },
         {
             "Entity": 7420000000000012,
-            "Tag": "Ustun 4",
+            "Tag": "Pillar 4",
             "Transform": {
                 "Translation": [
                     3,
@@ -563,7 +563,7 @@
         },
         {
             "Entity": 7420000000000013,
-            "Tag": "Ustun 5",
+            "Tag": "Pillar 5",
             "Transform": {
                 "Translation": [
                     6,
@@ -606,7 +606,7 @@
         },
         {
             "Entity": 7420000000000014,
-            "Tag": "Ustun 6",
+            "Tag": "Pillar 6",
             "Transform": {
                 "Translation": [
                     9,
@@ -649,7 +649,7 @@
         },
         {
             "Entity": 7420000000000015,
-            "Tag": "Kub 1",
+            "Tag": "Cube 1",
             "Transform": {
                 "Translation": [
                     3.5,
@@ -692,7 +692,7 @@
         },
         {
             "Entity": 7420000000000016,
-            "Tag": "Kub 2",
+            "Tag": "Cube 2",
             "Transform": {
                 "Translation": [
                     5.2,
@@ -735,7 +735,7 @@
         },
         {
             "Entity": 7420000000000017,
-            "Tag": "Konus",
+            "Tag": "Cone",
             "Transform": {
                 "Translation": [
                     -5.5,
@@ -778,7 +778,7 @@
         },
         {
             "Entity": 7420000000000018,
-            "Tag": "Chiroq",
+            "Tag": "Light",
             "Transform": {
                 "Translation": [
                     -1.8,

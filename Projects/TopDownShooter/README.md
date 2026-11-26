@@ -1,6 +1,6 @@
-# Neon Maydon — top-down shooter (2D)
+# Neon Arena — top-down shooter (2D)
 
-![Neon Maydon](Thumbnail.jpg)
+![Neon Arena](Thumbnail.jpg)
 
 Neon chiroqli maydonda kema boshqariladi. Dushmanlar to'lqin-to'lqin bo'lib portallardan chiqadi, siz esa ularni
 otib, ochko va kombo yig'asiz. Har 5-to'lqinda tank keladi. O'yindagi hamma narsa C++ skriptlarda yozilgan, rasm va

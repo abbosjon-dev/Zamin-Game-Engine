@@ -95,7 +95,7 @@
         },
         {
             "Entity": 7413000000000002,
-            "Tag": "Quyosh",
+            "Tag": "Sun",
             "Transform": {
                 "Translation": [
                     0,
@@ -125,7 +125,7 @@
         },
         {
             "Entity": 7413000000000003,
-            "Tag": "Yer",
+            "Tag": "Ground",
             "Transform": {
                 "Translation": [
                     0,
@@ -168,7 +168,7 @@
         },
         {
             "Entity": 7413000000000004,
-            "Tag": "Mayoq",
+            "Tag": "Beacon",
             "Transform": {
                 "Translation": [
                     -3.2,
@@ -189,7 +189,7 @@
             "AnimationPlayer": {
                 "Clips": [
                     {
-                        "Path": "Animations/Mayoq.zanim",
+                        "Path": "Animations/Beacon.zanim",
                         "PathUUID": "5a3c71e09b2d4f13"
                     }
                 ],
@@ -202,7 +202,7 @@
                 "Fields": {
                     "Title": {
                         "Type": "String",
-                        "Value": "Mayoq: joylashuv, burilish, rang, yorug'lik"
+                        "Value": "Beacon: position, rotation, colour, light"
                     },
                     "Height": {
                         "Type": "Float",
@@ -213,7 +213,7 @@
         },
         {
             "Entity": 7413000000000005,
-            "Tag": "Poydevor",
+            "Tag": "Foundation",
             "Parent": 7413000000000004,
             "Transform": {
                 "Translation": [
@@ -257,7 +257,7 @@
         },
         {
             "Entity": 7413000000000006,
-            "Tag": "Kristall",
+            "Tag": "Crystal",
             "Parent": 7413000000000004,
             "Transform": {
                 "Translation": [
@@ -301,7 +301,7 @@
         },
         {
             "Entity": 7413000000000007,
-            "Tag": "Nur",
+            "Tag": "Glow",
             "Parent": 7413000000000004,
             "Transform": {
                 "Translation": [
@@ -332,7 +332,7 @@
         },
         {
             "Entity": 7413000000000008,
-            "Tag": "Eshik",
+            "Tag": "Door",
             "Transform": {
                 "Translation": [
                     3.2,
@@ -353,7 +353,7 @@
             "AnimationPlayer": {
                 "Clips": [
                     {
-                        "Path": "Animations/EshikOchilishi.zanim",
+                        "Path": "Animations/DoorOpening.zanim",
                         "PathUUID": "5a3c71e09b2d4f14"
                     }
                 ],
@@ -366,7 +366,7 @@
                 "Fields": {
                     "Title": {
                         "Type": "String",
-                        "Value": "Eshik: oshiq (Bezier), chiroq (Step), event'lar"
+                        "Value": "Door: hinge (Bezier), light (Step), events"
                     },
                     "Height": {
                         "Type": "Float",
@@ -377,7 +377,7 @@
         },
         {
             "Entity": 7413000000000009,
-            "Tag": "Chap ustun",
+            "Tag": "Left pillar",
             "Parent": 7413000000000008,
             "Transform": {
                 "Translation": [
@@ -421,7 +421,7 @@
         },
         {
             "Entity": 7413000000000010,
-            "Tag": "O'ng ustun",
+            "Tag": "Right pillar",
             "Parent": 7413000000000008,
             "Transform": {
                 "Translation": [
@@ -465,7 +465,7 @@
         },
         {
             "Entity": 7413000000000011,
-            "Tag": "Tepa",
+            "Tag": "Mound",
             "Parent": 7413000000000008,
             "Transform": {
                 "Translation": [
@@ -509,7 +509,7 @@
         },
         {
             "Entity": 7413000000000012,
-            "Tag": "Oshiq",
+            "Tag": "Hinge",
             "Parent": 7413000000000008,
             "Transform": {
                 "Translation": [
@@ -531,7 +531,7 @@
         },
         {
             "Entity": 7413000000000013,
-            "Tag": "Tabaqa",
+            "Tag": "Door leaf",
             "Parent": 7413000000000012,
             "Transform": {
                 "Translation": [
@@ -575,7 +575,7 @@
         },
         {
             "Entity": 7413000000000014,
-            "Tag": "Tutqich",
+            "Tag": "Handle",
             "Parent": 7413000000000012,
             "Transform": {
                 "Translation": [
@@ -619,7 +619,7 @@
         },
         {
             "Entity": 7413000000000015,
-            "Tag": "Chiroq",
+            "Tag": "Light",
             "Parent": 7413000000000008,
             "Transform": {
                 "Translation": [
@@ -672,7 +672,7 @@
         },
         {
             "Entity": 7413000000000016,
-            "Tag": "Paypaslagich",
+            "Tag": "Feeler",
             "Transform": {
                 "Translation": [
                     0,
@@ -722,12 +722,12 @@
                     {
                         "Clip": "Wave",
                         "Time": 0.0,
-                        "Name": "Boshlandi"
+                        "Name": "Started"
                     },
                     {
                         "Clip": "Wave",
                         "Time": 0.5,
-                        "Name": "O'rtasi"
+                        "Name": "Middle"
                     }
                 ]
             },
@@ -736,7 +736,7 @@
                 "Fields": {
                     "Title": {
                         "Type": "String",
-                        "Value": "Tentacle (glTF): Animator event'lari"
+                        "Value": "Tentacle (glTF): Animator events"
                     },
                     "Height": {
                         "Type": "Float",

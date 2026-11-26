@@ -217,10 +217,10 @@ Batafsil: [Editor.md](Editor.md).
     glTF `emissiveFactor` va `KHR_materials_emissive_strength` o'qiladi
   - **Standart materiallar kutubxonasi** (`MaterialPresets`): metall, cho'tkalangan metall, oltin, mis, plastik, rezina,
     yog'och, shisha, keramika, beton, neon, suv. Yog'och, beton va cho'tkalangan metall teksturalari protsedural
-    (CPU'da, choksiz takrorlanadi) va loyihada bir marta `Assets/Materials/Standart/Textures/` ga PNG bo'lib yoziladi - har
+    (CPU'da, choksiz takrorlanadi) va loyihada bir marta `Assets/Materials/Standard/Textures/` ga PNG bo'lib yoziladi - har
     papkadagi nusxalar shu bitta teksturani ishlatadi. Kontent brauzerda
     **Yangi material** menyusidan tanlanganining nusxasi shu papkada yaratiladi; Mesh Renderer'dagi **Standart material...**
-    loyihadagi umumiy nusxasini (`Assets/Materials/Standart/`) biriktiradi. Namuna: `MaterialGallery` sahnasidagi sharlar qatori
+    loyihadagi umumiy nusxasini (`Assets/Materials/Standard/`) biriktiradi. Namuna: `MaterialGallery` sahnasidagi sharlar qatori
   - **Material thumbnaillari**: kontent brauzerda va Material asset maydonlarida `.zmat` shar ustida (yoritilgan, shaffof /
     kesilganlari shaxmat fon bilan, nurlilari bloom bilan) ko'rinadi; teksturasi o'zgarsa ham yangilanadi, ochiq material
     tahrir qilinayotganda jonli kuzatiladi, diskdagi keshga faqat fayldagiga mos holati yoziladi
@@ -267,8 +267,8 @@ Batafsil: [Editor.md](Editor.md).
     `"Eshik/Oshiq"`) transformi, Sprite / Circle / Text / Mesh rangi, yorug'lik rangi va kuchi, UI joylashuvi / o'lchami /
     masshtabi / shaffofligi, UI rasm rangi va skriptning float maydonlari; kalitlar **Step / Linear / Bezier** (avtomatik
     silliq tangentlar — cho'qqida oshib ketmaydi, tekis yoki qo'lda), klip **bir marta / takror / borib-qaytish**, tezlik
-    (manfiy — orqaga), **event'lar** (har biri o'tilganda aynan bir marta, katta kadrda ham). Skript: `PlayAnimation("EshikOchilishi")`,
-    `PlayAnimation("EshikOchilishi", -1.0f)` (yopish), `StopAnimation()`, `IsAnimationPlaying()`, komponentda `SetTime`,
+    (manfiy — orqaga), **event'lar** (har biri o'tilganda aynan bir marta, katta kadrda ham). Skript: `PlayAnimation("DoorOpening")`,
+    `PlayAnimation("DoorOpening", -1.0f)` (yopish), `StopAnimation()`, `IsAnimationPlaying()`, komponentda `SetTime`,
     `GetNormalizedTime`; `OnAnimationEvent(e)` yoki `AddAnimationEventHandler("Pulse", fn)`, event bus'da `"AnimationEvent"`
   - **Animatsiya oynasi** (Oyna > Animatsiya, timeline): treklar ro'yxati (+ Trek qo'shish: obyekt va xususiyat), **dope sheet**
     (kalitlar romb, sudrab ko'chirish, ikki marta bosish — kalit, Delete, o'ng tugma — interpolyatsiya / tangent) va **egri
@@ -288,7 +288,7 @@ Batafsil: [Editor.md](Editor.md).
     tugagan klip); **ko'rinmasa** — hech bir kamera ko'rmagan model pozalanmaydi (vaqt, event'lar, root motion davom etadi) yoki
     umuman to'xtaydi; **pozalarni keshlash** (klip belgilangan kadr/s da oldindan namuna olinadi, model animatorlari ulashadi,
     step kalitlar aniq). Statistika oynasida **Animatsiya** bo'limi, profiler'da `Animatsiya/Pozalar`, `Scene::GetAnimationStats()`.
-    Namuna: Showcase3D `Scenes/Olomon.zscene` (168 tentakl, buriladigan kamera)
+    Namuna: Showcase3D `Scenes/Crowd.zscene` (168 tentakl, buriladigan kamera)
   - Batafsil qo'llanma: [docs/Animation.md](Animation.md) — kliplar, timeline, Animator, blend tree, qatlamlar, event'lar,
     root motion, biriktirish, morph target'lar, samaradorlik, kod misollari bilan
   - **Post-processing**: SSAO (ambient occlusion), bloom (**rangi** — porlash shu rangga ko'paytiriladi; **linza changi** —
@@ -361,7 +361,7 @@ Batafsil: [Editor.md](Editor.md).
     O'lcham, Shovqin, To'qnashuv, Sub-emitterlar, Tekstura sheet, Iz, Chizish) - har birida yoqish katagi, "faqat
     yoqilganlar" filtri va "Modul qo'shish"; Ijro / Pauza (qotib qoladi) / Qayta / To'xtatish tugmalari inspektorda va
     tanlangan tizim uchun viewport burchagidagi panelda (particle soni, sub-emitterlar bilan, sikl vaqti). Namuna:
-    Showcase3D `Scenes/ParticlesIV.zscene` (preset'lar qatori, loyihaning `Particles/Gulxan.zparticle` preset'i, kamera
+    Showcase3D `Scenes/ParticlesIV.zscene` (preset'lar qatori, loyihaning `Particles/Campfire.zparticle` preset'i, kamera
     atrofidagi yomg'ir, o'chiq qor). **Performance**: `build/bin/ZaminBench` (yoki `particle_bench` target) ~50 000
     particle'ni headless simulyatsiya qilib har holat uchun ms / kadr chiqaradi (`--profile` - profiler bo'limlari);
     particle simulyatsiyasi Debug build'da ham `-O2` bilan kompilyatsiya qilinadi (`ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG`)

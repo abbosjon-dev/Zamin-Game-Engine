@@ -1,4 +1,4 @@
-# Zamin namuna o'yini: Breakout - C++ skriptlar moduli (libBreakout.so)
+# Zamin sample game: Breakout - the C++ script module (libBreakout.so)
 cmake_minimum_required(VERSION 3.20)
 project(Breakout LANGUAGES C CXX)
 
@@ -8,8 +8,8 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Engine ichida build qilinganda Zamin target mavjud; aks holda
-# -DZamin_DIR=<engine build papkasi> orqali topiladi (Editor buni avtomatik beradi).
+# When built inside the engine the Zamin target exists; otherwise it is found
+# through -DZamin_DIR=<engine build folder> (the editor passes it automatically).
 if(NOT TARGET Zamin)
     find_package(Zamin REQUIRED CONFIG)
 endif()

@@ -27,14 +27,14 @@ public:
         if (auto* agent = TryGetComponent<NavAgentComponent>())
             m_PatrolSpeed = agent->Speed;
 
-        m_AI.Name = "Orol qo'riqchisi";
+        m_AI.Name = "Island guard";
         m_AI.LogTransitions = true;
-        m_AI.AddState("Patrul", [this] { Mood({ 0.3f, 0.95f, 0.4f }, m_PatrolSpeed); },
+        m_AI.AddState("Patrol", [this] { Mood({ 0.3f, 0.95f, 0.4f }, m_PatrolSpeed); },
                       [this](float dt) {
                           if (IsWaitingAtPatrolPoint())
                               Look(dt);
                       })
-            .AddState("Ta'qib",
+            .AddState("Chase",
                       [this] {
                           Mood({ 1.0f, 0.2f, 0.15f }, ChaseSpeed);
                           PausePatrol(false);
@@ -42,7 +42,7 @@ public:
                           Say("The guard saw you - run! (Shift)");
                       },
                       [this](float dt) { Chase(dt); })
-            .AddState("Qidiruv",
+            .AddState("Search",
                       [this] {
                           Mood({ 1.0f, 0.6f, 0.12f }, m_PatrolSpeed * 1.2f);
                           SetDestination(GetLastSeenPosition());
@@ -51,12 +51,12 @@ public:
                           if (!IsMoving())
                               Look(dt);
                       })
-            .AddState("Qaytish",
+            .AddState("Return",
                       [this] {
                           Mood({ 0.35f, 0.6f, 1.0f }, m_PatrolSpeed);
                           ResumePatrol(true); // the nearest point of its round
                       })
-            .AddState("Ushladi",
+            .AddState("Caught",
                       [this] {
                           Mood({ 0.8f, 0.35f, 1.0f }, m_PatrolSpeed);
                           StopMoving();
@@ -68,17 +68,17 @@ public:
                       })
             // The sensor's callbacks send these; after a catch it may still see the hero (no new
             // "spotted" then): the cool-down decides.
-            .AddEventTransition("Patrul", "Ta'qib", "ko'rdi")
-            .AddEventTransition("Qidiruv", "Ta'qib", "ko'rdi")
-            .AddEventTransition("Qaytish", "Ta'qib", "ko'rdi")
-            .AddEventTransition("Ta'qib", "Qidiruv", "yo'qotdi")
-            .AddTransition("Patrul", "Ta'qib", [this] { return m_Cooldown <= 0.0f && CanSeeTarget(); })
-            .AddTransition("Qaytish", "Ta'qib", [this] { return m_Cooldown <= 0.0f && CanSeeTarget(); })
-            .AddTransition("Ta'qib", "Ushladi", [this] { return Caught(); })
-            .AddTimedTransition("Qidiruv", "Qaytish", SearchTime)
-            .AddTimedTransition("Ushladi", "Qaytish", 1.5f)
-            .AddEventTransition("Qaytish", "Patrul", "nuqtada");
-        m_AI.Start("Patrul");
+            .AddEventTransition("Patrol", "Chase", "spotted")
+            .AddEventTransition("Search", "Chase", "spotted")
+            .AddEventTransition("Return", "Chase", "spotted")
+            .AddEventTransition("Chase", "Search", "lost")
+            .AddTransition("Patrol", "Chase", [this] { return m_Cooldown <= 0.0f && CanSeeTarget(); })
+            .AddTransition("Return", "Chase", [this] { return m_Cooldown <= 0.0f && CanSeeTarget(); })
+            .AddTransition("Chase", "Caught", [this] { return Caught(); })
+            .AddTimedTransition("Search", "Return", SearchTime)
+            .AddTimedTransition("Caught", "Return", 1.5f)
+            .AddEventTransition("Return", "Patrol", "at point");
+        m_AI.Start("Patrol");
         WatchStateMachine(m_AI);
     }
 
@@ -101,10 +101,10 @@ public:
     void OnTargetSpotted(Entity) override
     {
         if (m_Cooldown <= 0.0f)
-            m_AI.SendEvent("ko'rdi");
+            m_AI.SendEvent("spotted");
     }
-    void OnTargetLost(Entity) override { m_AI.SendEvent("yo'qotdi"); }
-    void OnPatrolPointReached(int) override { m_AI.SendEvent("nuqtada"); }
+    void OnTargetLost(Entity) override { m_AI.SendEvent("lost"); }
+    void OnPatrolPointReached(int) override { m_AI.SendEvent("at point"); }
 
     void OnDestroy() override { UnwatchStateMachine(m_AI); }
 
@@ -184,7 +184,7 @@ private:
     bool m_Said = false;
 };
 ZM_REGISTER_SCRIPT(IslandGuard, ZM_FIELD(IslandGuard, Model).Label("Model").Tooltip("The child object with the robot model (Animator)"),
-                   ZM_FIELD(IslandGuard, Lamp).Label("Chiroq").Tooltip("The lamp on its head: lit in the color of the state"),
+                   ZM_FIELD(IslandGuard, Lamp).Label("Light").Tooltip("The lamp on its head: lit in the color of the state"),
                    ZM_FIELD(IslandGuard, Status).Label("Message text").Tooltip("The UI text on the screen"),
                    ZM_FIELD(IslandGuard, StatusPanel).Label("Message panel").Tooltip("The background shown while there is a message"),
                    ZM_FIELD_RANGE(IslandGuard, ChaseSpeed, 0.5f, 12.0f).Label("Chase speed"),

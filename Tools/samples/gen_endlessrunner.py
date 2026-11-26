@@ -1,4 +1,4 @@
-"""Projects/EndlessRunner: "Ipak Yo'li" (an endless runner on the Silk Road) - its textures, sounds, scene and project.
+"""Projects/EndlessRunner: "Silk Road" (an endless runner on the Silk Road) - its textures, sounds, scene and project.
 
     python3 Tools/samples/gen_endlessrunner.py
 
@@ -249,153 +249,153 @@ def build_scene():
                  "SSAORadius": 0.5, "SSAOIntensity": 1.0, "SSAOBias": 0.03, "FXAA": True},
         "Gravity3D": [0, -9.81, 0],
     }
-    s.metadata = {"Description": "Ipak Yo'li: 3D cheksiz yuguruvchi - uch yo'lak, sakrash, sirpanish, protsedurali to'siqlar, tangalar, "
-                                 "bonuslar, oshib boruvchi tezlik", "Author": "Zamin", "Tags": ["namuna", "3D", "runner"]}
+    s.metadata = {"Description": "Silk Road: a 3D endless runner - three lanes, jumping, sliding, procedural obstacles, coins, "
+                                 "power-ups, rising speed", "Author": "Zamin", "Tags": ["sample", "3D", "runner"]}
 
     # the sun low ahead: long shadows towards the camera, a golden sky
-    s.entity("Quyosh", rot=(math.radians(-34), math.radians(35), 0), DirectionalLight=k.dir_light((1.0, 0.82, 0.6), 3.0, True))
-    camera = s.entity("Kamera", pos=(0, 4.4, 7.8), rot=(math.radians(-18), 0, 0),
+    s.entity("Sun", rot=(math.radians(-34), math.radians(35), 0), DirectionalLight=k.dir_light((1.0, 0.82, 0.6), 3.0, True))
+    camera = s.entity("Camera", pos=(0, 4.4, 7.8), rot=(math.radians(-18), 0, 0),
                       Camera=k.camera_persp(math.radians(62), 0.1, 400.0, (0.9, 0.75, 0.55, 1.0),
                                             shake={"MaxOffset": [0.25, 0.25], "MaxAngle": 4.0, "Exponent": 2.0}),
                       AudioListener={"Enabled": True, "Priority": 0, "TrackVelocity": False})
 
     # ---- the endless ground: planes that follow the runner (their textures stay put)
-    road = s.entity("Yo'l", pos=(0, 0, -100), scale=(ROAD_W, 1, ROAD_L),
+    road = s.entity("Road", pos=(0, 0, -100), scale=(ROAD_W, 1, ROAD_L),
                     MeshRenderer=k.mesh("Plane", (1, 1, 1, 1), 0.8, 0.0, albedo_map="Textures/road.png", normal_map="Textures/road_normal.png",
                                         tiling=(1, ROAD_L / ROAD_TILE)))
-    sand = s.entity("Qum", pos=(0, -0.05, -100), scale=(SAND_W, 1, SAND_L),
+    sand = s.entity("Sand", pos=(0, -0.05, -100), scale=(SAND_W, 1, SAND_L),
                     MeshRenderer=k.mesh("Plane", (1, 1, 1, 1), 0.95, 0.0, albedo_map="Textures/sand.png",
                                         tiling=(SAND_W / SAND_TILE, SAND_L / SAND_TILE)))
     curbs = []
     for side in (-1, 1):
-        curbs.append(s.entity("Yo'l cheti" + (" (chap)" if side < 0 else " (o'ng)"), pos=(side * (ROAD_W / 2 + 0.15), 0.12, -100),
+        curbs.append(s.entity("Road edge" + (" (left)" if side < 0 else " (right)"), pos=(side * (ROAD_W / 2 + 0.15), 0.12, -100),
                               scale=(0.3, 0.24, ROAD_L), MeshRenderer=k.mesh("Cube", (0.62, 0.4, 0.26, 1), 0.7, 0.0)))
 
     # ---- templates (switched off): obstacles, pickups, scenery
-    tpl = s.entity("Shablonlar", active=False)
+    tpl = s.entity("Templates", active=False)
     # cart: a wooden box on two wheels, melons on top
-    cart = s.entity("Arava", parent=tpl)
-    s.entity("Kuzov", parent=cart, pos=(0, 0.55, 0), scale=(1.5, 0.55, 1.7), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.8, 0.0, **WOOD))
+    cart = s.entity("Cart", parent=tpl)
+    s.entity("Body", parent=cart, pos=(0, 0.55, 0), scale=(1.5, 0.55, 1.7), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.8, 0.0, **WOOD))
     for side in (-1, 1):
-        s.entity("G'ildirak", parent=cart, pos=(side * 0.8, 0.42, 0), rot=(0, 0, math.radians(90)), scale=(0.84, 0.12, 0.84),
+        s.entity("Wheel", parent=cart, pos=(side * 0.8, 0.42, 0), rot=(0, 0, math.radians(90)), scale=(0.84, 0.12, 0.84),
                  MeshRenderer=k.mesh("Cylinder", (0.35, 0.22, 0.12, 1), 0.7, 0.0))
     for i, (mx, mz) in enumerate(((-0.35, -0.4), (0.35, -0.35), (0.0, 0.3), (-0.4, 0.45), (0.4, 0.4))):
-        s.entity("Qovun", parent=cart, pos=(mx, 0.98, mz), scale=(0.42, 0.34, 0.5),
+        s.entity("Melon", parent=cart, pos=(mx, 0.98, mz), scale=(0.42, 0.34, 0.5),
                  MeshRenderer=k.mesh("Sphere", (0.85, 0.75, 0.25, 1) if i % 2 else (0.25, 0.5, 0.15, 1), 0.5, 0.0))
     # fence across the road
-    fence = s.entity("To'siq", parent=tpl)
+    fence = s.entity("Barrier", parent=tpl)
     for x in (-3.7, -1.2, 1.2, 3.7):
-        s.entity("Ustun", parent=fence, pos=(x, 0.45, 0), scale=(0.16, 0.9, 0.16), MeshRenderer=k.mesh("Cube", (0.5, 0.3, 0.15, 1), 0.8, 0.0))
+        s.entity("Post", parent=fence, pos=(x, 0.45, 0), scale=(0.16, 0.9, 0.16), MeshRenderer=k.mesh("Cube", (0.5, 0.3, 0.15, 1), 0.8, 0.0))
     for y, col in ((0.4, (0.8, 0.15, 0.1)), (0.75, (0.95, 0.9, 0.8))):
-        s.entity("Xoda", parent=fence, pos=(0, y, 0), scale=(7.8, 0.14, 0.1), MeshRenderer=k.mesh("Cube", (*col, 1), 0.6, 0.0))
+        s.entity("Pole", parent=fence, pos=(0, y, 0), scale=(7.8, 0.14, 0.1), MeshRenderer=k.mesh("Cube", (*col, 1), 0.6, 0.0))
     # gate with a hanging carpet: slide under it
-    gate = s.entity("Darvoza", parent=tpl)
+    gate = s.entity("Gate", parent=tpl)
     for side in (-1, 1):
-        s.entity("Ustun", parent=gate, pos=(side * 4.45, 2.2, 0), scale=(0.6, 4.4, 0.6), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.8, 0.0, **BRICK))
-    s.entity("To'sin", parent=gate, pos=(0, 4.35, 0), scale=(9.6, 0.5, 0.7), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.4, 0.1, **TILES, tiling=(6, 0.4)))
-    s.entity("Gilam", parent=gate, pos=(0, 2.65, 0), scale=(7.9, 2.9, 0.06), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.9, 0.0,
+        s.entity("Post", parent=gate, pos=(side * 4.45, 2.2, 0), scale=(0.6, 4.4, 0.6), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.8, 0.0, **BRICK))
+    s.entity("Beam", parent=gate, pos=(0, 4.35, 0), scale=(9.6, 0.5, 0.7), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.4, 0.1, **TILES, tiling=(6, 0.4)))
+    s.entity("Carpet", parent=gate, pos=(0, 2.65, 0), scale=(7.9, 2.9, 0.06), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.9, 0.0,
                                                                                                  albedo_map="Textures/carpet.png", tiling=(3, 1)))
-    s.entity("Popuk", parent=gate, pos=(0, 1.16, 0), scale=(7.9, 0.06, 0.08),
+    s.entity("Tassel", parent=gate, pos=(0, 1.16, 0), scale=(7.9, 0.06, 0.08),
              MeshRenderer=k.mesh("Cube", (1.0, 0.8, 0.3, 1), emission=(1.0, 0.7, 0.2), emission_strength=1.5))
     # wall: mud brick with a tile band
-    wall = s.entity("Devor", parent=tpl)
-    s.entity("G'isht", parent=wall, pos=(0, 1.5, 0), scale=(2.0, 3.0, 1.2), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(1.5, 2)))
-    s.entity("Koshin", parent=wall, pos=(0, 2.6, 0), scale=(2.04, 0.35, 1.24), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.35, 0.1, **TILES, tiling=(2, 0.35)))
+    wall = s.entity("Wall", parent=tpl)
+    s.entity("Brick", parent=wall, pos=(0, 1.5, 0), scale=(2.0, 3.0, 1.2), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(1.5, 2)))
+    s.entity("Tile", parent=wall, pos=(0, 2.6, 0), scale=(2.04, 0.35, 1.24), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.35, 0.1, **TILES, tiling=(2, 0.35)))
     # caravan: a long covered wagon
-    caravan = s.entity("Karvon", parent=tpl)
-    s.entity("Asos", parent=caravan, pos=(0, 0.95, 0), scale=(2.0, 0.9, 9.0), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.8, 0.0, **WOOD, tiling=(1, 3)))
-    s.entity("Chodir", parent=caravan, pos=(0, 1.45, 0), rot=(math.radians(90), 0, 0), scale=(2.0, 8.6, 2.4),
+    caravan = s.entity("Caravan", parent=tpl)
+    s.entity("Base", parent=caravan, pos=(0, 0.95, 0), scale=(2.0, 0.9, 9.0), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.8, 0.0, **WOOD, tiling=(1, 3)))
+    s.entity("Tent", parent=caravan, pos=(0, 1.45, 0), rot=(math.radians(90), 0, 0), scale=(2.0, 8.6, 2.4),
              MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.9, 0.0, albedo_map="Textures/canvas.png", tiling=(4, 1)))
     for z in (-3.4, 3.4):
         for side in (-1, 1):
-            s.entity("G'ildirak", parent=caravan, pos=(side * 1.05, 0.5, z), rot=(0, 0, math.radians(90)), scale=(1.0, 0.14, 1.0),
+            s.entity("Wheel", parent=caravan, pos=(side * 1.05, 0.5, z), rot=(0, 0, math.radians(90)), scale=(1.0, 0.14, 1.0),
                      MeshRenderer=k.mesh("Cylinder", (0.35, 0.22, 0.12, 1), 0.7, 0.0))
     # pickups (their root turns)
-    coin = s.entity("Tanga", parent=tpl)
-    s.entity("Tanga yuzi", parent=coin, rot=(math.radians(90), 0, 0), scale=(0.62, 0.08, 0.62),
+    coin = s.entity("Coin", parent=tpl)
+    s.entity("Coin face", parent=coin, rot=(math.radians(90), 0, 0), scale=(0.62, 0.08, 0.62),
              MeshRenderer=k.mesh("Cylinder", (1.0, 0.78, 0.25, 1), 0.25, 1.0, emission=(1.0, 0.65, 0.15), emission_strength=1.6, cast_shadows=False))
-    magnet = s.entity("Magnit", parent=tpl)
-    s.entity("Shar", parent=magnet, scale=(0.7, 0.7, 0.7), MeshRenderer=k.mesh("Sphere", (0.8, 0.3, 1.0, 1), 0.2, 0.3, emission=(0.7, 0.25, 1.0),
+    magnet = s.entity("Magnet", parent=tpl)
+    s.entity("Sphere", parent=magnet, scale=(0.7, 0.7, 0.7), MeshRenderer=k.mesh("Sphere", (0.8, 0.3, 1.0, 1), 0.2, 0.3, emission=(0.7, 0.25, 1.0),
                                                                                 emission_strength=3.0, cast_shadows=False))
-    s.entity("Halqa", parent=magnet, rot=(math.radians(90), 0, 0), scale=(1.2, 0.05, 1.2),
+    s.entity("Ring", parent=magnet, rot=(math.radians(90), 0, 0), scale=(1.2, 0.05, 1.2),
              MeshRenderer=k.mesh("Cylinder", (1, 0.8, 1, 1), emission=(0.9, 0.6, 1.0), emission_strength=5.0, cast_shadows=False))
-    s.entity("Nur", parent=magnet, PointLight=k.point_light((0.7, 0.3, 1.0), 3.0, 4.0))
-    shield = s.entity("Qalqon", parent=tpl)
-    s.entity("Shar", parent=shield, scale=(0.7, 0.7, 0.7), MeshRenderer=k.mesh("Sphere", (0.3, 0.9, 1.0, 1), 0.2, 0.3, emission=(0.2, 0.85, 1.0),
+    s.entity("Glow", parent=magnet, PointLight=k.point_light((0.7, 0.3, 1.0), 3.0, 4.0))
+    shield = s.entity("Shield", parent=tpl)
+    s.entity("Sphere", parent=shield, scale=(0.7, 0.7, 0.7), MeshRenderer=k.mesh("Sphere", (0.3, 0.9, 1.0, 1), 0.2, 0.3, emission=(0.2, 0.85, 1.0),
                                                                                 emission_strength=3.0, cast_shadows=False))
-    s.entity("Halqa", parent=shield, rot=(0, 0, math.radians(90)), scale=(1.2, 0.05, 1.2),
+    s.entity("Ring", parent=shield, rot=(0, 0, math.radians(90)), scale=(1.2, 0.05, 1.2),
              MeshRenderer=k.mesh("Cylinder", (0.8, 1, 1, 1), emission=(0.5, 1.0, 1.0), emission_strength=5.0, cast_shadows=False))
-    s.entity("Nur", parent=shield, PointLight=k.point_light((0.3, 0.85, 1.0), 3.0, 4.0))
+    s.entity("Glow", parent=shield, PointLight=k.point_light((0.3, 0.85, 1.0), 3.0, 4.0))
     # scenery
-    tower = s.entity("Minora", parent=tpl)
-    s.entity("Tana", parent=tower, pos=(0, 3.5, 0), scale=(1.7, 7.0, 1.7), MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(3, 5)))
-    s.entity("Belbog'", parent=tower, pos=(0, 6.2, 0), scale=(1.78, 0.6, 1.78), MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.35, 0.1, **TILES, tiling=(4, 0.5)))
-    s.entity("Gumbaz", parent=tower, pos=(0, 7.2, 0), scale=(1.9, 1.6, 1.9), MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.3, 0.1, **TILES, tiling=(3, 2)))
-    s.entity("Uchi", parent=tower, pos=(0, 8.3, 0), scale=(0.12, 0.8, 0.12),
+    tower = s.entity("Minaret", parent=tpl)
+    s.entity("Body", parent=tower, pos=(0, 3.5, 0), scale=(1.7, 7.0, 1.7), MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(3, 5)))
+    s.entity("Band", parent=tower, pos=(0, 6.2, 0), scale=(1.78, 0.6, 1.78), MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.35, 0.1, **TILES, tiling=(4, 0.5)))
+    s.entity("Dome", parent=tower, pos=(0, 7.2, 0), scale=(1.9, 1.6, 1.9), MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.3, 0.1, **TILES, tiling=(3, 2)))
+    s.entity("Tip", parent=tower, pos=(0, 8.3, 0), scale=(0.12, 0.8, 0.12),
              MeshRenderer=k.mesh("Cylinder", (1.0, 0.8, 0.3, 1), 0.3, 1.0, emission=(1.0, 0.7, 0.2), emission_strength=1.0))
-    palm = s.entity("Palma", parent=tpl)
-    s.entity("Tana", parent=palm, pos=(0, 2.5, 0), rot=(0.08, 0, 0.06), scale=(0.32, 5.0, 0.32), MeshRenderer=k.mesh("Cylinder", (0.45, 0.32, 0.2, 1), 0.9, 0.0))
+    palm = s.entity("Palm", parent=tpl)
+    s.entity("Trunk", parent=palm, pos=(0, 2.5, 0), rot=(0.08, 0, 0.06), scale=(0.32, 5.0, 0.32), MeshRenderer=k.mesh("Cylinder", (0.45, 0.32, 0.2, 1), 0.9, 0.0))
     for i in range(7):
         a = i * 2 * math.pi / 7
-        s.entity("Barg", parent=palm, pos=(math.sin(a) * 1.1, 4.85, math.cos(a) * 1.1), rot=(0, a + math.pi / 2, math.radians(-25)),
+        s.entity("Leaf", parent=palm, pos=(math.sin(a) * 1.1, 4.85, math.cos(a) * 1.1), rot=(0, a + math.pi / 2, math.radians(-25)),
                  scale=(2.4, 0.06, 0.55), MeshRenderer=k.mesh("Cube", (0.25, 0.55, 0.18, 1), 0.7, 0.0))
-    house = s.entity("Uy", parent=tpl)
-    s.entity("Devor", parent=house, pos=(0, 1.6, 0), scale=(4.2, 3.2, 4.2), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(3, 2)))
-    s.entity("Tom", parent=house, pos=(0, 3.25, 0), scale=(4.5, 0.25, 4.5), MeshRenderer=k.mesh("Cube", (0.7, 0.55, 0.38, 1), 0.85, 0.0))
-    s.entity("Gumbaz", parent=house, pos=(0, 3.4, 0), scale=(2.4, 1.8, 2.4), MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.3, 0.1, **TILES, tiling=(3, 2)))
+    house = s.entity("House", parent=tpl)
+    s.entity("Wall", parent=house, pos=(0, 1.6, 0), scale=(4.2, 3.2, 4.2), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(3, 2)))
+    s.entity("Roof", parent=house, pos=(0, 3.25, 0), scale=(4.5, 0.25, 4.5), MeshRenderer=k.mesh("Cube", (0.7, 0.55, 0.38, 1), 0.85, 0.0))
+    s.entity("Dome", parent=house, pos=(0, 3.4, 0), scale=(2.4, 1.8, 2.4), MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.3, 0.1, **TILES, tiling=(3, 2)))
     for side in (-1, 1):
-        s.entity("Eshik", parent=house, pos=(side * 2.11, 1.0, 0), scale=(0.05, 2.0, 1.1), MeshRenderer=k.mesh("Cube", (0.3, 0.17, 0.08, 1), 0.7, 0.0))
-    dune = s.entity("Qum tepa", parent=tpl, pos=(0, -0.6, 0), scale=(8, 2.4, 6),
+        s.entity("Door", parent=house, pos=(side * 2.11, 1.0, 0), scale=(0.05, 2.0, 1.1), MeshRenderer=k.mesh("Cube", (0.3, 0.17, 0.08, 1), 0.7, 0.0))
+    dune = s.entity("Dune", parent=tpl, pos=(0, -0.6, 0), scale=(8, 2.4, 6),
                     MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.95, 0.0, albedo_map="Textures/sand.png", tiling=(3, 2)))
-    arch = s.entity("Ravoq", parent=tpl)
+    arch = s.entity("Arch", parent=tpl)
     for side in (-1, 1):
-        s.entity("Ustun", parent=arch, pos=(side * 5.6, 3.6, 0), scale=(1.3, 7.2, 1.3), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(1, 4)))
-        s.entity("Gumbazcha", parent=arch, pos=(side * 5.6, 7.6, 0), scale=(1.5, 1.2, 1.5), MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.3, 0.1, **TILES))
-    s.entity("Peshtoq", parent=arch, pos=(0, 6.9, 0), scale=(12.6, 1.6, 1.4), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.35, 0.1, **TILES, tiling=(8, 1)))
-    s.entity("Oltin hoshiya", parent=arch, pos=(0, 6.05, 0.71), scale=(12.6, 0.12, 0.05),
+        s.entity("Post", parent=arch, pos=(side * 5.6, 3.6, 0), scale=(1.3, 7.2, 1.3), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.85, 0.0, **BRICK, tiling=(1, 4)))
+        s.entity("Small dome", parent=arch, pos=(side * 5.6, 7.6, 0), scale=(1.5, 1.2, 1.5), MeshRenderer=k.mesh("Sphere", (1, 1, 1, 1), 0.3, 0.1, **TILES))
+    s.entity("Portal", parent=arch, pos=(0, 6.9, 0), scale=(12.6, 1.6, 1.4), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.35, 0.1, **TILES, tiling=(8, 1)))
+    s.entity("Gold trim", parent=arch, pos=(0, 6.05, 0.71), scale=(12.6, 0.12, 0.05),
              MeshRenderer=k.mesh("Cube", (1.0, 0.8, 0.3, 1), 0.3, 1.0, emission=(1.0, 0.7, 0.25), emission_strength=2.0, cast_shadows=False))
 
     # ---- the runner (faces -Z; the body, arms and legs are animated by the script)
-    player = s.entity("Yuguruvchi")
-    body = s.entity("Tana", parent=player)
+    player = s.entity("Runner")
+    body = s.entity("Body", parent=player)
     chapan = (0.12, 0.25, 0.65, 1)
     gold = (1.0, 0.75, 0.25, 1)
     skin = (0.85, 0.62, 0.45, 1)
-    s.entity("Chopon", parent=body, pos=(0, 1.15, 0), scale=(0.56, 0.66, 0.34), MeshRenderer=k.mesh("Cube", chapan, 0.7, 0.0))
-    s.entity("Belbog'", parent=body, pos=(0, 0.88, 0), scale=(0.58, 0.09, 0.36), MeshRenderer=k.mesh("Cube", gold, 0.4, 0.6))
-    s.entity("Etak", parent=body, pos=(0, 0.72, 0), scale=(0.6, 0.3, 0.38), MeshRenderer=k.mesh("Cube", chapan, 0.7, 0.0))
-    s.entity("Hoshiya", parent=body, pos=(0, 1.15, -0.172), scale=(0.08, 0.64, 0.01), MeshRenderer=k.mesh("Cube", gold, 0.4, 0.6))
-    head = s.entity("Bosh", parent=body, pos=(0, 1.66, 0), scale=(0.34, 0.36, 0.34), MeshRenderer=k.mesh("Sphere", skin, 0.6, 0.0))
-    s.entity("Do'ppi", parent=body, pos=(0, 1.83, 0), scale=(0.33, 0.12, 0.33), MeshRenderer=k.mesh("Cylinder", (0.1, 0.1, 0.12, 1), 0.6, 0.0))
-    s.entity("Do'ppi naqshi", parent=body, pos=(0, 1.83, 0), scale=(0.335, 0.04, 0.335),
+    s.entity("Robe", parent=body, pos=(0, 1.15, 0), scale=(0.56, 0.66, 0.34), MeshRenderer=k.mesh("Cube", chapan, 0.7, 0.0))
+    s.entity("Band", parent=body, pos=(0, 0.88, 0), scale=(0.58, 0.09, 0.36), MeshRenderer=k.mesh("Cube", gold, 0.4, 0.6))
+    s.entity("Hem", parent=body, pos=(0, 0.72, 0), scale=(0.6, 0.3, 0.38), MeshRenderer=k.mesh("Cube", chapan, 0.7, 0.0))
+    s.entity("Trim", parent=body, pos=(0, 1.15, -0.172), scale=(0.08, 0.64, 0.01), MeshRenderer=k.mesh("Cube", gold, 0.4, 0.6))
+    head = s.entity("Head", parent=body, pos=(0, 1.66, 0), scale=(0.34, 0.36, 0.34), MeshRenderer=k.mesh("Sphere", skin, 0.6, 0.0))
+    s.entity("Cap", parent=body, pos=(0, 1.83, 0), scale=(0.33, 0.12, 0.33), MeshRenderer=k.mesh("Cylinder", (0.1, 0.1, 0.12, 1), 0.6, 0.0))
+    s.entity("Cap pattern", parent=body, pos=(0, 1.83, 0), scale=(0.335, 0.04, 0.335),
              MeshRenderer=k.mesh("Cylinder", (0.95, 0.95, 0.9, 1), emission=(1, 1, 1), emission_strength=0.3))
     limbs = {}
     for name, side in (("ArmL", -1), ("ArmR", 1)):
-        pivot = s.entity("Qo'l" + (" (chap)" if side < 0 else " (o'ng)"), parent=body, pos=(side * 0.36, 1.42, 0))
-        s.entity("Yeng", parent=pivot, pos=(0, -0.28, 0), scale=(0.15, 0.56, 0.15), MeshRenderer=k.mesh("Cube", chapan, 0.7, 0.0))
-        s.entity("Kaft", parent=pivot, pos=(0, -0.6, 0), scale=(0.13, 0.13, 0.13), MeshRenderer=k.mesh("Sphere", skin, 0.6, 0.0))
+        pivot = s.entity("Arm" + (" (left)" if side < 0 else " (right)"), parent=body, pos=(side * 0.36, 1.42, 0))
+        s.entity("Sleeve", parent=pivot, pos=(0, -0.28, 0), scale=(0.15, 0.56, 0.15), MeshRenderer=k.mesh("Cube", chapan, 0.7, 0.0))
+        s.entity("Hand", parent=pivot, pos=(0, -0.6, 0), scale=(0.13, 0.13, 0.13), MeshRenderer=k.mesh("Sphere", skin, 0.6, 0.0))
         limbs[name] = pivot
     for name, side in (("LegL", -1), ("LegR", 1)):
-        pivot = s.entity("Oyoq" + (" (chap)" if side < 0 else " (o'ng)"), parent=body, pos=(side * 0.15, 0.62, 0))
-        s.entity("Shim", parent=pivot, pos=(0, -0.28, 0), scale=(0.19, 0.56, 0.19), MeshRenderer=k.mesh("Cube", (0.2, 0.15, 0.12, 1), 0.8, 0.0))
-        s.entity("Etik", parent=pivot, pos=(0, -0.58, -0.06), scale=(0.2, 0.12, 0.32), MeshRenderer=k.mesh("Cube", (0.35, 0.2, 0.1, 1), 0.6, 0.0))
+        pivot = s.entity("Leg" + (" (left)" if side < 0 else " (right)"), parent=body, pos=(side * 0.15, 0.62, 0))
+        s.entity("Trousers", parent=pivot, pos=(0, -0.28, 0), scale=(0.19, 0.56, 0.19), MeshRenderer=k.mesh("Cube", (0.2, 0.15, 0.12, 1), 0.8, 0.0))
+        s.entity("Boot", parent=pivot, pos=(0, -0.58, -0.06), scale=(0.2, 0.12, 0.32), MeshRenderer=k.mesh("Cube", (0.35, 0.2, 0.1, 1), 0.6, 0.0))
         limbs[name] = pivot
-    dust = s.entity("Chang", parent=player, pos=(0, 0.05, 0.3), ParticleSystem=k.particles(
+    dust = s.entity("Dust", parent=player, pos=(0, 0.05, 0.3), ParticleSystem=k.particles(
         EmissionRate=20.0, MaxParticles=300, Shape=1, ShapeRadius=0.25, LifetimeMin=0.4, LifetimeMax=0.8, SpeedMin=0.8, SpeedMax=2.0,
         Direction=(0, 0.6, 1), Spread=35.0, Drag=1.5, StartColor=(0.95, 0.8, 0.6, 0.5), EndColor=(0.9, 0.75, 0.55, 0.0), StartSize=0.2,
         EndSize=0.55, Additive=False))
-    bubble = s.entity("Qalqon pufagi", parent=player, pos=(0, 0.95, 0), scale=(2.2, 2.2, 2.2), active=False,
+    bubble = s.entity("Shield bubble", parent=player, pos=(0, 0.95, 0), scale=(2.2, 2.2, 2.2), active=False,
                       MeshRenderer=k.mesh("Sphere", (0.3, 0.85, 1.0, 0.22), 0.1, 0.0, emission=(0.2, 0.7, 1.0), emission_strength=0.8, cast_shadows=False))
     s.get(bubble)["MeshRenderer"]["BlendMode"] = "Transparent"
-    s.entity("Yuguruvchi chirog'i", parent=player, pos=(0, 2.5, 1.5), PointLight=k.point_light((1.0, 0.8, 0.55), 1.0, 5.0))
+    s.entity("Runner light", parent=player, pos=(0, 2.5, 1.5), PointLight=k.point_light((1.0, 0.8, 0.55), 1.0, 5.0))
 
     # ---- effects
-    fx = s.entity("Effektlar")
-    coin_burst = s.entity("Tanga uchqunlari", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
+    fx = s.entity("Effects")
+    coin_burst = s.entity("Coin sparks", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=500, Shape=2, ShapeRadius=0.2, LifetimeMin=0.3, LifetimeMax=0.6, SpeedMin=2.0,
         SpeedMax=4.5, Direction=(0, 1, 0), Spread=180.0, Drag=2.0, StartColor=(3.0, 2.2, 0.6, 1.0), EndColor=(1.0, 0.5, 0.1, 0.0),
         StartSize=0.12, EndSize=0.0))
-    crash_burst = s.entity("To'qnashuv", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
+    crash_burst = s.entity("Crash", parent=fx, pos=(0, -20, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=600, Shape=2, ShapeRadius=0.5, LifetimeMin=0.5, LifetimeMax=1.2, SpeedMin=2.0,
         SpeedMax=7.0, Direction=(0, 1, 0), Spread=80.0, Gravity=(0, -9, 0), Drag=0.8, StartColor=(0.95, 0.8, 0.55, 0.9),
         EndColor=(0.8, 0.6, 0.4, 0.0), StartSize=0.35, EndSize=0.8, Additive=False))
@@ -405,53 +405,53 @@ def build_scene():
     canvas = s.entity("UI", UITransform=k.ui_stretch(), UICanvas=k.ui_canvas())
     ui = k.UIKit(s, canvas, ATLAS, game, (0.9, 0.45, 0.12, 1.0), (1.0, 0.62, 0.25, 1.0), (0.62, 0.28, 0.06, 1.0))
     hud = s.entity("HUD", parent=canvas, UITransform=k.ui_stretch())
-    s.entity("Yuqori fon", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 150)),
+    s.entity("Top backdrop", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 150)),
              UIImage=k.ui_image((0.08, 0.03, 0.0, 0.62), raycast=False))
-    score = ui.text("Ochko", hud, "0", (0.5, 1), (0.5, 1), (0, -24), (700, 90), 80, (1.0, 0.95, 0.85, 1.0), h="Center")
-    distance = ui.text("Masofa", hud, "", (0, 1), (0, 1), (50, -36), (700, 52), 44, (1.0, 0.9, 0.7, 1.0))
-    best = ui.text("Rekord", hud, "", (0, 1), (0, 1), (50, -90), (700, 34), 28, (1.0, 0.85, 0.6, 0.85))
-    coins = ui.text("Tangalar", hud, "", (1, 1), (1, 1), (-50, -36), (600, 52), 44, (1.0, 0.8, 0.3, 1.0), h="Right")
-    speed = ui.text("Tezlik", hud, "", (0, 0), (0, 0), (50, 44), (600, 40), 32, (1.0, 0.95, 0.9, 0.9))
-    power = ui.text("Bonuslar", hud, "", (0.5, 0), (0.5, 0), (0, 50), (1200, 44), 34, (0.75, 0.9, 1.0, 1.0), h="Center")
-    banner = ui.text("E'lon", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 220), (1400, 110), 92, (1.0, 0.95, 0.8, 1.0), h="Center",
+    score = ui.text("Score popup", hud, "0", (0.5, 1), (0.5, 1), (0, -24), (700, 90), 80, (1.0, 0.95, 0.85, 1.0), h="Center")
+    distance = ui.text("Distance", hud, "", (0, 1), (0, 1), (50, -36), (700, 52), 44, (1.0, 0.9, 0.7, 1.0))
+    best = ui.text("Best", hud, "", (0, 1), (0, 1), (50, -90), (700, 34), 28, (1.0, 0.85, 0.6, 0.85))
+    coins = ui.text("Coins", hud, "", (1, 1), (1, 1), (-50, -36), (600, 52), 44, (1.0, 0.8, 0.3, 1.0), h="Right")
+    speed = ui.text("Speed", hud, "", (0, 0), (0, 0), (50, 44), (600, 40), 32, (1.0, 0.95, 0.9, 0.9))
+    power = ui.text("Power-ups", hud, "", (0.5, 0), (0.5, 0), (0, 50), (1200, 44), 34, (0.75, 0.9, 1.0, 1.0), h="Center")
+    banner = ui.text("Banner", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 220), (1400, 110), 92, (1.0, 0.95, 0.8, 1.0), h="Center",
                      UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
-    banner_sub = ui.text("E'lon izohi", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 50), 40, (1.0, 0.85, 0.5, 1.0), h="Center")
-    demo_badge = ui.text("Demo belgisi", hud, "DEMO - avtomatik o'yin", (1, 1), (1, 1), (-50, -90), (600, 32), 26, (1.0, 0.9, 0.6, 0.9),
+    banner_sub = ui.text("Banner note", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 50), 40, (1.0, 0.85, 0.5, 1.0), h="Center")
+    demo_badge = ui.text("Demo badge", hud, "DEMO - autoplay", (1, 1), (1, 1), (-50, -90), (600, 32), 26, (1.0, 0.9, 0.6, 0.9),
                          h="Right", key="hud.demo", active=False)
 
-    main_menu = ui.dim("Bosh menyu", True, 0.25, (0.08, 0.03, 0.0))
-    title = s.entity("Sarlavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 290), size=(1700, 180), font=156),
+    main_menu = ui.dim("Main menu", True, 0.25, (0.08, 0.03, 0.0))
+    title = s.entity("Title", parent=main_menu, UITransform=k.ui_rect(pos=(0, 290), size=(1700, 180), font=156),
                      UIAnimation=k.ui_anim("SlideDown", "None", 0.6, slide=120))
-    s.entity("Sarlavha soyasi", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=156),
-             Text=k.ui_text("IPAK YO'LI", (0.35, 0.12, 0.02, 0.9), "Center", key="menu.title"))
-    s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
-             Text=k.ui_text("IPAK YO'LI", (1.0, 0.85, 0.45, 1.0), "Center", key="menu.title"))
-    s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 176), size=(1500, 50), font=38),
-             Text=k.ui_text(UZ["menu"]["subtitle"], (1.0, 0.95, 0.85, 0.95), "Center", key="menu.subtitle"))
-    menu_panel = ui.panel("Menyu paneli", main_menu, (0, -90), (560, 330))
-    play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
-    ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
-    menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
+    s.entity("Title shadow", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=156),
+             Text=k.ui_text("SILK ROAD", (0.35, 0.12, 0.02, 0.9), "Center", key="menu.title"))
+    s.entity("Title text", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
+             Text=k.ui_text("SILK ROAD", (1.0, 0.85, 0.45, 1.0), "Center", key="menu.title"))
+    s.entity("Subtitle", parent=main_menu, UITransform=k.ui_rect(pos=(0, 176), size=(1500, 50), font=38),
+             Text=k.ui_text(EN["menu"]["subtitle"], (1.0, 0.95, 0.85, 0.95), "Center", key="menu.subtitle"))
+    menu_panel = ui.panel("Menu panel", main_menu, (0, -90), (560, 330))
+    play_button = ui.button("Play", menu_panel, "Play", "menu.play", "Play", True)
+    language_button = ui.button("Language", menu_panel, "Language: English", None, "Language")
+    ui.button("Quit", menu_panel, "Quit", "menu.quit", "Quit")
+    menu_best = s.entity("Main menu best", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.9, 0.5, 1.0), "Center"))
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1800, 70), font=25),
-             Text=k.ui_text(UZ["menu"]["controls"], (1.0, 0.95, 0.9, 0.9), "Center", key="menu.controls", hints=True))
+    s.entity("Controls", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1800, 70), font=25),
+             Text=k.ui_text(EN["menu"]["controls"], (1.0, 0.95, 0.9, 0.9), "Center", key="menu.controls", hints=True))
 
-    pause_menu = ui.dim("Pauza menyusi", False)
-    pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 460))
-    ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (520, 80), 60, (1.0, 0.85, 0.5, 1.0), "pause.title")
-    resume_button = ui.button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    ui.button("Qaytadan", pause_panel, "Qaytadan", "pause.restart", "Restart")
-    ui.button("Bosh menyuga", pause_panel, "Bosh menyu", "pause.menu", "Menu")
+    pause_menu = ui.dim("Pause menu", False)
+    pause_panel = ui.panel("Pause panel", pause_menu, (0, 0), (620, 460))
+    ui.label("Pause title", pause_panel, "PAUSED", (520, 80), 60, (1.0, 0.85, 0.5, 1.0), "pause.title")
+    resume_button = ui.button("Resume", pause_panel, "Resume", "pause.resume", "Resume", True)
+    ui.button("Restart", pause_panel, "Restart", "pause.restart", "Restart")
+    ui.button("To main menu", pause_panel, "Main menu", "pause.menu", "Menu")
 
-    over_menu = ui.dim("O'yin tugadi", False, 0.5)
-    over_panel = ui.panel("Natija paneli", over_menu, (0, 0), (760, 540))
-    ui.label("Natija sarlavhasi", over_panel, "YIQILDINGIZ!", (680, 84), 64, (1.0, 0.55, 0.35, 1.0), "over.title")
-    over_score = ui.label("Natija ochkosi", over_panel, "", (680, 60), 48, (1.0, 0.92, 0.6, 1.0))
-    over_stats = ui.label("Natija statistikasi", over_panel, "", (680, 40), 30, (1.0, 0.95, 0.9, 1.0))
-    over_record = ui.label("Natija rekordi", over_panel, "", (680, 40), 30, (1.0, 0.7, 0.3, 1.0))
-    retry_button = ui.button("Qayta yugurish", over_panel, "Qaytadan", "pause.restart", "Restart", True)
-    ui.button("Natijadan menyuga", over_panel, "Bosh menyu", "pause.menu", "Menu")
+    over_menu = ui.dim("Game over", False, 0.5)
+    over_panel = ui.panel("Results panel", over_menu, (0, 0), (760, 540))
+    ui.label("Results title", over_panel, "YOU FELL!", (680, 84), 64, (1.0, 0.55, 0.35, 1.0), "over.title")
+    over_score = ui.label("Results points", over_panel, "", (680, 60), 48, (1.0, 0.92, 0.6, 1.0))
+    over_stats = ui.label("Results stats", over_panel, "", (680, 40), 30, (1.0, 0.95, 0.9, 1.0))
+    over_record = ui.label("Results best", over_panel, "", (680, 40), 30, (1.0, 0.7, 0.3, 1.0))
+    retry_button = ui.button("Run again", over_panel, "Restart", "pause.restart", "Restart", True)
+    ui.button("Results to menu", over_panel, "Main menu", "pause.menu", "Menu")
 
     s.add(player, "NativeScript", k.script("Runner", Body=k.ref(body), Head=k.ref(head), ArmL=k.ref(limbs["ArmL"]), ArmR=k.ref(limbs["ArmR"]),
                                            LegL=k.ref(limbs["LegL"]), LegR=k.ref(limbs["LegR"]), Dust=k.ref(dust), ShieldBubble=k.ref(bubble)))
@@ -517,10 +517,10 @@ def main():
         ("Pause", ["Key:Escape", "Key:P", "Gamepad:Start"]),
     ]
     axes = [k.axis("Steer", [], [], "LeftX", deadzone=0.25)]
-    k.write_project(PROJECT, NAME, "Ipak Yo'li", "Scenes/SilkRoad.zscene", uuid, "1.0.0", [("Scenes/SilkRoad.zscene", uuid)], actions, axes,
-                    description="3D cheksiz yugurish: uch yo'lak, sakrash va sirpanish, protsedurali to'siqlar, tangalar, oshib boruvchi tezlik")
-    k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Ipak Yo'li (endless runner) - C++ skriptlar moduli (libEndlessRunner.so)")
-    print("EndlessRunner: tayyor")
+    k.write_project(PROJECT, NAME, "Silk Road", "Scenes/SilkRoad.zscene", uuid, "1.0.0", [("Scenes/SilkRoad.zscene", uuid)], actions, axes,
+                    description="3D endless runner: three lanes, jumping and sliding, procedural obstacles, coins, rising speed")
+    k.write_module_cmake(PROJECT, NAME, "Zamin sample game: Silk Road (endless runner) - the C++ script module (libEndlessRunner.so)")
+    print("EndlessRunner: done")
 
 
 if __name__ == "__main__":

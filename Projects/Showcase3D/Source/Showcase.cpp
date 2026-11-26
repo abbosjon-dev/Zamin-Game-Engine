@@ -349,7 +349,7 @@ ZM_REGISTER_SCRIPT(PatrolWalker, ZM_FIELD(PatrolWalker, Speed), ZM_FIELD(PatrolW
 class Label3D : public ScriptableEntity
 {
 public:
-    std::string Text = "Yozuv";
+    std::string Text = "Label";
     glm::vec3 Offset{ 0.0f, 1.0f, 0.0f };
     glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     void OnUpdate(Timestep) override { DebugDraw::Text(GetWorldPosition() + Offset, Text, Color); }
@@ -365,14 +365,14 @@ public:
     float Range = 11.0f;
     float Spread = 0.55f;    // radian: har tomonga qancha buriladi
     float SweepSpeed = 0.5f;
-    bool SkipGhosts = true;  // "Arvoh" qatlamini hisobga olmaydi
+    bool SkipGhosts = true;  // "Ghost" qatlamini hisobga olmaydi
 
     void OnUpdate(Timestep) override
     {
         const glm::vec3 origin = GetWorldPosition();
         const float a = std::sin(GetTime() * SweepSpeed) * Spread;
         const glm::vec3 dir(-std::cos(a), 0.0f, std::sin(a));
-        const uint16_t mask = SkipGhosts ? (uint16_t)~LayerMask({ "Arvoh" }) : (uint16_t)0xFFFF;
+        const uint16_t mask = SkipGhosts ? (uint16_t)~LayerMask({ "Ghost" }) : (uint16_t)0xFFFF;
         const std::vector<RaycastHit> hits = SphereCast3DAll(origin, Radius, dir, Range, mask);
         if (!DebugDraw::IsShowingRaycasts())
         {
@@ -686,7 +686,7 @@ public:
         for (auto it = m_Spawned.begin(); it != m_Spawned.end();)
         {
             Entity root = GetScene().GetEntityByUUID(*it);
-            Entity chest = root ? GetScene().FindChild(root, "Ko'krak") : Entity();
+            Entity chest = root ? GetScene().FindChild(root, "Chest") : Entity();
             if (!root || (chest && GetScene().GetWorldPosition(chest).y < -20.0f))
             {
                 if (root)
@@ -742,7 +742,7 @@ private:
             if (!part.HasComponent<Rigidbody3DComponent>())
                 continue;
             glm::vec3 v = velocity;
-            if (part.GetName() == "Bosh")
+            if (part.GetName() == "Head")
                 v += Random::InsideUnitSphere() * 2.5f;
             SetVelocity3D(part, v);
         }
@@ -773,11 +773,11 @@ private:
             if (!mesh)
                 continue;
             const std::string& name = part.GetName();
-            if (name == "Ko'krak" || name.starts_with("Yelka"))
+            if (name == "Chest" || name.starts_with("Upper arm"))
                 mesh->Mat.Albedo = glm::vec4(shirt, 1.0f);
-            else if (name == "Bel" || name.starts_with("Son") || name.starts_with("Boldir"))
-                mesh->Mat.Albedo = glm::vec4(name.starts_with("Boldir") ? pants * 0.8f : pants, 1.0f);
-            else if (name == "Bosh" || name.starts_with("Bilak"))
+            else if (name == "Waist" || name.starts_with("Thigh") || name.starts_with("Shin"))
+                mesh->Mat.Albedo = glm::vec4(name.starts_with("Shin") ? pants * 0.8f : pants, 1.0f);
+            else if (name == "Head" || name.starts_with("Forearm"))
                 mesh->Mat.Albedo = glm::vec4(skin, 1.0f);
         }
     }
@@ -1389,7 +1389,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(BlendShapeDemo, ZM_FIELD(BlendShapeDemo, Speed), ZM_FIELD(BlendShapeDemo, Height))
 
-// Kamera joyida turib chapga-o'ngga sekin buriladi (Scenes/Olomon.zscene): ko'rinish o'zgargani sari
+// Kamera joyida turib chapga-o'ngga sekin buriladi (Scenes/Crowd.zscene): ko'rinish o'zgargani sari
 // ekrandan chiqqan paypoqlar animatsiyasi kesiladi, kirganlari yana pozalanadi.
 class SweepCamera : public ScriptableEntity
 {

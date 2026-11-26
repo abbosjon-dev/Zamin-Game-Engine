@@ -1,10 +1,10 @@
 #pragma once
 
-// Vodiy Poygasi - Zamin Engine namuna o'yini: oddiy mashina fizikasi bilan aylanma trassada poyga.
-// Skriptlar: Car (arkada fizikasi - tezlanish, tormoz, rul, yon ilashish va drift (qo'l tormozi), trassa chetidagi
-// to'siqlar, o't ustida sekinlashish; g'ildiraklar, kuzov og'ishi, tormoz chiroqlari, tutun, dvigatel ovozi;
-// haydovchi bot) va RaceGame (trassa markaziy chizig'i, start svetofori va sanoq, nazorat nuqtalari, aylanalar va
-// aylana vaqti, o'rinlar, rekord, kamera, HUD, menyular, demo).
+// Valley Race - a Zamin Engine sample game: a race on a circuit with simple car physics.
+// Scripts: Car (arcade physics - acceleration, braking, steering, sideways grip and drift (the handbrake), the barriers
+// at the track's edge, slowing down on grass; the wheels, body roll, brake lights, smoke, the engine sound;
+// the driver bot) and RaceGame (the track's centre line, the start lights and countdown, checkpoints, laps and
+// the lap time, positions, the record, the camera, the HUD, menus, the demo).
 
 #include <Zamin/Zamin.h>
 

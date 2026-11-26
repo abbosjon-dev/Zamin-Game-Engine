@@ -25,9 +25,9 @@ SIZE = (480, 270)
 
 # (project, environment, frames, description for a project file that has none)
 SAMPLES = [
-    ("Platformer2D", {}, 240, "2D platformer: tilemap, harakatlanuvchi platformalar, dushmanlar, tangalar, parallaks fon va 2D yorug'lik"),
-    ("Showcase3D", {}, 150, "3D imkoniyatlar ko'rgazmasi: PBR materiallar, soyalar, post-processing, zarralar, fizika va animatsiya sahnalari"),
-    ("Adventure3D", {}, 240, "3D sarguzasht: orol, uchinchi shaxs qahramoni, NPC'lar (patrul, ko'rish, quvish), suv va kun yorug'ligi"),
+    ("Platformer2D", {}, 240, "2D platformer: a tilemap, moving platforms, enemies, coins, a parallax background and 2D lighting"),
+    ("Showcase3D", {}, 150, "A showcase of the 3D features: PBR materials, shadows, post-processing, particles, physics and animation scenes"),
+    ("Adventure3D", {}, 240, "3D adventure: an island, a third-person hero, NPCs (patrol, sight, chase), water and daylight"),
     ("TopDownShooter", {"ZAMIN_DEMO": "1"}, 450, ""),
     ("Breakout", {"ZAMIN_DEMO": "1", "ZAMIN_START_LEVEL": "3"}, 260, ""),
     ("FPSArena", {"ZAMIN_DEMO": "range"}, 170, ""),
@@ -67,9 +67,9 @@ def main():
     try:
         from PIL import Image
     except ImportError:
-        sys.exit("Pillow kerak: pip install pillow")
+        sys.exit("Pillow is required: pip install pillow")
     if not os.path.isfile(PLAYER):
-        sys.exit(f"Player topilmadi: {PLAYER} (avval build qiling)")
+        sys.exit(f"Player not found: {PLAYER} (build first)")
     failed = []
     for project, env, frames, description in SAMPLES:
         if args.projects and project not in args.projects:
@@ -77,7 +77,7 @@ def main():
         with tempfile.TemporaryDirectory() as tmp:
             png = os.path.join(tmp, "shot.png")
             if not screenshot(project, env, frames, png):
-                print(f"  {project}: skrinshot olinmadi")
+                print(f"  {project}: no screenshot was taken")
                 failed.append(project)
                 continue
             image = Image.open(png).convert("RGB").resize(SIZE, Image.LANCZOS)
@@ -86,7 +86,7 @@ def main():
             update_project(project, description)
             print(f"  {project}: Thumbnail.jpg ({os.path.getsize(out) // 1024} KB)")
     if failed:
-        sys.exit(f"xato: {', '.join(failed)}")
+        sys.exit(f"failed: {', '.join(failed)}")
 
 
 if __name__ == "__main__":

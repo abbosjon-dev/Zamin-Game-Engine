@@ -1598,6 +1598,7 @@ namespace Zamin {
             { "Prefablar eksportga tayyor", "Prefabs are ready for export" },
             { "ta prefab tekshirildi", "prefabs checked" },
             { "ogohlantirish", "warnings" },
+            { "izoh", "note" },
             { "ogohlantirishlar xato hisoblanadi", "warnings count as errors" },
             { "ta sahna/prefab prefab bog'lanishlarisiz yoziladi", "scenes / prefabs written without their prefab links" },
             { "Bog'lanishlar (Editor: Prefab, PrefabEntity, Overrides ...) faqat editorniki: eksport nusxasida olib tashlanadi, loyihadagi fayllar o'zgarmaydi",

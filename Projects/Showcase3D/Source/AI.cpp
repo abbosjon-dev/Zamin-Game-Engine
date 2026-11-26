@@ -233,32 +233,32 @@ public:
         if (HasComponent<NavAgentComponent>())
             m_PatrolSpeed = GetComponent<NavAgentComponent>().Speed;
 
-        m_AI.Name = "Qorovul";
+        m_AI.Name = "Watchman";
         m_AI.LogTransitions = true;
-        m_AI.AddState("Patrul", [this] { SetMood({ 0.3f, 0.85f, 0.4f }, m_PatrolSpeed); GoToPoint(); }, [this](float dt) { Patrol(dt); })
-            .AddState("Ta'qib", [this] { SetMood({ 1.0f, 0.22f, 0.18f }, ChaseSpeed); m_Repath = 0.0f; }, [this](float dt) { Chase(dt); })
-            .AddState("Qidiruv",
+        m_AI.AddState("Patrol", [this] { SetMood({ 0.3f, 0.85f, 0.4f }, m_PatrolSpeed); GoToPoint(); }, [this](float dt) { Patrol(dt); })
+            .AddState("Chase", [this] { SetMood({ 1.0f, 0.22f, 0.18f }, ChaseSpeed); m_Repath = 0.0f; }, [this](float dt) { Chase(dt); })
+            .AddState("Search",
                       [this] {
                           SetMood({ 1.0f, 0.62f, 0.15f }, m_PatrolSpeed);
                           SetDestination(GetLastSeenPosition());
                       },
                       [this](float dt) { Search(dt); })
-            .AddState("Ushladi",
+            .AddState("Caught",
                       [this] {
                           SetMood({ 0.75f, 0.35f, 1.0f }, m_PatrolSpeed);
                           StopMoving();
-                          ZM_INFO("Qorovul mehmonni ushladi!");
+                          ZM_INFO("The watchman caught the visitor!");
                       })
             // The sensor's callbacks send these (any state: a new sighting while searching too).
-            .AddEventTransition("Patrul", "Ta'qib", "ko'rdi")
-            .AddEventTransition("Qidiruv", "Ta'qib", "ko'rdi")
-            .AddEventTransition("Ta'qib", "Qidiruv", "yo'qotdi")
+            .AddEventTransition("Patrol", "Chase", "spotted")
+            .AddEventTransition("Search", "Chase", "spotted")
+            .AddEventTransition("Chase", "Search", "lost")
             // Still in view after a catch (no new "spotted" comes then): the cool-down decides.
-            .AddTransition("Patrul", "Ta'qib", [this] { return m_Cooldown <= 0.0f && CanSeeTarget(); })
-            .AddTransition("Ta'qib", "Ushladi", [this] { return Caught(); })
-            .AddTimedTransition("Qidiruv", "Patrul", SearchTime)
-            .AddTimedTransition("Ushladi", "Patrul", 2.0f);
-        m_AI.Start("Patrul");
+            .AddTransition("Patrol", "Chase", [this] { return m_Cooldown <= 0.0f && CanSeeTarget(); })
+            .AddTransition("Chase", "Caught", [this] { return Caught(); })
+            .AddTimedTransition("Search", "Patrol", SearchTime)
+            .AddTimedTransition("Caught", "Patrol", 2.0f);
+        m_AI.Start("Patrol");
         WatchStateMachine(m_AI);
     }
 
@@ -271,9 +271,9 @@ public:
     void OnTargetSpotted(Entity) override
     {
         if (m_Cooldown <= 0.0f)
-            m_AI.SendEvent("ko'rdi");
+            m_AI.SendEvent("spotted");
     }
-    void OnTargetLost(Entity) override { m_AI.SendEvent("yo'qotdi"); }
+    void OnTargetLost(Entity) override { m_AI.SendEvent("lost"); }
 
     void OnDestroy() override { UnwatchStateMachine(m_AI); }
 
@@ -285,7 +285,7 @@ private:
         if (HasComponent<NavAgentComponent>())
             GetComponent<NavAgentComponent>().Speed = speed;
         m_Wait = 0.0f;
-        if (m_AI.GetPreviousStateName() == "Ushladi")
+        if (m_AI.GetPreviousStateName() == "Caught")
             m_Cooldown = 4.0f;
     }
 
@@ -348,7 +348,7 @@ private:
     float m_Cooldown = 0.0f;
 };
 ZM_REGISTER_SCRIPT(GuardBrain, ZM_FIELD(GuardBrain, Route).Label("Patrol path").Tooltip("Its children are the patrol points"),
-                   ZM_FIELD(GuardBrain, Body).Label("Body"), ZM_FIELD(GuardBrain, Lamp).Label("Chiroq"),
+                   ZM_FIELD(GuardBrain, Body).Label("Body"), ZM_FIELD(GuardBrain, Lamp).Label("Light"),
                    ZM_FIELD_RANGE(GuardBrain, WaitTime, 0.0f, 10.0f).Label("Wait at a point (s)"),
                    ZM_FIELD_RANGE(GuardBrain, ChaseSpeed, 0.5f, 10.0f).Label("Chase speed"),
                    ZM_FIELD_RANGE(GuardBrain, SearchTime, 0.0f, 30.0f).Label("Search time (s)"),
@@ -403,7 +403,7 @@ private:
     float m_Phase = 0.0f;
     bool m_Following = false;
 };
-ZM_REGISTER_SCRIPT(SecurityCamera, ZM_FIELD(SecurityCamera, Lamp).Label("Chiroq"),
+ZM_REGISTER_SCRIPT(SecurityCamera, ZM_FIELD(SecurityCamera, Lamp).Label("Light"),
                    ZM_FIELD_RANGE(SecurityCamera, SweepAngle, 0.0f, 180.0f).Label("Turn angle"),
                    ZM_FIELD_RANGE(SecurityCamera, SweepSpeed, 0.0f, 5.0f).Label("Turn speed"),
                    ZM_FIELD_RANGE(SecurityCamera, TurnSpeed, 1.0f, 720.0f).Label("Tracking speed"))

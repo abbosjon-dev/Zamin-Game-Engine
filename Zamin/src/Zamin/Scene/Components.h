@@ -346,7 +346,7 @@ namespace Zamin {
     /// (1 unit = the font size; MaxWidth: the box it wraps / is cut in).
     struct TextComponent
     {
-        std::string Text = "Matn";
+        std::string Text = "Text";
         /// A key of the project's language files ("menu.start"): the text shown is that string in the
         /// current language and follows a language change by itself (Localization); Text is shown when
         /// no language has the key. "" = Text as it is.
@@ -1181,7 +1181,7 @@ namespace Zamin {
     /// in list order (the first at the back) unless their SortingOrder says otherwise.
     struct TilemapLayer
     {
-        std::string Name = "Asosiy";
+        std::string Name = "Main";
         std::vector<int> Tiles;   ///< Width * Height, row-major, y = 0 is the bottom row, -1 = empty
         bool Visible = true;      ///< drawn (editor and game)
         bool Collision = true;    ///< its tiles are solid (when the tilemap's Collision is on)
@@ -1280,7 +1280,7 @@ namespace Zamin {
         /// `base`, or "<base> <n>" with the first n no layer uses.
         std::string MakeUniqueLayerName(std::string_view base) const
         {
-            std::string name(base.empty() ? std::string_view("Qatlam") : base);
+            std::string name(base.empty() ? std::string_view("Layer") : base);
             if (FindLayer(name) < 0) return name;
             for (int n = 2;; n++)
             {
@@ -1290,7 +1290,7 @@ namespace Zamin {
         }
         /// A new empty layer on top (drawn last), without collision. Returns its index, -1 when the
         /// tilemap has MaxLayers already.
-        int AddLayer(std::string_view name = "Qatlam")
+        int AddLayer(std::string_view name = "Layer")
         {
             EnsureSize();
             if ((int)Layers.size() >= MaxLayers) return -1;
@@ -2601,7 +2601,7 @@ namespace Zamin {
     struct UIInputFieldComponent
     {
         std::string Text;
-        std::string Placeholder = "Matn kiriting...";
+        std::string Placeholder = "Enter text...";
         UIContentType ContentType = UIContentType::Standard;
         int CharacterLimit = 0;        ///< characters (0 = no limit)
         bool Interactable = true;

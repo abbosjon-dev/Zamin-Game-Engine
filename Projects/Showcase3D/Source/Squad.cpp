@@ -34,14 +34,14 @@ namespace {
 }
 
 // The squad's commander: a Nav Agent walking a Patrol Path, a Formation (its soldiers: the entities
-// tagged "Askar") and a Sight Sensor. Its behavior tree, ticked every frame:
+// tagged "Soldier") and a Sight Sensor. Its behavior tree, ticked every frame:
 //
-//   ReactiveSelector "Komandir"
-//     ReactiveSequence "Hujum"     - sees the intruder: the patrol pauses, the squad runs after it in
+//   ReactiveSelector "Commander"
+//     ReactiveSequence "Attack"     - sees the intruder: the patrol pauses, the squad runs after it in
 //       Condition / Action           a wedge;
-//     ReactiveSequence "Qidiruv"   - lost it but remembers where (the sensor's MemoryTime): the squad
+//     ReactiveSequence "Search"   - lost it but remembers where (the sensor's MemoryTime): the squad
 //       Condition / Action           goes there and encircles the spot;
-//     Sequence "Patrul"            - back to the round (the nearest point) in a column; at each point
+//     Sequence "Patrol"            - back to the round (the nearest point) in a column; at each point
 //       Action / Action              reached the shape changes: column, wedge, line ...
 //
 // The reactive nodes ask their conditions every tick: a sighting interrupts the patrol at once. The
@@ -57,21 +57,21 @@ public:
     {
         if (HasComponent<NavAgentComponent>())
             m_PatrolSpeed = GetComponent<NavAgentComponent>().Speed;
-        m_Tree.Name = "Komandir";
+        m_Tree.Name = "Commander";
         m_Tree.LogChanges = true;
         BehaviorTreeBuilder()
-            .ReactiveSelector("Komandir")
-                .ReactiveSequence("Hujum")
-                    .Condition("Ko'ryaptimi", [this] { return CanSeeTarget(); })
-                    .Action("Ta'qib", [this](BTContext& c) { return Chase(c); })
+            .ReactiveSelector("Commander")
+                .ReactiveSequence("Attack")
+                    .Condition("Sees target", [this] { return CanSeeTarget(); })
+                    .Action("Chase", [this](BTContext& c) { return Chase(c); })
                 .End()
-                .ReactiveSequence("Qidiruv")
-                    .Condition("Esidami", [this] { return RemembersTarget(); })
-                    .Action("O'rab olish", [this](BTContext& c) { return Encircle(c); })
+                .ReactiveSequence("Search")
+                    .Condition("Remembers", [this] { return RemembersTarget(); })
+                    .Action("Encircle", [this](BTContext& c) { return Encircle(c); })
                 .End()
-                .Sequence("Patrul")
-                    .Action("Saf tortish", [this](BTContext& c) { return Regroup(c); })
-                    .Action("Yurish", [this] { return IsPatrolling() ? BTStatus::Running : BTStatus::Failure; })
+                .Sequence("Patrol")
+                    .Action("Line up", [this](BTContext& c) { return Regroup(c); })
+                    .Action("Walk", [this] { return IsPatrolling() ? BTStatus::Running : BTStatus::Failure; })
                 .End()
             .End()
             .Build(m_Tree);
@@ -88,8 +88,8 @@ public:
         static constexpr FormationShape s_Order[] = { FormationShape::Column, FormationShape::Wedge, FormationShape::Line };
         m_Shape = (m_Shape + 1) % 3;
         SetFormationShape(s_Order[m_Shape]);
-        m_Tree.GetBlackboard().Set("Nuqta", index);
-        m_Tree.GetBlackboard().Set("Shakl", ShapeName(s_Order[m_Shape]));
+        m_Tree.GetBlackboard().Set("Point", index);
+        m_Tree.GetBlackboard().Set("Shape", ShapeName(s_Order[m_Shape]));
     }
 
     void OnDestroy() override { UnwatchBehaviorTree(m_Tree); }
@@ -104,7 +104,7 @@ private:
         Paint(Resolve(Lamp), color, 4.0f);
         if (HasComponent<NavAgentComponent>())
             GetComponent<NavAgentComponent>().Speed = speed;
-        c.Board.Set("Shakl", ShapeName(shape));
+        c.Board.Set("Shape", ShapeName(shape));
         m_Repath = 0.0f;
     }
 
@@ -114,13 +114,13 @@ private:
         {
             PausePatrol(false);
             Enter(Mode::Chase, c, FormationShape::Wedge, { 1.0f, 0.22f, 0.18f }, ChaseSpeed);
-            c.Board.Set("Ko'rdi", c.Board.Get<int>("Ko'rdi") + 1);
+            c.Board.Set("Sightings", c.Board.Get<int>("Sightings") + 1);
         }
         Entity target = GetSeenTarget();
         if (!target)
             return BTStatus::Running;
         const glm::vec3 at = GetScene().GetWorldPosition(target);
-        c.Board.Set("Nishon", at);
+        c.Board.Set("Target", at);
         m_Repath -= c.DeltaTime;
         if (m_Repath <= 0.0f)
         {
@@ -129,9 +129,9 @@ private:
         }
         glm::vec3 d = at - GetWorldPosition();
         d.y = 0.0f;
-        if (glm::length(d) < CatchDistance && !c.Board.Get<bool>("Yetdi"))
+        if (glm::length(d) < CatchDistance && !c.Board.Get<bool>("Arrived"))
         {
-            c.Board.Set("Yetdi", true);
+            c.Board.Set("Arrived", true);
             ZM_INFO("The squad reached the guest!");
         }
         return BTStatus::Running;
@@ -143,7 +143,7 @@ private:
         {
             Enter(Mode::Search, c, FormationShape::Circle, { 1.0f, 0.62f, 0.15f }, m_PatrolSpeed);
             SetDestination(GetLastSeenPosition());
-            c.Board.Set("Yetdi", false);
+            c.Board.Set("Arrived", false);
         }
         return BTStatus::Running; // until it forgets (the condition above then fails)
     }
@@ -168,6 +168,6 @@ private:
     float m_PatrolSpeed = 1.8f;
     float m_Repath = 0.0f;
 };
-ZM_REGISTER_SCRIPT(SquadCommander, ZM_FIELD(SquadCommander, Lamp).Label("Chiroq"),
+ZM_REGISTER_SCRIPT(SquadCommander, ZM_FIELD(SquadCommander, Lamp).Label("Light"),
                    ZM_FIELD_RANGE(SquadCommander, ChaseSpeed, 0.5f, 10.0f).Label("Chase speed"),
                    ZM_FIELD_RANGE(SquadCommander, CatchDistance, 0.2f, 5.0f).Label("Arrival distance"))

@@ -6,7 +6,7 @@
 class GameManager : public Zamin::ScriptableEntity
 {
 public:
-    std::string Title = "Tangalar";
+    std::string Title = "Coins";
     // Til fayllaridagi kalit: bor bo'lsa sarlavha joriy tilda (Localize), aks holda Title.
     std::string TitleKey = "hud.coins_title";
     glm::vec2 ScreenOffset = { -8.5f, 5.2f }; // kameraga nisbatan joylashuv

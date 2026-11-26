@@ -95,7 +95,7 @@
         },
         {
             "Entity": 8140000000000002,
-            "Tag": "Oy",
+            "Tag": "Moon",
             "Transform": {
                 "Translation": [
                     0,
@@ -125,7 +125,7 @@
         },
         {
             "Entity": 8140000000000003,
-            "Tag": "Yer",
+            "Tag": "Ground",
             "Transform": {
                 "Translation": [
                     0,
@@ -168,7 +168,7 @@
         },
         {
             "Entity": 8140000000000004,
-            "Tag": "Supa 1",
+            "Tag": "Dais 1",
             "Transform": {
                 "Translation": [
                     -6.6,
@@ -211,7 +211,7 @@
         },
         {
             "Entity": 8140000000000005,
-            "Tag": "Supa 2",
+            "Tag": "Dais 2",
             "Transform": {
                 "Translation": [
                     -2.2,
@@ -254,7 +254,7 @@
         },
         {
             "Entity": 8140000000000006,
-            "Tag": "Supa 3",
+            "Tag": "Dais 3",
             "Transform": {
                 "Translation": [
                     2.2,
@@ -297,7 +297,7 @@
         },
         {
             "Entity": 8140000000000007,
-            "Tag": "Supa 4",
+            "Tag": "Dais 4",
             "Transform": {
                 "Translation": [
                     6.6,
@@ -340,7 +340,7 @@
         },
         {
             "Entity": 8140000000000008,
-            "Tag": "Gulxan (flipbook)",
+            "Tag": "Campfire (flipbook)",
             "Transform": {
                 "Translation": [
                     -6.6,
@@ -532,7 +532,7 @@
         },
         {
             "Entity": 8140000000000009,
-            "Tag": "Gulxan nuri",
+            "Tag": "Campfire light",
             "Transform": {
                 "Translation": [
                     -6.6,
@@ -562,7 +562,7 @@
         },
         {
             "Entity": 8140000000000010,
-            "Tag": "Yozuv 1",
+            "Tag": "Label 1",
             "Transform": {
                 "Translation": [
                     -6.6,
@@ -596,7 +596,7 @@
         },
         {
             "Entity": 8140000000000011,
-            "Tag": "Sehrli girdob",
+            "Tag": "Magic vortex",
             "Transform": {
                 "Translation": [
                     -2.2,
@@ -808,7 +808,7 @@
         },
         {
             "Entity": 8140000000000012,
-            "Tag": "Yozuv 2",
+            "Tag": "Label 2",
             "Transform": {
                 "Translation": [
                     -2.2,
@@ -842,7 +842,7 @@
         },
         {
             "Entity": 8140000000000013,
-            "Tag": "Favvora (konus)",
+            "Tag": "Fountain (cone)",
             "Transform": {
                 "Translation": [
                     2.2,
@@ -1006,7 +1006,7 @@
         },
         {
             "Entity": 8140000000000014,
-            "Tag": "Yozuv 3",
+            "Tag": "Label 3",
             "Transform": {
                 "Translation": [
                     2.2,
@@ -1040,7 +1040,7 @@
         },
         {
             "Entity": 8140000000000015,
-            "Tag": "Uchqunlar (chegara)",
+            "Tag": "Sparks (limit)",
             "Transform": {
                 "Translation": [
                     6.6,
@@ -1207,7 +1207,7 @@
         },
         {
             "Entity": 8140000000000016,
-            "Tag": "Yozuv 4",
+            "Tag": "Label 4",
             "Transform": {
                 "Translation": [
                     6.6,
@@ -1241,7 +1241,7 @@
         },
         {
             "Entity": 8140000000000017,
-            "Tag": "Cho'g'lar (chiziq)",
+            "Tag": "Embers (line)",
             "Transform": {
                 "Translation": [
                     0,

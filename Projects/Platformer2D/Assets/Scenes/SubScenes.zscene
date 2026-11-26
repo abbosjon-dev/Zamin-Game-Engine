@@ -77,7 +77,7 @@
         "Texture": "",
         "Tiling": 1.0
       },
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Rotation": [
           0.0,
@@ -105,7 +105,7 @@
         "PathUUID": "5b2f8e61c9d3a047",
         "ShowInEditor": true
       },
-      "Tag": "Lager A",
+      "Tag": "Camp A",
       "Transform": {
         "Rotation": [
           0.0,
@@ -133,7 +133,7 @@
         "PathUUID": "5b2f8e61c9d3a047",
         "ShowInEditor": true
       },
-      "Tag": "Lager B (qiya)",
+      "Tag": "Camp B (tilted)",
       "Transform": {
         "Rotation": [
           0.0,
@@ -174,7 +174,7 @@
         "PathUUID": "5b2f8e61c9d3a047",
         "ShowInEditor": true
       },
-      "Tag": "Lager C (keyinroq)",
+      "Tag": "Camp C (later)",
       "Transform": {
         "Rotation": [
           0.0,
@@ -195,7 +195,7 @@
     },
     {
       "Entity": 9298000000000006,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -230,7 +230,7 @@
     },
     {
       "Entity": 9298000000000007,
-      "Tag": "Holat",
+      "Tag": "Status",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -265,11 +265,11 @@
     }
   ],
   "Metadata": {
-    "Author": "Zamin jamoasi",
-    "Description": "Sub-sahnalar (SubSceneComponent): Parts/Camp.zscene bo'lagi uch obyekt joyiga qo'yiladi - ikkitasi sahna bilan, uchinchisi skript (DelayedSubScene) 1.5 s dan keyin LoadSubScene() bilan.",
+    "Author": "The Zamin team",
+    "Description": "Sub-scenes (SubSceneComponent): the Parts/Camp.zscene part is placed at three entities - two with the scene, the third by a script (DelayedSubScene) with LoadSubScene() after 1.5 s.",
     "Tags": [
-      "namuna",
-      "sub-sahna"
+      "sample",
+      "sub-scene"
     ]
   },
   "RootOrder": [

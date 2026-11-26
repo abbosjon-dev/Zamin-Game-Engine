@@ -10,7 +10,7 @@ using namespace Zamin;
 
 namespace {
 
-    // A "Nishon" target as a volume: a sphere mesh as a Sphere, anything else as its local bounds
+    // A "Target" target as a volume: a sphere mesh as a Sphere, anything else as its local bounds
     // moved by its world matrix (an oriented box).
     struct TargetShape
     {
@@ -41,7 +41,7 @@ namespace {
     {
         std::vector<TargetShape> shapes;
         Scene& scene = script.GetScene();
-        for (Entity e : script.FindEntitiesWithTag("Nishon"))
+        for (Entity e : script.FindEntitiesWithTag("Target"))
         {
             TargetShape shape;
             shape.Target = e;

@@ -64,7 +64,7 @@
         "TextureUUID": "a5d48a3f60a91293",
         "Tiling": 1.0
       },
-      "Tag": "Tanga",
+      "Tag": "Coin",
       "Transform": {
         "Rotation": [
           0.0,
@@ -102,7 +102,7 @@
           }
         }
       },
-      "Tag": "Yuklanish ekrani",
+      "Tag": "Loading screen",
       "Transform": {
         "Rotation": [
           0.0,
@@ -158,7 +158,7 @@
     {
       "Entity": 7816000000000011,
       "Parent": 7816000000000010,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -171,7 +171,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Yuklanmoqda",
+        "Text": "Loading",
         "LocalizationKey": "loading.title"
       },
       "Transform": {
@@ -297,7 +297,7 @@
     {
       "Entity": 7816000000000013,
       "Parent": 7816000000000010,
-      "Tag": "Foiz",
+      "Tag": "Percent",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -357,7 +357,7 @@
     {
       "Entity": 7816000000000014,
       "Parent": 7816000000000010,
-      "Tag": "Bosqich",
+      "Tag": "Phase",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -417,7 +417,7 @@
     {
       "Entity": 7816000000000015,
       "Parent": 7816000000000010,
-      "Tag": "Maslahat",
+      "Tag": "Hint",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -430,7 +430,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Maslahat: daraja fonda yuklanadi (LoadSceneAsync) - ekran tayyor bo'lgach so'nib o'tadi",
+        "Text": "Tip: the level loads in the background (LoadSceneAsync) - the screen fades out once it is ready",
         "LocalizationKey": "loading.tip"
       },
       "Transform": {
@@ -477,11 +477,11 @@
     }
   ],
   "Metadata": {
-    "Author": "Zamin jamoasi",
-    "Description": "Yuklanish ekrani: keyingi daraja fonda yuklanadi (LoadSceneAsync), progress bar AsyncOperation::GetProgress() ni ko'rsatadi, tayyor bo'lgach so'nish bilan o'tadi.",
+    "Author": "The Zamin team",
+    "Description": "The loading screen: the next level loads in the background (LoadSceneAsync), the progress bar shows AsyncOperation::GetProgress(), and when it is ready the screen fades over.",
     "Tags": [
-      "yuklanish",
-      "oqim"
+      "loading",
+      "flow"
     ]
   },
   "RootOrder": [

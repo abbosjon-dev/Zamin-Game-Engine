@@ -2,11 +2,11 @@
   "Scene": "Squad3D",
   "Version": 4,
   "Metadata": {
-    "Description": "M20: guruh harakati va behavior tree - komandir (AI daraxti: patrul, ko'rsa ta'qib, yo'qotsa o'rab olish) olti askarini kolonna / pona / qator shaklida boshqaradi; karvonni besh qo'riqchi doira bo'lib kuzatib boradi",
-    "Author": "Zamin",
+    "Description": "M20: group movement and a behavior tree - the commander (an AI tree: patrol, chase on sight, surround when lost) leads its six soldiers in a column / wedge / line; five guards escort the caravan in a circle",
+    "Author": "Floor",
     "Tags": [
       "AI",
-      "formatsiya",
+      "formation",
       "behavior tree",
       "M20"
     ]
@@ -110,7 +110,7 @@
     },
     {
       "Entity": 7970000000000002,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [
           0,
@@ -140,7 +140,7 @@
     },
     {
       "Entity": 7970000000000003,
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Translation": [
           0,
@@ -207,7 +207,7 @@
     },
     {
       "Entity": 7970000000000004,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           0,
@@ -274,7 +274,7 @@
     },
     {
       "Entity": 7970000000000005,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           0,
@@ -341,7 +341,7 @@
     },
     {
       "Entity": 7970000000000006,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           -12.75,
@@ -408,7 +408,7 @@
     },
     {
       "Entity": 7970000000000007,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           12.75,
@@ -475,7 +475,7 @@
     },
     {
       "Entity": 7970000000000008,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -7.75,
@@ -542,7 +542,7 @@
     },
     {
       "Entity": 7970000000000009,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           7.75,
@@ -609,7 +609,7 @@
     },
     {
       "Entity": 7970000000000010,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           -4.5,
@@ -676,7 +676,7 @@
     },
     {
       "Entity": 7970000000000011,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           0.0,
@@ -743,7 +743,7 @@
     },
     {
       "Entity": 7970000000000012,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           4.5,
@@ -810,7 +810,7 @@
     },
     {
       "Entity": 7970000000000013,
-      "Tag": "Yashik",
+      "Tag": "Box",
       "Transform": {
         "Translation": [
           -10.5,
@@ -877,7 +877,7 @@
     },
     {
       "Entity": 7970000000000014,
-      "Tag": "Yashik",
+      "Tag": "Box",
       "Transform": {
         "Translation": [
           -9.4,
@@ -944,7 +944,7 @@
     },
     {
       "Entity": 7970000000000015,
-      "Tag": "Yashik",
+      "Tag": "Box",
       "Transform": {
         "Translation": [
           10.2,
@@ -1011,7 +1011,7 @@
     },
     {
       "Entity": 7970000000000016,
-      "Tag": "Yashik",
+      "Tag": "Box",
       "Transform": {
         "Translation": [
           3.5,
@@ -1078,7 +1078,7 @@
     },
     {
       "Entity": 7970000000000017,
-      "Tag": "Navigatsiya",
+      "Tag": "Navigation",
       "Transform": {
         "Translation": [
           0,
@@ -1121,7 +1121,7 @@
     },
     {
       "Entity": 7970000000000018,
-      "Tag": "Komandir",
+      "Tag": "Commander",
       "Transform": {
         "Translation": [
           -9.0,
@@ -1210,7 +1210,7 @@
         "Spacing": 1.35,
         "WedgeAngle": 100.0,
         "Members": [],
-        "MemberTag": "Askar",
+        "MemberTag": "Soldier",
         "AssignNearest": true,
         "FaceHeading": true,
         "KeepOnGrid": true,
@@ -1259,7 +1259,7 @@
     },
     {
       "Entity": 7970000000000019,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000018,
       "Transform": {
         "Translation": [
@@ -1303,7 +1303,7 @@
     },
     {
       "Entity": 7970000000000020,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000018,
       "Transform": {
         "Translation": [
@@ -1347,7 +1347,7 @@
     },
     {
       "Entity": 7970000000000021,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000018,
       "Transform": {
         "Translation": [
@@ -1391,7 +1391,7 @@
     },
     {
       "Entity": 7970000000000022,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Parent": 7970000000000018,
       "Transform": {
         "Translation": [
@@ -1435,9 +1435,9 @@
     },
     {
       "Entity": 7970000000000023,
-      "Tag": "Askar 1",
+      "Tag": "Soldier 1",
       "Tags": [
-        "Askar"
+        "Soldier"
       ],
       "Transform": {
         "Translation": [
@@ -1485,7 +1485,7 @@
     },
     {
       "Entity": 7970000000000024,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000023,
       "Transform": {
         "Translation": [
@@ -1529,7 +1529,7 @@
     },
     {
       "Entity": 7970000000000025,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000023,
       "Transform": {
         "Translation": [
@@ -1573,7 +1573,7 @@
     },
     {
       "Entity": 7970000000000026,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000023,
       "Transform": {
         "Translation": [
@@ -1617,9 +1617,9 @@
     },
     {
       "Entity": 7970000000000027,
-      "Tag": "Askar 2",
+      "Tag": "Soldier 2",
       "Tags": [
-        "Askar"
+        "Soldier"
       ],
       "Transform": {
         "Translation": [
@@ -1667,7 +1667,7 @@
     },
     {
       "Entity": 7970000000000028,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000027,
       "Transform": {
         "Translation": [
@@ -1711,7 +1711,7 @@
     },
     {
       "Entity": 7970000000000029,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000027,
       "Transform": {
         "Translation": [
@@ -1755,7 +1755,7 @@
     },
     {
       "Entity": 7970000000000030,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000027,
       "Transform": {
         "Translation": [
@@ -1799,9 +1799,9 @@
     },
     {
       "Entity": 7970000000000031,
-      "Tag": "Askar 3",
+      "Tag": "Soldier 3",
       "Tags": [
-        "Askar"
+        "Soldier"
       ],
       "Transform": {
         "Translation": [
@@ -1849,7 +1849,7 @@
     },
     {
       "Entity": 7970000000000032,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000031,
       "Transform": {
         "Translation": [
@@ -1893,7 +1893,7 @@
     },
     {
       "Entity": 7970000000000033,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000031,
       "Transform": {
         "Translation": [
@@ -1937,7 +1937,7 @@
     },
     {
       "Entity": 7970000000000034,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000031,
       "Transform": {
         "Translation": [
@@ -1981,9 +1981,9 @@
     },
     {
       "Entity": 7970000000000035,
-      "Tag": "Askar 4",
+      "Tag": "Soldier 4",
       "Tags": [
-        "Askar"
+        "Soldier"
       ],
       "Transform": {
         "Translation": [
@@ -2031,7 +2031,7 @@
     },
     {
       "Entity": 7970000000000036,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000035,
       "Transform": {
         "Translation": [
@@ -2075,7 +2075,7 @@
     },
     {
       "Entity": 7970000000000037,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000035,
       "Transform": {
         "Translation": [
@@ -2119,7 +2119,7 @@
     },
     {
       "Entity": 7970000000000038,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000035,
       "Transform": {
         "Translation": [
@@ -2163,9 +2163,9 @@
     },
     {
       "Entity": 7970000000000039,
-      "Tag": "Askar 5",
+      "Tag": "Soldier 5",
       "Tags": [
-        "Askar"
+        "Soldier"
       ],
       "Transform": {
         "Translation": [
@@ -2213,7 +2213,7 @@
     },
     {
       "Entity": 7970000000000040,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000039,
       "Transform": {
         "Translation": [
@@ -2257,7 +2257,7 @@
     },
     {
       "Entity": 7970000000000041,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000039,
       "Transform": {
         "Translation": [
@@ -2301,7 +2301,7 @@
     },
     {
       "Entity": 7970000000000042,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000039,
       "Transform": {
         "Translation": [
@@ -2345,9 +2345,9 @@
     },
     {
       "Entity": 7970000000000043,
-      "Tag": "Askar 6",
+      "Tag": "Soldier 6",
       "Tags": [
-        "Askar"
+        "Soldier"
       ],
       "Transform": {
         "Translation": [
@@ -2395,7 +2395,7 @@
     },
     {
       "Entity": 7970000000000044,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000043,
       "Transform": {
         "Translation": [
@@ -2439,7 +2439,7 @@
     },
     {
       "Entity": 7970000000000045,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000043,
       "Transform": {
         "Translation": [
@@ -2483,7 +2483,7 @@
     },
     {
       "Entity": 7970000000000046,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000043,
       "Transform": {
         "Translation": [
@@ -2527,7 +2527,7 @@
     },
     {
       "Entity": 7970000000000047,
-      "Tag": "Karvon",
+      "Tag": "Caravan",
       "Transform": {
         "Translation": [
           -7.5,
@@ -2617,7 +2617,7 @@
     },
     {
       "Entity": 7970000000000048,
-      "Tag": "Qo'riqchi 1",
+      "Tag": "Guard 1",
       "Transform": {
         "Translation": [
           -7.5,
@@ -2647,7 +2647,7 @@
     },
     {
       "Entity": 7970000000000049,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000048,
       "Transform": {
         "Translation": [
@@ -2691,7 +2691,7 @@
     },
     {
       "Entity": 7970000000000050,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000048,
       "Transform": {
         "Translation": [
@@ -2735,7 +2735,7 @@
     },
     {
       "Entity": 7970000000000051,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000048,
       "Transform": {
         "Translation": [
@@ -2779,7 +2779,7 @@
     },
     {
       "Entity": 7970000000000052,
-      "Tag": "Qo'riqchi 2",
+      "Tag": "Guard 2",
       "Transform": {
         "Translation": [
           -5.217464360891632,
@@ -2809,7 +2809,7 @@
     },
     {
       "Entity": 7970000000000053,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000052,
       "Transform": {
         "Translation": [
@@ -2853,7 +2853,7 @@
     },
     {
       "Entity": 7970000000000054,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000052,
       "Transform": {
         "Translation": [
@@ -2897,7 +2897,7 @@
     },
     {
       "Entity": 7970000000000055,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000052,
       "Transform": {
         "Translation": [
@@ -2941,7 +2941,7 @@
     },
     {
       "Entity": 7970000000000056,
-      "Tag": "Qo'riqchi 3",
+      "Tag": "Guard 3",
       "Transform": {
         "Translation": [
           -6.0893153944980645,
@@ -2971,7 +2971,7 @@
     },
     {
       "Entity": 7970000000000057,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000056,
       "Transform": {
         "Translation": [
@@ -3015,7 +3015,7 @@
     },
     {
       "Entity": 7970000000000058,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000056,
       "Transform": {
         "Translation": [
@@ -3059,7 +3059,7 @@
     },
     {
       "Entity": 7970000000000059,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000056,
       "Transform": {
         "Translation": [
@@ -3103,7 +3103,7 @@
     },
     {
       "Entity": 7970000000000060,
-      "Tag": "Qo'riqchi 4",
+      "Tag": "Guard 4",
       "Transform": {
         "Translation": [
           -8.910684605501935,
@@ -3133,7 +3133,7 @@
     },
     {
       "Entity": 7970000000000061,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000060,
       "Transform": {
         "Translation": [
@@ -3177,7 +3177,7 @@
     },
     {
       "Entity": 7970000000000062,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000060,
       "Transform": {
         "Translation": [
@@ -3221,7 +3221,7 @@
     },
     {
       "Entity": 7970000000000063,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000060,
       "Transform": {
         "Translation": [
@@ -3265,7 +3265,7 @@
     },
     {
       "Entity": 7970000000000064,
-      "Tag": "Qo'riqchi 5",
+      "Tag": "Guard 5",
       "Transform": {
         "Translation": [
           -9.782535639108369,
@@ -3295,7 +3295,7 @@
     },
     {
       "Entity": 7970000000000065,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000064,
       "Transform": {
         "Translation": [
@@ -3339,7 +3339,7 @@
     },
     {
       "Entity": 7970000000000066,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000064,
       "Transform": {
         "Translation": [
@@ -3383,7 +3383,7 @@
     },
     {
       "Entity": 7970000000000067,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000064,
       "Transform": {
         "Translation": [
@@ -3427,7 +3427,7 @@
     },
     {
       "Entity": 7970000000000068,
-      "Tag": "Mehmon",
+      "Tag": "Visitor",
       "Tags": [
         "Player"
       ],
@@ -3511,7 +3511,7 @@
     },
     {
       "Entity": 7970000000000069,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7970000000000068,
       "Transform": {
         "Translation": [
@@ -3555,7 +3555,7 @@
     },
     {
       "Entity": 7970000000000070,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7970000000000068,
       "Transform": {
         "Translation": [
@@ -3599,7 +3599,7 @@
     },
     {
       "Entity": 7970000000000071,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7970000000000068,
       "Transform": {
         "Translation": [

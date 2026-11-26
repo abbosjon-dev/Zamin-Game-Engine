@@ -1,5 +1,5 @@
 {
-    "Scene": "Yorug'liklar",
+    "Scene": "Lights",
     "Version": 1,
     "Settings": {
         "DrawSky": true,
@@ -529,7 +529,7 @@
         },
         {
             "Entity": 7410000000000012,
-            "Tag": "Spot Oq",
+            "Tag": "Spot White",
             "Transform": {
                 "Translation": [
                     4,
@@ -561,7 +561,7 @@
         },
         {
             "Entity": 7410000000000013,
-            "Tag": "Spot Pushti",
+            "Tag": "Spot Pink",
             "Transform": {
                 "Translation": [
                     -4,
@@ -593,7 +593,7 @@
         },
         {
             "Entity": 7410000000000014,
-            "Tag": "Spot Moviy",
+            "Tag": "Spot Blue",
             "Transform": {
                 "Translation": [
                     -6,
@@ -625,7 +625,7 @@
         },
         {
             "Entity": 7410000000000015,
-            "Tag": "Spot Sariq",
+            "Tag": "Spot Yellow",
             "Transform": {
                 "Translation": [
                     6,
@@ -657,7 +657,7 @@
         },
         {
             "Entity": 7410000000000016,
-            "Tag": "Spot Tor nur",
+            "Tag": "Spot Narrow beam",
             "Transform": {
                 "Translation": [
                     5.5,
@@ -689,7 +689,7 @@
         },
         {
             "Entity": 7410000000000017,
-            "Tag": "Chiroqlar",
+            "Tag": "Lights",
             "Transform": {
                 "Translation": [
                     0,
@@ -710,7 +710,7 @@
         },
         {
             "Entity": 7410000000000018,
-            "Tag": "Chiroq 1",
+            "Tag": "Light 1",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -763,7 +763,7 @@
         },
         {
             "Entity": 7410000000000019,
-            "Tag": "Chiroq 2",
+            "Tag": "Light 2",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -816,7 +816,7 @@
         },
         {
             "Entity": 7410000000000020,
-            "Tag": "Chiroq 3",
+            "Tag": "Light 3",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -869,7 +869,7 @@
         },
         {
             "Entity": 7410000000000021,
-            "Tag": "Chiroq 4",
+            "Tag": "Light 4",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -922,7 +922,7 @@
         },
         {
             "Entity": 7410000000000022,
-            "Tag": "Chiroq 5",
+            "Tag": "Light 5",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -975,7 +975,7 @@
         },
         {
             "Entity": 7410000000000023,
-            "Tag": "Chiroq 6",
+            "Tag": "Light 6",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1028,7 +1028,7 @@
         },
         {
             "Entity": 7410000000000024,
-            "Tag": "Chiroq 7",
+            "Tag": "Light 7",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1081,7 +1081,7 @@
         },
         {
             "Entity": 7410000000000025,
-            "Tag": "Chiroq 8",
+            "Tag": "Light 8",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1134,7 +1134,7 @@
         },
         {
             "Entity": 7410000000000026,
-            "Tag": "Chiroq 9",
+            "Tag": "Light 9",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1187,7 +1187,7 @@
         },
         {
             "Entity": 7410000000000027,
-            "Tag": "Chiroq 10",
+            "Tag": "Light 10",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1240,7 +1240,7 @@
         },
         {
             "Entity": 7410000000000028,
-            "Tag": "Chiroq 11",
+            "Tag": "Light 11",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1293,7 +1293,7 @@
         },
         {
             "Entity": 7410000000000029,
-            "Tag": "Chiroq 12",
+            "Tag": "Light 12",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1346,7 +1346,7 @@
         },
         {
             "Entity": 7410000000000030,
-            "Tag": "Chiroq 13",
+            "Tag": "Light 13",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1399,7 +1399,7 @@
         },
         {
             "Entity": 7410000000000031,
-            "Tag": "Chiroq 14",
+            "Tag": "Light 14",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1452,7 +1452,7 @@
         },
         {
             "Entity": 7410000000000032,
-            "Tag": "Chiroq 15",
+            "Tag": "Light 15",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1505,7 +1505,7 @@
         },
         {
             "Entity": 7410000000000033,
-            "Tag": "Chiroq 16",
+            "Tag": "Light 16",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1558,7 +1558,7 @@
         },
         {
             "Entity": 7410000000000034,
-            "Tag": "Chiroq 17",
+            "Tag": "Light 17",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1611,7 +1611,7 @@
         },
         {
             "Entity": 7410000000000035,
-            "Tag": "Chiroq 18",
+            "Tag": "Light 18",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1664,7 +1664,7 @@
         },
         {
             "Entity": 7410000000000036,
-            "Tag": "Chiroq 19",
+            "Tag": "Light 19",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1717,7 +1717,7 @@
         },
         {
             "Entity": 7410000000000037,
-            "Tag": "Chiroq 20",
+            "Tag": "Light 20",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1770,7 +1770,7 @@
         },
         {
             "Entity": 7410000000000038,
-            "Tag": "Chiroq 21",
+            "Tag": "Light 21",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1823,7 +1823,7 @@
         },
         {
             "Entity": 7410000000000039,
-            "Tag": "Chiroq 22",
+            "Tag": "Light 22",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1876,7 +1876,7 @@
         },
         {
             "Entity": 7410000000000040,
-            "Tag": "Chiroq 23",
+            "Tag": "Light 23",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [
@@ -1929,7 +1929,7 @@
         },
         {
             "Entity": 7410000000000041,
-            "Tag": "Chiroq 24",
+            "Tag": "Light 24",
             "Parent": 7410000000000017,
             "Transform": {
                 "Translation": [

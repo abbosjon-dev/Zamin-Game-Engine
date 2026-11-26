@@ -7,7 +7,7 @@ using namespace Zamin;
 // Shapes2D sahnasi: ko'pburchak / chiziq kolliderlari, fizik materiallar, to'qnashuv qatlamlari va
 // bir tomonlama platformalarni ko'rsatadigan kichik skriptlar.
 
-// Yuqoridan tasodifiy shakllarni tashlaydi (shablonlar o'chiq "Shablonlar" guruhida turadi).
+// Yuqoridan tasodifiy shakllarni tashlaydi (shablonlar o'chiq "Templates" guruhida turadi).
 // "Fire" (sichqoncha / Ctrl) - bir yo'la bir nechtasi. Eng eskilari MaxShapes'dan oshganda yo'qoladi.
 class ShapeSpawner : public ScriptableEntity
 {
@@ -58,7 +58,7 @@ private:
 };
 
 ZM_REGISTER_SCRIPT(ShapeSpawner,
-    ZM_FIELD(ShapeSpawner, Boulder).Header("Shablonlar").Tooltip("Rock (Polygon Collider 2D)"),
+    ZM_FIELD(ShapeSpawner, Boulder).Header("Templates").Tooltip("Rock (Polygon Collider 2D)"),
     ZM_FIELD(ShapeSpawner, Crystal).Tooltip("Crystal (concave Polygon Collider 2D)"),
     ZM_FIELD(ShapeSpawner, Crate).Tooltip("Crate (Box Collider 2D)"),
     ZM_FIELD(ShapeSpawner, Ball).Tooltip("Rubber ball (the Bouncy physics material)"),

@@ -63,7 +63,7 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
 2026-11-08 · vazifalar 461–480 · 18 ta commit (`5623496` … `37d2916`)
 
 - Yangi namuna loyihalar (har biri o'z `.zproject`, `Assets/`, C++ skriptlar moduli `Source/` bilan, ildiz build'da):
-  **Neon Maydon** (`Projects/TopDownShooter`: twin-stick kema, siltanish, 5 xil dushman, to'lqinlar, hisob va kombo,
+  **Neon Arena** (`Projects/TopDownShooter`: twin-stick kema, siltanish, 5 xil dushman, to'lqinlar, hisob va kombo,
   bonuslar), **Zamin Breakout** (`Projects/Breakout`: raketka, Box2D to'p fizikasi, oddiy / qattiq / po'lat / oltin /
   bomba g'ishtlar, 6 ta bonus, 6 ta daraja) va **FPS Arena** (`Projects/FPSArena`: sichqoncha bilan qarash, yugurish
   va chidamlilik, sakrash, cho'kkalash, sakratgich, parkur yo'lagi va aylana rekordi).
@@ -72,9 +72,9 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   (`ZAMIN_DEMO=1` — bot o'ynaydi, jurnalga `Demo: ...` qatorlari yoziladi).
 - **FPS Arena**ga raycast bilan otish qo'shildi (Blaster: o'q-dori, qayta o'qlash, tepki, nur izi, uchqunlar), nishonlar
   (turg'un, sirpanuvchi, chiquvchi, uchar dron) va 60 soniyalik "Nishon otish" rejimi (markaz x2, seriya, aniqlik, rekord).
-- Yana uchta namuna: **Omborchi** (`Projects/Sokoban`: 3D Sokoban, 10 ta daraja, orqaga qaytarish, darajalar menyusi,
-  BFS yechuvchi bot), **Ipak Yo'li** (`Projects/EndlessRunner`: 3D cheksiz yugurish - uch yo'lak, sakrash, sirpanish,
-  protsedurali to'siqlar, tangalar, magnit va qalqon, oshib boruvchi tezlik) va **Vodiy Poygasi** (`Projects/Racing`:
+- Yana uchta namuna: **Warehouse Keeper** (`Projects/Sokoban`: 3D Sokoban, 10 ta daraja, orqaga qaytarish, darajalar menyusi,
+  BFS yechuvchi bot), **Silk Road** (`Projects/EndlessRunner`: 3D cheksiz yugurish - uch yo'lak, sakrash, sirpanish,
+  protsedurali to'siqlar, tangalar, magnit va qalqon, oshib boruvchi tezlik) va **Valley Race** (`Projects/Racing`:
   arkada mashina fizikasi - rul, ilashish va drift, aylanma trassa, nazorat nuqtalari, aylana vaqti, 3 ta bot raqib).
 - Editor launcher'i namuna o'yinlarni rasmli kartalar bilan ko'rsatadi: `.zproject`ning yangi `Description` va
   `Thumbnail` kalitlari (Project settings > General; `ProjectSerializer::ReadSummary`), rasmlar o'yinlarning haqiqiy
@@ -82,7 +82,7 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
 - Assetlarning hammasi kod bilan yaratiladi: `Tools/samples/gen_*.py` (umumiy `samplekit.py`) teksturalar, sprite
   atlaslari, normal map'lar, `.obj` trassa meshlari, WAV tovushlar va musiqani, sahna va loyiha fayllarini yozadi
   ([Tools/samples/README.md](Tools/samples/README.md)). Sahnalar ixcham JSON'da (raqamlar ro'yxati bir qatorda).
-  Har bir o'yinning assetlari 2 MiB dan kichik (Vodiy Poygasi 2.2 MB dan 1.9 MiB ga tushdi).
+  Har bir o'yinning assetlari 2 MiB dan kichik (Valley Race 2.2 MB dan 1.9 MiB ga tushdi).
 - Har bir namunaning (to'qqizalasining) `README.md` fayli bor: boshqaruv, o'yin, ko'rsatilgan imkoniyatlar, kod
   bo'ylab sayohat, assetlar va testlar.
 - Namuna o'yinlar testlari (ctest label `samples`): `Tests/samples_test.py` har o'yinni `ZaminPlayer` da headless
@@ -100,13 +100,13 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   so'rash o'chirib yubormaydi. Player'ning `ZAMIN_PLAYER_INPUT` skripti shu bilan tugmani haqiqatan bosib turadi va
   `hold=` / `release=` amallarini qo'llaydi.
 - Menyular: har o'yin panellari uchun jurnalga `Menyu: ...` yoziladi. Tuzatishlar:
-  - Ipak Yo'li va Vodiy Poygasi bosh menyusida "O'ynash" tanlanmay qolardi, endi Enter / A bilan boshlanadi;
-  - Vodiy Poygasida start sanog'ida ham pauza qilish mumkin;
-  - Neon Maydon o'yin tugaganda ovoz chiqaradi;
-  - Ipak Yo'li boti sakrash nuqtasini tezlik va to'siq uzunligidan hisoblaydi.
+  - Silk Road va Valley Race bosh menyusida "O'ynash" tanlanmay qolardi, endi Enter / A bilan boshlanadi;
+  - Valley Raceda start sanog'ida ham pauza qilish mumkin;
+  - Neon Arena o'yin tugaganda ovoz chiqaradi;
+  - Silk Road boti sakrash nuqtasini tezlik va to'siq uzunligidan hisoblaydi.
 - Rekordlar: `SaveData::SubmitRecord(kalit, natija[, RecordOrder::Lower])` va `IsNewRecord` — natija yaxshiroq bo'lsa
   yoziladi. Olti o'yin rekordini shu bilan saqlaydi: o'yin tugaganda, pauzadan chiqib ketilganda, qaytadan
-  boshlanganda va o'yin yopilganda ham (Vodiy Poygasi — har aylanada). Jurnalga `Rekordlar: ...` / `Yangi rekord: ...`
+  boshlanganda va o'yin yopilganda ham (Valley Race — har aylanada). Jurnalga `Rekordlar: ...` / `Yangi rekord: ...`
   yoziladi; `ZAMIN_DEMO_RECORDS=1` bilan demo natijasi ham rekord bo'ladi. `samples_test.py` har demodan keyin rekord
   SaveData fayliga yozilganini va keyingi ishga tushirishda o'qilganini tekshiradi.
 - Boshqaruv ishoralari: `Input::GetActiveDevice` (oxirgi ishlatilgan qurilma, almashganda `Kiritish qurilmasi: ...`),
@@ -118,15 +118,15 @@ vazifalari bajarila boshlaganda unga bo'lim qo'shing ([CONTRIBUTING.md](CONTRIBU
   `samples_assets.py` input xaritasini tekshiradi (har harakatda klaviatura va gamepad, skriptlar faqat xaritadan).
 - Eksport: `Tests/samples_export.py` (ctest `SampleExports`) to'qqiz namunani editor bilan eksport qiladi
   (`export_test.sh`) va eksport qilingan o'yinlarni `samples_test.py --exported` bilan o'ynatadi. U topgan xato:
-  Neon Maydon va Zamin Breakout ovozlarni qisqa nomi bilan chaqiradi (`Sfx("hit")`), eksport esa ularni
+  Neon Arena va Zamin Breakout ovozlarni qisqa nomi bilan chaqiradi (`Sfx("hit")`), eksport esa ularni
   ishlatilmagan deb tashlab ketardi — eksport qilingan o'yinda ovoz yo'q edi. Ikki loyihaga
   `Export.AlwaysInclude: ["Audio/*.wav"]` qo'shildi, `samples_assets.py` endi shuni tekshiradi.
 - [docs/Samples.md](docs/Samples.md) — namuna o'yinlar galereyasi (rasmlar `Tools/samples/make_gallery.py`), rekordlar,
   boshqaruv, testlar, eksport va ishlash tezligi.
 - Ko'rib chiqishdan keyingi tuzatishlar: editor launcher'i so'nggi sahnalar va loyihalarni yana namuna kartalaridan
-  oldin ko'rsatadi (tarix bo'lsa kartalar bir qatorda, **Hammasini ko'rsatish** bilan); Omborchi'da "O'ynash" bosh menyu
+  oldin ko'rsatadi (tarix bo'lsa kartalar bir qatorda, **Hammasini ko'rsatish** bilan); Warehouse Keeper'da "O'ynash" bosh menyu
   orqasidagi botning darajasini emas, o'yinchinikini ochadi va qadam animatsiyasi paytidagi bosishlar navbatga turadi
-  (`samples_test.py` `Sokoban/menuwait` holati); Ipak Yo'li magniti kadr tezligiga bog'liq emas; Neon Maydon sichqoncha
+  (`samples_test.py` `Sokoban/menuwait` holati); Silk Road magniti kadr tezligiga bog'liq emas; Neon Arena sichqoncha
   nishoniga "Fire"ning sichqoncha tugmasi bilan o'tadi; `TextComponent` ishoralari bo'sh `Text`dan keyin ham
   yangilanadi; Project settings > General tavsif va rasm o'zgarishini ko'radi; to'rt o'yin bosh menyusidagi taglavha
   va boshqaruv ishoralari ostida to'q plastinka (`samplekit.ui_backdrop`), Breakout ishoralari maydon ichida; clang

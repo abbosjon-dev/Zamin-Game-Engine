@@ -52,9 +52,9 @@ def main():
     try:
         from PIL import Image
     except ImportError:
-        sys.exit("Pillow kerak: pip install pillow")
+        sys.exit("Pillow is required: pip install pillow")
     if not os.path.isfile(PLAYER):
-        sys.exit(f"Player topilmadi: {PLAYER} (avval build qiling)")
+        sys.exit(f"Player not found: {PLAYER} (build first)")
     os.makedirs(OUT, exist_ok=True)
     failed = []
     for name, project, env, frames in SHOTS:
@@ -63,14 +63,14 @@ def main():
         with tempfile.TemporaryDirectory() as tmp:
             png = os.path.join(tmp, "shot.png")
             if not screenshot(project, env, frames, png):
-                print(f"  {project}: skrinshot olinmadi")
+                print(f"  {project}: no screenshot was taken")
                 failed.append(project)
                 continue
             out = os.path.join(OUT, f"sample-{name}.jpg")
             Image.open(png).convert("RGB").resize(SIZE, Image.LANCZOS).save(out, "JPEG", quality=82, optimize=True, progressive=True)
             print(f"  {project}: docs/images/sample-{name}.jpg ({os.path.getsize(out) // 1024} KB)")
     if failed:
-        sys.exit(f"xato: {', '.join(failed)}")
+        sys.exit(f"failed: {', '.join(failed)}")
 
 
 if __name__ == "__main__":

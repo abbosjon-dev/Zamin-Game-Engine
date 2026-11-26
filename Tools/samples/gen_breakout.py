@@ -387,76 +387,76 @@ def build_scene():
     s = k.SceneBuilder("Breakout", 8820000000000000)
     s.settings = k.settings_2d(ambient2d=(0.75, 0.75, 0.95), ambient2d_intensity=0.7, bloom=(0.85, 0.55, 0.75), vignette=0.32,
                                saturation=1.12, contrast=1.06, chroma=0.08, grain=0.03)
-    s.metadata = {"Description": "Zamin Breakout: raketka, to'p fizikasi, g'ishtlar, bonuslar va 6 ta daraja", "Author": "Zamin",
-                  "Tags": ["namuna", "2D", "arkada"]}
+    s.metadata = {"Description": "Zamin Breakout: a paddle, ball physics, bricks, power-ups and 6 levels", "Author": "Zamin",
+                  "Tags": ["sample", "2D", "arcade"]}
     s.entity("Main Camera", pos=(0, -0.6, 10), Camera=k.camera_ortho(25.0, (0.02, 0.02, 0.05, 1.0)))
     game = s.entity("Game")
 
     # ---- background, field, frame
-    s.entity("Fon", pos=(0, 0, -2), scale=(48, 27, 1), SpriteRenderer=k.sprite("Textures/backdrop.png", order=-100))
-    s.entity("Fon zarralari", pos=(0, 0, -1), ParticleSystem=k.particles(
+    s.entity("Backdrop", pos=(0, 0, -2), scale=(48, 27, 1), SpriteRenderer=k.sprite("Textures/backdrop.png", order=-100))
+    s.entity("Backdrop particles", pos=(0, 0, -1), ParticleSystem=k.particles(
         EmissionRate=3.0, MaxParticles=80, Shape=3, ShapeExtents=(24, 14, 0), LifetimeMin=8.0, LifetimeMax=14.0, SpeedMin=0.05,
         SpeedMax=0.25, Spread=180.0, StartColor=(0.8, 0.6, 1.0, 0.25), EndColor=(0.4, 0.7, 1.0, 0.0), StartSize=0.5, EndSize=0.2,
         Prewarm=True, SortingOrder=-90))
-    field = s.entity("Maydon")
-    s.entity("Maydon foni", parent=field, pos=(0, (FIELD_TOP + FIELD_BOTTOM) / 2, 0),
+    field = s.entity("Field")
+    s.entity("Field backdrop", parent=field, pos=(0, (FIELD_TOP + FIELD_BOTTOM) / 2, 0),
              SpriteRenderer=k.sprite("Textures/field.png", col=(1, 1, 1, 0.92), order=-60, lit=True, draw_mode="Tiled",
                                      size=(FIELD_HALF_W * 2, FIELD_TOP - FIELD_BOTTOM), ppu=48))
     t = 1.0
-    for name, pos, size in (("Chap devor", (-FIELD_HALF_W - t / 2, -0.75), (t, 24.5)),
-                            ("O'ng devor", (FIELD_HALF_W + t / 2, -0.75), (t, 24.5)),
-                            ("Yuqori devor", (0, FIELD_TOP + t / 2), (FIELD_HALF_W * 2 + 2 * t, t))):
+    for name, pos, size in (("Left wall", (-FIELD_HALF_W - t / 2, -0.75), (t, 24.5)),
+                            ("Right wall", (FIELD_HALF_W + t / 2, -0.75), (t, 24.5)),
+                            ("Top wall", (0, FIELD_TOP + t / 2), (FIELD_HALF_W * 2 + 2 * t, t))):
         s.entity(name, parent=field, pos=(pos[0], pos[1], 0),
                  SpriteRenderer=k.sprite(ATLAS, "frame", col=(1, 1, 1, 1), order=-5, draw_mode="Sliced", size=size, ppu=40),
                  Rigidbody2D=k.rigidbody2d("Static", layer=L["Wall"]), BoxCollider2D=k.box2d(size, restitution=1.0))
     # a soft glow line where balls are lost
-    s.entity("Chegara", parent=field, pos=(0, FIELD_BOTTOM + 0.6, 0), scale=(FIELD_HALF_W * 2, 0.06, 1),
+    s.entity("Border", parent=field, pos=(0, FIELD_BOTTOM + 0.6, 0), scale=(FIELD_HALF_W * 2, 0.06, 1),
              SpriteRenderer=k.sprite(col=(1.4, 0.3, 0.6, 0.55), order=-50))
-    bricks = s.entity("G'ishtlar", parent=field)  # the level's bricks are made here by the game
+    bricks = s.entity("Bricks", parent=field)  # the level's bricks are made here by the game
 
     # ---- paddle
-    paddle = s.entity("Raketka", pos=(0, FIELD_BOTTOM + 2.0, 0), Light2D=k.light2d((0.4, 0.9, 1.0), 0.8, 5.5, 0.5, 1.8))
+    paddle = s.entity("Paddle", pos=(0, FIELD_BOTTOM + 2.0, 0), Light2D=k.light2d((0.4, 0.9, 1.0), 0.8, 5.5, 0.5, 1.8))
     s.entity("Visual", parent=paddle, scale=(3.2, 0.7, 1), SpriteRenderer=k.sprite(ATLAS, "paddle", col=(1.1, 1.15, 1.25, 1), order=20))
-    for side, x in (("chap", -1.25), ("o'ng", 1.25)):
-        s.entity(f"Lazer ({side})", parent=paddle, pos=(x, 0.38, 0), scale=(0.36, 0.45, 1), active=False,
+    for side, x in (("left", -1.25), ("right", 1.25)):
+        s.entity(f"Laser ({side})", parent=paddle, pos=(x, 0.38, 0), scale=(0.36, 0.45, 1), active=False,
                  SpriteRenderer=k.sprite(ATLAS, "turret", col=(1.2, 1.0, 1.0, 1), order=19))
 
     # ---- effects
-    fx = s.entity("Effektlar")
-    shards = s.entity("Parchalar", parent=fx, ParticleSystem=k.particles(
+    fx = s.entity("Effects")
+    shards = s.entity("Debris", parent=fx, ParticleSystem=k.particles(
         EmissionRate=0.0, MaxParticles=1500, Shape=3, ShapeExtents=(0.7, 0.25, 0), LifetimeMin=0.5, LifetimeMax=1.1, SpeedMin=2.0,
         SpeedMax=7.0, Direction=(0, 1, 0), Spread=75.0, Gravity=(0, -18, 0), Drag=0.6, AngularVelocityMax=8.0,
         StartColor=(1, 1, 1, 1), EndColor=(1, 1, 1, 0), StartSize=0.24, EndSize=0.06, RenderAsCircle=False, SortingOrder=30))
-    sparks = s.entity("Uchqunlar", parent=fx, ParticleSystem=k.particles(
+    sparks = s.entity("Sparks", parent=fx, ParticleSystem=k.particles(
         EmissionRate=0.0, MaxParticles=800, LifetimeMin=0.1, LifetimeMax=0.3, SpeedMin=3.0, SpeedMax=9.0, Spread=180.0, Drag=4.0,
         StartColor=(2, 2, 2, 1), EndColor=(1, 0.8, 0.5, 0), StartSize=0.14, EndSize=0.0, SortingOrder=31))
 
     # ---- templates
-    tpl = s.entity("Shablonlar", active=False)
-    t_brick = s.entity("G'isht", parent=tpl, Rigidbody2D=k.rigidbody2d("Static", layer=L["Brick"]),
+    tpl = s.entity("Templates", active=False)
+    t_brick = s.entity("Brick", parent=tpl, Rigidbody2D=k.rigidbody2d("Static", layer=L["Brick"]),
                        BoxCollider2D=k.box2d((1.5, 0.6), restitution=1.0), NativeScript=k.script("Brick"))
     s.entity("Visual", parent=t_brick, scale=(1.5, 0.6, 1), SpriteRenderer=k.sprite(ATLAS, "brick", order=10))
-    t_ball = s.entity("To'p", parent=tpl, Rigidbody2D=k.rigidbody2d("Dynamic", layer=L["Ball"], bullet=True),
+    t_ball = s.entity("Ball", parent=tpl, Rigidbody2D=k.rigidbody2d("Dynamic", layer=L["Ball"], bullet=True),
                       CircleCollider2D=k.circle2d(0.28, density=1.0, friction=0.0, restitution=1.0),
                       Light2D=k.light2d((0.6, 0.85, 1.0), 1.1, 5.0, 0.4, 1.8), NativeScript=k.script("Ball", Speed=13.0, MaxSpeed=22.0))
     s.entity("Visual", parent=t_ball, scale=(0.75, 0.75, 1), SpriteRenderer=k.sprite(ATLAS, "ball", col=(1.3, 1.35, 1.45, 1), order=25))
-    s.entity("Iz", parent=t_ball, ParticleSystem=k.particles(
+    s.entity("Trail", parent=t_ball, ParticleSystem=k.particles(
         EmissionRate=55.0, MaxParticles=120, LifetimeMin=0.22, LifetimeMax=0.35, SpeedMin=0.0, SpeedMax=0.3, Spread=180.0,
         StartColor=(0.5, 1.1, 1.8, 0.8), EndColor=(0.3, 0.2, 1.0, 0.0), StartSize=0.42, EndSize=0.05, SortingOrder=24))
     powerups = []
-    for kind, name, letter, col in ((0, "Keng", "K", (0.35, 0.8, 1.0)), (1, "Ko'p to'p", "x3", (0.45, 1.0, 0.5)),
-                                    (2, "Sekin", "S", (1.0, 0.85, 0.3)), (3, "Olov", "O", (1.0, 0.45, 0.2)),
-                                    (4, "Lazer", "L", (1.0, 0.3, 0.45)), (5, "Jon", "+1", (1.0, 0.45, 0.85))):
+    for kind, name, letter, col in ((0, "Wide", "K", (0.35, 0.8, 1.0)), (1, "Multiball", "x3", (0.45, 1.0, 0.5)),
+                                    (2, "Slow", "S", (1.0, 0.85, 0.3)), (3, "Fire", "O", (1.0, 0.45, 0.2)),
+                                    (4, "Laser", "L", (1.0, 0.3, 0.45)), (5, "Life", "+1", (1.0, 0.45, 0.85))):
         p = s.entity(f"Bonus: {name}", parent=tpl, Light2D=k.light2d(col, 0.7, 2.5),
                      NativeScript=k.script("PowerUp", Kind=("Enum", kind), FallSpeed=4.5))
         s.entity("Visual", parent=p, scale=(1.5, 0.64, 1), SpriteRenderer=k.sprite(ATLAS, "capsule", col=(*[c * 1.35 for c in col], 1), order=22))
-        s.entity("Harf", parent=p, pos=(0, -0.02, 0), scale=(0.62, 0.62, 1), Text=k.world_text(letter, (0.06, 0.05, 0.12, 1.0), order=1023))
+        s.entity("Letter", parent=p, pos=(0, -0.02, 0), scale=(0.62, 0.62, 1), Text=k.world_text(letter, (0.06, 0.05, 0.12, 1.0), order=1023))
         powerups.append(p)
-    t_beam = s.entity("Lazer nuri", parent=tpl, SpriteRenderer=k.sprite(ATLAS, "beam", col=(2.6, 0.6, 0.8, 1), order=21),
+    t_beam = s.entity("Laser beam", parent=tpl, SpriteRenderer=k.sprite(ATLAS, "beam", col=(2.6, 0.6, 0.8, 1), order=21),
                       NativeScript=k.script("FxAnimator", Lifetime=0.18, StartScale=1.0, EndScale=1.0, FadeOut=0.18, KeepScale=True))
-    t_ring = s.entity("Halqa", parent=tpl, SpriteRenderer=k.sprite(ATLAS, "ring", col=(2, 2, 2, 1), order=29),
+    t_ring = s.entity("Ring", parent=tpl, SpriteRenderer=k.sprite(ATLAS, "ring", col=(2, 2, 2, 1), order=29),
                       NativeScript=k.script("FxAnimator", Lifetime=0.4, StartScale=0.4, EndScale=3.2, FadeOut=0.4))
-    t_popup = s.entity("Ochko", parent=tpl, scale=(0.6, 0.6, 1), Text=k.world_text("+10", (1, 1, 0.7, 1), order=1100),
+    t_popup = s.entity("Score popup", parent=tpl, scale=(0.6, 0.6, 1), Text=k.world_text("+10", (1, 1, 0.7, 1), order=1100),
                        NativeScript=k.script("FxAnimator", Lifetime=0.8, StartScale=0.6, EndScale=1.0, Rise=1.4, FadeOut=0.3, Pop=True))
 
     # ---- UI
@@ -464,69 +464,69 @@ def build_scene():
     ui = k.UIKit(s, canvas, ATLAS, game, (0.45, 0.22, 0.75, 1.0), (0.65, 0.38, 1.0, 1.0), (0.3, 0.14, 0.5, 1.0))
     hud = s.entity("HUD", parent=canvas, UITransform=k.ui_stretch())
     label_col = (0.75, 0.6, 1.0, 0.9)
-    ui.text("Hisob yorlig'i", hud, "HISOB", (0, 1), (0, 1), (60, -70), (420, 32), 28, label_col, key="hud.score_label")
-    score = ui.text("Hisob", hud, "0", (0, 1), (0, 1), (58, -104), (460, 80), 70)
-    ui.text("Rekord yorlig'i", hud, "REKORD", (0, 1), (0, 1), (60, -210), (420, 30), 26, label_col, key="hud.best_label")
-    best = ui.text("Rekord", hud, "0", (0, 1), (0, 1), (60, -242), (420, 50), 42, (1.0, 0.85, 0.4, 1.0))
-    ui.text("Jonlar yorlig'i", hud, "JONLAR", (0, 1), (0, 1), (60, -330), (420, 30), 26, label_col, key="hud.lives_label")
-    lives = s.entity("Jonlar", parent=hud, UITransform=k.ui_rect((0, 1), None, (0, 1), (60, -368), (420, 48)),
+    ui.text("Score label", hud, "SCORE", (0, 1), (0, 1), (60, -70), (420, 32), 28, label_col, key="hud.score_label")
+    score = ui.text("Score", hud, "0", (0, 1), (0, 1), (58, -104), (460, 80), 70)
+    ui.text("Best label", hud, "BEST", (0, 1), (0, 1), (60, -210), (420, 30), 26, label_col, key="hud.best_label")
+    best = ui.text("Best", hud, "0", (0, 1), (0, 1), (60, -242), (420, 50), 42, (1.0, 0.85, 0.4, 1.0))
+    ui.text("Lives label", hud, "LIVES", (0, 1), (0, 1), (60, -330), (420, 30), 26, label_col, key="hud.lives_label")
+    lives = s.entity("Lives", parent=hud, UITransform=k.ui_rect((0, 1), None, (0, 1), (60, -368), (420, 48)),
                      UILayoutGroup=k.ui_layout("Horizontal", spacing=8, align=3, control_width=False, expand_width=False))
     for i in range(6):
-        s.entity(f"Jon {i + 1}", parent=lives, UITransform=k.ui_rect(size=(40, 40)),
+        s.entity(f"Life {i + 1}", parent=lives, UITransform=k.ui_rect(size=(40, 40)),
                  UIImage=k.ui_image(texture=ATLAS, frame="ball_icon", preserve_aspect=True, raycast=False))
-    combo = ui.text("Kombo", hud, "", (0, 1), (0, 1), (60, -450), (440, 46), 38, (1.0, 0.75, 0.35, 1.0))
-    ui.text("Daraja yorlig'i", hud, "DARAJA", (1, 1), (1, 1), (-60, -70), (420, 32), 28, label_col, h="Right", key="hud.level_label")
-    level = ui.text("Daraja", hud, "1 / 6", (1, 1), (1, 1), (-58, -104), (420, 80), 70, h="Right")
-    level_name = ui.text("Daraja nomi", hud, "", (1, 1), (1, 1), (-60, -186), (440, 40), 32, (0.8, 0.9, 1.0, 0.9), h="Right")
-    bricks_left = ui.text("G'ishtlar", hud, "", (1, 1), (1, 1), (-60, -232), (440, 34), 26, (0.75, 0.75, 0.9, 0.8), h="Right")
-    ui.text("Bonuslar yorlig'i", hud, "BONUSLAR", (1, 1), (1, 1), (-60, -330), (420, 30), 26, label_col, h="Right", key="hud.powerups_label")
-    power = ui.text("Bonuslar", hud, "", (1, 1), (1, 1), (-60, -368), (460, 200), 30, (0.7, 1.0, 0.8, 1.0), h="Right")
+    combo = ui.text("Combo", hud, "", (0, 1), (0, 1), (60, -450), (440, 46), 38, (1.0, 0.75, 0.35, 1.0))
+    ui.text("Level label", hud, "LEVEL", (1, 1), (1, 1), (-60, -70), (420, 32), 28, label_col, h="Right", key="hud.level_label")
+    level = ui.text("Level", hud, "1 / 6", (1, 1), (1, 1), (-58, -104), (420, 80), 70, h="Right")
+    level_name = ui.text("Level name", hud, "", (1, 1), (1, 1), (-60, -186), (440, 40), 32, (0.8, 0.9, 1.0, 0.9), h="Right")
+    bricks_left = ui.text("Bricks", hud, "", (1, 1), (1, 1), (-60, -232), (440, 34), 26, (0.75, 0.75, 0.9, 0.8), h="Right")
+    ui.text("Power-ups label", hud, "POWER-UPS", (1, 1), (1, 1), (-60, -330), (420, 30), 26, label_col, h="Right", key="hud.powerups_label")
+    power = ui.text("Power-ups", hud, "", (1, 1), (1, 1), (-60, -368), (460, 200), 30, (0.7, 1.0, 0.8, 1.0), h="Right")
     s.get(power)["Text"]["AlignV"] = "Top"
-    hint = ui.text("Maslahat", hud, "", (0.5, 0), (0.5, 0), (0, 40), (1000, 40), 30, (0.85, 0.85, 1.0, 0.9), h="Center")
-    banner = ui.text("E'lon", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 80), (1200, 120), 100, h="Center", UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
-    banner_sub = ui.text("E'lon izohi", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -6), (1100, 50), 38, (0.85, 0.8, 1.0, 1.0), h="Center")
-    demo_badge = ui.text("Demo belgisi", hud, "DEMO - avtomatik o'yin", (0.5, 1), (0.5, 1), (0, -14), (900, 34), 26, (1.0, 0.8, 0.35, 0.9),
+    hint = ui.text("Hint", hud, "", (0.5, 0), (0.5, 0), (0, 40), (1000, 40), 30, (0.85, 0.85, 1.0, 0.9), h="Center")
+    banner = ui.text("Banner", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 80), (1200, 120), 100, h="Center", UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
+    banner_sub = ui.text("Banner note", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -6), (1100, 50), 38, (0.85, 0.8, 1.0, 1.0), h="Center")
+    demo_badge = ui.text("Demo badge", hud, "DEMO - autoplay", (0.5, 1), (0.5, 1), (0, -14), (900, 34), 26, (1.0, 0.8, 0.35, 0.9),
                          h="Center", key="hud.demo", active=False)
 
     # main menu
-    main_menu = ui.dim("Bosh menyu", True, 0.55, (0.03, 0.0, 0.06))
-    title = s.entity("Sarlavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 270), size=(1700, 180), font=160),
+    main_menu = ui.dim("Main menu", True, 0.55, (0.03, 0.0, 0.06))
+    title = s.entity("Title", parent=main_menu, UITransform=k.ui_rect(pos=(0, 270), size=(1700, 180), font=160),
                      UIAnimation=k.ui_anim("SlideDown", "None", 0.6, slide=120))
-    s.entity("Sarlavha soyasi", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=160),
+    s.entity("Title shadow", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=160),
              Text=k.ui_text("BREAKOUT", (0.4, 0.1, 0.8, 0.85), "Center", key="menu.title"))
-    s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=160),
+    s.entity("Title text", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=160),
              Text=k.ui_text("BREAKOUT", (1.0, 0.85, 1.0, 1.0), "Center", key="menu.title"))
     # dark plates under the subtitle and the control hints (the bricks and the paddle play on behind the menu); the hints
     # wrap inside the playfield, between its walls
-    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 158), (880, 62))
-    s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 158), size=(1400, 50), font=38),
-             Text=k.ui_text("G'ishtlarni sindiring  ·  Zamin Engine namunasi", (0.85, 0.8, 1.0, 0.95), "Center", key="menu.subtitle"))
-    menu_panel = ui.panel("Menyu paneli", main_menu, (0, -110), (560, 330))
-    play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
-    ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
-    menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
+    k.ui_backdrop(s, "Subtitle backdrop", main_menu, ATLAS, (0, 158), (880, 62))
+    s.entity("Subtitle", parent=main_menu, UITransform=k.ui_rect(pos=(0, 158), size=(1400, 50), font=38),
+             Text=k.ui_text("Smash the bricks  ·  a Zamin Engine sample", (0.85, 0.8, 1.0, 0.95), "Center", key="menu.subtitle"))
+    menu_panel = ui.panel("Menu panel", main_menu, (0, -110), (560, 330))
+    play_button = ui.button("Play", menu_panel, "Play", "menu.play", "Play", True)
+    language_button = ui.button("Language", menu_panel, "Language: English", None, "Language")
+    ui.button("Quit", menu_panel, "Quit", "menu.quit", "Quit")
+    menu_best = s.entity("Main menu best", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
-    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 58), (960, 124), anchor=(0.5, 0), alpha=0.7)
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 64), (920, 110), font=24),
-             Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.85, 0.8, 1.0, 0.95), "Center", key="menu.controls", wrap=True,
+    k.ui_backdrop(s, "Controls backdrop", main_menu, ATLAS, (0, 58), (960, 124), anchor=(0.5, 0), alpha=0.7)
+    s.entity("Controls", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 64), (920, 110), font=24),
+             Text=k.ui_text(k.controls_hint("en", CONTROLS["en"]), (0.85, 0.8, 1.0, 0.95), "Center", key="menu.controls", wrap=True,
                             hints=True))
     # pause
-    pause_menu = ui.dim("Pauza menyusi", False)
-    pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (560, 420))
-    ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (460, 80), 60, (0.9, 0.8, 1.0, 1.0), "pause.title")
-    resume_button = ui.button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    ui.button("Qaytadan", pause_panel, "Qaytadan", "pause.restart", "Restart")
-    ui.button("Bosh menyuga", pause_panel, "Bosh menyu", "pause.menu", "Menu")
+    pause_menu = ui.dim("Pause menu", False)
+    pause_panel = ui.panel("Pause panel", pause_menu, (0, 0), (560, 420))
+    ui.label("Pause title", pause_panel, "PAUSED", (460, 80), 60, (0.9, 0.8, 1.0, 1.0), "pause.title")
+    resume_button = ui.button("Resume", pause_panel, "Resume", "pause.resume", "Resume", True)
+    ui.button("Restart", pause_panel, "Restart", "pause.restart", "Restart")
+    ui.button("To main menu", pause_panel, "Main menu", "pause.menu", "Menu")
     # game over / victory
-    over_menu = ui.dim("O'yin tugadi", False)
-    over_panel = ui.panel("Natija paneli", over_menu, (0, 0), (660, 560))
-    over_title = ui.label("Natija sarlavhasi", over_panel, "GAME OVER", (580, 80), 64, (1.0, 0.45, 0.55, 1.0))
-    over_score = ui.label("Natija hisobi", over_panel, "0", (580, 90), 84)
-    over_level = ui.label("Natija darajasi", over_panel, "", (580, 40), 30, (0.8, 0.85, 1.0, 1.0))
-    over_record = ui.label("Natija rekordi", over_panel, "", (580, 44), 34, (1.0, 0.85, 0.4, 1.0))
-    retry_button = ui.button("Qayta o'ynash", over_panel, "Qayta o'ynash", "over.retry", "Restart", True)
-    ui.button("Natija: bosh menyu", over_panel, "Bosh menyu", "pause.menu", "Menu")
+    over_menu = ui.dim("Game over", False)
+    over_panel = ui.panel("Results panel", over_menu, (0, 0), (660, 560))
+    over_title = ui.label("Results title", over_panel, "GAME OVER", (580, 80), 64, (1.0, 0.45, 0.55, 1.0))
+    over_score = ui.label("Results score", over_panel, "0", (580, 90), 84)
+    over_level = ui.label("Results level", over_panel, "", (580, 40), 30, (0.8, 0.85, 1.0, 1.0))
+    over_record = ui.label("Results best", over_panel, "", (580, 44), 34, (1.0, 0.85, 0.4, 1.0))
+    retry_button = ui.button("Play again", over_panel, "Play again", "over.retry", "Restart", True)
+    ui.button("Results: main menu", over_panel, "Main menu", "pause.menu", "Menu")
 
     s.add(game, "NativeScript", k.script(
         "BreakoutGame",
@@ -612,10 +612,10 @@ def main():
     axes = [k.axis("MoveX", ["Key:A", "Key:Left", "Gamepad:DPadLeft"], ["Key:D", "Key:Right", "Gamepad:DPadRight"], "LeftX", deadzone=0.15)]
     k.write_project(PROJECT, NAME, "Zamin Breakout", "Scenes/Breakout.zscene", uuid, "1.0.0", [("Scenes/Breakout.zscene", uuid)], actions,
                     axes, [], [], {"names": LAYERS, "matrix": k.collision_matrix(LAYERS, PAIRS)},
-                    description="2D Breakout: raketka, Box2D to'p fizikasi, 5 xil g'isht, 6 ta bonus, 6 ta daraja, kombo va rekord",
+                    description="2D Breakout: a paddle, Box2D ball physics, 5 kinds of brick, 6 power-ups, 6 levels, combos and a high score",
                     extra=k.export_always_include(["Audio/*.wav"]))
-    k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Breakout - C++ skriptlar moduli (libBreakout.so)")
-    print("Breakout: tayyor")
+    k.write_module_cmake(PROJECT, NAME, "Zamin sample game: Breakout - the C++ script module (libBreakout.so)")
+    print("Breakout: done")
 
 
 if __name__ == "__main__":

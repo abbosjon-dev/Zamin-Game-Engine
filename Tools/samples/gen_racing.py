@@ -1,4 +1,4 @@
-"""Projects/Racing: "Vodiy Poygasi" (Valley Race) - its track meshes, textures, sounds, scene and project file.
+"""Projects/Racing: "Valley Race" (Valley Race) - its track meshes, textures, sounds, scene and project file.
 
     python3 Tools/samples/gen_racing.py
 
@@ -141,7 +141,7 @@ def make_track():
     lv, lu, ln, lf = wall(pts, normals, dist, WALL, 0.9, 6.0, True)
     rv, ru, rn, rf = wall(pts, normals, dist, -WALL, 0.9, 6.0, True)
     off = len(lv)
-    write_obj("Models/barriers.obj", lv + rv, lu + ru, ln + rn, lf + [(a + off, b + off, c + off) for a, b, c in rf], "trassa to'siqlari")
+    write_obj("Models/barriers.obj", lv + rv, lu + ru, ln + rn, lf + [(a + off, b + off, c + off) for a, b, c in rf], "track barriers")
     return pts, normals, dist, total
 
 # ------------------------------------------------------------------------------------------- textures
@@ -311,38 +311,38 @@ def make_sounds():
 
 def car(s, name, pos, yaw, paint, number_col, sounds=False):
     root = s.entity(name, pos=pos, rot=(0, yaw, 0))
-    body = s.entity("Kuzov", parent=root)
-    s.entity("Shassi", parent=body, pos=(0, 0.52, 0), scale=(1.9, 0.42, 4.1), MeshRenderer=k.mesh("Cube", paint, 0.25, 0.6))
-    s.entity("Kapot", parent=body, pos=(0, 0.75, -1.25), rot=(0.12, 0, 0), scale=(1.8, 0.12, 1.4), MeshRenderer=k.mesh("Cube", paint, 0.25, 0.6))
-    s.entity("Salon", parent=body, pos=(0, 0.92, 0.35), scale=(1.55, 0.44, 1.9),
+    body = s.entity("Body", parent=root)
+    s.entity("Chassis", parent=body, pos=(0, 0.52, 0), scale=(1.9, 0.42, 4.1), MeshRenderer=k.mesh("Cube", paint, 0.25, 0.6))
+    s.entity("Bonnet", parent=body, pos=(0, 0.75, -1.25), rot=(0.12, 0, 0), scale=(1.8, 0.12, 1.4), MeshRenderer=k.mesh("Cube", paint, 0.25, 0.6))
+    s.entity("Cabin", parent=body, pos=(0, 0.92, 0.35), scale=(1.55, 0.44, 1.9),
              MeshRenderer=k.mesh("Cube", (0.06, 0.08, 0.12, 1), 0.08, 0.9))
-    s.entity("Tom", parent=body, pos=(0, 1.15, 0.4), scale=(1.4, 0.06, 1.5), MeshRenderer=k.mesh("Cube", paint, 0.25, 0.6))
-    s.entity("Chiziq", parent=body, pos=(0, 1.19, 0.4), scale=(0.3, 0.02, 1.5), MeshRenderer=k.mesh("Cube", number_col, 0.3, 0.2))
-    s.entity("Chiziq 2", parent=body, pos=(0, 0.82, -1.25), rot=(0.12, 0, 0), scale=(0.3, 0.02, 1.4), MeshRenderer=k.mesh("Cube", number_col, 0.3, 0.2))
-    s.entity("Qanot", parent=body, pos=(0, 1.22, 1.85), scale=(1.85, 0.06, 0.42), MeshRenderer=k.mesh("Cube", (0.08, 0.08, 0.1, 1), 0.4, 0.5))
+    s.entity("Roof", parent=body, pos=(0, 1.15, 0.4), scale=(1.4, 0.06, 1.5), MeshRenderer=k.mesh("Cube", paint, 0.25, 0.6))
+    s.entity("Stripe", parent=body, pos=(0, 1.19, 0.4), scale=(0.3, 0.02, 1.5), MeshRenderer=k.mesh("Cube", number_col, 0.3, 0.2))
+    s.entity("Stripe 2", parent=body, pos=(0, 0.82, -1.25), rot=(0.12, 0, 0), scale=(0.3, 0.02, 1.4), MeshRenderer=k.mesh("Cube", number_col, 0.3, 0.2))
+    s.entity("Wing", parent=body, pos=(0, 1.22, 1.85), scale=(1.85, 0.06, 0.42), MeshRenderer=k.mesh("Cube", (0.08, 0.08, 0.1, 1), 0.4, 0.5))
     for side in (-1, 1):
-        s.entity("Qanot ustuni", parent=body, pos=(side * 0.6, 0.98, 1.85), scale=(0.06, 0.4, 0.2), MeshRenderer=k.mesh("Cube", (0.08, 0.08, 0.1, 1), 0.4, 0.5))
-        s.entity("Fara", parent=body, pos=(side * 0.6, 0.6, -2.06), scale=(0.35, 0.12, 0.04),
+        s.entity("Wing strut", parent=body, pos=(side * 0.6, 0.98, 1.85), scale=(0.06, 0.4, 0.2), MeshRenderer=k.mesh("Cube", (0.08, 0.08, 0.1, 1), 0.4, 0.5))
+        s.entity("Headlight", parent=body, pos=(side * 0.6, 0.6, -2.06), scale=(0.35, 0.12, 0.04),
                  MeshRenderer=k.mesh("Cube", (1, 1, 0.9, 1), emission=(1.0, 0.95, 0.8), emission_strength=4.0, cast_shadows=False))
-    brake = s.entity("Stop chiroqlari", parent=body, pos=(0, 0.62, 2.06), scale=(1.5, 0.1, 0.04),
+    brake = s.entity("Brake lights", parent=body, pos=(0, 0.62, 2.06), scale=(1.5, 0.1, 0.04),
                      MeshRenderer=k.mesh("Cube", (1, 0.1, 0.05, 1), emission=(1.0, 0.08, 0.04), emission_strength=1.6, cast_shadows=False))
     wheels = {}
     for key, (wx, wz) in (("FL", (-0.98, -1.35)), ("FR", (0.98, -1.35)), ("RL", (-0.98, 1.35)), ("RR", (0.98, 1.35))):
-        pivot = s.entity("G'ildirak o'qi " + key, parent=root, pos=(wx, 0.38, wz))
-        wheel = s.entity("G'ildirak " + key, parent=pivot, rot=(0, 0, math.radians(90)), scale=(0.76, 0.32, 0.76),
+        pivot = s.entity("Wheel pivot " + key, parent=root, pos=(wx, 0.38, wz))
+        wheel = s.entity("Wheel " + key, parent=pivot, rot=(0, 0, math.radians(90)), scale=(0.76, 0.32, 0.76),
                          MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.6, 0.2, albedo_map="Textures/wheel.png"))
         wheels[key] = (pivot, wheel)
-    smoke = s.entity("Tutun", parent=root, pos=(0, 0.25, 1.5), ParticleSystem=k.particles(
+    smoke = s.entity("Smoke", parent=root, pos=(0, 0.25, 1.5), ParticleSystem=k.particles(
         EmissionRate=0.0, MaxParticles=500, Shape=3, ShapeExtents=(1.0, 0.1, 0.2), LifetimeMin=0.8, LifetimeMax=1.6, SpeedMin=0.5,
         SpeedMax=1.5, Direction=(0, 1, 0.3), Spread=40.0, Drag=1.2, StartColor=(0.85, 0.85, 0.88, 0.45), EndColor=(0.8, 0.8, 0.82, 0.0),
         StartSize=0.6, EndSize=2.2, Additive=False))
-    dust = s.entity("Chang", parent=root, pos=(0, 0.2, 1.6), ParticleSystem=k.particles(
+    dust = s.entity("Dust", parent=root, pos=(0, 0.2, 1.6), ParticleSystem=k.particles(
         EmissionRate=0.0, MaxParticles=300, Shape=3, ShapeExtents=(1.0, 0.1, 0.2), LifetimeMin=0.6, LifetimeMax=1.2, SpeedMin=1.0,
         SpeedMax=2.5, Direction=(0, 1, 0.5), Spread=40.0, Gravity=(0, -3, 0), Drag=1.0, StartColor=(0.5, 0.42, 0.25, 0.6),
         EndColor=(0.45, 0.4, 0.3, 0.0), StartSize=0.4, EndSize=1.4, Additive=False))
     if sounds:
         s.add(root, "AudioSource", k.audio_source("Audio/engine.wav", 0.5, loop=True, play=True))
-        s.entity("Sirpanish ovozi", parent=root, AudioSource=k.audio_source("Audio/skid.wav", 0.0, loop=True, play=True))
+        s.entity("Skid sound", parent=root, AudioSource=k.audio_source("Audio/skid.wav", 0.0, loop=True, play=True))
     fields = dict(Body=k.ref(body), WheelFL=k.ref(wheels["FL"][1]), WheelFR=k.ref(wheels["FR"][1]), WheelRL=k.ref(wheels["RL"][1]),
                   WheelRR=k.ref(wheels["RR"][1]), SteerFL=k.ref(wheels["FL"][0]), SteerFR=k.ref(wheels["FR"][0]), BrakeLights=k.ref(brake),
                   Smoke=k.ref(smoke), Dust=k.ref(dust))
@@ -361,64 +361,64 @@ def build_scene(pts, normals, dist, total):
                  "SSAORadius": 0.6, "SSAOIntensity": 1.0, "SSAOBias": 0.03, "FXAA": True},
         "Gravity3D": [0, -9.81, 0],
     }
-    s.metadata = {"Description": "Vodiy Poygasi: mashina fizikasi (tezlanish, rul, ilashish va drift), aylanma trassa, nazorat "
-                                 "nuqtalari, aylana vaqti, 3 ta bot raqib", "Author": "Zamin", "Tags": ["namuna", "3D", "racing"]}
-    s.entity("Quyosh", rot=(math.radians(-48), math.radians(30), 0), DirectionalLight=k.dir_light((1.0, 0.95, 0.85), 3.2, True))
-    camera = s.entity("Kamera", pos=(0, 4, 75), rot=(math.radians(-12), 0, 0),
+    s.metadata = {"Description": "Valley Race: car physics (acceleration, steering, grip and drift), a circuit, "
+                                 "checkpoints, lap times, 3 bot rivals", "Author": "Zamin", "Tags": ["sample", "3D", "racing"]}
+    s.entity("Sun", rot=(math.radians(-48), math.radians(30), 0), DirectionalLight=k.dir_light((1.0, 0.95, 0.85), 3.2, True))
+    camera = s.entity("Camera", pos=(0, 4, 75), rot=(math.radians(-12), 0, 0),
                       Camera=k.camera_persp(math.radians(58), 0.1, 900.0, (0.6, 0.75, 0.9, 1.0),
                                             shake={"MaxOffset": [0.2, 0.2], "MaxAngle": 3.0, "Exponent": 2.0}),
                       AudioListener={"Enabled": True, "Priority": 0, "TrackVelocity": True})
 
     # ---- the track
-    tr = s.entity("Trassa")
-    s.entity("O't", parent=tr, pos=(70, -0.04, 5), scale=(900, 1, 900),
+    tr = s.entity("Track")
+    s.entity("Grass", parent=tr, pos=(70, -0.04, 5), scale=(900, 1, 900),
              MeshRenderer=k.mesh("Plane", (1, 1, 1, 1), 0.95, 0.0, albedo_map="Textures/grass.png", tiling=(110, 110)))
-    s.entity("Asfalt", parent=tr, MeshRenderer=k.mesh("Model", (1, 1, 1, 1), 0.75, 0.0, albedo_map="Textures/asphalt.png", model="Models/road.obj"))
-    s.entity("Bordyurlar", parent=tr, MeshRenderer=k.mesh("Model", (1, 1, 1, 1), 0.6, 0.0, albedo_map="Textures/kerb.png", model="Models/kerbs.obj"))
-    barrier = s.entity("To'siqlar", parent=tr, MeshRenderer=k.mesh("Model", (1, 1, 1, 1), 0.5, 0.1, albedo_map="Textures/barrier.png",
+    s.entity("Asphalt", parent=tr, MeshRenderer=k.mesh("Model", (1, 1, 1, 1), 0.75, 0.0, albedo_map="Textures/asphalt.png", model="Models/road.obj"))
+    s.entity("Kerbs", parent=tr, MeshRenderer=k.mesh("Model", (1, 1, 1, 1), 0.6, 0.0, albedo_map="Textures/kerb.png", model="Models/kerbs.obj"))
+    barrier = s.entity("Barriers", parent=tr, MeshRenderer=k.mesh("Model", (1, 1, 1, 1), 0.5, 0.1, albedo_map="Textures/barrier.png",
                                                                      model="Models/barriers.obj"))
     s.get(barrier)["MeshRenderer"]["DoubleSided"] = True
     # the start line, the gantry with the start lights
     p0, n0 = pts[0], normals[0]
     yaw0 = math.atan2(-(pts[1][0] - pts[0][0]), -(pts[1][1] - pts[0][1]))
-    s.entity("Start chizig'i", parent=tr, pos=(p0[0], 0.015, p0[1]), rot=(0, yaw0, 0), scale=(HALF_WIDTH * 2, 1, 1.6),
+    s.entity("Start line", parent=tr, pos=(p0[0], 0.015, p0[1]), rot=(0, yaw0, 0), scale=(HALF_WIDTH * 2, 1, 1.6),
              MeshRenderer=k.mesh("Plane", (1, 1, 1, 1), 0.6, 0.0, albedo_map="Textures/checker.png", tiling=(6, 1), cast_shadows=False))
-    gantry = s.entity("Start darvozasi", parent=tr, pos=(p0[0], 0, p0[1]), rot=(0, yaw0, 0))
+    gantry = s.entity("Start gantry", parent=tr, pos=(p0[0], 0, p0[1]), rot=(0, yaw0, 0))
     for side in (-1, 1):
-        s.entity("Ustun", parent=gantry, pos=(side * (WALL + 0.6), 3.5, 0), scale=(0.7, 7, 0.7), MeshRenderer=k.mesh("Cube", (0.85, 0.87, 0.9, 1), 0.4, 0.6))
-    s.entity("To'sin", parent=gantry, pos=(0, 6.6, 0), scale=(2 * WALL + 2, 1.2, 0.8), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.5, 0.2,
+        s.entity("Post", parent=gantry, pos=(side * (WALL + 0.6), 3.5, 0), scale=(0.7, 7, 0.7), MeshRenderer=k.mesh("Cube", (0.85, 0.87, 0.9, 1), 0.4, 0.6))
+    s.entity("Beam", parent=gantry, pos=(0, 6.6, 0), scale=(2 * WALL + 2, 1.2, 0.8), MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.5, 0.2,
                                                                                                          albedo_map="Textures/checker.png", tiling=(12, 1)))
-    lights = s.entity("Start chiroqlari", parent=gantry, pos=(0, 5.6, -0.42))
+    lights = s.entity("Start lights", parent=gantry, pos=(0, 5.6, -0.42))
     for i in range(5):
-        s.entity(f"Chiroq {i + 1}", parent=lights, pos=(-2.4 + i * 1.2, 0, 0), scale=(0.6, 0.6, 0.3),
+        s.entity(f"Light {i + 1}", parent=lights, pos=(-2.4 + i * 1.2, 0, 0), scale=(0.6, 0.6, 0.3),
                  MeshRenderer=k.mesh("Sphere", (0.08, 0.08, 0.09, 1), 0.3, 0.0, emission=(1.0, 0.1, 0.05), emission_strength=0.0, cast_shadows=False))
-    s.entity("Chiroqlar qutisi", parent=gantry, pos=(0, 5.6, -0.25), scale=(6.6, 1.0, 0.3), MeshRenderer=k.mesh("Cube", (0.05, 0.05, 0.06, 1), 0.5, 0.3))
+    s.entity("Light box", parent=gantry, pos=(0, 5.6, -0.25), scale=(6.6, 1.0, 0.3), MeshRenderer=k.mesh("Cube", (0.05, 0.05, 0.06, 1), 0.5, 0.3))
     # checkpoints: glowing posts on both sides
-    cps = s.entity("Nazorat nuqtalari", parent=tr)
+    cps = s.entity("Checkpoints", parent=tr)
     for c in range(1, CHECKPOINTS):
         sd = total * c / CHECKPOINTS
         idx = int(np.argmin(np.abs(dist - sd)))
         p, nn = pts[idx], normals[idx]
-        gate = s.entity(f"Nuqta {c}", parent=cps)
+        gate = s.entity(f"Checkpoint {c}", parent=cps)
         for side in (-1, 1):
             q = p + nn * side * (WALL - 0.4)
-            s.entity("Ustun", parent=gate, pos=(q[0], 1.3, q[1]), scale=(0.35, 2.6, 0.35),
+            s.entity("Post", parent=gate, pos=(q[0], 1.3, q[1]), scale=(0.35, 2.6, 0.35),
                      MeshRenderer=k.mesh("Cylinder", (1.0, 0.6, 0.15, 1), 0.3, 0.2, emission=(1.0, 0.55, 0.1), emission_strength=1.2, cast_shadows=False))
     # the grandstand by the main straight
-    stand = s.entity("Tribuna", pos=(-20, 0, 0))
+    stand = s.entity("Grandstand", pos=(-20, 0, 0))
     for i in range(4):
-        s.entity(f"Pog'ona {i + 1}", parent=stand, pos=(-i * 1.4, 0.5 + i * 0.9, 0), scale=(1.4, 1.0 + i * 1.8, 60),
+        s.entity(f"Tier {i + 1}", parent=stand, pos=(-i * 1.4, 0.5 + i * 0.9, 0), scale=(1.4, 1.0 + i * 1.8, 60),
                  MeshRenderer=k.mesh("Cube", (0.75, 0.77, 0.8, 1), 0.7, 0.0))
     rng = random.Random(7)
     for i in range(70):
         row = rng.randint(0, 3)
-        s.entity("Tomoshabin", parent=stand, pos=(-row * 1.4, 1.15 + row * 1.8, rng.uniform(-28, 28)), scale=(0.5, 0.7, 0.5),
+        s.entity("Spectator", parent=stand, pos=(-row * 1.4, 1.15 + row * 1.8, rng.uniform(-28, 28)), scale=(0.5, 0.7, 0.5),
                  MeshRenderer=k.mesh("Cube", rng.choice([(0.9, 0.2, 0.15, 1), (0.15, 0.4, 0.9, 1), (0.95, 0.8, 0.2, 1), (0.95, 0.95, 0.95, 1),
                                                           (0.2, 0.7, 0.3, 1)]), 0.8, 0.0, cast_shadows=False))
-    s.entity("Soyabon", parent=stand, pos=(-2, 7.2, 0), rot=(0, 0, math.radians(-10)), scale=(7, 0.25, 62),
+    s.entity("Canopy", parent=stand, pos=(-2, 7.2, 0), rot=(0, 0, math.radians(-10)), scale=(7, 0.25, 62),
              MeshRenderer=k.mesh("Cube", (0.9, 0.25, 0.15, 1), 0.5, 0.2))
     # trees on the grass (never near the track), hills and mountains far away
-    nature = s.entity("Tabiat")
+    nature = s.entity("Scenery")
     placed = 0
     tries = 0
     while placed < 70 and tries < 4000:
@@ -428,13 +428,13 @@ def build_scene(pts, normals, dist, total):
         if d < WALL + 4 or (-34 < x < -8 and -32 < z < 32):
             continue
         h = rng.uniform(4, 8)
-        tree = s.entity("Daraxt", parent=nature, pos=(x, 0, z), rot=(0, rng.uniform(0, 6.28), 0))
-        s.entity("Tana", parent=tree, pos=(0, h * 0.25, 0), scale=(0.35, h * 0.5, 0.35), MeshRenderer=k.mesh("Cylinder", (0.4, 0.28, 0.18, 1), 0.9, 0.0))
+        tree = s.entity("Tree", parent=nature, pos=(x, 0, z), rot=(0, rng.uniform(0, 6.28), 0))
+        s.entity("Trunk", parent=tree, pos=(0, h * 0.25, 0), scale=(0.35, h * 0.5, 0.35), MeshRenderer=k.mesh("Cylinder", (0.4, 0.28, 0.18, 1), 0.9, 0.0))
         if rng.random() < 0.5:
-            s.entity("Barglar", parent=tree, pos=(0, h * 0.62, 0), scale=(h * 0.42, h * 0.75, h * 0.42),
+            s.entity("Foliage", parent=tree, pos=(0, h * 0.62, 0), scale=(h * 0.42, h * 0.75, h * 0.42),
                      MeshRenderer=k.mesh("Cone", (0.12, 0.38, 0.16, 1), 0.85, 0.0))
         else:
-            s.entity("Barglar", parent=tree, pos=(0, h * 0.62, 0), scale=(h * 0.55, h * 0.5, h * 0.55),
+            s.entity("Foliage", parent=tree, pos=(0, h * 0.62, 0), scale=(h * 0.55, h * 0.5, h * 0.55),
                      MeshRenderer=k.mesh("Sphere", (0.25, 0.5, 0.18, 1), 0.85, 0.0))
         placed += 1
     for i in range(14):
@@ -442,14 +442,14 @@ def build_scene(pts, normals, dist, total):
         r = rng.uniform(420, 520)
         h = rng.uniform(90, 170)
         cx, cz = 70 + math.cos(a) * r, 5 + math.sin(a) * r
-        m = s.entity("Tog'", parent=nature, pos=(cx, h * 0.45, cz), scale=(h * 1.6, h, h * 1.6), MeshRenderer=k.mesh("Cone", (0.42, 0.45, 0.5, 1), 0.9, 0.0,
+        m = s.entity("Mountain", parent=nature, pos=(cx, h * 0.45, cz), scale=(h * 1.6, h, h * 1.6), MeshRenderer=k.mesh("Cone", (0.42, 0.45, 0.5, 1), 0.9, 0.0,
                                                                                                                      cast_shadows=False))
-        s.entity("Qor", parent=m, pos=(0, 0.33, 0), scale=(0.36, 0.34, 0.36), MeshRenderer=k.mesh("Cone", (0.95, 0.97, 1.0, 1), 0.6, 0.0, cast_shadows=False))
+        s.entity("Snow", parent=m, pos=(0, 0.33, 0), scale=(0.36, 0.34, 0.36), MeshRenderer=k.mesh("Cone", (0.95, 0.97, 1.0, 1), 0.6, 0.0, cast_shadows=False))
     for i in range(8):
         x, z = rng.uniform(-150, 300), rng.uniform(-260, 280)
         if np.min(np.hypot(pts[:, 0] - x, pts[:, 1] - z)) < 60:
             continue
-        s.entity("Tepalik", parent=nature, pos=(x, -6, z), scale=(rng.uniform(60, 110), rng.uniform(16, 30), rng.uniform(60, 110)),
+        s.entity("Hill", parent=nature, pos=(x, -6, z), scale=(rng.uniform(60, 110), rng.uniform(16, 30), rng.uniform(60, 110)),
                  MeshRenderer=k.mesh("Sphere", (0.3, 0.5, 0.22, 1), 0.95, 0.0, cast_shadows=False))
     # tyre stacks on the outside of the bends
     for i in range(0, len(pts), 24):
@@ -459,25 +459,25 @@ def build_scene(pts, normals, dist, total):
             continue
         side = -1 if turn > 0 else 1
         q = pts[i] + normals[i] * side * (WALL + 1.0)
-        stack = s.entity("Shinalar", parent=nature, pos=(q[0], 0, q[1]))
+        stack = s.entity("Tyres", parent=nature, pos=(q[0], 0, q[1]))
         for j in range(3):
-            s.entity("Shina", parent=stack, pos=(0, 0.2 + j * 0.4, 0), scale=(1.0, 0.38, 1.0), MeshRenderer=k.mesh("Cylinder", (0.07, 0.07, 0.08, 1), 0.8, 0.0))
+            s.entity("Tyre", parent=stack, pos=(0, 0.2 + j * 0.4, 0), scale=(1.0, 0.38, 1.0), MeshRenderer=k.mesh("Cylinder", (0.07, 0.07, 0.08, 1), 0.8, 0.0))
 
     # ---- the cars on the grid (the game puts them in place)
     tdir = pts[1] - pts[0]
     yaw = math.atan2(-tdir[0], -tdir[1])
-    player, pf = car(s, "O'yinchi mashinasi", (p0[0] - 2.6, 0, p0[1] + 9), yaw, (0.95, 0.3, 0.08, 1), (0.98, 0.98, 0.98, 1), sounds=True)
+    player, pf = car(s, "Player car", (p0[0] - 2.6, 0, p0[1] + 9), yaw, (0.95, 0.3, 0.08, 1), (0.98, 0.98, 0.98, 1), sounds=True)
     rivals = []
     for i, (paint, stripe, skill, line) in enumerate((((0.1, 0.35, 0.9, 1), (1, 0.85, 0.2, 1), 0.93, -1.5),
                                                       ((0.1, 0.65, 0.3, 1), (0.95, 0.95, 0.95, 1), 0.9, 1.2),
                                                       ((0.6, 0.15, 0.75, 1), (0.95, 0.95, 0.95, 1), 0.87, 0.0))):
-        root, fields = car(s, f"Raqib {i + 1}", (p0[0] + 2.6 * (1 if i % 2 == 0 else -1), 0, p0[1] + 9 + 7 * ((i + 1) // 2)), yaw, paint, stripe)
+        root, fields = car(s, f"Rival {i + 1}", (p0[0] + 2.6 * (1 if i % 2 == 0 else -1), 0, p0[1] + 9 + 7 * ((i + 1) // 2)), yaw, paint, stripe)
         s.add(root, "NativeScript", k.script("Car", Skill=skill, LineOffset=line, **fields))
         rivals.append(root)
     s.add(player, "NativeScript", k.script("Car", Skill=1.0, LineOffset=0.0, **pf))
 
     # ---- effects
-    sparks = s.entity("Uchqunlar", pos=(0, -20, 0), ParticleSystem=k.particles(
+    sparks = s.entity("Sparks", pos=(0, -20, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=500, Shape=2, ShapeRadius=0.3, LifetimeMin=0.2, LifetimeMax=0.6, SpeedMin=3.0,
         SpeedMax=9.0, Direction=(0, 1, 0), Spread=70.0, Gravity=(0, -12, 0), Drag=1.0, StartColor=(3.0, 2.0, 0.7, 1.0),
         EndColor=(1.0, 0.4, 0.1, 0.0), StartSize=0.08, EndSize=0.0))
@@ -487,60 +487,60 @@ def build_scene(pts, normals, dist, total):
     canvas = s.entity("UI", UITransform=k.ui_stretch(), UICanvas=k.ui_canvas())
     ui = k.UIKit(s, canvas, ATLAS, game, (0.85, 0.22, 0.12, 1.0), (1.0, 0.36, 0.22, 1.0), (0.6, 0.14, 0.08, 1.0))
     hud = s.entity("HUD", parent=canvas, UITransform=k.ui_stretch())
-    s.entity("Yuqori fon", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 150)),
+    s.entity("Top backdrop", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 150)),
              UIImage=k.ui_image((0.0, 0.0, 0.03, 0.4), raycast=False))
-    position = ui.text("O'rin", hud, "1/4", (0, 1), (0, 1), (50, -20), (400, 100), 88, (1.0, 0.85, 0.3, 1.0))
-    lap = ui.text("Aylana", hud, "", (0, 1), (0, 1), (260, -48), (500, 50), 40)
-    timer = ui.text("Vaqt", hud, "00:00.00", (0.5, 1), (0.5, 1), (0, -24), (600, 72), 62, h="Center")
-    best = ui.text("Eng yaxshi", hud, "", (0.5, 1), (0.5, 1), (0, -96), (700, 36), 28, (1.0, 0.85, 0.5, 0.95), h="Center")
-    checkpoint = ui.text("Nuqta", hud, "", (1, 1), (1, 1), (-50, -40), (500, 44), 36, (1.0, 0.7, 0.35, 1.0), h="Right")
-    speed = ui.text("Tezlik", hud, "0", (1, 0), (1, 0), (-190, 62), (300, 110), 100, h="Right")
-    ui.text("km/soat", hud, "km/soat", (1, 0), (1, 0), (-50, 76), (130, 40), 30, (0.85, 0.85, 0.9, 0.9), h="Right", key="hud.kmh")
-    speed_bar = s.entity("Tezlik shkalasi", parent=hud, UITransform=k.ui_rect((1, 0), None, (1, 0), (-50, 40), (380, 14)),
+    position = ui.text("Position", hud, "1/4", (0, 1), (0, 1), (50, -20), (400, 100), 88, (1.0, 0.85, 0.3, 1.0))
+    lap = ui.text("Lap", hud, "", (0, 1), (0, 1), (260, -48), (500, 50), 40)
+    timer = ui.text("Time", hud, "00:00.00", (0.5, 1), (0.5, 1), (0, -24), (600, 72), 62, h="Center")
+    best = ui.text("Best lap", hud, "", (0.5, 1), (0.5, 1), (0, -96), (700, 36), 28, (1.0, 0.85, 0.5, 0.95), h="Center")
+    checkpoint = ui.text("Checkpoint", hud, "", (1, 1), (1, 1), (-50, -40), (500, 44), 36, (1.0, 0.7, 0.35, 1.0), h="Right")
+    speed = ui.text("Speed", hud, "0", (1, 0), (1, 0), (-190, 62), (300, 110), 100, h="Right")
+    ui.text("km/h", hud, "km/h", (1, 0), (1, 0), (-50, 76), (130, 40), 30, (0.85, 0.85, 0.9, 0.9), h="Right", key="hud.kmh")
+    speed_bar = s.entity("Speed gauge", parent=hud, UITransform=k.ui_rect((1, 0), None, (1, 0), (-50, 40), (380, 14)),
                          UIProgressBar=k.ui_progress(0.0, fill=(1.0, 0.45, 0.15, 1.0), padding=2.0, smooth=12.0))
     drift = ui.text("Drift", hud, "", (0.5, 0), (0.5, 0), (0, 150), (800, 70), 60, (1.0, 0.55, 0.2, 1.0), h="Center")
-    banner = ui.text("E'lon", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 160), (1400, 140), 120, (1.0, 0.95, 0.85, 1.0), h="Center",
+    banner = ui.text("Banner", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 160), (1400, 140), 120, (1.0, 0.95, 0.85, 1.0), h="Center",
                      UIAnimation=k.ui_anim("Pop", "Fade", 0.3))
-    banner_sub = ui.text("E'lon izohi", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 50), 40, (1.0, 0.75, 0.4, 1.0), h="Center")
-    demo_badge = ui.text("Demo belgisi", hud, "DEMO - avtomatik o'yin", (1, 1), (1, 1), (-50, -90), (600, 32), 26, (1.0, 0.85, 0.5, 0.9),
+    banner_sub = ui.text("Banner note", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 50), 40, (1.0, 0.75, 0.4, 1.0), h="Center")
+    demo_badge = ui.text("Demo badge", hud, "DEMO - autoplay", (1, 1), (1, 1), (-50, -90), (600, 32), 26, (1.0, 0.85, 0.5, 0.9),
                          h="Right", key="hud.demo", active=False)
 
-    main_menu = ui.dim("Bosh menyu", True, 0.3, (0.0, 0.02, 0.05))
-    title = s.entity("Sarlavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 290), size=(1700, 180), font=140),
+    main_menu = ui.dim("Main menu", True, 0.3, (0.0, 0.02, 0.05))
+    title = s.entity("Title", parent=main_menu, UITransform=k.ui_rect(pos=(0, 290), size=(1700, 180), font=140),
                      UIAnimation=k.ui_anim("SlideDown", "None", 0.6, slide=120))
-    s.entity("Sarlavha soyasi", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=140),
-             Text=k.ui_text("VODIY POYGASI", (0.35, 0.05, 0.02, 0.9), "Center", key="menu.title"))
-    s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=140),
-             Text=k.ui_text("VODIY POYGASI", (1.0, 0.6, 0.3, 1.0), "Center", key="menu.title"))
+    s.entity("Title shadow", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=140),
+             Text=k.ui_text("VALLEY RACE", (0.35, 0.05, 0.02, 0.9), "Center", key="menu.title"))
+    s.entity("Title text", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=140),
+             Text=k.ui_text("VALLEY RACE", (1.0, 0.6, 0.3, 1.0), "Center", key="menu.title"))
     # dark plates under the subtitle and the control hints: the cars race on behind the menu
-    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 180), (1100, 62))
-    s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 180), size=(1500, 50), font=38),
-             Text=k.ui_text(UZ["menu"]["subtitle"], (1.0, 0.95, 0.9, 0.95), "Center", key="menu.subtitle"))
-    menu_panel = ui.panel("Menyu paneli", main_menu, (0, -90), (560, 330))
-    play_button = ui.button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
-    ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
-    menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
+    k.ui_backdrop(s, "Subtitle backdrop", main_menu, ATLAS, (0, 180), (1100, 62))
+    s.entity("Subtitle", parent=main_menu, UITransform=k.ui_rect(pos=(0, 180), size=(1500, 50), font=38),
+             Text=k.ui_text(EN["menu"]["subtitle"], (1.0, 0.95, 0.9, 0.95), "Center", key="menu.subtitle"))
+    menu_panel = ui.panel("Menu panel", main_menu, (0, -90), (560, 330))
+    play_button = ui.button("Play", menu_panel, "Play", "menu.play", "Play", True)
+    language_button = ui.button("Language", menu_panel, "Language: English", None, "Language")
+    ui.button("Quit", menu_panel, "Quit", "menu.quit", "Quit")
+    menu_best = s.entity("Main menu best", parent=main_menu, UITransform=k.ui_rect(pos=(0, -300), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.45, 1.0), "Center"))
-    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 38), (1720, 94), anchor=(0.5, 0))
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1850, 70), font=25),
-             Text=k.ui_text(UZ["menu"]["controls"], (0.95, 0.95, 1.0, 0.9), "Center", key="menu.controls", hints=True))
+    k.ui_backdrop(s, "Controls backdrop", main_menu, ATLAS, (0, 38), (1720, 94), anchor=(0.5, 0))
+    s.entity("Controls", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 50), (1850, 70), font=25),
+             Text=k.ui_text(EN["menu"]["controls"], (0.95, 0.95, 1.0, 0.9), "Center", key="menu.controls", hints=True))
 
-    pause_menu = ui.dim("Pauza menyusi", False)
-    pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 460))
-    ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (520, 80), 60, (1.0, 0.6, 0.35, 1.0), "pause.title")
-    resume_button = ui.button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    ui.button("Qaytadan", pause_panel, "Qaytadan", "pause.restart", "Restart")
-    ui.button("Bosh menyuga", pause_panel, "Bosh menyu", "pause.menu", "Menu")
+    pause_menu = ui.dim("Pause menu", False)
+    pause_panel = ui.panel("Pause panel", pause_menu, (0, 0), (620, 460))
+    ui.label("Pause title", pause_panel, "PAUSED", (520, 80), 60, (1.0, 0.6, 0.35, 1.0), "pause.title")
+    resume_button = ui.button("Resume", pause_panel, "Resume", "pause.resume", "Resume", True)
+    ui.button("Restart", pause_panel, "Restart", "pause.restart", "Restart")
+    ui.button("To main menu", pause_panel, "Main menu", "pause.menu", "Menu")
 
-    results_menu = ui.dim("Natijalar", False, 0.45)
-    results_panel = ui.panel("Natijalar paneli", results_menu, (0, 0), (780, 560))
-    results_title = ui.label("Natija sarlavhasi", results_panel, "MARRA!", (700, 84), 64, (1.0, 0.75, 0.35, 1.0))
-    results_place = ui.label("Natija o'rni", results_panel, "", (700, 64), 52, (1.0, 0.95, 0.8, 1.0))
-    results_times = ui.label("Natija vaqtlari", results_panel, "", (700, 40), 30, (0.9, 0.95, 1.0, 1.0))
-    results_record = ui.label("Natija rekordi", results_panel, "", (700, 40), 30, (1.0, 0.6, 0.3, 1.0))
-    retry_button = ui.button("Yana poyga", results_panel, "Qaytadan", "pause.restart", "Restart", True)
-    ui.button("Natijadan menyuga", results_panel, "Bosh menyu", "pause.menu", "Menu")
+    results_menu = ui.dim("Results", False, 0.45)
+    results_panel = ui.panel("Results panel", results_menu, (0, 0), (780, 560))
+    results_title = ui.label("Results title", results_panel, "FINISH!", (700, 84), 64, (1.0, 0.75, 0.35, 1.0))
+    results_place = ui.label("Results position", results_panel, "", (700, 64), 52, (1.0, 0.95, 0.8, 1.0))
+    results_times = ui.label("Results times", results_panel, "", (700, 40), 30, (0.9, 0.95, 1.0, 1.0))
+    results_record = ui.label("Results best", results_panel, "", (700, 40), 30, (1.0, 0.6, 0.3, 1.0))
+    retry_button = ui.button("Race again", results_panel, "Restart", "pause.restart", "Restart", True)
+    ui.button("Results to menu", results_panel, "Main menu", "pause.menu", "Menu")
 
     track_points = ";".join(f"{p[0]:.2f},{p[1]:.2f}" for p in pts)
     s.add(game, "NativeScript", k.script(
@@ -607,10 +607,10 @@ def main():
         k.axis("Throttle", [], ["Key:W", "Key:Up"], "RightTrigger", deadzone=0.05),
         k.axis("Brake", [], ["Key:S", "Key:Down"], "LeftTrigger", deadzone=0.05),
     ]
-    k.write_project(PROJECT, NAME, "Vodiy Poygasi", "Scenes/Valley.zscene", uuid, "1.0.0", [("Scenes/Valley.zscene", uuid)], actions, axes,
-                    description="3D poyga: mashina fizikasi (rul, ilashish, drift), aylanma trassa, nazorat nuqtalari, aylana vaqti, 3 ta raqib")
-    k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Vodiy Poygasi (racing) - C++ skriptlar moduli (libRacing.so)")
-    print("Racing: tayyor")
+    k.write_project(PROJECT, NAME, "Valley Race", "Scenes/Valley.zscene", uuid, "1.0.0", [("Scenes/Valley.zscene", uuid)], actions, axes,
+                    description="3D racing: car physics (steering, grip, drift), a circuit, checkpoints, lap times, 3 rivals")
+    k.write_module_cmake(PROJECT, NAME, "Zamin sample game: Valley Race (racing) - the C++ script module (libRacing.so)")
+    print("Racing: done")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
-# Ipak Yo'li — 3D cheksiz yuguruvchi
+# Silk Road — 3D cheksiz yuguruvchi
 
-![Ipak Yo'li](Thumbnail.jpg)
+![Silk Road](Thumbnail.jpg)
 
 Ipak yo'li bo'ylab savdogar yuguradi. Yo'lning uch yo'lagi bor; aravalar, to'siqlar, gilam osilgan darvozalar,
 devorlar va karvonlar ustidan sakraysiz, tagidan sirpanib o'tasiz yoki yonidan aylanib o'tasiz. Yo'lda tangalar

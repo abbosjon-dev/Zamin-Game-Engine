@@ -419,7 +419,7 @@ collider turli usul so'rasa ro'yxatda pastrog'i yutadi (Maximum > Multiply > Min
 - Tilemap ham material oladi (`TilemapComponent::MaterialPath`).
 
 Namunalar: Platformer2D `Physics/Ice.zphysmat`, `Physics/Bouncy.zphysmat` (`Scenes/Shapes2D.zscene`: muz qiyalik, rezina
-to'shak); Showcase3D `Physics/Muz.zphysmat`, `Physics/Rezina.zphysmat`, `Physics/Sakraydigan.zphysmat`
+to'shak); Showcase3D `Physics/Ice.zphysmat`, `Physics/Rubber.zphysmat`, `Physics/Bouncy.zphysmat`
 (`Scenes/Physics3D.zscene`).
 
 ---

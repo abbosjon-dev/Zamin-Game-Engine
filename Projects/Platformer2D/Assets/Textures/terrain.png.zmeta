@@ -4,7 +4,7 @@
     "Import": {
         "AutoTiles": [
             {
-                "Name": "Tosh",
+                "Name": "Rock",
                 "Mode": "Edges4",
                 "Tiles": [
                     0,
@@ -26,7 +26,7 @@
                 ]
             },
             {
-                "Name": "O't",
+                "Name": "Grass",
                 "Mode": "Blob8",
                 "Tiles": [
                     16,

@@ -294,9 +294,9 @@ def build_scene():
                  "SSAORadius": 0.6, "SSAOIntensity": 1.2, "SSAOBias": 0.03, "FXAA": True},
         "Gravity3D": [0, -9.81, 0],
     }
-    s.metadata = {"Description": "FPS Arena: birinchi shaxs boshqaruvi - sichqoncha bilan qarash, yugurish, sakrash, cho'kkalash, "
-                                 "sakratgich, parkur yo'lagi; raycast bilan otish va nishonlar (turg'un, sirpanuvchi, chiquvchi, dron)",
-                  "Author": "Zamin", "Tags": ["namuna", "3D", "fps"]}
+    s.metadata = {"Description": "FPS Arena: a first-person controller - mouse look, sprinting, jumping, crouching, "
+                                 "a jump pad, a parkour course; raycast shooting and targets (standing, sliding, pop-up, drone)",
+                  "Author": "Zamin", "Tags": ["sample", "3D", "fps"]}
 
     def solid(name, parent, pos, scale, tex, tiling=1.0, rot=(0, 0, 0), albedo=(1, 1, 1, 1), normal=None, rough=0.75, metal=0.0,
               collider=True, emission=(0, 0, 0), emission_strength=0.0, mesh_kind="Cube"):
@@ -308,95 +308,95 @@ def build_scene():
         return s.entity(name, parent=parent, pos=pos, rot=rot, scale=scale, **comps)
 
     # ---- light
-    s.entity("Quyosh", rot=(math.radians(-32), math.radians(35), 0), DirectionalLight=k.dir_light((1.0, 0.8, 0.6), 3.4, True))
+    s.entity("Sun", rot=(math.radians(-32), math.radians(35), 0), DirectionalLight=k.dir_light((1.0, 0.8, 0.6), 3.4, True))
 
     arena = s.entity("Arena")
-    solid("Pol", arena, (0, -0.5, 0), (50, 1, 50), FLOOR, (12, 12), normal="Textures/floor_normal.png", rough=0.85)
-    for name, pos, scale in (("Devor (shimol)", (0, 3, -25), (50, 6, 1)), ("Devor (janub)", (0, 3, 25), (50, 6, 1)),
-                             ("Devor (g'arb)", (-25, 3, 0), (1, 6, 50)), ("Devor (sharq)", (25, 3, 0), (1, 6, 50))):
+    solid("Floor", arena, (0, -0.5, 0), (50, 1, 50), FLOOR, (12, 12), normal="Textures/floor_normal.png", rough=0.85)
+    for name, pos, scale in (("Wall (north)", (0, 3, -25), (50, 6, 1)), ("Wall (south)", (0, 3, 25), (50, 6, 1)),
+                             ("Wall (west)", (-25, 3, 0), (1, 6, 50)), ("Wall (east)", (25, 3, 0), (1, 6, 50))):
         tiling = (scale[0] / 3 if scale[0] > 1 else scale[2] / 3, 2)
         solid(name, arena, pos, scale, WALL, tiling, normal="Textures/wall_normal.png", rough=0.55, metal=0.3)
     # emissive light strips along the walls
-    for name, pos, scale in (("Chiroq tasmasi 1", (0, 5.6, -24.45), (46, 0.12, 0.1)), ("Chiroq tasmasi 2", (0, 5.6, 24.45), (46, 0.12, 0.1)),
-                             ("Chiroq tasmasi 3", (-24.45, 5.6, 0), (0.1, 0.12, 46)), ("Chiroq tasmasi 4", (24.45, 5.6, 0), (0.1, 0.12, 46))):
+    for name, pos, scale in (("Light strip 1", (0, 5.6, -24.45), (46, 0.12, 0.1)), ("Light strip 2", (0, 5.6, 24.45), (46, 0.12, 0.1)),
+                             ("Light strip 3", (-24.45, 5.6, 0), (0.1, 0.12, 46)), ("Light strip 4", (24.45, 5.6, 0), (0.1, 0.12, 46))):
         solid(name, arena, pos, scale, "", collider=False, albedo=(1, 0.6, 0.2, 1), emission=(1.0, 0.55, 0.15), emission_strength=6.0)
 
     # central platform with a ramp (north) and stairs (east)
-    plat = s.entity("Platforma", parent=arena)
-    solid("Platforma tanasi", plat, (0, 1, 0), (10, 2, 10), WALL, (3, 1), normal="Textures/wall_normal.png", rough=0.5, metal=0.25)
-    solid("Platforma usti", plat, (0, 2.02, 0), (10.2, 0.06, 10.2), FLOOR, (3, 3), normal="Textures/floor_normal.png", collider=False,
+    plat = s.entity("Platform", parent=arena)
+    solid("Platform body", plat, (0, 1, 0), (10, 2, 10), WALL, (3, 1), normal="Textures/wall_normal.png", rough=0.5, metal=0.25)
+    solid("Platform top", plat, (0, 2.02, 0), (10.2, 0.06, 10.2), FLOOR, (3, 3), normal="Textures/floor_normal.png", collider=False,
           albedo=(0.85, 0.88, 0.95, 1))
     angle = math.atan2(2.0, 7.0)
     length = math.hypot(2.0, 7.0)
-    solid("Qiya yo'lak", plat, (0, 1.0 - 0.2 / math.cos(angle), -8.5), (4, 0.4, length), FLOOR, (1.5, 3), rot=(-angle, 0, 0),
+    solid("Ramp", plat, (0, 1.0 - 0.2 / math.cos(angle), -8.5), (4, 0.4, length), FLOOR, (1.5, 3), rot=(-angle, 0, 0),
           normal="Textures/floor_normal.png", albedo=(0.95, 0.85, 0.7, 1))
     for i in range(7):
         h = 2.0 - i * (2.0 / 7.0)
-        solid(f"Zina {i + 1}", plat, (5.25 + i * 0.5, h / 2, 0), (0.5, h, 4), FLOOR, (0.3, 1), normal="Textures/floor_normal.png",
+        solid(f"Step {i + 1}", plat, (5.25 + i * 0.5, h / 2, 0), (0.5, h, 4), FLOOR, (0.3, 1), normal="Textures/floor_normal.png",
               albedo=(0.9, 0.9, 0.95, 1))
     for cx, cz in ((-4.6, -4.6), (4.6, -4.6), (-4.6, 4.6), (4.6, 4.6)):
-        s.entity("Platforma chirog'i", parent=plat, pos=(cx, 2.6, cz), PointLight=k.point_light((1.0, 0.6, 0.25), 3.0, 6.0),
+        s.entity("Platform light", parent=plat, pos=(cx, 2.6, cz), PointLight=k.point_light((1.0, 0.6, 0.25), 3.0, 6.0),
                  MeshRenderer=k.mesh("Sphere", (1, 0.7, 0.4, 1), emission=(1.0, 0.6, 0.25), emission_strength=8.0, cast_shadows=False),
                  scale=(0.25, 0.25, 0.25))
 
     # pillars with glowing bands
     for i, (px, pz) in enumerate(((-8, -10), (8, -10), (-18, 0), (18, 8), (-8, 18), (6, 10))):
-        p = solid(f"Ustun {i + 1}", arena, (px, 3, pz), (1.6, 6, 1.6), WALL, (0.6, 2), normal="Textures/wall_normal.png", rough=0.45,
+        p = solid(f"Pillar {i + 1}", arena, (px, 3, pz), (1.6, 6, 1.6), WALL, (0.6, 2), normal="Textures/wall_normal.png", rough=0.45,
                   metal=0.4, mesh_kind="Cylinder")
-        s.entity("Halqa", parent=p, pos=(0, 0.15, 0), scale=(1.06, 0.03, 1.06),
+        s.entity("Ring", parent=p, pos=(0, 0.15, 0), scale=(1.06, 0.03, 1.06),
                  MeshRenderer=k.mesh("Cylinder", (0.2, 0.8, 1.0, 1), emission=(0.2, 0.75, 1.0), emission_strength=7.0, cast_shadows=False))
     # low cover walls
     for i, (cx, cz, sx, sz) in enumerate(((-14, -16, 6, 0.8), (16, -15, 0.8, 6), (-4, 12, 5, 0.8), (18, 18, 4, 0.8))):
-        solid(f"Pana {i + 1}", arena, (cx, 0.7, cz), (sx, 1.4, sz), WALL, (sx / 2 + sz / 2, 0.6), normal="Textures/wall_normal.png",
+        solid(f"Cover {i + 1}", arena, (cx, 0.7, cz), (sx, 1.4, sz), WALL, (sx / 2 + sz / 2, 0.6), normal="Textures/wall_normal.png",
               rough=0.6, metal=0.2)
     # crates (they can be pushed)
     for i, (cx, cy, cz) in enumerate(((-19, 0.6, -18), (-17.7, 0.6, -18.2), (-18.4, 1.8, -18.1), (19, 0.6, -3), (19.2, 0.6, -1.7),
                                       (-20, 0.6, 15), (9, 0.6, 19), (10.3, 0.6, 19.4))):
-        s.entity(f"Quti {i + 1}", parent=arena, pos=(cx, cy, cz), rot=(0, 0.2 * i, 0), scale=(1.2, 1.2, 1.2),
+        s.entity(f"Crate {i + 1}", parent=arena, pos=(cx, cy, cz), rot=(0, 0.2 * i, 0), scale=(1.2, 1.2, 1.2),
                  MeshRenderer=k.mesh("Cube", (1, 1, 1, 1), 0.6, 0.1, albedo_map=CRATE, normal_map="Textures/crate_normal.png"),
                  Rigidbody3D=k.rigidbody3d("Dynamic", mass=25.0), BoxCollider3D=k.box3d((0.5, 0.5, 0.5), friction=0.7))
     # coloured lights around the arena
     for i, (lx, ly, lz, col) in enumerate(((-18, 4, -18, (0.3, 0.6, 1.0)), (18, 4, -18, (1.0, 0.4, 0.3)), (-18, 4, 18, (1.0, 0.5, 0.9)),
                                            (18, 4, 18, (0.4, 1.0, 0.6)))):
-        s.entity(f"Rangli chiroq {i + 1}", parent=arena, pos=(lx, ly, lz), PointLight=k.point_light(col, 5.0, 14.0))
+        s.entity(f"Coloured light {i + 1}", parent=arena, pos=(lx, ly, lz), PointLight=k.point_light(col, 5.0, 14.0))
 
     # jump pad
-    pad = s.entity("Sakratgich", parent=arena, pos=(-12, 0.06, 12), scale=(2.6, 0.12, 2.6), Tags=["JumpPad"],
+    pad = s.entity("Jump pad", parent=arena, pos=(-12, 0.06, 12), scale=(2.6, 0.12, 2.6), Tags=["JumpPad"],
                    MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.3, 0.2, emission=(0.3, 0.9, 1.0), emission_strength=3.0,
                                        albedo_map="Textures/pad.png"))
-    s.entity("Sakratgich chirog'i", parent=pad, pos=(0, 8, 0), PointLight=k.point_light((0.3, 0.85, 1.0), 4.0, 7.0))
-    s.entity("Sakratgich zarralari", parent=arena, pos=(-12, 0.2, 12), ParticleSystem=k.particles(
+    s.entity("Jump pad light", parent=pad, pos=(0, 8, 0), PointLight=k.point_light((0.3, 0.85, 1.0), 4.0, 7.0))
+    s.entity("Jump pad particles", parent=arena, pos=(-12, 0.2, 12), ParticleSystem=k.particles(
         EmissionRate=22.0, MaxParticles=200, Shape=1, ShapeRadius=1.1, LifetimeMin=0.8, LifetimeMax=1.4, SpeedMin=2.0, SpeedMax=4.5,
         Direction=(0, 1, 0), Spread=6.0, StartColor=(0.4, 1.6, 2.4, 1.0), EndColor=(0.2, 0.5, 1.0, 0.0), StartSize=0.14, EndSize=0.02))
 
     # checkpoints: floating diamonds (the game colours the current one)
-    course = s.entity("Parkur")
+    course = s.entity("Parkour")
     cps = []
     for i, (cx, cy, cz) in enumerate(CHECKPOINTS):
-        c = s.entity(f"Nuqta {i + 1}", parent=course, pos=(cx, cy, cz), rot=(math.radians(45), 0, math.radians(45)), scale=(0.7, 0.7, 0.7),
+        c = s.entity(f"Checkpoint {i + 1}", parent=course, pos=(cx, cy, cz), rot=(math.radians(45), 0, math.radians(45)), scale=(0.7, 0.7, 0.7),
                      MeshRenderer=k.mesh("Cube", (0.3, 0.8, 1.0, 1), 0.2, 0.1, emission=(0.3, 0.8, 1.0), emission_strength=4.0,
                                          cast_shadows=False),
                      PointLight=k.point_light((0.3, 0.8, 1.0), 2.5, 5.0))
         cps.append(c)
 
     # targets: a base plate, a hinge (turns to knock it down) with a post and the face (a kinematic body)
-    targets = s.entity("Nishonlar")
+    targets = s.entity("Targets")
 
     def face_yaw(x, z):
         return math.atan2(-x, -z)  # local +Z (the face) towards the centre
 
     def stand_target(name, x, z, kind, points, respawn, point_b=(0, 0, 0), speed=2.5):
         root = s.entity(name, parent=targets, pos=(x, 0, z), rot=(0, face_yaw(x, z), 0))
-        s.entity("Asos", parent=root, pos=(0, 0.04, 0), scale=(0.9, 0.08, 0.9),
+        s.entity("Base", parent=root, pos=(0, 0.04, 0), scale=(0.9, 0.08, 0.9),
                  MeshRenderer=k.mesh("Cylinder", (0.16, 0.17, 0.2, 1), 0.4, 0.7, emission=(1.0, 0.5, 0.12), emission_strength=0.0))
-        s.entity("Asos chirog'i", parent=root, pos=(0, 0.085, 0), scale=(0.95, 0.012, 0.95),
+        s.entity("Base light", parent=root, pos=(0, 0.085, 0), scale=(0.95, 0.012, 0.95),
                  MeshRenderer=k.mesh("Cylinder", (1, 0.6, 0.2, 1), emission=(1.0, 0.5, 0.12), emission_strength=4.0, cast_shadows=False))
-        hinge = s.entity("Ilmoq", parent=root, pos=(0, 0.1, 0))
-        s.entity("Ustun", parent=hinge, pos=(0, 0.62, -0.06), scale=(0.07, 1.24, 0.07),
+        hinge = s.entity("Hinge", parent=root, pos=(0, 0.1, 0))
+        s.entity("Post", parent=hinge, pos=(0, 0.62, -0.06), scale=(0.07, 1.24, 0.07),
                  MeshRenderer=k.mesh("Cylinder", (0.3, 0.32, 0.36, 1), 0.35, 0.8))
-        s.entity("Orqa halqa", parent=hinge, pos=(0, 1.35, -0.06), rot=(math.radians(90), 0, 0), scale=(1.24, 0.05, 1.24),
+        s.entity("Back ring", parent=hinge, pos=(0, 1.35, -0.06), rot=(math.radians(90), 0, 0), scale=(1.24, 0.05, 1.24),
                  MeshRenderer=k.mesh("Cylinder", (0.2, 0.21, 0.25, 1), 0.3, 0.85))
-        face = s.entity("Nishon yuzi", parent=hinge, pos=(0, 1.35, 0), rot=(math.radians(90), 0, 0), scale=(1.1, 0.07, 1.1),
+        face = s.entity("Target face", parent=hinge, pos=(0, 1.35, 0), rot=(math.radians(90), 0, 0), scale=(1.1, 0.07, 1.1),
                         MeshRenderer=k.mesh("Cylinder", (1, 1, 1, 1), 0.55, 0.05, albedo_map="Textures/target.png"),
                         Rigidbody3D=k.rigidbody3d("Kinematic"), BoxCollider3D=k.box3d((0.5, 0.5, 0.5)))
         s.add(root, "NativeScript", k.script("Target", Kind=("Enum", kind), Hinge=k.ref(hinge), Face=k.ref(face),
@@ -404,71 +404,71 @@ def build_scene():
         return root
 
     for i, (x, z) in enumerate(STANDS):
-        stand_target(f"Nishon {i + 1}", x, z, 0, 50, 4.0)
+        stand_target(f"Target {i + 1}", x, z, 0, 50, 4.0)
     for i, (x, z) in enumerate(POPUPS):
-        stand_target(f"Chiquvchi nishon {i + 1}", x, z, 2, 60, 3.0)
+        stand_target(f"Pop-up target {i + 1}", x, z, 2, 60, 3.0)
     for i, ((ax, az), (bx, bz)) in enumerate(SLIDERS):
         mx, mz = (ax + bx) / 2, (az + bz) / 2
-        root = stand_target(f"Sirpanuvchi nishon {i + 1}", ax, az, 1, 75, 4.0, (bx, 0, bz), 2.6)
+        root = stand_target(f"Sliding target {i + 1}", ax, az, 1, 75, 4.0, (bx, 0, bz), 2.6)
         s.get(root)["Transform"]["Rotation"] = k.v(0, face_yaw(mx, mz), 0)
         length = math.hypot(bx - ax, bz - az) + 1.4
         along_x = abs(bx - ax) > abs(bz - az)
-        s.entity(f"Rels {i + 1}", parent=targets, pos=(mx, 0.03, mz), scale=(length if along_x else 0.5, 0.06, 0.5 if along_x else length),
+        s.entity(f"Rail {i + 1}", parent=targets, pos=(mx, 0.03, mz), scale=(length if along_x else 0.5, 0.06, 0.5 if along_x else length),
                  MeshRenderer=k.mesh("Cube", (0.18, 0.19, 0.23, 1), 0.4, 0.7))
-        s.entity(f"Rels chirog'i {i + 1}", parent=targets, pos=(mx, 0.065, mz),
+        s.entity(f"Rail light {i + 1}", parent=targets, pos=(mx, 0.065, mz),
                  scale=(length if along_x else 0.08, 0.01, 0.08 if along_x else length),
                  MeshRenderer=k.mesh("Cube", (1, 0.6, 0.2, 1), emission=(1.0, 0.5, 0.12), emission_strength=5.0, cast_shadows=False))
     for i, ((cx, cy, cz), radius, speed) in enumerate(DRONES):
-        root = s.entity(f"Dron {i + 1}", parent=targets, pos=(cx, cy, cz))
-        body = s.entity("Tana", parent=root, scale=(1, 1, 1), Rigidbody3D=k.rigidbody3d("Kinematic"), SphereCollider3D=k.sphere3d(0.62))
-        s.entity("Korpus", parent=body, scale=(0.75, 0.55, 0.75),
+        root = s.entity(f"Drone {i + 1}", parent=targets, pos=(cx, cy, cz))
+        body = s.entity("Body", parent=root, scale=(1, 1, 1), Rigidbody3D=k.rigidbody3d("Kinematic"), SphereCollider3D=k.sphere3d(0.62))
+        s.entity("Hull", parent=body, scale=(0.75, 0.55, 0.75),
                  MeshRenderer=k.mesh("Sphere", (0.18, 0.2, 0.25, 1), 0.3, 0.85, emission=(0.2, 0.7, 1.0), emission_strength=0.3))
-        s.entity("Halqa", parent=body, scale=(1.5, 0.06, 1.5),
+        s.entity("Ring", parent=body, scale=(1.5, 0.06, 1.5),
                  MeshRenderer=k.mesh("Cylinder", (0.3, 0.8, 1.0, 1), emission=(0.2, 0.75, 1.0), emission_strength=7.0, cast_shadows=False))
-        s.entity("Ko'z", parent=body, pos=(0, 0.02, 0.33), scale=(0.18, 0.18, 0.18),
+        s.entity("Eye", parent=body, pos=(0, 0.02, 0.33), scale=(0.18, 0.18, 0.18),
                  MeshRenderer=k.mesh("Sphere", (1, 0.3, 0.2, 1), emission=(1.0, 0.25, 0.15), emission_strength=10.0, cast_shadows=False))
-        s.entity("Dron chirog'i", parent=body, PointLight=k.point_light((0.3, 0.75, 1.0), 2.5, 5.0))
+        s.entity("Drone light", parent=body, PointLight=k.point_light((0.3, 0.75, 1.0), 2.5, 5.0))
         s.add(root, "NativeScript", k.script("Target", Kind=("Enum", 3), Face=k.ref(body), PointB=("Vec3", (radius, 0, 0)), Speed=float(speed),
                                               RespawnTime=5.0, Points=80))
 
     # effects the weapon moves and fires: sparks and a light where a shot lands, the beam's template
-    fx = s.entity("Effektlar")
-    sparks = s.entity("Uchqunlar", parent=fx, pos=(0, -50, 0), ParticleSystem=k.particles(
+    fx = s.entity("Effects")
+    sparks = s.entity("Sparks", parent=fx, pos=(0, -50, 0), ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=800, Shape=0, LifetimeMin=0.15, LifetimeMax=0.5, SpeedMin=2.5, SpeedMax=9.0,
         Direction=(0, 1, 0), Spread=55.0, Gravity=(0, -12, 0), Drag=1.5, StartColor=(1.2, 2.4, 3.2, 1.0), EndColor=(0.2, 0.5, 1.0, 0.0),
         StartSize=0.07, EndSize=0.0))
-    impact_light = s.entity("Tegish chirog'i", parent=fx, pos=(0, -50, 0), PointLight=k.point_light((0.4, 0.75, 1.0), 0.0, 5.0))
-    templates = s.entity("Shablonlar", active=False)
-    tracer = s.entity("Nur izi", parent=templates, scale=(0.03, 0.03, 1),
+    impact_light = s.entity("Hit light", parent=fx, pos=(0, -50, 0), PointLight=k.point_light((0.4, 0.75, 1.0), 0.0, 5.0))
+    templates = s.entity("Templates", active=False)
+    tracer = s.entity("Tracer", parent=templates, scale=(0.03, 0.03, 1),
                       MeshRenderer=k.mesh("Cube", (0.5, 0.9, 1.0, 1), emission=(0.5, 2.6, 4.0), emission_strength=1.2, cast_shadows=False),
                       NativeScript=k.script("TracerFx", Lifetime=0.12))
 
     # ---- player: the capsule (feet at its origin) with the head / camera
-    player = s.entity("O'yinchi", pos=(0, 0.05, -20), Tags=["Player"], CharacterController3D=k.character3d(0.38, 1.8, 50.0, 0.4, 1.7),
+    player = s.entity("Player", pos=(0, 0.05, -20), Tags=["Player"], CharacterController3D=k.character3d(0.38, 1.8, 50.0, 0.4, 1.7),
                       AudioListener={"Enabled": True, "Priority": 0, "TrackVelocity": True})
-    head = s.entity("Bosh", parent=player, pos=(0, 1.62, 0),
+    head = s.entity("Head", parent=player, pos=(0, 1.62, 0),
                     Camera=k.camera_persp(math.radians(68), 0.05, 400.0, (0.5, 0.6, 0.75, 1.0), shake={"MaxOffset": [0.08, 0.08], "MaxAngle": 2.5, "Exponent": 2.0}))
     # the weapon: a little energy blaster in the lower right of the view (it casts no shadows)
     dark = (0.07, 0.075, 0.09, 1)
-    gun = s.entity("Qurol", parent=head, pos=(0.2, -0.2, -0.36), scale=(0.75, 0.75, 0.75))
-    s.entity("Korpus", parent=gun, scale=(0.09, 0.11, 0.42), MeshRenderer=k.mesh("Cube", dark, 0.5, 0.5, cast_shadows=False))
-    s.entity("Ustki qism", parent=gun, pos=(0, 0.07, 0.04), scale=(0.07, 0.04, 0.3),
+    gun = s.entity("Weapon", parent=head, pos=(0.2, -0.2, -0.36), scale=(0.75, 0.75, 0.75))
+    s.entity("Hull", parent=gun, scale=(0.09, 0.11, 0.42), MeshRenderer=k.mesh("Cube", dark, 0.5, 0.5, cast_shadows=False))
+    s.entity("Top part", parent=gun, pos=(0, 0.07, 0.04), scale=(0.07, 0.04, 0.3),
              MeshRenderer=k.mesh("Cube", (0.16, 0.17, 0.2, 1), 0.45, 0.6, cast_shadows=False))
-    s.entity("Stvol", parent=gun, pos=(0, 0.015, -0.3), rot=(math.radians(90), 0, 0), scale=(0.05, 0.34, 0.05),
+    s.entity("Barrel", parent=gun, pos=(0, 0.015, -0.3), rot=(math.radians(90), 0, 0), scale=(0.05, 0.34, 0.05),
              MeshRenderer=k.mesh("Cylinder", (0.22, 0.23, 0.27, 1), 0.35, 0.7, cast_shadows=False))
-    s.entity("Energiya", parent=gun, pos=(0.047, 0.01, 0.0), scale=(0.006, 0.04, 0.3),
+    s.entity("Energy cell", parent=gun, pos=(0.047, 0.01, 0.0), scale=(0.006, 0.04, 0.3),
              MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=1.3, cast_shadows=False))
-    s.entity("Energiya 2", parent=gun, pos=(-0.047, 0.01, 0.0), scale=(0.006, 0.04, 0.3),
+    s.entity("Energy cell 2", parent=gun, pos=(-0.047, 0.01, 0.0), scale=(0.006, 0.04, 0.3),
              MeshRenderer=k.mesh("Cube", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=1.3, cast_shadows=False))
     for j, z in enumerate((-0.2, -0.3, -0.4)):
-        s.entity(f"Halqa {j + 1}", parent=gun, pos=(0, 0.015, z), rot=(math.radians(90), 0, 0), scale=(0.072, 0.022, 0.072),
+        s.entity(f"Ring {j + 1}", parent=gun, pos=(0, 0.015, z), rot=(math.radians(90), 0, 0), scale=(0.072, 0.022, 0.072),
                  MeshRenderer=k.mesh("Cylinder", (0.4, 0.9, 1.0, 1), emission=(0.3, 0.85, 1.0), emission_strength=1.3, cast_shadows=False))
-    s.entity("Dasta", parent=gun, pos=(0, -0.11, 0.13), rot=(-0.3, 0, 0), scale=(0.065, 0.17, 0.08),
+    s.entity("Grip", parent=gun, pos=(0, -0.11, 0.13), rot=(-0.3, 0, 0), scale=(0.065, 0.17, 0.08),
              MeshRenderer=k.mesh("Cube", dark, 0.6, 0.3, cast_shadows=False))
-    s.entity("Mo'ljal", parent=gun, pos=(0, 0.1, -0.06), scale=(0.025, 0.03, 0.07),
+    s.entity("Sight", parent=gun, pos=(0, 0.1, -0.06), scale=(0.025, 0.03, 0.07),
              MeshRenderer=k.mesh("Cube", (1, 0.55, 0.2, 1), emission=(1.0, 0.5, 0.15), emission_strength=1.6, cast_shadows=False))
-    muzzle = s.entity("Stvol uchi", parent=gun, pos=(0, 0.015, -0.49), PointLight=k.point_light((0.4, 0.85, 1.0), 0.0, 6.0))
-    flash = s.entity("Chaqnash", parent=muzzle, scale=(0.0001, 0.0001, 0.0001),
+    muzzle = s.entity("Muzzle", parent=gun, pos=(0, 0.015, -0.49), PointLight=k.point_light((0.4, 0.85, 1.0), 0.0, 6.0))
+    flash = s.entity("Muzzle flash", parent=muzzle, scale=(0.0001, 0.0001, 0.0001),
                      MeshRenderer=k.mesh("Sphere", (0.8, 0.95, 1.0, 1), emission=(0.6, 0.9, 1.0), emission_strength=25.0, cast_shadows=False))
 
     # ---- UI
@@ -476,81 +476,81 @@ def build_scene():
     canvas = s.entity("UI", UITransform=k.ui_stretch(), UICanvas=k.ui_canvas())
     ui = k.UIKit(s, canvas, ATLAS, game, (0.85, 0.45, 0.12, 1.0), (1.0, 0.62, 0.25, 1.0), (0.6, 0.3, 0.08, 1.0))
     hud = s.entity("HUD", parent=canvas, UITransform=k.ui_stretch())
-    s.entity("Yuqori fon", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 150)),
+    s.entity("Top backdrop", parent=hud, UITransform=k.ui_rect((0, 1), (1, 1), (0.5, 1), (0, 0), (0, 150)),
              UIImage=k.ui_image((0.0, 0.0, 0.0, 0.32), raycast=False))
-    s.entity("Pastki fon", parent=hud, UITransform=k.ui_rect((0, 0), (1, 0), (0.5, 0), (0, 0), (0, 140)),
+    s.entity("Bottom backdrop", parent=hud, UITransform=k.ui_rect((0, 0), (1, 0), (0.5, 0), (0, 0), (0, 140)),
              UIImage=k.ui_image((0.0, 0.0, 0.0, 0.28), raycast=False))
-    s.entity("Nishon", parent=hud, UITransform=k.ui_rect(size=(44, 44)),
+    s.entity("Crosshair", parent=hud, UITransform=k.ui_rect(size=(44, 44)),
              UIImage=k.ui_image((1, 1, 1, 0.85), ATLAS, "crosshair", raycast=False, preserve_aspect=True))
-    timer = ui.text("Vaqt", hud, "00:00.00", (0.5, 1), (0.5, 1), (0, -30), (600, 70), 60, h="Center")
-    best = ui.text("Eng yaxshi vaqt", hud, "", (0.5, 1), (0.5, 1), (0, -100), (700, 34), 28, (1.0, 0.8, 0.4, 0.95), h="Center")
-    progress = ui.text("Nuqtalar", hud, "", (0, 1), (0, 1), (50, -40), (600, 44), 36, (0.6, 0.9, 1.0, 1.0))
-    laps = ui.text("Aylanalar", hud, "", (0, 1), (0, 1), (50, -88), (600, 34), 28, (0.85, 0.85, 0.9, 0.85))
-    speed = ui.text("Tezlik", hud, "", (0, 0), (0, 0), (50, 86), (600, 40), 32)
-    state = ui.text("Holat", hud, "", (0, 0), (0, 0), (50, 44), (600, 34), 26, (0.75, 0.85, 1.0, 0.9))
-    ui.text("Chidamlilik yorlig'i", hud, "CHIDAM", (1, 0), (1, 0), (-50, 84), (300, 28), 22, (1.0, 0.75, 0.4, 0.85), h="Right",
+    timer = ui.text("Time", hud, "00:00.00", (0.5, 1), (0.5, 1), (0, -30), (600, 70), 60, h="Center")
+    best = ui.text("Best time", hud, "", (0.5, 1), (0.5, 1), (0, -100), (700, 34), 28, (1.0, 0.8, 0.4, 0.95), h="Center")
+    progress = ui.text("Checkpoints", hud, "", (0, 1), (0, 1), (50, -40), (600, 44), 36, (0.6, 0.9, 1.0, 1.0))
+    laps = ui.text("Laps", hud, "", (0, 1), (0, 1), (50, -88), (600, 34), 28, (0.85, 0.85, 0.9, 0.85))
+    speed = ui.text("Speed", hud, "", (0, 0), (0, 0), (50, 86), (600, 40), 32)
+    state = ui.text("Status", hud, "", (0, 0), (0, 0), (50, 44), (600, 34), 26, (0.75, 0.85, 1.0, 0.9))
+    ui.text("Stamina label", hud, "STAMINA", (1, 0), (1, 0), (-50, 84), (300, 28), 22, (1.0, 0.75, 0.4, 0.85), h="Right",
             key="hud.stamina")
-    stamina = s.entity("Chidamlilik", parent=hud, UITransform=k.ui_rect((1, 0), None, (1, 0), (-50, 60), (300, 14)),
+    stamina = s.entity("Stamina", parent=hud, UITransform=k.ui_rect((1, 0), None, (1, 0), (-50, 60), (300, 14)),
                        UIProgressBar=k.ui_progress(1.0, fill=(1.0, 0.65, 0.2, 1.0), padding=2.0, smooth=8.0))
-    hint = ui.text("Maslahat", hud, "", (0.5, 0), (0.5, 0), (0, 40), (1400, 36), 26, (0.9, 0.9, 1.0, 0.85), h="Center")
-    banner = ui.text("E'lon", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 180), (1400, 110), 92, h="Center", UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
-    banner_sub = ui.text("E'lon izohi", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 46), 36, (1.0, 0.85, 0.6, 1.0), h="Center")
-    demo_badge = ui.text("Demo belgisi", hud, "DEMO - avtomatik o'yin", (1, 1), (1, 1), (-50, -40), (600, 32), 26, (1.0, 0.8, 0.35, 0.9),
+    hint = ui.text("Hint", hud, "", (0.5, 0), (0.5, 0), (0, 40), (1400, 36), 26, (0.9, 0.9, 1.0, 0.85), h="Center")
+    banner = ui.text("Banner", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 180), (1400, 110), 92, h="Center", UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
+    banner_sub = ui.text("Banner note", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -4), (1200, 46), 36, (1.0, 0.85, 0.6, 1.0), h="Center")
+    demo_badge = ui.text("Demo badge", hud, "DEMO - autoplay", (1, 1), (1, 1), (-50, -40), (600, 32), 26, (1.0, 0.8, 0.35, 0.9),
                          h="Right", key="hud.demo", active=False)
-    score = ui.text("Ochko", hud, "", (1, 1), (1, 1), (-50, -86), (600, 50), 42, (1.0, 0.85, 0.45, 1.0), h="Right")
-    streak = ui.text("Seriya", hud, "", (1, 1), (1, 1), (-50, -128), (600, 34), 30, (1.0, 0.55, 0.3, 1.0), h="Right")
-    ammo = ui.text("O'q-dori", hud, "12 / 12", (1, 0), (1, 0), (-50, 104), (500, 50), 44, h="Right")
-    ui.text("Qurol yorlig'i", hud, "BLASTER", (1, 0), (1, 0), (-50, 146), (500, 26), 22, (0.5, 0.85, 1.0, 0.8), h="Right", key="hud.weapon")
-    reload_bar = s.entity("Qayta o'qlash", parent=hud, active=False, UITransform=k.ui_rect(pos=(0, -62), size=(180, 8)),
+    score = ui.text("Score popup", hud, "", (1, 1), (1, 1), (-50, -86), (600, 50), 42, (1.0, 0.85, 0.45, 1.0), h="Right")
+    streak = ui.text("Streak", hud, "", (1, 1), (1, 1), (-50, -128), (600, 34), 30, (1.0, 0.55, 0.3, 1.0), h="Right")
+    ammo = ui.text("Ammo", hud, "12 / 12", (1, 0), (1, 0), (-50, 104), (500, 50), 44, h="Right")
+    ui.text("Weapon label", hud, "BLASTER", (1, 0), (1, 0), (-50, 146), (500, 26), 22, (0.5, 0.85, 1.0, 0.8), h="Right", key="hud.weapon")
+    reload_bar = s.entity("Reload", parent=hud, active=False, UITransform=k.ui_rect(pos=(0, -62), size=(180, 8)),
                           UIProgressBar=k.ui_progress(0.0, fill=(0.4, 0.85, 1.0, 1.0), padding=1.5, smooth=30.0))
-    hit_marker = s.entity("Tegish belgisi", parent=hud, UITransform=k.ui_rect(size=(60, 60)),
+    hit_marker = s.entity("Hit marker", parent=hud, UITransform=k.ui_rect(size=(60, 60)),
                           UIImage=k.ui_image((1, 1, 1, 0), ATLAS, "hitmarker", raycast=False, preserve_aspect=True))
-    popups = s.entity("Ochko yozuvlari", parent=hud, UITransform=k.ui_rect(size=(10, 10)))
+    popups = s.entity("Score popups", parent=hud, UITransform=k.ui_rect(size=(10, 10)))
     for i in range(5):
-        ui.text(f"Yozuv {i + 1}", popups, "", (0.5, 0.5), (0, 0.5), (70, 40), (600, 52), 40, (1, 1, 1, 0), h="Left")
+        ui.text(f"Popup {i + 1}", popups, "", (0.5, 0.5), (0, 0.5), (70, 40), (600, 52), 40, (1, 1, 1, 0), h="Left")
 
-    main_menu = ui.dim("Bosh menyu", True, 0.45, (0.02, 0.02, 0.04))
-    title = s.entity("Sarlavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 270), size=(1700, 180), font=156),
+    main_menu = ui.dim("Main menu", True, 0.45, (0.02, 0.02, 0.04))
+    title = s.entity("Title", parent=main_menu, UITransform=k.ui_rect(pos=(0, 270), size=(1700, 180), font=156),
                      UIAnimation=k.ui_anim("SlideDown", "None", 0.6, slide=120))
-    s.entity("Sarlavha soyasi", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=156),
+    s.entity("Title shadow", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), pos=(6, -7), size=(0, 0), font=156),
              Text=k.ui_text("FPS ARENA", (0.45, 0.15, 0.02, 0.9), "Center", key="menu.title"))
-    s.entity("Sarlavha matni", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
+    s.entity("Title text", parent=title, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
              Text=k.ui_text("FPS ARENA", (1.0, 0.8, 0.5, 1.0), "Center", key="menu.title"))
     # dark plates under the subtitle and the control hints: the sun's glow and the gun sit behind them
-    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 156), (1240, 62))
-    s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 156), size=(1500, 50), font=38),
-             Text=k.ui_text("Birinchi shaxs boshqaruvi  ·  Zamin Engine namunasi", (1.0, 0.92, 0.85, 0.95), "Center", key="menu.subtitle"))
-    menu_panel = ui.panel("Menyu paneli", main_menu, (0, -120), (560, 420))
-    play_button = ui.button("Parkur", menu_panel, "Parkur", "menu.play", "Play", True)
-    ui.button("Nishon otish", menu_panel, "Nishon otish", "menu.range", "PlayRange")
-    language_button = ui.button("Til", menu_panel, "Language: English", None, "Language")
-    ui.button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
-    menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -372), size=(1400, 44), font=32),
+    k.ui_backdrop(s, "Subtitle backdrop", main_menu, ATLAS, (0, 156), (1240, 62))
+    s.entity("Subtitle", parent=main_menu, UITransform=k.ui_rect(pos=(0, 156), size=(1500, 50), font=38),
+             Text=k.ui_text("First-person controller and target shooting  ·  a Zamin Engine sample", (1.0, 0.92, 0.85, 0.95), "Center", key="menu.subtitle"))
+    menu_panel = ui.panel("Menu panel", main_menu, (0, -120), (560, 420))
+    play_button = ui.button("Parkour", menu_panel, "Parkour", "menu.play", "Play", True)
+    ui.button("Target range", menu_panel, "Target range", "menu.range", "PlayRange")
+    language_button = ui.button("Language", menu_panel, "Language: English", None, "Language")
+    ui.button("Quit", menu_panel, "Quit", "menu.quit", "Quit")
+    menu_best = s.entity("Main menu best", parent=main_menu, UITransform=k.ui_rect(pos=(0, -372), size=(1400, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.4, 1.0), "Center"))
-    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 28), (1880, 94), anchor=(0.5, 0))
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 40), (1850, 70), font=24),
-             Text=k.ui_text(UZ_CONTROLS, (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
-    pause_menu = ui.dim("Pauza menyusi", False)
-    pause_panel = ui.panel("Pauza paneli", pause_menu, (0, 0), (620, 520))
-    ui.label("Pauza sarlavhasi", pause_panel, "PAUZA", (520, 80), 60, (1.0, 0.8, 0.5, 1.0), "pause.title")
-    resume_button = ui.button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    sens_label = ui.label("Sezgirlik yorlig'i", pause_panel, "Mouse sensitivity: 1.0", (520, 40), 28, (0.9, 0.9, 1.0, 1.0))
-    sens_slider = s.entity("Sezgirlik", parent=pause_panel, UITransform=k.ui_rect(size=(520, 44)),
+    k.ui_backdrop(s, "Controls backdrop", main_menu, ATLAS, (0, 28), (1880, 94), anchor=(0.5, 0))
+    s.entity("Controls", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 40), (1850, 70), font=24),
+             Text=k.ui_text(EN_CONTROLS, (0.95, 0.9, 0.85, 0.9), "Center", key="menu.controls", hints=True))
+    pause_menu = ui.dim("Pause menu", False)
+    pause_panel = ui.panel("Pause panel", pause_menu, (0, 0), (620, 520))
+    ui.label("Pause title", pause_panel, "PAUSED", (520, 80), 60, (1.0, 0.8, 0.5, 1.0), "pause.title")
+    resume_button = ui.button("Resume", pause_panel, "Resume", "pause.resume", "Resume", True)
+    sens_label = ui.label("Sensitivity label", pause_panel, "Mouse sensitivity: 1.0", (520, 40), 28, (0.9, 0.9, 1.0, 1.0))
+    sens_slider = s.entity("Sensitivity", parent=pause_panel, UITransform=k.ui_rect(size=(520, 44)),
                            UISlider={"Min": 0.25, "Max": 3.0, "Value": 1.0, "WholeNumbers": False, "Direction": "LeftToRight",
                                      "Interactable": True, "TrackThickness": 10.0, "HandleSize": 30.0, "Rounded": True,
                                      "TrackColor": [0.1, 0.12, 0.18, 1], "FillColor": [1.0, 0.65, 0.25, 1], "HandleColor": [1.0, 0.95, 0.9, 1]},
                            UINavigation=k.ui_nav("Vertical"))
-    ui.button("Qaytadan", pause_panel, "Qaytadan", "pause.restart", "Restart")
-    ui.button("Bosh menyuga", pause_panel, "Bosh menyu", "pause.menu", "Menu")
+    ui.button("Restart", pause_panel, "Restart", "pause.restart", "Restart")
+    ui.button("To main menu", pause_panel, "Main menu", "pause.menu", "Menu")
     # the target range's results
-    results_menu = ui.dim("Natijalar", False, 0.55)
-    results_panel = ui.panel("Natijalar paneli", results_menu, (0, 0), (760, 560))
-    results_title = ui.label("Natijalar sarlavhasi", results_panel, "TIME IS UP!", (660, 84), 64, (1.0, 0.8, 0.5, 1.0))
-    results_score = ui.label("Natija ochkosi", results_panel, "", (660, 60), 48, (1.0, 0.92, 0.6, 1.0))
-    results_stats = ui.label("Natija statistikasi", results_panel, "", (660, 40), 28, (0.85, 0.9, 1.0, 1.0))
-    results_record = ui.label("Natija rekordi", results_panel, "", (660, 40), 30, (1.0, 0.6, 0.3, 1.0))
-    retry_button = ui.button("Qayta o'ynash", results_panel, "Qaytadan", "pause.restart", "Restart", True)
-    ui.button("Natijadan menyuga", results_panel, "Bosh menyu", "pause.menu", "Menu")
+    results_menu = ui.dim("Results", False, 0.55)
+    results_panel = ui.panel("Results panel", results_menu, (0, 0), (760, 560))
+    results_title = ui.label("Results title", results_panel, "TIME IS UP!", (660, 84), 64, (1.0, 0.8, 0.5, 1.0))
+    results_score = ui.label("Results points", results_panel, "", (660, 60), 48, (1.0, 0.92, 0.6, 1.0))
+    results_stats = ui.label("Results stats", results_panel, "", (660, 40), 28, (0.85, 0.9, 1.0, 1.0))
+    results_record = ui.label("Results best", results_panel, "", (660, 40), 30, (1.0, 0.6, 0.3, 1.0))
+    retry_button = ui.button("Play again", results_panel, "Restart", "pause.restart", "Restart", True)
+    ui.button("Results to menu", results_panel, "Main menu", "pause.menu", "Menu")
 
     s.add(game, "NativeScript", k.script(
         "ArenaGame", Player=k.ref(player), Gun=k.ref(gun), Checkpoints=k.ref(course), JumpPad=k.ref(pad), Targets=k.ref(targets),
@@ -646,10 +646,10 @@ def main():
                {"Name": "Look", "X": "LookX", "Y": "LookY", "Mode": "Clamp", "Deadzone": 0.0}]
     k.write_project(PROJECT, NAME, "FPS Arena", "Scenes/Arena.zscene", uuid, "1.0.0", [("Scenes/Arena.zscene", uuid)], actions, axes,
                     vectors, ["Player", "JumpPad"],
-                    description="3D birinchi shaxs: sichqoncha bilan qarash, yugurish, sakrash, parkur yo'lagi; raycast bilan otish, "
-                                "nishonlar va 60 soniyalik raund")
-    k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: FPS Arena - C++ skriptlar moduli (libFPSArena.so)")
-    print("FPSArena: tayyor")
+                    description="3D first person: mouse look, sprinting, jumping, a parkour course; raycast shooting, "
+                                "targets and a 60-second round")
+    k.write_module_cmake(PROJECT, NAME, "Zamin sample game: FPS Arena - the C++ script module (libFPSArena.so)")
+    print("FPSArena: done")
 
 
 if __name__ == "__main__":

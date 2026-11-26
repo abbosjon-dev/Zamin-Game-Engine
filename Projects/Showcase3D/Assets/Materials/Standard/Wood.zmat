@@ -5,8 +5,8 @@
     1.0,
     1.0
   ],
-  "AlbedoMap": "Materials/Standart/Textures/Concrete_Albedo.png",
-  "AlbedoMapUUID": "cd346ab7ca4978e4",
+  "AlbedoMap": "Materials/Standard/Textures/Wood_Albedo.png",
+  "AlbedoMapUUID": "a8a00e30cde93260",
   "AlphaCutoff": 0.5,
   "BlendMode": "Opaque",
   "DoubleSided": false,
@@ -26,7 +26,7 @@
     0.0
   ],
   "PreserveSpecular": true,
-  "Roughness": 0.8999999761581421,
+  "Roughness": 0.6200000047683716,
   "Shader": "Lit",
   "SortPriority": 0,
   "Tiling": [

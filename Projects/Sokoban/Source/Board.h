@@ -1,11 +1,11 @@
 #pragma once
 
-// Omborchi (Sokoban) - o'yin mantiqi, dvigateldan mustaqil: daraja matnini o'qish, yurish va qutini surish,
-// orqaga qaytarish (undo) tarixi, yechilganini tekshirish va yechuvchi (BFS - surishlar soni bo'yicha eng qisqa;
-// "o'lik" kataklar - qutini maqsadga hech qachon olib bo'lmaydigan joylar - oldindan chiqarib tashlanadi).
+// Warehouse Keeper (Sokoban) - the game logic, independent of the engine: reading the level text, moving and pushing
+// a crate, the undo history, checking for solved and the solver (BFS - the shortest by number of pushes;
+// "dead" cells - places a crate can never be taken to a goal from - are ruled out beforehand).
 //
-// Daraja matni (Sokoban'ning odatiy yozuvi): '#' devor, ' ' pol, '.' maqsad, '$' quti, '*' maqsaddagi quti,
-// '@' o'yinchi, '+' maqsaddagi o'yinchi. O'yinchi yeta oladigan pol - darajaning ichi, qolgani tashqarisi.
+// The level text (Sokoban's usual notation): '#' wall, ' ' floor, '.' goal, '$' crate, '*' crate on a goal,
+// '@' player, '+' player on a goal. The floor the player can reach is the inside of the level, the rest is outside.
 
 #include <cstdint>
 #include <string>
@@ -17,7 +17,7 @@ namespace Sokoban {
 
     struct Level
     {
-        const char* Name;     // Uzbek name, shown in the HUD
+        const char* Name;     // Uzbek name (shown in the HUD when the game language is Uzbek)
         const char* NameEn;
         const char* Map;
     };

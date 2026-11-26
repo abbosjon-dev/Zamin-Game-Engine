@@ -109,7 +109,7 @@
         "FlipY": false,
         "TextureUUID": "a5aec7978306d03b",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       }
     },
     {
@@ -147,7 +147,7 @@
         "FlipY": false,
         "TextureUUID": "f3f49249dc28ff90",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       }
     },
     {
@@ -368,7 +368,7 @@
     },
     {
       "Entity": 8300000000000008,
-      "Tag": "Yozuv: Sichqoncha - ragdoll tashlash,  R - uchtasi osmondan",
+      "Tag": "Label: Mouse - drop a ragdoll,  R - three from the sky",
       "Transform": {
         "Translation": [
           0,
@@ -634,7 +634,7 @@
     },
     {
       "Entity": 8300000000000013,
-      "Tag": "Yozuv: Zinapoya",
+      "Tag": "Label: Stairs",
       "Transform": {
         "Translation": [
           -13.35,
@@ -1437,7 +1437,7 @@
     },
     {
       "Entity": 8300000000000024,
-      "Tag": "Yozuv: Ko'prik (Revolute, chegaralar)",
+      "Tag": "Label: Bridge (Revolute, limits)",
       "Transform": {
         "Translation": [
           -6.0,
@@ -1582,7 +1582,7 @@
     },
     {
       "Entity": 8300000000000027,
-      "Tag": "Yozuv: Rotor (Revolute motori)",
+      "Tag": "Label: Rotor (Revolute motor)",
       "Transform": {
         "Translation": [
           2.0,
@@ -1601,7 +1601,7 @@
         ]
       },
       "Text": {
-        "Text": "Rotor (Revolute motori)",
+        "Text": "Rotor (Revolute motor)",
         "Color": [
           1,
           1,
@@ -1811,7 +1811,7 @@
     },
     {
       "Entity": 8300000000000031,
-      "Tag": "Yozuv: Arg'imchoq",
+      "Tag": "Label: Swing",
       "Transform": {
         "Translation": [
           8.0,
@@ -2081,7 +2081,7 @@
     },
     {
       "Entity": 8300000000000036,
-      "Tag": "Yozuv: Uxlab turgan minora",
+      "Tag": "Label: Sleeping tower",
       "Transform": {
         "Translation": [
           13.5,
@@ -2700,7 +2700,7 @@
     },
     {
       "Entity": 8300000000000045,
-      "Tag": "Yozuv: Zanjir mayatnik",
+      "Tag": "Label: Chain pendulum",
       "Transform": {
         "Translation": [
           13.4,

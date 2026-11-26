@@ -1657,7 +1657,7 @@
     },
     {
       "Entity": 7340001584093101,
-      "Tag": "Platforma yo'li",
+      "Tag": "Platform path",
       "Transform": {
         "Translation": [
           40,
@@ -3143,7 +3143,7 @@
         ]
       },
       "Text": {
-        "Text": "Tangalar: 0",
+        "Text": "Coins: 0",
         "Color": [
           1,
           1,
@@ -3194,7 +3194,7 @@
         ]
       },
       "Text": {
-        "Text": "2-daraja: Shom",
+        "Text": "Level 2: Dusk",
         "LocalizationKey": "hud.level2",
         "Color": [
           1,
@@ -3229,7 +3229,7 @@
         ]
       },
       "Text": {
-        "Text": "A/D - yurish   Space - sakrash   Bayroqqa yeting!",
+        "Text": "A/D - walk   Space - jump   Reach the flag!",
         "LocalizationKey": "hud.controls",
         "Color": [
           0.95,
@@ -3345,7 +3345,7 @@
         "Interactable": true
       },
       "Text": {
-        "Text": "Qayta boshlash",
+        "Text": "Restart",
         "LocalizationKey": "hud.restart",
         "Color": [
           1,
@@ -3821,7 +3821,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Pauza",
+        "Text": "Paused",
         "LocalizationKey": "pause.title",
         "Color": [
           1.0,
@@ -3882,7 +3882,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "O'yin to'xtatildi",
+        "Text": "The game is paused",
         "LocalizationKey": "pause.subtitle",
         "Color": [
           0.78,
@@ -3982,7 +3982,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Resume",
         "LocalizationKey": "pause.resume",
         "Color": [
           0.08,
@@ -4110,7 +4110,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Sozlamalar",
+        "Text": "Settings",
         "LocalizationKey": "pause.settings",
         "Color": [
           0.08,
@@ -4238,7 +4238,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Chiqish",
+        "Text": "Quit",
         "LocalizationKey": "pause.quit",
         "Color": [
           0.08,
@@ -4477,7 +4477,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Sozlamalar",
+        "Text": "Settings",
         "LocalizationKey": "settings.title",
         "Color": [
           1.0,
@@ -4653,7 +4653,7 @@
     },
     {
       "Entity": 7722000000000015,
-      "Tag": "Ovoz Header",
+      "Tag": "Sound Header",
       "Transform": {
         "Translation": [
           0,
@@ -4697,7 +4697,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Ovoz",
+        "Text": "Audio",
         "LocalizationKey": "settings.audio",
         "Color": [
           0.55,
@@ -4714,7 +4714,7 @@
     },
     {
       "Entity": 7722000000000016,
-      "Tag": "Umumiy ovoz",
+      "Tag": "Master volume",
       "Transform": {
         "Translation": [
           0,
@@ -4760,7 +4760,7 @@
     },
     {
       "Entity": 7722000000000017,
-      "Tag": "Umumiy ovoz Label",
+      "Tag": "Master volume Label",
       "Transform": {
         "Translation": [
           0,
@@ -4804,7 +4804,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Umumiy ovoz",
+        "Text": "Master volume",
         "LocalizationKey": "settings.master",
         "Color": [
           0.94,
@@ -4821,7 +4821,7 @@
     },
     {
       "Entity": 7722000000000018,
-      "Tag": "Umumiy ovoz Slider",
+      "Tag": "Master volume Slider",
       "Transform": {
         "Translation": [
           0,
@@ -4911,7 +4911,7 @@
     },
     {
       "Entity": 7722000000000019,
-      "Tag": "Umumiy ovoz Value",
+      "Tag": "Master volume Value",
       "Transform": {
         "Translation": [
           0,
@@ -4971,7 +4971,7 @@
     },
     {
       "Entity": 7722000000000020,
-      "Tag": "Musiqa",
+      "Tag": "Music",
       "Transform": {
         "Translation": [
           0,
@@ -5017,7 +5017,7 @@
     },
     {
       "Entity": 7722000000000021,
-      "Tag": "Musiqa Label",
+      "Tag": "Music Label",
       "Transform": {
         "Translation": [
           0,
@@ -5061,7 +5061,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Musiqa",
+        "Text": "Music",
         "LocalizationKey": "settings.music",
         "Color": [
           0.94,
@@ -5078,7 +5078,7 @@
     },
     {
       "Entity": 7722000000000022,
-      "Tag": "Musiqa Slider",
+      "Tag": "Music Slider",
       "Transform": {
         "Translation": [
           0,
@@ -5168,7 +5168,7 @@
     },
     {
       "Entity": 7722000000000023,
-      "Tag": "Musiqa Value",
+      "Tag": "Music Value",
       "Transform": {
         "Translation": [
           0,
@@ -5228,7 +5228,7 @@
     },
     {
       "Entity": 7722000000000024,
-      "Tag": "Effektlar",
+      "Tag": "Effects",
       "Transform": {
         "Translation": [
           0,
@@ -5274,7 +5274,7 @@
     },
     {
       "Entity": 7722000000000025,
-      "Tag": "Effektlar Label",
+      "Tag": "Effects Label",
       "Transform": {
         "Translation": [
           0,
@@ -5318,7 +5318,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Effektlar",
+        "Text": "Effects",
         "LocalizationKey": "settings.sfx",
         "Color": [
           0.94,
@@ -5335,7 +5335,7 @@
     },
     {
       "Entity": 7722000000000026,
-      "Tag": "Effektlar Slider",
+      "Tag": "Effects Slider",
       "Transform": {
         "Translation": [
           0,
@@ -5425,7 +5425,7 @@
     },
     {
       "Entity": 7722000000000027,
-      "Tag": "Effektlar Value",
+      "Tag": "Effects Value",
       "Transform": {
         "Translation": [
           0,
@@ -5485,7 +5485,7 @@
     },
     {
       "Entity": 7722000000000028,
-      "Tag": "Interfeys",
+      "Tag": "Interface",
       "Transform": {
         "Translation": [
           0,
@@ -5531,7 +5531,7 @@
     },
     {
       "Entity": 7722000000000029,
-      "Tag": "Interfeys Label",
+      "Tag": "Interface Label",
       "Transform": {
         "Translation": [
           0,
@@ -5575,7 +5575,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Interfeys",
+        "Text": "Interface",
         "LocalizationKey": "settings.ui",
         "Color": [
           0.94,
@@ -5592,7 +5592,7 @@
     },
     {
       "Entity": 7722000000000030,
-      "Tag": "Interfeys Slider",
+      "Tag": "Interface Slider",
       "Transform": {
         "Translation": [
           0,
@@ -5682,7 +5682,7 @@
     },
     {
       "Entity": 7722000000000031,
-      "Tag": "Interfeys Value",
+      "Tag": "Interface Value",
       "Transform": {
         "Translation": [
           0,
@@ -5742,7 +5742,7 @@
     },
     {
       "Entity": 7722000000000032,
-      "Tag": "Ekran Header",
+      "Tag": "Display Header",
       "Transform": {
         "Translation": [
           0,
@@ -5786,7 +5786,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Ekran",
+        "Text": "Display",
         "LocalizationKey": "settings.display",
         "Color": [
           0.55,
@@ -5803,7 +5803,7 @@
     },
     {
       "Entity": 7722000000000033,
-      "Tag": "To'liq ekran",
+      "Tag": "Fullscreen",
       "Transform": {
         "Translation": [
           0,
@@ -5875,7 +5875,7 @@
         ]
       },
       "Text": {
-        "Text": "To'liq ekran",
+        "Text": "Fullscreen",
         "LocalizationKey": "settings.fullscreen",
         "Color": [
           0.94,
@@ -5907,7 +5907,7 @@
     },
     {
       "Entity": 7722000000000034,
-      "Tag": "Vertikal sinxronlash (VSync)",
+      "Tag": "Vertical sync (VSync)",
       "Transform": {
         "Translation": [
           0,
@@ -5979,7 +5979,7 @@
         ]
       },
       "Text": {
-        "Text": "Vertikal sinxronlash (VSync)",
+        "Text": "Vertical sync (VSync)",
         "LocalizationKey": "settings.vsync",
         "Color": [
           0.94,
@@ -6268,7 +6268,7 @@
     },
     {
       "Entity": 7722000000000045,
-      "Tag": "Yorqinlik",
+      "Tag": "Brightness",
       "Transform": {
         "Translation": [
           0,
@@ -6314,7 +6314,7 @@
     },
     {
       "Entity": 7722000000000046,
-      "Tag": "Yorqinlik Label",
+      "Tag": "Brightness Label",
       "Transform": {
         "Translation": [
           0,
@@ -6358,7 +6358,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Yorqinlik",
+        "Text": "Brightness",
         "LocalizationKey": "settings.brightness",
         "Color": [
           0.94,
@@ -6375,7 +6375,7 @@
     },
     {
       "Entity": 7722000000000047,
-      "Tag": "Yorqinlik Slider",
+      "Tag": "Brightness Slider",
       "Transform": {
         "Translation": [
           0,
@@ -6465,7 +6465,7 @@
     },
     {
       "Entity": 7722000000000048,
-      "Tag": "Yorqinlik Value",
+      "Tag": "Brightness Value",
       "Transform": {
         "Translation": [
           0,
@@ -6525,7 +6525,7 @@
     },
     {
       "Entity": 7722000000000039,
-      "Tag": "Til Header",
+      "Tag": "Language Header",
       "Transform": {
         "Translation": [
           0,
@@ -6569,7 +6569,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Til",
+        "Text": "Language",
         "LocalizationKey": "settings.language_header",
         "Color": [
           0.55,
@@ -6713,7 +6713,7 @@
     },
     {
       "Entity": 7722000000000035,
-      "Tag": "Boshqaruv Header",
+      "Tag": "Controls Header",
       "Transform": {
         "Translation": [
           0,
@@ -6757,7 +6757,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Boshqaruv",
+        "Text": "Controls",
         "LocalizationKey": "settings.controls",
         "Color": [
           0.55,
@@ -6818,7 +6818,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Esc / Start - pauza. Strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. Ro'yxatni sichqoncha g'ildiragi bilan yoki sudrab aylantiring.",
+        "Text": "Esc / Start - pause. Arrows / D-pad - select, Enter / A - press, Esc / B - back. Scroll the list with the mouse wheel or by dragging.",
         "LocalizationKey": "settings.controls_info",
         "Color": [
           0.78,
@@ -6919,7 +6919,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Orqaga",
+        "Text": "Back",
         "LocalizationKey": "settings.back",
         "Color": [
           0.08,
@@ -7047,7 +7047,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Standart",
+        "Text": "Defaults",
         "LocalizationKey": "settings.reset",
         "Color": [
           0.08,

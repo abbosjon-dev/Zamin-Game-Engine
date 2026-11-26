@@ -44,15 +44,15 @@
     "Gravity3D": [0, -9.81, 0]
   },
   "Metadata": {
-    "Description": "FPS Arena: birinchi shaxs boshqaruvi - sichqoncha bilan qarash, yugurish, sakrash, cho'kkalash, sakratgich, parkur yo'lagi; raycast bilan otish va nishonlar (turg'un, sirpanuvchi, chiquvchi, dron)",
+    "Description": "FPS Arena: a first-person controller - mouse look, sprinting, jumping, crouching, a jump pad, a parkour course; raycast shooting and targets (standing, sliding, pop-up, drone)",
     "Author": "Zamin",
-    "Tags": ["namuna", "3D", "fps"]
+    "Tags": ["sample", "3D", "fps"]
   },
   "RootOrder": [8830000000000001, 8830000000000002, 8830000000000058, 8830000000000065, 8830000000000174, 8830000000000177, 8830000000000179, 8830000000000194, 8830000000000195],
   "Entities": [
     {
       "Entity": 8830000000000001,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [-0.5585053606381855, 0.6108652381980153, 0.0],
@@ -76,7 +76,7 @@
     },
     {
       "Entity": 8830000000000003,
-      "Tag": "Pol",
+      "Tag": "Floor",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [0.0, -0.5, 0.0],
@@ -125,7 +125,7 @@
     },
     {
       "Entity": 8830000000000004,
-      "Tag": "Devor (shimol)",
+      "Tag": "Wall (north)",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [0.0, 3.0, -25.0],
@@ -174,7 +174,7 @@
     },
     {
       "Entity": 8830000000000005,
-      "Tag": "Devor (janub)",
+      "Tag": "Wall (south)",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [0.0, 3.0, 25.0],
@@ -223,7 +223,7 @@
     },
     {
       "Entity": 8830000000000006,
-      "Tag": "Devor (g'arb)",
+      "Tag": "Wall (west)",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-25.0, 3.0, 0.0],
@@ -272,7 +272,7 @@
     },
     {
       "Entity": 8830000000000007,
-      "Tag": "Devor (sharq)",
+      "Tag": "Wall (east)",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [25.0, 3.0, 0.0],
@@ -321,7 +321,7 @@
     },
     {
       "Entity": 8830000000000008,
-      "Tag": "Chiroq tasmasi 1",
+      "Tag": "Light strip 1",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [0.0, 5.6, -24.45],
@@ -355,7 +355,7 @@
     },
     {
       "Entity": 8830000000000009,
-      "Tag": "Chiroq tasmasi 2",
+      "Tag": "Light strip 2",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [0.0, 5.6, 24.45],
@@ -389,7 +389,7 @@
     },
     {
       "Entity": 8830000000000010,
-      "Tag": "Chiroq tasmasi 3",
+      "Tag": "Light strip 3",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-24.45, 5.6, 0.0],
@@ -423,7 +423,7 @@
     },
     {
       "Entity": 8830000000000011,
-      "Tag": "Chiroq tasmasi 4",
+      "Tag": "Light strip 4",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [24.45, 5.6, 0.0],
@@ -457,7 +457,7 @@
     },
     {
       "Entity": 8830000000000012,
-      "Tag": "Platforma",
+      "Tag": "Platform",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -468,7 +468,7 @@
     },
     {
       "Entity": 8830000000000013,
-      "Tag": "Platforma tanasi",
+      "Tag": "Platform body",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [0.0, 1.0, 0.0],
@@ -517,7 +517,7 @@
     },
     {
       "Entity": 8830000000000014,
-      "Tag": "Platforma usti",
+      "Tag": "Platform top",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [0.0, 2.02, 0.0],
@@ -551,7 +551,7 @@
     },
     {
       "Entity": 8830000000000015,
-      "Tag": "Qiya yo'lak",
+      "Tag": "Ramp",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [0.0, 0.7919968603062709, -8.5],
@@ -600,7 +600,7 @@
     },
     {
       "Entity": 8830000000000016,
-      "Tag": "Zina 1",
+      "Tag": "Step 1",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [5.25, 1.0, 0.0],
@@ -649,7 +649,7 @@
     },
     {
       "Entity": 8830000000000017,
-      "Tag": "Zina 2",
+      "Tag": "Step 2",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [5.75, 0.8571428571428572, 0.0],
@@ -698,7 +698,7 @@
     },
     {
       "Entity": 8830000000000018,
-      "Tag": "Zina 3",
+      "Tag": "Step 3",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [6.25, 0.7142857142857143, 0.0],
@@ -747,7 +747,7 @@
     },
     {
       "Entity": 8830000000000019,
-      "Tag": "Zina 4",
+      "Tag": "Step 4",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [6.75, 0.5714285714285714, 0.0],
@@ -796,7 +796,7 @@
     },
     {
       "Entity": 8830000000000020,
-      "Tag": "Zina 5",
+      "Tag": "Step 5",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [7.25, 0.4285714285714286, 0.0],
@@ -845,7 +845,7 @@
     },
     {
       "Entity": 8830000000000021,
-      "Tag": "Zina 6",
+      "Tag": "Step 6",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [7.75, 0.2857142857142858, 0.0],
@@ -894,7 +894,7 @@
     },
     {
       "Entity": 8830000000000022,
-      "Tag": "Zina 7",
+      "Tag": "Step 7",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [8.25, 0.1428571428571429, 0.0],
@@ -943,7 +943,7 @@
     },
     {
       "Entity": 8830000000000023,
-      "Tag": "Platforma chirog'i",
+      "Tag": "Platform light",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [-4.6, 2.6, -4.6],
@@ -982,7 +982,7 @@
     },
     {
       "Entity": 8830000000000024,
-      "Tag": "Platforma chirog'i",
+      "Tag": "Platform light",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [4.6, 2.6, -4.6],
@@ -1021,7 +1021,7 @@
     },
     {
       "Entity": 8830000000000025,
-      "Tag": "Platforma chirog'i",
+      "Tag": "Platform light",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [-4.6, 2.6, 4.6],
@@ -1060,7 +1060,7 @@
     },
     {
       "Entity": 8830000000000026,
-      "Tag": "Platforma chirog'i",
+      "Tag": "Platform light",
       "Parent": 8830000000000012,
       "Transform": {
         "Translation": [4.6, 2.6, 4.6],
@@ -1099,7 +1099,7 @@
     },
     {
       "Entity": 8830000000000027,
-      "Tag": "Ustun 1",
+      "Tag": "Pillar 1",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-8.0, 3.0, -10.0],
@@ -1149,7 +1149,7 @@
     },
     {
       "Entity": 8830000000000028,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000027,
       "Transform": {
         "Translation": [0.0, 0.15, 0.0],
@@ -1183,7 +1183,7 @@
     },
     {
       "Entity": 8830000000000029,
-      "Tag": "Ustun 2",
+      "Tag": "Pillar 2",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [8.0, 3.0, -10.0],
@@ -1233,7 +1233,7 @@
     },
     {
       "Entity": 8830000000000030,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000029,
       "Transform": {
         "Translation": [0.0, 0.15, 0.0],
@@ -1267,7 +1267,7 @@
     },
     {
       "Entity": 8830000000000031,
-      "Tag": "Ustun 3",
+      "Tag": "Pillar 3",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-18.0, 3.0, 0.0],
@@ -1317,7 +1317,7 @@
     },
     {
       "Entity": 8830000000000032,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000031,
       "Transform": {
         "Translation": [0.0, 0.15, 0.0],
@@ -1351,7 +1351,7 @@
     },
     {
       "Entity": 8830000000000033,
-      "Tag": "Ustun 4",
+      "Tag": "Pillar 4",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [18.0, 3.0, 8.0],
@@ -1401,7 +1401,7 @@
     },
     {
       "Entity": 8830000000000034,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000033,
       "Transform": {
         "Translation": [0.0, 0.15, 0.0],
@@ -1435,7 +1435,7 @@
     },
     {
       "Entity": 8830000000000035,
-      "Tag": "Ustun 5",
+      "Tag": "Pillar 5",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-8.0, 3.0, 18.0],
@@ -1485,7 +1485,7 @@
     },
     {
       "Entity": 8830000000000036,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000035,
       "Transform": {
         "Translation": [0.0, 0.15, 0.0],
@@ -1519,7 +1519,7 @@
     },
     {
       "Entity": 8830000000000037,
-      "Tag": "Ustun 6",
+      "Tag": "Pillar 6",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [6.0, 3.0, 10.0],
@@ -1569,7 +1569,7 @@
     },
     {
       "Entity": 8830000000000038,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000037,
       "Transform": {
         "Translation": [0.0, 0.15, 0.0],
@@ -1603,7 +1603,7 @@
     },
     {
       "Entity": 8830000000000039,
-      "Tag": "Pana 1",
+      "Tag": "Cover 1",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-14.0, 0.7, -16.0],
@@ -1652,7 +1652,7 @@
     },
     {
       "Entity": 8830000000000040,
-      "Tag": "Pana 2",
+      "Tag": "Cover 2",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [16.0, 0.7, -15.0],
@@ -1701,7 +1701,7 @@
     },
     {
       "Entity": 8830000000000041,
-      "Tag": "Pana 3",
+      "Tag": "Cover 3",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-4.0, 0.7, 12.0],
@@ -1750,7 +1750,7 @@
     },
     {
       "Entity": 8830000000000042,
-      "Tag": "Pana 4",
+      "Tag": "Cover 4",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [18.0, 0.7, 18.0],
@@ -1799,7 +1799,7 @@
     },
     {
       "Entity": 8830000000000043,
-      "Tag": "Quti 1",
+      "Tag": "Crate 1",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-19.0, 0.6, -18.0],
@@ -1848,7 +1848,7 @@
     },
     {
       "Entity": 8830000000000044,
-      "Tag": "Quti 2",
+      "Tag": "Crate 2",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-17.7, 0.6, -18.2],
@@ -1897,7 +1897,7 @@
     },
     {
       "Entity": 8830000000000045,
-      "Tag": "Quti 3",
+      "Tag": "Crate 3",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-18.4, 1.8, -18.1],
@@ -1946,7 +1946,7 @@
     },
     {
       "Entity": 8830000000000046,
-      "Tag": "Quti 4",
+      "Tag": "Crate 4",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [19.0, 0.6, -3.0],
@@ -1995,7 +1995,7 @@
     },
     {
       "Entity": 8830000000000047,
-      "Tag": "Quti 5",
+      "Tag": "Crate 5",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [19.2, 0.6, -1.7],
@@ -2044,7 +2044,7 @@
     },
     {
       "Entity": 8830000000000048,
-      "Tag": "Quti 6",
+      "Tag": "Crate 6",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-20.0, 0.6, 15.0],
@@ -2093,7 +2093,7 @@
     },
     {
       "Entity": 8830000000000049,
-      "Tag": "Quti 7",
+      "Tag": "Crate 7",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [9.0, 0.6, 19.0],
@@ -2142,7 +2142,7 @@
     },
     {
       "Entity": 8830000000000050,
-      "Tag": "Quti 8",
+      "Tag": "Crate 8",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [10.3, 0.6, 19.4],
@@ -2191,7 +2191,7 @@
     },
     {
       "Entity": 8830000000000051,
-      "Tag": "Rangli chiroq 1",
+      "Tag": "Coloured light 1",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-18.0, 4.0, -18.0],
@@ -2206,7 +2206,7 @@
     },
     {
       "Entity": 8830000000000052,
-      "Tag": "Rangli chiroq 2",
+      "Tag": "Coloured light 2",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [18.0, 4.0, -18.0],
@@ -2221,7 +2221,7 @@
     },
     {
       "Entity": 8830000000000053,
-      "Tag": "Rangli chiroq 3",
+      "Tag": "Coloured light 3",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-18.0, 4.0, 18.0],
@@ -2236,7 +2236,7 @@
     },
     {
       "Entity": 8830000000000054,
-      "Tag": "Rangli chiroq 4",
+      "Tag": "Coloured light 4",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [18.0, 4.0, 18.0],
@@ -2251,7 +2251,7 @@
     },
     {
       "Entity": 8830000000000055,
-      "Tag": "Sakratgich",
+      "Tag": "Jump pad",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-12.0, 0.06, 12.0],
@@ -2287,7 +2287,7 @@
     },
     {
       "Entity": 8830000000000056,
-      "Tag": "Sakratgich chirog'i",
+      "Tag": "Jump pad light",
       "Parent": 8830000000000055,
       "Transform": {
         "Translation": [0.0, 8.0, 0.0],
@@ -2302,7 +2302,7 @@
     },
     {
       "Entity": 8830000000000057,
-      "Tag": "Sakratgich zarralari",
+      "Tag": "Jump pad particles",
       "Parent": 8830000000000002,
       "Transform": {
         "Translation": [-12.0, 0.2, 12.0],
@@ -2342,7 +2342,7 @@
     },
     {
       "Entity": 8830000000000058,
-      "Tag": "Parkur",
+      "Tag": "Parkour",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2352,7 +2352,7 @@
     },
     {
       "Entity": 8830000000000059,
-      "Tag": "Nuqta 1",
+      "Tag": "Checkpoint 1",
       "Parent": 8830000000000058,
       "Transform": {
         "Translation": [0.0, 1.3, -17.0],
@@ -2391,7 +2391,7 @@
     },
     {
       "Entity": 8830000000000060,
-      "Tag": "Nuqta 2",
+      "Tag": "Checkpoint 2",
       "Parent": 8830000000000058,
       "Transform": {
         "Translation": [0.0, 3.3, -1.5],
@@ -2430,7 +2430,7 @@
     },
     {
       "Entity": 8830000000000061,
-      "Tag": "Nuqta 3",
+      "Tag": "Checkpoint 3",
       "Parent": 8830000000000058,
       "Transform": {
         "Translation": [11.0, 1.3, 0.0],
@@ -2469,7 +2469,7 @@
     },
     {
       "Entity": 8830000000000062,
-      "Tag": "Nuqta 4",
+      "Tag": "Checkpoint 4",
       "Parent": 8830000000000058,
       "Transform": {
         "Translation": [13.0, 1.3, 15.0],
@@ -2508,7 +2508,7 @@
     },
     {
       "Entity": 8830000000000063,
-      "Tag": "Nuqta 5",
+      "Tag": "Checkpoint 5",
       "Parent": 8830000000000058,
       "Transform": {
         "Translation": [-12.0, 8.0, 12.0],
@@ -2547,7 +2547,7 @@
     },
     {
       "Entity": 8830000000000064,
-      "Tag": "Nuqta 6",
+      "Tag": "Checkpoint 6",
       "Parent": 8830000000000058,
       "Transform": {
         "Translation": [-17.0, 1.3, -8.0],
@@ -2586,7 +2586,7 @@
     },
     {
       "Entity": 8830000000000065,
-      "Tag": "Nishonlar",
+      "Tag": "Targets",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2596,7 +2596,7 @@
     },
     {
       "Entity": 8830000000000066,
-      "Tag": "Nishon 1",
+      "Tag": "Target 1",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-22.6, 0.0, -6.0],
@@ -2640,7 +2640,7 @@
     },
     {
       "Entity": 8830000000000067,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000066,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -2674,7 +2674,7 @@
     },
     {
       "Entity": 8830000000000068,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000066,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -2708,7 +2708,7 @@
     },
     {
       "Entity": 8830000000000069,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000066,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -2719,7 +2719,7 @@
     },
     {
       "Entity": 8830000000000070,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000069,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -2753,7 +2753,7 @@
     },
     {
       "Entity": 8830000000000071,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000069,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -2787,7 +2787,7 @@
     },
     {
       "Entity": 8830000000000072,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000069,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -2836,7 +2836,7 @@
     },
     {
       "Entity": 8830000000000073,
-      "Tag": "Nishon 2",
+      "Tag": "Target 2",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [22.6, 0.0, -3.0],
@@ -2880,7 +2880,7 @@
     },
     {
       "Entity": 8830000000000074,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000073,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -2914,7 +2914,7 @@
     },
     {
       "Entity": 8830000000000075,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000073,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -2948,7 +2948,7 @@
     },
     {
       "Entity": 8830000000000076,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000073,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -2959,7 +2959,7 @@
     },
     {
       "Entity": 8830000000000077,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000076,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -2993,7 +2993,7 @@
     },
     {
       "Entity": 8830000000000078,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000076,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -3027,7 +3027,7 @@
     },
     {
       "Entity": 8830000000000079,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000076,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -3076,7 +3076,7 @@
     },
     {
       "Entity": 8830000000000080,
-      "Tag": "Nishon 3",
+      "Tag": "Target 3",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [14.0, 0.0, -22.6],
@@ -3120,7 +3120,7 @@
     },
     {
       "Entity": 8830000000000081,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000080,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -3154,7 +3154,7 @@
     },
     {
       "Entity": 8830000000000082,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000080,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -3188,7 +3188,7 @@
     },
     {
       "Entity": 8830000000000083,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000080,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -3199,7 +3199,7 @@
     },
     {
       "Entity": 8830000000000084,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000083,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -3233,7 +3233,7 @@
     },
     {
       "Entity": 8830000000000085,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000083,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -3267,7 +3267,7 @@
     },
     {
       "Entity": 8830000000000086,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000083,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -3316,7 +3316,7 @@
     },
     {
       "Entity": 8830000000000087,
-      "Tag": "Nishon 4",
+      "Tag": "Target 4",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [6.0, 0.0, 22.6],
@@ -3360,7 +3360,7 @@
     },
     {
       "Entity": 8830000000000088,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000087,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -3394,7 +3394,7 @@
     },
     {
       "Entity": 8830000000000089,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000087,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -3428,7 +3428,7 @@
     },
     {
       "Entity": 8830000000000090,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000087,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -3439,7 +3439,7 @@
     },
     {
       "Entity": 8830000000000091,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000090,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -3473,7 +3473,7 @@
     },
     {
       "Entity": 8830000000000092,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000090,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -3507,7 +3507,7 @@
     },
     {
       "Entity": 8830000000000093,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000090,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -3556,7 +3556,7 @@
     },
     {
       "Entity": 8830000000000094,
-      "Tag": "Nishon 5",
+      "Tag": "Target 5",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-22.6, 0.0, 6.0],
@@ -3600,7 +3600,7 @@
     },
     {
       "Entity": 8830000000000095,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000094,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -3634,7 +3634,7 @@
     },
     {
       "Entity": 8830000000000096,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000094,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -3668,7 +3668,7 @@
     },
     {
       "Entity": 8830000000000097,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000094,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -3679,7 +3679,7 @@
     },
     {
       "Entity": 8830000000000098,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000097,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -3713,7 +3713,7 @@
     },
     {
       "Entity": 8830000000000099,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000097,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -3747,7 +3747,7 @@
     },
     {
       "Entity": 8830000000000100,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000097,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -3796,7 +3796,7 @@
     },
     {
       "Entity": 8830000000000101,
-      "Tag": "Chiquvchi nishon 1",
+      "Tag": "Pop-up target 1",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-20.0, 0.0, 20.5],
@@ -3840,7 +3840,7 @@
     },
     {
       "Entity": 8830000000000102,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000101,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -3874,7 +3874,7 @@
     },
     {
       "Entity": 8830000000000103,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000101,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -3908,7 +3908,7 @@
     },
     {
       "Entity": 8830000000000104,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000101,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -3919,7 +3919,7 @@
     },
     {
       "Entity": 8830000000000105,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000104,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -3953,7 +3953,7 @@
     },
     {
       "Entity": 8830000000000106,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000104,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -3987,7 +3987,7 @@
     },
     {
       "Entity": 8830000000000107,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000104,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -4036,7 +4036,7 @@
     },
     {
       "Entity": 8830000000000108,
-      "Tag": "Chiquvchi nishon 2",
+      "Tag": "Pop-up target 2",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [21.0, 0.0, 15.0],
@@ -4080,7 +4080,7 @@
     },
     {
       "Entity": 8830000000000109,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000108,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -4114,7 +4114,7 @@
     },
     {
       "Entity": 8830000000000110,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000108,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -4148,7 +4148,7 @@
     },
     {
       "Entity": 8830000000000111,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000108,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -4159,7 +4159,7 @@
     },
     {
       "Entity": 8830000000000112,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000111,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -4193,7 +4193,7 @@
     },
     {
       "Entity": 8830000000000113,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000111,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -4227,7 +4227,7 @@
     },
     {
       "Entity": 8830000000000114,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000111,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -4276,7 +4276,7 @@
     },
     {
       "Entity": 8830000000000115,
-      "Tag": "Chiquvchi nishon 3",
+      "Tag": "Pop-up target 3",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-13.0, 0.0, -21.5],
@@ -4320,7 +4320,7 @@
     },
     {
       "Entity": 8830000000000116,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000115,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -4354,7 +4354,7 @@
     },
     {
       "Entity": 8830000000000117,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000115,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -4388,7 +4388,7 @@
     },
     {
       "Entity": 8830000000000118,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000115,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -4399,7 +4399,7 @@
     },
     {
       "Entity": 8830000000000119,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000118,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -4433,7 +4433,7 @@
     },
     {
       "Entity": 8830000000000120,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000118,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -4467,7 +4467,7 @@
     },
     {
       "Entity": 8830000000000121,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000118,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -4516,7 +4516,7 @@
     },
     {
       "Entity": 8830000000000122,
-      "Tag": "Chiquvchi nishon 4",
+      "Tag": "Pop-up target 4",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [13.0, 0.0, 21.0],
@@ -4560,7 +4560,7 @@
     },
     {
       "Entity": 8830000000000123,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000122,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -4594,7 +4594,7 @@
     },
     {
       "Entity": 8830000000000124,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000122,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -4628,7 +4628,7 @@
     },
     {
       "Entity": 8830000000000125,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000122,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -4639,7 +4639,7 @@
     },
     {
       "Entity": 8830000000000126,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000125,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -4673,7 +4673,7 @@
     },
     {
       "Entity": 8830000000000127,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000125,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -4707,7 +4707,7 @@
     },
     {
       "Entity": 8830000000000128,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000125,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -4756,7 +4756,7 @@
     },
     {
       "Entity": 8830000000000129,
-      "Tag": "Sirpanuvchi nishon 1",
+      "Tag": "Sliding target 1",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-8.0, 0.0, -22.8],
@@ -4800,7 +4800,7 @@
     },
     {
       "Entity": 8830000000000130,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000129,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -4834,7 +4834,7 @@
     },
     {
       "Entity": 8830000000000131,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000129,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -4868,7 +4868,7 @@
     },
     {
       "Entity": 8830000000000132,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000129,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -4879,7 +4879,7 @@
     },
     {
       "Entity": 8830000000000133,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000132,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -4913,7 +4913,7 @@
     },
     {
       "Entity": 8830000000000134,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000132,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -4947,7 +4947,7 @@
     },
     {
       "Entity": 8830000000000135,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000132,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -4996,7 +4996,7 @@
     },
     {
       "Entity": 8830000000000136,
-      "Tag": "Rels 1",
+      "Tag": "Rail 1",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-2.0, 0.03, -22.8],
@@ -5030,7 +5030,7 @@
     },
     {
       "Entity": 8830000000000137,
-      "Tag": "Rels chirog'i 1",
+      "Tag": "Rail light 1",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-2.0, 0.065, -22.8],
@@ -5064,7 +5064,7 @@
     },
     {
       "Entity": 8830000000000138,
-      "Tag": "Sirpanuvchi nishon 2",
+      "Tag": "Sliding target 2",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [22.8, 0.0, 3.0],
@@ -5108,7 +5108,7 @@
     },
     {
       "Entity": 8830000000000139,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000138,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -5142,7 +5142,7 @@
     },
     {
       "Entity": 8830000000000140,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000138,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -5176,7 +5176,7 @@
     },
     {
       "Entity": 8830000000000141,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000138,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -5187,7 +5187,7 @@
     },
     {
       "Entity": 8830000000000142,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000141,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -5221,7 +5221,7 @@
     },
     {
       "Entity": 8830000000000143,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000141,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -5255,7 +5255,7 @@
     },
     {
       "Entity": 8830000000000144,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000141,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -5304,7 +5304,7 @@
     },
     {
       "Entity": 8830000000000145,
-      "Tag": "Rels 2",
+      "Tag": "Rail 2",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [22.8, 0.03, 7.0],
@@ -5338,7 +5338,7 @@
     },
     {
       "Entity": 8830000000000146,
-      "Tag": "Rels chirog'i 2",
+      "Tag": "Rail light 2",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [22.8, 0.065, 7.0],
@@ -5372,7 +5372,7 @@
     },
     {
       "Entity": 8830000000000147,
-      "Tag": "Sirpanuvchi nishon 3",
+      "Tag": "Sliding target 3",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-16.0, 0.0, 22.8],
@@ -5416,7 +5416,7 @@
     },
     {
       "Entity": 8830000000000148,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8830000000000147,
       "Transform": {
         "Translation": [0.0, 0.04, 0.0],
@@ -5450,7 +5450,7 @@
     },
     {
       "Entity": 8830000000000149,
-      "Tag": "Asos chirog'i",
+      "Tag": "Base light",
       "Parent": 8830000000000147,
       "Transform": {
         "Translation": [0.0, 0.085, 0.0],
@@ -5484,7 +5484,7 @@
     },
     {
       "Entity": 8830000000000150,
-      "Tag": "Ilmoq",
+      "Tag": "Hinge",
       "Parent": 8830000000000147,
       "Transform": {
         "Translation": [0.0, 0.1, 0.0],
@@ -5495,7 +5495,7 @@
     },
     {
       "Entity": 8830000000000151,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8830000000000150,
       "Transform": {
         "Translation": [0.0, 0.62, -0.06],
@@ -5529,7 +5529,7 @@
     },
     {
       "Entity": 8830000000000152,
-      "Tag": "Orqa halqa",
+      "Tag": "Back ring",
       "Parent": 8830000000000150,
       "Transform": {
         "Translation": [0.0, 1.35, -0.06],
@@ -5563,7 +5563,7 @@
     },
     {
       "Entity": 8830000000000153,
-      "Tag": "Nishon yuzi",
+      "Tag": "Target face",
       "Parent": 8830000000000150,
       "Transform": {
         "Translation": [0.0, 1.35, 0.0],
@@ -5612,7 +5612,7 @@
     },
     {
       "Entity": 8830000000000154,
-      "Tag": "Rels 3",
+      "Tag": "Rail 3",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-10.0, 0.03, 22.8],
@@ -5646,7 +5646,7 @@
     },
     {
       "Entity": 8830000000000155,
-      "Tag": "Rels chirog'i 3",
+      "Tag": "Rail light 3",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-10.0, 0.065, 22.8],
@@ -5680,7 +5680,7 @@
     },
     {
       "Entity": 8830000000000156,
-      "Tag": "Dron 1",
+      "Tag": "Drone 1",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [-10.0, 5.5, -5.0],
@@ -5720,7 +5720,7 @@
     },
     {
       "Entity": 8830000000000157,
-      "Tag": "Tana",
+      "Tag": "Body",
       "Parent": 8830000000000156,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5746,7 +5746,7 @@
     },
     {
       "Entity": 8830000000000158,
-      "Tag": "Korpus",
+      "Tag": "Hull",
       "Parent": 8830000000000157,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5780,7 +5780,7 @@
     },
     {
       "Entity": 8830000000000159,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000157,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5814,7 +5814,7 @@
     },
     {
       "Entity": 8830000000000160,
-      "Tag": "Ko'z",
+      "Tag": "Eye",
       "Parent": 8830000000000157,
       "Transform": {
         "Translation": [0.0, 0.02, 0.33],
@@ -5848,7 +5848,7 @@
     },
     {
       "Entity": 8830000000000161,
-      "Tag": "Dron chirog'i",
+      "Tag": "Drone light",
       "Parent": 8830000000000157,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5863,7 +5863,7 @@
     },
     {
       "Entity": 8830000000000162,
-      "Tag": "Dron 2",
+      "Tag": "Drone 2",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [10.0, 6.5, 6.0],
@@ -5903,7 +5903,7 @@
     },
     {
       "Entity": 8830000000000163,
-      "Tag": "Tana",
+      "Tag": "Body",
       "Parent": 8830000000000162,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5929,7 +5929,7 @@
     },
     {
       "Entity": 8830000000000164,
-      "Tag": "Korpus",
+      "Tag": "Hull",
       "Parent": 8830000000000163,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5963,7 +5963,7 @@
     },
     {
       "Entity": 8830000000000165,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000163,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -5997,7 +5997,7 @@
     },
     {
       "Entity": 8830000000000166,
-      "Tag": "Ko'z",
+      "Tag": "Eye",
       "Parent": 8830000000000163,
       "Transform": {
         "Translation": [0.0, 0.02, 0.33],
@@ -6031,7 +6031,7 @@
     },
     {
       "Entity": 8830000000000167,
-      "Tag": "Dron chirog'i",
+      "Tag": "Drone light",
       "Parent": 8830000000000163,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6046,7 +6046,7 @@
     },
     {
       "Entity": 8830000000000168,
-      "Tag": "Dron 3",
+      "Tag": "Drone 3",
       "Parent": 8830000000000065,
       "Transform": {
         "Translation": [2.0, 7.5, 14.0],
@@ -6086,7 +6086,7 @@
     },
     {
       "Entity": 8830000000000169,
-      "Tag": "Tana",
+      "Tag": "Body",
       "Parent": 8830000000000168,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6112,7 +6112,7 @@
     },
     {
       "Entity": 8830000000000170,
-      "Tag": "Korpus",
+      "Tag": "Hull",
       "Parent": 8830000000000169,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6146,7 +6146,7 @@
     },
     {
       "Entity": 8830000000000171,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8830000000000169,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6180,7 +6180,7 @@
     },
     {
       "Entity": 8830000000000172,
-      "Tag": "Ko'z",
+      "Tag": "Eye",
       "Parent": 8830000000000169,
       "Transform": {
         "Translation": [0.0, 0.02, 0.33],
@@ -6214,7 +6214,7 @@
     },
     {
       "Entity": 8830000000000173,
-      "Tag": "Dron chirog'i",
+      "Tag": "Drone light",
       "Parent": 8830000000000169,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6229,7 +6229,7 @@
     },
     {
       "Entity": 8830000000000174,
-      "Tag": "Effektlar",
+      "Tag": "Effects",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6239,7 +6239,7 @@
     },
     {
       "Entity": 8830000000000175,
-      "Tag": "Uchqunlar",
+      "Tag": "Sparks",
       "Parent": 8830000000000174,
       "Transform": {
         "Translation": [0.0, -50.0, 0.0],
@@ -6279,7 +6279,7 @@
     },
     {
       "Entity": 8830000000000176,
-      "Tag": "Tegish chirog'i",
+      "Tag": "Hit light",
       "Parent": 8830000000000174,
       "Transform": {
         "Translation": [0.0, -50.0, 0.0],
@@ -6294,7 +6294,7 @@
     },
     {
       "Entity": 8830000000000177,
-      "Tag": "Shablonlar",
+      "Tag": "Templates",
       "Active": false,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6305,7 +6305,7 @@
     },
     {
       "Entity": 8830000000000178,
-      "Tag": "Nur izi",
+      "Tag": "Tracer",
       "Parent": 8830000000000177,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6348,7 +6348,7 @@
     },
     {
       "Entity": 8830000000000179,
-      "Tag": "O'yinchi",
+      "Tag": "Player",
       "Transform": {
         "Translation": [0.0, 0.05, -20.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -6390,7 +6390,7 @@
     },
     {
       "Entity": 8830000000000180,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 8830000000000179,
       "Transform": {
         "Translation": [0.0, 1.62, 0.0],
@@ -6418,7 +6418,7 @@
     },
     {
       "Entity": 8830000000000181,
-      "Tag": "Qurol",
+      "Tag": "Weapon",
       "Parent": 8830000000000180,
       "Transform": {
         "Translation": [0.2, -0.2, -0.36],
@@ -6458,7 +6458,7 @@
     },
     {
       "Entity": 8830000000000182,
-      "Tag": "Korpus",
+      "Tag": "Hull",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -6492,7 +6492,7 @@
     },
     {
       "Entity": 8830000000000183,
-      "Tag": "Ustki qism",
+      "Tag": "Top part",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.07, 0.04],
@@ -6526,7 +6526,7 @@
     },
     {
       "Entity": 8830000000000184,
-      "Tag": "Stvol",
+      "Tag": "Barrel",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.015, -0.3],
@@ -6560,7 +6560,7 @@
     },
     {
       "Entity": 8830000000000185,
-      "Tag": "Energiya",
+      "Tag": "Energy cell",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.047, 0.01, 0.0],
@@ -6594,7 +6594,7 @@
     },
     {
       "Entity": 8830000000000186,
-      "Tag": "Energiya 2",
+      "Tag": "Energy cell 2",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [-0.047, 0.01, 0.0],
@@ -6628,7 +6628,7 @@
     },
     {
       "Entity": 8830000000000187,
-      "Tag": "Halqa 1",
+      "Tag": "Ring 1",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.015, -0.2],
@@ -6662,7 +6662,7 @@
     },
     {
       "Entity": 8830000000000188,
-      "Tag": "Halqa 2",
+      "Tag": "Ring 2",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.015, -0.3],
@@ -6696,7 +6696,7 @@
     },
     {
       "Entity": 8830000000000189,
-      "Tag": "Halqa 3",
+      "Tag": "Ring 3",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.015, -0.4],
@@ -6730,7 +6730,7 @@
     },
     {
       "Entity": 8830000000000190,
-      "Tag": "Dasta",
+      "Tag": "Grip",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, -0.11, 0.13],
@@ -6764,7 +6764,7 @@
     },
     {
       "Entity": 8830000000000191,
-      "Tag": "Mo'ljal",
+      "Tag": "Sight",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.1, -0.06],
@@ -6798,7 +6798,7 @@
     },
     {
       "Entity": 8830000000000192,
-      "Tag": "Stvol uchi",
+      "Tag": "Muzzle",
       "Parent": 8830000000000181,
       "Transform": {
         "Translation": [0.0, 0.015, -0.49],
@@ -6814,7 +6814,7 @@
     },
     {
       "Entity": 8830000000000193,
-      "Tag": "Chaqnash",
+      "Tag": "Muzzle flash",
       "Parent": 8830000000000192,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7068,7 +7068,7 @@
     },
     {
       "Entity": 8830000000000197,
-      "Tag": "Yuqori fon",
+      "Tag": "Top backdrop",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7095,7 +7095,7 @@
     },
     {
       "Entity": 8830000000000198,
-      "Tag": "Pastki fon",
+      "Tag": "Bottom backdrop",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7122,7 +7122,7 @@
     },
     {
       "Entity": 8830000000000199,
-      "Tag": "Nishon",
+      "Tag": "Crosshair",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7150,7 +7150,7 @@
     },
     {
       "Entity": 8830000000000200,
-      "Tag": "Vaqt",
+      "Tag": "Time",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7178,7 +7178,7 @@
     },
     {
       "Entity": 8830000000000201,
-      "Tag": "Eng yaxshi vaqt",
+      "Tag": "Best time",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7206,7 +7206,7 @@
     },
     {
       "Entity": 8830000000000202,
-      "Tag": "Nuqtalar",
+      "Tag": "Checkpoints",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7234,7 +7234,7 @@
     },
     {
       "Entity": 8830000000000203,
-      "Tag": "Aylanalar",
+      "Tag": "Laps",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7262,7 +7262,7 @@
     },
     {
       "Entity": 8830000000000204,
-      "Tag": "Tezlik",
+      "Tag": "Speed",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7290,7 +7290,7 @@
     },
     {
       "Entity": 8830000000000205,
-      "Tag": "Holat",
+      "Tag": "Status",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7318,7 +7318,7 @@
     },
     {
       "Entity": 8830000000000206,
-      "Tag": "Chidamlilik yorlig'i",
+      "Tag": "Stamina label",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7335,7 +7335,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "CHIDAM",
+        "Text": "STAMINA",
         "Color": [1.0, 0.75, 0.4, 0.85],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -7347,7 +7347,7 @@
     },
     {
       "Entity": 8830000000000207,
-      "Tag": "Chidamlilik",
+      "Tag": "Stamina",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7378,7 +7378,7 @@
     },
     {
       "Entity": 8830000000000208,
-      "Tag": "Maslahat",
+      "Tag": "Hint",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7406,7 +7406,7 @@
     },
     {
       "Entity": 8830000000000209,
-      "Tag": "E'lon",
+      "Tag": "Banner",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7448,7 +7448,7 @@
     },
     {
       "Entity": 8830000000000210,
-      "Tag": "E'lon izohi",
+      "Tag": "Banner note",
       "Parent": 8830000000000209,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7476,7 +7476,7 @@
     },
     {
       "Entity": 8830000000000211,
-      "Tag": "Demo belgisi",
+      "Tag": "Demo badge",
       "Active": false,
       "Parent": 8830000000000196,
       "Transform": {
@@ -7494,7 +7494,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "DEMO - avtomatik o'yin",
+        "Text": "DEMO - autoplay",
         "Color": [1.0, 0.8, 0.35, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -7506,7 +7506,7 @@
     },
     {
       "Entity": 8830000000000212,
-      "Tag": "Ochko",
+      "Tag": "Score popup",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7534,7 +7534,7 @@
     },
     {
       "Entity": 8830000000000213,
-      "Tag": "Seriya",
+      "Tag": "Streak",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7562,7 +7562,7 @@
     },
     {
       "Entity": 8830000000000214,
-      "Tag": "O'q-dori",
+      "Tag": "Ammo",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7590,7 +7590,7 @@
     },
     {
       "Entity": 8830000000000215,
-      "Tag": "Qurol yorlig'i",
+      "Tag": "Weapon label",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7619,7 +7619,7 @@
     },
     {
       "Entity": 8830000000000216,
-      "Tag": "Qayta o'qlash",
+      "Tag": "Reload",
       "Active": false,
       "Parent": 8830000000000196,
       "Transform": {
@@ -7651,7 +7651,7 @@
     },
     {
       "Entity": 8830000000000217,
-      "Tag": "Tegish belgisi",
+      "Tag": "Hit marker",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7679,7 +7679,7 @@
     },
     {
       "Entity": 8830000000000218,
-      "Tag": "Ochko yozuvlari",
+      "Tag": "Score popups",
       "Parent": 8830000000000196,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7699,7 +7699,7 @@
     },
     {
       "Entity": 8830000000000219,
-      "Tag": "Yozuv 1",
+      "Tag": "Popup 1",
       "Parent": 8830000000000218,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7727,7 +7727,7 @@
     },
     {
       "Entity": 8830000000000220,
-      "Tag": "Yozuv 2",
+      "Tag": "Popup 2",
       "Parent": 8830000000000218,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7755,7 +7755,7 @@
     },
     {
       "Entity": 8830000000000221,
-      "Tag": "Yozuv 3",
+      "Tag": "Popup 3",
       "Parent": 8830000000000218,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7783,7 +7783,7 @@
     },
     {
       "Entity": 8830000000000222,
-      "Tag": "Yozuv 4",
+      "Tag": "Popup 4",
       "Parent": 8830000000000218,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7811,7 +7811,7 @@
     },
     {
       "Entity": 8830000000000223,
-      "Tag": "Yozuv 5",
+      "Tag": "Popup 5",
       "Parent": 8830000000000218,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7839,7 +7839,7 @@
     },
     {
       "Entity": 8830000000000224,
-      "Tag": "Bosh menyu",
+      "Tag": "Main menu",
       "Parent": 8830000000000195,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7880,7 +7880,7 @@
     },
     {
       "Entity": 8830000000000225,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7913,7 +7913,7 @@
     },
     {
       "Entity": 8830000000000226,
-      "Tag": "Sarlavha soyasi",
+      "Tag": "Title shadow",
       "Parent": 8830000000000225,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7942,7 +7942,7 @@
     },
     {
       "Entity": 8830000000000227,
-      "Tag": "Sarlavha matni",
+      "Tag": "Title text",
       "Parent": 8830000000000225,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -7971,7 +7971,7 @@
     },
     {
       "Entity": 8830000000000228,
-      "Tag": "Taglavha foni",
+      "Tag": "Subtitle backdrop",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8000,7 +8000,7 @@
     },
     {
       "Entity": 8830000000000229,
-      "Tag": "Taglavha",
+      "Tag": "Subtitle",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8017,7 +8017,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Birinchi shaxs boshqaruvi  ·  Zamin Engine namunasi",
+        "Text": "First-person controller and target shooting  ·  a Zamin Engine sample",
         "Color": [1.0, 0.92, 0.85, 0.95],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8029,7 +8029,7 @@
     },
     {
       "Entity": 8830000000000230,
-      "Tag": "Menyu paneli",
+      "Tag": "Menu panel",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8085,7 +8085,7 @@
     },
     {
       "Entity": 8830000000000231,
-      "Tag": "Parkur",
+      "Tag": "Parkour",
       "Parent": 8830000000000230,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8120,7 +8120,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Parkur",
+        "Text": "Parkour",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8155,7 +8155,7 @@
     },
     {
       "Entity": 8830000000000232,
-      "Tag": "Nishon otish",
+      "Tag": "Target range",
       "Parent": 8830000000000230,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8190,7 +8190,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Nishon otish",
+        "Text": "Target range",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8225,7 +8225,7 @@
     },
     {
       "Entity": 8830000000000233,
-      "Tag": "Til",
+      "Tag": "Language",
       "Parent": 8830000000000230,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8294,7 +8294,7 @@
     },
     {
       "Entity": 8830000000000234,
-      "Tag": "Chiqish",
+      "Tag": "Quit",
       "Parent": 8830000000000230,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8329,7 +8329,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Chiqish",
+        "Text": "Quit",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8364,7 +8364,7 @@
     },
     {
       "Entity": 8830000000000235,
-      "Tag": "Bosh menyu rekordi",
+      "Tag": "Main menu best",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8392,7 +8392,7 @@
     },
     {
       "Entity": 8830000000000236,
-      "Tag": "Boshqaruv foni",
+      "Tag": "Controls backdrop",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8421,7 +8421,7 @@
     },
     {
       "Entity": 8830000000000237,
-      "Tag": "Boshqaruv",
+      "Tag": "Controls",
       "Parent": 8830000000000224,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8438,7 +8438,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "[Look|Sichqoncha] - qarash   ·   [Fire] - otish   ·   [Reload] - qayta o'qlash   ·   [Move] - yurish   ·   [Sprint] - yugurish   ·   [Jump] - sakrash   ·   [Crouch] - cho'kkalash   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
+        "Text": "[Look|Mouse] - look   ·   [Fire] - fire   ·   [Reload] - reload   ·   [Move] - move   ·   [Sprint] - sprint   ·   [Jump] - jump   ·   [Crouch] - crouch   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]",
         "Color": [0.95, 0.9, 0.85, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8451,7 +8451,7 @@
     },
     {
       "Entity": 8830000000000238,
-      "Tag": "Pauza menyusi",
+      "Tag": "Pause menu",
       "Active": false,
       "Parent": 8830000000000195,
       "Transform": {
@@ -8493,7 +8493,7 @@
     },
     {
       "Entity": 8830000000000239,
-      "Tag": "Pauza paneli",
+      "Tag": "Pause panel",
       "Parent": 8830000000000238,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8549,7 +8549,7 @@
     },
     {
       "Entity": 8830000000000240,
-      "Tag": "Pauza sarlavhasi",
+      "Tag": "Pause title",
       "Parent": 8830000000000239,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8566,7 +8566,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "PAUZA",
+        "Text": "PAUSED",
         "Color": [1.0, 0.8, 0.5, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8578,7 +8578,7 @@
     },
     {
       "Entity": 8830000000000241,
-      "Tag": "Davom etish",
+      "Tag": "Resume",
       "Parent": 8830000000000239,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8613,7 +8613,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Resume",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8648,7 +8648,7 @@
     },
     {
       "Entity": 8830000000000242,
-      "Tag": "Sezgirlik yorlig'i",
+      "Tag": "Sensitivity label",
       "Parent": 8830000000000239,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8676,7 +8676,7 @@
     },
     {
       "Entity": 8830000000000243,
-      "Tag": "Sezgirlik",
+      "Tag": "Sensitivity",
       "Parent": 8830000000000239,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8719,7 +8719,7 @@
     },
     {
       "Entity": 8830000000000244,
-      "Tag": "Qaytadan",
+      "Tag": "Restart",
       "Parent": 8830000000000239,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8754,7 +8754,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Qaytadan",
+        "Text": "Restart",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8789,7 +8789,7 @@
     },
     {
       "Entity": 8830000000000245,
-      "Tag": "Bosh menyuga",
+      "Tag": "To main menu",
       "Parent": 8830000000000239,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8824,7 +8824,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -8859,7 +8859,7 @@
     },
     {
       "Entity": 8830000000000246,
-      "Tag": "Natijalar",
+      "Tag": "Results",
       "Active": false,
       "Parent": 8830000000000195,
       "Transform": {
@@ -8901,7 +8901,7 @@
     },
     {
       "Entity": 8830000000000247,
-      "Tag": "Natijalar paneli",
+      "Tag": "Results panel",
       "Parent": 8830000000000246,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8957,7 +8957,7 @@
     },
     {
       "Entity": 8830000000000248,
-      "Tag": "Natijalar sarlavhasi",
+      "Tag": "Results title",
       "Parent": 8830000000000247,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -8985,7 +8985,7 @@
     },
     {
       "Entity": 8830000000000249,
-      "Tag": "Natija ochkosi",
+      "Tag": "Results points",
       "Parent": 8830000000000247,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -9013,7 +9013,7 @@
     },
     {
       "Entity": 8830000000000250,
-      "Tag": "Natija statistikasi",
+      "Tag": "Results stats",
       "Parent": 8830000000000247,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -9041,7 +9041,7 @@
     },
     {
       "Entity": 8830000000000251,
-      "Tag": "Natija rekordi",
+      "Tag": "Results best",
       "Parent": 8830000000000247,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -9069,7 +9069,7 @@
     },
     {
       "Entity": 8830000000000252,
-      "Tag": "Qayta o'ynash",
+      "Tag": "Play again",
       "Parent": 8830000000000247,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -9104,7 +9104,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Qaytadan",
+        "Text": "Restart",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -9139,7 +9139,7 @@
     },
     {
       "Entity": 8830000000000253,
-      "Tag": "Natijadan menyuga",
+      "Tag": "Results to menu",
       "Parent": 8830000000000247,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -9174,7 +9174,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,

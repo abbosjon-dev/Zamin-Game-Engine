@@ -36,8 +36,8 @@ public:
 
         m_AI.Name = GetEntity().GetName();
         m_AI.LogTransitions = true;
-        m_AI.AddState("Patrul", [this] { Enter(m_PatrolSpeed, "", { 1.0f, 1.0f, 1.0f }); })
-            .AddState("Ta'qib",
+        m_AI.AddState("Patrol", [this] { Enter(m_PatrolSpeed, "", { 1.0f, 1.0f, 1.0f }); })
+            .AddState("Chase",
                       [this] {
                           Enter(ChaseSpeed, "!", { 1.0f, 0.55f, 0.5f });
                           PausePatrol(false);
@@ -45,17 +45,17 @@ public:
                           Say("The guard saw you - run away!");
                       },
                       [this](float dt) { Chase(dt); })
-            .AddState("Qidiruv",
+            .AddState("Search",
                       [this] {
                           Enter(m_PatrolSpeed * 1.2f, "?", { 1.0f, 0.85f, 0.55f });
                           SetDestination(GetLastSeenPositionOfEyes());
                       })
-            .AddState("Qaytish",
+            .AddState("Return",
                       [this] {
                           Enter(m_PatrolSpeed, "", { 0.85f, 0.9f, 1.0f });
                           ResumePatrol(true); // to the nearest point of the round
                       })
-            .AddState("Ushladi",
+            .AddState("Caught",
                       [this] {
                           Enter(m_PatrolSpeed, "!", { 1.0f, 0.4f, 0.35f });
                           StopMoving();
@@ -64,16 +64,16 @@ public:
                           Say("You were caught! Try again");
                           ZM_INFO("{} caught the hero", GetEntity().GetName());
                       })
-            .AddTransition("Patrul", "Ta'qib", [this] { return Sees(); })
-            .AddTransition("Qaytish", "Ta'qib", [this] { return Sees(); })
-            .AddTransition("Qidiruv", "Ta'qib", [this] { return Sees(); })
-            .AddTransition("Ta'qib", "Ushladi", [this] { return Caught(); })
-            .AddTransition("Ta'qib", "Qidiruv", [this] { return !Sees(); })
-            .AddTimedTransition("Qidiruv", "Qaytish", SearchTime)
-            .AddTimedTransition("Ushladi", "Qaytish", 1.2f)
+            .AddTransition("Patrol", "Chase", [this] { return Sees(); })
+            .AddTransition("Return", "Chase", [this] { return Sees(); })
+            .AddTransition("Search", "Chase", [this] { return Sees(); })
+            .AddTransition("Chase", "Caught", [this] { return Caught(); })
+            .AddTransition("Chase", "Search", [this] { return !Sees(); })
+            .AddTimedTransition("Search", "Return", SearchTime)
+            .AddTimedTransition("Caught", "Return", 1.2f)
             // Back on the round once it reaches one of its points.
-            .AddEventTransition("Qaytish", "Patrul", "nuqtada");
-        m_AI.Start("Patrul");
+            .AddEventTransition("Return", "Patrol", "at point");
+        m_AI.Start("Patrol");
         WatchStateMachine(m_AI);
     }
 
@@ -87,7 +87,7 @@ public:
             Say("");
     }
 
-    void OnPatrolPointReached(int) override { m_AI.SendEvent("nuqtada"); }
+    void OnPatrolPointReached(int) override { m_AI.SendEvent("at point"); }
 
     void OnDestroy() override { UnwatchStateMachine(m_AI); }
 
@@ -166,7 +166,7 @@ private:
             m_Facing = Math::MoveTowardsAngle(m_Facing, std::atan2(velocity.y, velocity.x), TurnSpeed * dt);
             m_ScanTime = 0.0f;
         }
-        else if (!m_AI.IsInState("Ushladi"))
+        else if (!m_AI.IsInState("Caught"))
         {
             m_ScanTime += dt;
             m_Facing += LookAround * dt * (std::fmod(m_ScanTime, 2.4f) < 1.2f ? 1.0f : -1.0f);

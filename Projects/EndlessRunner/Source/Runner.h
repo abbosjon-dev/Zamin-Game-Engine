@@ -1,9 +1,9 @@
 #pragma once
 
-// Ipak Yo'li - Zamin Engine namuna o'yini: 3D cheksiz yuguruvchi (endless runner).
-// Skriptlar: RunnerGame (dunyo: yo'l bo'laklarini protsedurali yaratish - to'siqlar naqshlari, tangalar, bonuslar,
-// manzara; tezlikning oshishi; to'qnashuvlar; hisob va rekord; HUD, menyular, demo rejimi) va Runner (yuguruvchi:
-// uch yo'lak orasida o'tish, sakrash, sirpanish, yugurish animatsiyasi; avtomatik o'yinchi - bot).
+// Silk Road - a Zamin Engine sample game: a 3D endless runner.
+// Scripts: RunnerGame (the world: procedural road segments - obstacle patterns, coins, power-ups,
+// scenery; the rising speed; collisions; score and record; the HUD, menus, the demo mode) and Runner (the runner:
+// moving between three lanes, jumping, sliding, the run animation; an automatic player - the bot).
 
 #include <Zamin/Zamin.h>
 

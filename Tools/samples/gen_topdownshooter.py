@@ -1,4 +1,4 @@
-"""Projects/TopDownShooter: "Neon Maydon" - its textures, sounds, scene and project file.
+"""Projects/TopDownShooter: "Neon Arena" - its textures, sounds, scene and project file.
 
     python3 Tools/samples/gen_topdownshooter.py
 
@@ -430,34 +430,34 @@ def build_scene():
     s = k.SceneBuilder("Arena", 8810000000000000)
     s.settings = k.settings_2d(ambient2d=(0.45, 0.5, 0.85), ambient2d_intensity=0.55, bloom=(0.8, 0.5, 0.85), vignette=0.38,
                                saturation=1.12, contrast=1.08, chroma=0.12, grain=0.04)
-    s.metadata = {"Description": "Neon Maydon: top-down shooter - to'lqinlar, dushman turlari, hisob va kombo", "Author": "Zamin",
-                  "Tags": ["namuna", "2D", "shooter"]}
+    s.metadata = {"Description": "Neon Arena: a top-down shooter - waves, enemy kinds, score and combos", "Author": "Zamin",
+                  "Tags": ["sample", "2D", "shooter"]}
 
     camera = s.entity("Main Camera", pos=(0, 0, 10), Camera=k.camera_ortho(17.0, (0.01, 0.012, 0.03, 1.0)))
     game = s.entity("Game")  # filled in below (its fields point at everything)
 
     # ---- background and arena
-    s.entity("Kosmos", pos=(0, 0, -1), scale=(70, 70, 1), SpriteRenderer=k.sprite("Textures/space.png", order=-100, tiling=2.0),
+    s.entity("Space", pos=(0, 0, -1), scale=(70, 70, 1), SpriteRenderer=k.sprite("Textures/space.png", order=-100, tiling=2.0),
              Parallax={"Factor": [0.75, 0.75], "RepeatX": False, "RepeatY": False, "Spacing": [0, 0]})
-    arena = s.entity("Maydon")
-    s.entity("Pol", parent=arena, SpriteRenderer=k.sprite("Textures/floor.png", order=-50, lit=True, draw_mode="Tiled",
+    arena = s.entity("Field")
+    s.entity("Floor", parent=arena, SpriteRenderer=k.sprite("Textures/floor.png", order=-50, lit=True, draw_mode="Tiled",
                                                            size=(ARENA_W * 2, ARENA_H * 2), ppu=64))
-    s.entity("Chang", parent=arena, ParticleSystem=k.particles(
+    s.entity("Dust", parent=arena, ParticleSystem=k.particles(
         EmissionRate=7.0, MaxParticles=200, Shape=3, ShapeExtents=(ARENA_W, ARENA_H, 0), LifetimeMin=5.0, LifetimeMax=9.0,
         SpeedMin=0.05, SpeedMax=0.35, Direction=(0, 1, 0), Spread=180.0, StartColor=(0.45, 0.75, 1.0, 0.45), EndColor=(0.6, 0.4, 1.0, 0.0),
         StartSize=0.12, EndSize=0.04, Prewarm=True, SortingOrder=-40))
     # corner lights colour the lit floor
     for i, (cx, cy, col) in enumerate(((-15, 8, (1.0, 0.25, 0.85)), (15, 8, (0.2, 0.75, 1.0)), (-15, -8, (0.2, 0.75, 1.0)),
                                        (15, -8, (1.0, 0.25, 0.85)), (0, 0, (0.45, 0.4, 1.0)))):
-        s.entity(f"Chiroq {i + 1}", parent=arena, pos=(cx, cy, 0), Light2D=k.light2d(col, 0.9 if i < 4 else 0.6, 15 if i < 4 else 20,
+        s.entity(f"Light {i + 1}", parent=arena, pos=(cx, cy, 0), Light2D=k.light2d(col, 0.9 if i < 4 else 0.6, 15 if i < 4 else 20,
                                                                                     falloff=1.6))
     # walls: a dark body with a neon tube along the inside edge
     t = 1.0
     for name, pos, size, tube_pos, tube_size in (
-            ("Devor (yuqori)", (0, ARENA_H + t / 2), (ARENA_W * 2 + 2 * t, t), (0, -t / 2 + 0.06), (ARENA_W * 2 + 0.12, 0.12)),
-            ("Devor (past)", (0, -ARENA_H - t / 2), (ARENA_W * 2 + 2 * t, t), (0, t / 2 - 0.06), (ARENA_W * 2 + 0.12, 0.12)),
-            ("Devor (chap)", (-ARENA_W - t / 2, 0), (t, ARENA_H * 2), (t / 2 - 0.06, 0), (0.12, ARENA_H * 2)),
-            ("Devor (o'ng)", (ARENA_W + t / 2, 0), (t, ARENA_H * 2), (-t / 2 + 0.06, 0), (0.12, ARENA_H * 2))):
+            ("Wall (top)", (0, ARENA_H + t / 2), (ARENA_W * 2 + 2 * t, t), (0, -t / 2 + 0.06), (ARENA_W * 2 + 0.12, 0.12)),
+            ("Wall (bottom)", (0, -ARENA_H - t / 2), (ARENA_W * 2 + 2 * t, t), (0, t / 2 - 0.06), (ARENA_W * 2 + 0.12, 0.12)),
+            ("Wall (left)", (-ARENA_W - t / 2, 0), (t, ARENA_H * 2), (t / 2 - 0.06, 0), (0.12, ARENA_H * 2)),
+            ("Wall (right)", (ARENA_W + t / 2, 0), (t, ARENA_H * 2), (-t / 2 + 0.06, 0), (0.12, ARENA_H * 2))):
         w = s.entity(name, parent=arena, pos=(pos[0], pos[1], 0), scale=(size[0], size[1], 1),
                      SpriteRenderer=k.sprite(col=(0.05, 0.06, 0.11, 1), order=-10),
                      Rigidbody2D=k.rigidbody2d("Static", layer=L["Wall"]), BoxCollider2D=k.box2d((1, 1)))
@@ -467,40 +467,40 @@ def build_scene():
     for i, (bx, by, bw, bh, col) in enumerate(((-9, 4.5, 2.2, 2.2, (1.0, 0.35, 0.9)), (9, -4.5, 2.2, 2.2, (1.0, 0.35, 0.9)),
                                                 (9, 4.5, 1.4, 3.6, (0.35, 0.85, 1.0)), (-9, -4.5, 1.4, 3.6, (0.35, 0.85, 1.0)),
                                                 (0, 7.0, 4.0, 1.0, (0.6, 0.5, 1.0)), (0, -7.0, 4.0, 1.0, (0.6, 0.5, 1.0)))):
-        s.entity(f"To'siq {i + 1}", parent=arena, pos=(bx, by, 0),
+        s.entity(f"Block {i + 1}", parent=arena, pos=(bx, by, 0),
                  SpriteRenderer=k.sprite(ATLAS, "block", col=(*[c * 1.6 for c in col], 1), order=0, draw_mode="Sliced", size=(bw, bh), ppu=48),
                  Rigidbody2D=k.rigidbody2d("Static", layer=L["Wall"]), BoxCollider2D=k.box2d((bw, bh)))
 
     # ---- the player
-    player = s.entity("O'yinchi", pos=(0, -2, 0), Tags=["Player"],
+    player = s.entity("Player", pos=(0, -2, 0), Tags=["Player"],
                       Rigidbody2D=k.rigidbody2d("Dynamic", layer=L["Player"], linear_damping=0.0),
                       CircleCollider2D=k.circle2d(0.45, density=1.0), Light2D=k.light2d((0.35, 0.85, 1.0), 1.5, 8.5, 0.5, 1.8))
     visual = s.entity("Visual", parent=player, scale=(1.35, 1.35, 1), SpriteRenderer=k.sprite(ATLAS, "ship", col=(1.15, 1.25, 1.35, 1), order=20))
-    thruster = s.entity("Dvigatel", parent=visual, pos=(0, -0.42, 0), ParticleSystem=k.particles(
+    thruster = s.entity("Thruster", parent=visual, pos=(0, -0.42, 0), ParticleSystem=k.particles(
         EmissionRate=70.0, MaxParticles=200, LifetimeMin=0.18, LifetimeMax=0.38, SpeedMin=1.0, SpeedMax=2.6, Direction=(0, -1, 0),
         Spread=14.0, StartColor=(0.5, 1.6, 2.4, 1.0), EndColor=(0.3, 0.2, 1.0, 0.0), StartSize=0.26, EndSize=0.02, SortingOrder=18))
-    shield = s.entity("Qalqon", parent=player, scale=(2.3, 2.3, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(0.4, 1.4, 2.0, 0.0), order=21))
-    reticle = s.entity("Nishon", pos=(0, 2, 0), scale=(0.9, 0.9, 1), SpriteRenderer=k.sprite(ATLAS, "reticle", col=(1.0, 1.6, 1.8, 0.85), order=50))
+    shield = s.entity("Shield", parent=player, scale=(2.3, 2.3, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(0.4, 1.4, 2.0, 0.0), order=21))
+    reticle = s.entity("Crosshair", pos=(0, 2, 0), scale=(0.9, 0.9, 1), SpriteRenderer=k.sprite(ATLAS, "reticle", col=(1.0, 1.6, 1.8, 0.85), order=50))
 
     s.add(camera, "Camera2DFollow", k.camera_follow(player, damping=(0.14, 0.14), dead_zone=(0.3, 0.25), look_ahead=(1.6, 1.2),
                                                      bounds=((-ARENA_W - 1.6, -ARENA_H - 1.6), (ARENA_W + 1.6, ARENA_H + 1.6))))
 
     # ---- effects shared by everything (the game moves them and emits bursts)
-    fx = s.entity("Effektlar")
-    explosion = s.entity("Portlash", parent=fx, ParticleSystem=k.particles(
+    fx = s.entity("Effects")
+    explosion = s.entity("Explosion", parent=fx, ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=2500, Shape=1, ShapeRadius=0.25, LifetimeMin=0.3, LifetimeMax=0.85,
         SpeedMin=2.5, SpeedMax=11.0, Direction=(0, 1, 0), Spread=180.0, Drag=3.2, StartColor=(1.6, 0.8, 0.3, 1.0),
         EndColor=(1.0, 0.2, 0.1, 0.0), StartSize=0.38, EndSize=0.0, SortingOrder=30))
-    sparks = s.entity("Uchqunlar", parent=fx, ParticleSystem=k.particles(
+    sparks = s.entity("Sparks", parent=fx, ParticleSystem=k.particles(
         Playing=True, EmissionRate=0.0, MaxParticles=1500, LifetimeMin=0.08, LifetimeMax=0.24, SpeedMin=4.0, SpeedMax=12.0,
         Direction=(0, 1, 0), Spread=180.0, Drag=5.0, StartColor=(2.0, 2.0, 2.0, 1.0), EndColor=(1.0, 0.8, 0.4, 0.0), StartSize=0.16,
         EndSize=0.0, SortingOrder=31))
     flashes = []
     for i in range(6):
-        flashes.append(s.entity(f"Chaqnash {i + 1}", parent=fx, pos=(0, -100, 0), Light2D=k.light2d((1.0, 0.6, 0.3), 0.0, 6.0, 0.5, 1.5)))
+        flashes.append(s.entity(f"Flash {i + 1}", parent=fx, pos=(0, -100, 0), Light2D=k.light2d((1.0, 0.6, 0.3), 0.0, 6.0, 0.5, 1.5)))
 
     # ---- templates (a switched-off group: Instantiate makes active root copies)
-    tpl = s.entity("Shablonlar", active=False)
+    tpl = s.entity("Templates", active=False)
 
     def bullet(name, frame, col, radius, scale, layer, damage, lifetime, from_player, speed):
         b = s.entity(name, parent=tpl, Rigidbody2D=k.rigidbody2d("Dynamic", layer=L[layer], bullet=True),
@@ -509,15 +509,15 @@ def build_scene():
         s.entity("Visual", parent=b, scale=scale, SpriteRenderer=k.sprite(ATLAS, frame, col=col, order=15))
         return b
 
-    t_bullet = bullet("O'q", "bullet", (0.9, 2.2, 3.0, 1.0), 0.16, (0.32, 0.62, 1), "PlayerShot", 1.0, 1.1, True, 26.0)
-    t_ebullet = bullet("Dushman o'qi", "orb", (3.0, 1.1, 0.4, 1.0), 0.2, (0.65, 0.65, 1), "EnemyShot", 1.0, 4.0, False, 8.0)
+    t_bullet = bullet("Shot", "bullet", (0.9, 2.2, 3.0, 1.0), 0.16, (0.32, 0.62, 1), "PlayerShot", 1.0, 1.1, True, 26.0)
+    t_ebullet = bullet("Enemy shot", "orb", (3.0, 1.1, 0.4, 1.0), 0.2, (0.65, 0.65, 1), "EnemyShot", 1.0, 4.0, False, 8.0)
 
     enemy_specs = [
         # kind index (Enemy::Kind), name, frame, scale, radius, density, hp, speed, score, colour (for effects)
-        (0, "Quvg'in", "chaser", 1.05, 0.45, 1.0, 2.0, 5.2, 100, (1.0, 0.3, 0.45)),
-        (1, "To'da", "swarmer", 0.72, 0.3, 0.5, 1.0, 6.8, 50, (0.4, 1.0, 0.45)),
-        (2, "O'qchi", "shooter", 1.15, 0.55, 2.0, 4.0, 3.2, 250, (0.75, 0.4, 1.0)),
-        (3, "Hujumchi", "dasher", 1.05, 0.45, 1.5, 3.0, 4.0, 200, (1.0, 0.82, 0.25)),
+        (0, "Chaser", "chaser", 1.05, 0.45, 1.0, 2.0, 5.2, 100, (1.0, 0.3, 0.45)),
+        (1, "Swarm", "swarmer", 0.72, 0.3, 0.5, 1.0, 6.8, 50, (0.4, 1.0, 0.45)),
+        (2, "Shooter", "shooter", 1.15, 0.55, 2.0, 4.0, 3.2, 250, (0.75, 0.4, 1.0)),
+        (3, "Charger", "dasher", 1.05, 0.45, 1.5, 3.0, 4.0, 200, (1.0, 0.82, 0.25)),
         (4, "Tank", "tank", 1.75, 0.95, 6.0, 14.0, 1.9, 600, (1.0, 0.5, 0.15)),
     ]
     t_enemies = []
@@ -530,20 +530,20 @@ def build_scene():
         t_enemies.append(e)
 
     t_pickups = []
-    for kind, name, frame, col in ((0, "Jon", "heart", (2.2, 0.7, 0.9, 1)), (1, "Tezotar", "bolt", (2.4, 2.0, 0.5, 1)),
-                                   (2, "Uch o'q", "spread", (0.6, 2.2, 1.0, 1))):
+    for kind, name, frame, col in ((0, "Life", "heart", (2.2, 0.7, 0.9, 1)), (1, "Rapid fire", "bolt", (2.4, 2.0, 0.5, 1)),
+                                   (2, "Triple shot", "spread", (0.6, 2.2, 1.0, 1))):
         p = s.entity(f"Bonus: {name}", parent=tpl, Tags=["Pickup"], Rigidbody2D=k.rigidbody2d("Kinematic", layer=L["Pickup"]),
                      CircleCollider2D=k.circle2d(0.6, sensor=True), Light2D=k.light2d(tuple(c / 2.4 for c in col[:3]), 0.9, 3.0),
                      NativeScript=k.script("Pickup", Kind=("Enum", kind), Lifetime=9.0))
-        s.entity("Halqa", parent=p, scale=(1.5, 1.5, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(col[0] * 0.6, col[1] * 0.6, col[2] * 0.6, 0.8), order=5))
+        s.entity("Ring", parent=p, scale=(1.5, 1.5, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(col[0] * 0.6, col[1] * 0.6, col[2] * 0.6, 0.8), order=5))
         s.entity("Visual", parent=p, scale=(0.95, 0.95, 1), SpriteRenderer=k.sprite(ATLAS, frame, col=col, order=6))
         t_pickups.append(p)
 
     t_portal = s.entity("Portal", parent=tpl, scale=(0.2, 0.2, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(1.6, 0.5, 1.8, 1), order=4),
                         NativeScript=k.script("FxAnimator", Lifetime=0.75, StartScale=0.3, EndScale=2.4, Spin=4.0, FadeIn=0.25, FadeOut=0.3))
-    t_wave = s.entity("Zarba to'lqini", parent=tpl, scale=(0.5, 0.5, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(2, 2, 2, 1), order=29),
+    t_wave = s.entity("Shockwave", parent=tpl, scale=(0.5, 0.5, 1), SpriteRenderer=k.sprite(ATLAS, "ring", col=(2, 2, 2, 1), order=29),
                       NativeScript=k.script("FxAnimator", Lifetime=0.45, StartScale=0.5, EndScale=4.5, FadeOut=0.45))
-    t_popup = s.entity("Ochko", parent=tpl, scale=(0.75, 0.75, 1), Text=k.world_text("+100", (1.0, 1.0, 0.6, 1.0), order=1100),
+    t_popup = s.entity("Score popup", parent=tpl, scale=(0.75, 0.75, 1), Text=k.world_text("+100", (1.0, 1.0, 0.6, 1.0), order=1100),
                        NativeScript=k.script("FxAnimator", Lifetime=0.9, StartScale=0.6, EndScale=1.0, Rise=1.6, FadeOut=0.35, Pop=True))
 
     # ---- UI
@@ -554,26 +554,26 @@ def build_scene():
         return s.entity(name, parent=parent, active=active, UITransform=k.ui_rect(anchor, None, pivot, pos, size, font),
                         Text=k.ui_text(txt, col, h, key=key), **extra)
 
-    text("Hisob yorlig'i", hud, "HISOB", (0, 1), (0, 1), (48, -30), (400, 30), 26, (0.55, 0.9, 1.0, 0.85), key="hud.score_label")
-    score_text = text("Hisob", hud, "0", (0, 1), (0, 1), (46, -60), (700, 76), 68)
-    combo_text = text("Kombo", hud, "x1", (0, 1), (0, 1), (48, -142), (500, 44), 36, (1.0, 0.85, 0.3, 1.0))
-    combo_bar = s.entity("Kombo vaqti", parent=hud, UITransform=k.ui_rect((0, 1), None, (0, 1), (50, -192), (260, 10)),
+    text("Score label", hud, "SCORE", (0, 1), (0, 1), (48, -30), (400, 30), 26, (0.55, 0.9, 1.0, 0.85), key="hud.score_label")
+    score_text = text("Score", hud, "0", (0, 1), (0, 1), (46, -60), (700, 76), 68)
+    combo_text = text("Combo", hud, "x1", (0, 1), (0, 1), (48, -142), (500, 44), 36, (1.0, 0.85, 0.3, 1.0))
+    combo_bar = s.entity("Combo timer", parent=hud, UITransform=k.ui_rect((0, 1), None, (0, 1), (50, -192), (260, 10)),
                          UIProgressBar=k.ui_progress(0.0, fill=(1.0, 0.8, 0.25, 1.0), padding=2.0, smooth=0.0))
-    wave_text = text("To'lqin", hud, "WAVE 1", (0.5, 1), (0.5, 1), (0, -28), (800, 56), 46, h="Center")
-    enemies_text = text("Dushmanlar", hud, "", (0.5, 1), (0.5, 1), (0, -88), (800, 32), 26, (0.8, 0.85, 1.0, 0.85), h="Center")
-    hearts = s.entity("Jonlar", parent=hud, UITransform=k.ui_rect((1, 1), None, (1, 1), (-44, -34), (5 * 54, 48)),
+    wave_text = text("Wave", hud, "WAVE 1", (0.5, 1), (0.5, 1), (0, -28), (800, 56), 46, h="Center")
+    enemies_text = text("Enemies", hud, "", (0.5, 1), (0.5, 1), (0, -88), (800, 32), 26, (0.8, 0.85, 1.0, 0.85), h="Center")
+    hearts = s.entity("Lives", parent=hud, UITransform=k.ui_rect((1, 1), None, (1, 1), (-44, -34), (5 * 54, 48)),
                       UILayoutGroup=k.ui_layout("Horizontal", spacing=6, align=5, control_width=False, expand_width=False))
-    heart_ids = [s.entity(f"Jon {i + 1}", parent=hearts, UITransform=k.ui_rect(size=(48, 48)),
+    heart_ids = [s.entity(f"Life {i + 1}", parent=hearts, UITransform=k.ui_rect(size=(48, 48)),
                           UIImage=k.ui_image(texture=ATLAS, frame="heart", preserve_aspect=True, raycast=False)) for i in range(5)]
-    best_text = text("Rekord", hud, "", (1, 1), (1, 1), (-48, -94), (600, 32), 26, (0.75, 0.8, 1.0, 0.8), h="Right")
+    best_text = text("Best", hud, "", (1, 1), (1, 1), (-48, -94), (600, 32), 26, (0.75, 0.8, 1.0, 0.8), h="Right")
     power_text = text("Bonus", hud, "", (0, 0), (0, 0), (48, 40), (900, 40), 30, (0.6, 1.0, 0.6, 1.0))
-    text("Siltanish yorlig'i", hud, "SILTANISH", (0, 0), (0, 0), (48, 92), (300, 26), 22, (0.55, 0.9, 1.0, 0.8), key="hud.dash")
-    dash_bar = s.entity("Siltanish", parent=hud, UITransform=k.ui_rect((0, 0), None, (0, 0), (50, 84), (200, 8)),
+    text("Dash label", hud, "DASH", (0, 0), (0, 0), (48, 92), (300, 26), 22, (0.55, 0.9, 1.0, 0.8), key="hud.dash")
+    dash_bar = s.entity("Dash", parent=hud, UITransform=k.ui_rect((0, 0), None, (0, 0), (50, 84), (200, 8)),
                         UIProgressBar=k.ui_progress(1.0, fill=(0.35, 0.9, 1.0, 1.0), padding=2.0, smooth=0.0))
-    banner = text("E'lon", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 170), (1600, 120), 104, (1.0, 1.0, 1.0, 1.0), h="Center",
+    banner = text("Banner", hud, "", (0.5, 0.5), (0.5, 0.5), (0, 170), (1600, 120), 104, (1.0, 1.0, 1.0, 1.0), h="Center",
                   UIAnimation=k.ui_anim("Pop", "Fade", 0.35))
-    banner_sub = text("E'lon izohi", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -6), (1400, 50), 36, (0.75, 0.9, 1.0, 1.0), h="Center")
-    demo_badge = text("Demo belgisi", hud, "DEMO - avtomatik o'yin", (0.5, 0), (0.5, 0), (0, 36), (1000, 36), 28, (1.0, 0.8, 0.35, 0.9),
+    banner_sub = text("Banner note", banner, "", (0.5, 0.0), (0.5, 1.0), (0, -6), (1400, 50), 36, (0.75, 0.9, 1.0, 1.0), h="Center")
+    demo_badge = text("Demo badge", hud, "DEMO - autoplay", (0.5, 0), (0.5, 0), (0, 36), (1000, 36), 28, (1.0, 0.8, 0.35, 0.9),
                       h="Center", key="hud.demo", active=False)
 
     def dim(name, active):
@@ -597,44 +597,44 @@ def build_scene():
         return s.entity(name, parent=parent, UITransform=k.ui_rect(size=size, font=font), Text=k.ui_text(txt, col, "Center", key=key))
 
     # main menu
-    main_menu = dim("Bosh menyu", True)
-    title_root = s.entity("Sarlavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 268), size=(1700, 180), font=156),
+    main_menu = dim("Main menu", True)
+    title_root = s.entity("Title", parent=main_menu, UITransform=k.ui_rect(pos=(0, 268), size=(1700, 180), font=156),
                           UIAnimation=k.ui_anim("SlideDown", "None", 0.6, slide=120))
-    s.entity("Sarlavha soyasi", parent=title_root, UITransform=k.ui_rect((0, 0), (1, 1), pos=(7, -7), size=(0, 0), font=156),
-             Text=k.ui_text("NEON MAYDON", (0.9, 0.1, 0.7, 0.8), "Center", key="menu.title"))
-    s.entity("Sarlavha matni", parent=title_root, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
-             Text=k.ui_text("NEON MAYDON", (0.6, 1.0, 1.0, 1.0), "Center", key="menu.title"))
+    s.entity("Title shadow", parent=title_root, UITransform=k.ui_rect((0, 0), (1, 1), pos=(7, -7), size=(0, 0), font=156),
+             Text=k.ui_text("NEON ARENA", (0.9, 0.1, 0.7, 0.8), "Center", key="menu.title"))
+    s.entity("Title text", parent=title_root, UITransform=k.ui_rect((0, 0), (1, 1), size=(0, 0), font=156),
+             Text=k.ui_text("NEON ARENA", (0.6, 1.0, 1.0, 1.0), "Center", key="menu.title"))
     # dark plates under the subtitle and the control hints: the ships' glow behind the menu does not wash them out
-    k.ui_backdrop(s, "Taglavha foni", main_menu, ATLAS, (0, 152), (860, 62))
-    s.entity("Taglavha", parent=main_menu, UITransform=k.ui_rect(pos=(0, 152), size=(1400, 50), font=38),
-             Text=k.ui_text("Top-down shooter  ·  Zamin Engine namunasi", (0.75, 0.85, 1.0, 0.9), "Center", key="menu.subtitle"))
-    menu_panel = panel("Menyu paneli", main_menu, (0, -110), (560, 330))
-    play_button = button("O'ynash", menu_panel, "O'ynash", "menu.play", "Play", True)
-    language_button = button("Til", menu_panel, "Language: English", None, "Language")
-    button("Chiqish", menu_panel, "Chiqish", "menu.quit", "Quit")
-    menu_best = s.entity("Bosh menyu rekordi", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
+    k.ui_backdrop(s, "Subtitle backdrop", main_menu, ATLAS, (0, 152), (860, 62))
+    s.entity("Subtitle", parent=main_menu, UITransform=k.ui_rect(pos=(0, 152), size=(1400, 50), font=38),
+             Text=k.ui_text("Top-down shooter  ·  a Zamin Engine sample", (0.75, 0.85, 1.0, 0.9), "Center", key="menu.subtitle"))
+    menu_panel = panel("Menu panel", main_menu, (0, -110), (560, 330))
+    play_button = button("Play", menu_panel, "Play", "menu.play", "Play", True)
+    language_button = button("Language", menu_panel, "Language: English", None, "Language")
+    button("Quit", menu_panel, "Quit", "menu.quit", "Quit")
+    menu_best = s.entity("Main menu best", parent=main_menu, UITransform=k.ui_rect(pos=(0, -330), size=(1200, 44), font=32),
                          Text=k.ui_text("", (1.0, 0.85, 0.35, 1.0), "Center"))
-    k.ui_backdrop(s, "Boshqaruv foni", main_menu, ATLAS, (0, 44), (1340, 94), anchor=(0.5, 0))
-    s.entity("Boshqaruv", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 56), (1800, 70), font=25),
-             Text=k.ui_text(k.controls_hint("uz", CONTROLS["uz"]), (0.7, 0.8, 0.95, 0.85), "Center", key="menu.controls", hints=True))
+    k.ui_backdrop(s, "Controls backdrop", main_menu, ATLAS, (0, 44), (1340, 94), anchor=(0.5, 0))
+    s.entity("Controls", parent=main_menu, UITransform=k.ui_rect((0.5, 0), None, (0.5, 0), (0, 56), (1800, 70), font=25),
+             Text=k.ui_text(k.controls_hint("en", CONTROLS["en"]), (0.7, 0.8, 0.95, 0.85), "Center", key="menu.controls", hints=True))
 
     # pause
-    pause_menu = dim("Pauza menyusi", False)
-    pause_panel = panel("Pauza paneli", pause_menu, (0, 0), (560, 420))
-    label("Pauza sarlavhasi", pause_panel, "PAUZA", (460, 80), 60, (0.6, 1.0, 1.0, 1.0), "pause.title")
-    resume_button = button("Davom etish", pause_panel, "Davom etish", "pause.resume", "Resume", True)
-    button("Qaytadan", pause_panel, "Qaytadan", "pause.restart", "Restart")
-    button("Bosh menyuga", pause_panel, "Bosh menyu", "pause.menu", "Menu")
+    pause_menu = dim("Pause menu", False)
+    pause_panel = panel("Pause panel", pause_menu, (0, 0), (560, 420))
+    label("Pause title", pause_panel, "PAUSED", (460, 80), 60, (0.6, 1.0, 1.0, 1.0), "pause.title")
+    resume_button = button("Resume", pause_panel, "Resume", "pause.resume", "Resume", True)
+    button("Restart", pause_panel, "Restart", "pause.restart", "Restart")
+    button("To main menu", pause_panel, "Main menu", "pause.menu", "Menu")
 
     # game over
-    over_menu = dim("O'yin tugadi", False)
-    over_panel = panel("Natija paneli", over_menu, (0, 0), (640, 560))
-    label("Natija sarlavhasi", over_panel, "O'YIN TUGADI", (560, 80), 64, (1.0, 0.4, 0.5, 1.0), "over.title")
-    over_score = label("Natija hisobi", over_panel, "0", (560, 90), 84)
-    over_wave = label("Natija to'lqini", over_panel, "", (560, 40), 30, (0.75, 0.85, 1.0, 1.0))
-    over_record = label("Natija rekordi", over_panel, "", (560, 44), 34, (1.0, 0.85, 0.35, 1.0))
-    retry_button = button("Qayta o'ynash", over_panel, "Qayta o'ynash", "over.retry", "Restart", True)
-    button("Natija: bosh menyu", over_panel, "Bosh menyu", "pause.menu", "Menu")
+    over_menu = dim("Game over", False)
+    over_panel = panel("Results panel", over_menu, (0, 0), (640, 560))
+    label("Results title", over_panel, "GAME OVER", (560, 80), 64, (1.0, 0.4, 0.5, 1.0), "over.title")
+    over_score = label("Results score", over_panel, "0", (560, 90), 84)
+    over_wave = label("Results wave", over_panel, "", (560, 40), 30, (0.75, 0.85, 1.0, 1.0))
+    over_record = label("Results best", over_panel, "", (560, 44), 34, (1.0, 0.85, 0.35, 1.0))
+    retry_button = button("Play again", over_panel, "Play again", "over.retry", "Restart", True)
+    button("Results: main menu", over_panel, "Main menu", "pause.menu", "Menu")
 
     # ---- the game script
     s.add(game, "NativeScript", k.script(
@@ -725,12 +725,12 @@ def main():
     ]
     vectors = [{"Name": "Move", "X": "MoveX", "Y": "MoveY", "Mode": "Clamp", "Deadzone": 0.0},
                {"Name": "Aim", "X": "AimX", "Y": "AimY", "Mode": "Clamp", "Deadzone": 0.25}]
-    k.write_project(PROJECT, NAME, "Neon Maydon", "Scenes/Arena.zscene", uuid, "1.0.0", [("Scenes/Arena.zscene", uuid)], actions, axes,
+    k.write_project(PROJECT, NAME, "Neon Arena", "Scenes/Arena.zscene", uuid, "1.0.0", [("Scenes/Arena.zscene", uuid)], actions, axes,
                     vectors, ["Player", "Enemy", "Pickup"], {"names": LAYERS, "matrix": k.collision_matrix(LAYERS, PAIRS)},
-                    description="2D twin-stick shooter: neon maydon, 5 xil dushman, to'lqinlar, kombo, bonuslar, 2D yorug'lik va zarralar",
+                    description="2D twin-stick shooter: a neon arena, 5 kinds of enemy, waves, combos, power-ups, 2D lighting and particles",
                     extra=k.export_always_include(["Audio/*.wav"]))
-    k.write_module_cmake(PROJECT, NAME, "Zamin namuna o'yini: Neon Maydon (top-down shooter) - C++ skriptlar moduli (libTopDownShooter.so)")
-    print("TopDownShooter: tayyor")
+    k.write_module_cmake(PROJECT, NAME, "Zamin sample game: Neon Arena (top-down shooter) - the C++ script module (libTopDownShooter.so)")
+    print("TopDownShooter: done")
 
 
 if __name__ == "__main__":

@@ -544,7 +544,7 @@ skin'larda, bir faylda ikki personaj, yoki ikki armaturaning suyaklariga bog'lan
   o'z **palitrasi** bilan (`GetSkinMatrices`). Bitta skin'da 80 tagacha suyak (GPU chegarasi) — butun model emas.
 - Bone Attachment, root motion, editordagi skelet gizmosi barcha skin'lar suyaklari bilan ishlaydi.
 
-Namuna: Showcase3D `Models/TentaclePair.gltf` (`Scenes/Olomon.zscene` oldida): ikki armatura (biri teskari burilgan)
+Namuna: Showcase3D `Models/TentaclePair.gltf` (`Scenes/Crowd.zscene` oldida): ikki armatura (biri teskari burilgan)
 va ikkala uchini bog'lagan oltin arqon — uch skin, bitta Animator.
 
 ---
@@ -646,7 +646,7 @@ anim.CachePoses = true;
 anim.PoseCacheRate = 30.0f;
 ```
 
-Namuna: Showcase3D `Scenes/Olomon.zscene` — 168 ta tentakl (keshlangan, `CullPose`, ba'zilari pauzada), kamera chapga-o'ngga
+Namuna: Showcase3D `Scenes/Crowd.zscene` — 168 ta tentakl (keshlangan, `CullPose`, ba'zilari pauzada), kamera chapga-o'ngga
 buriladi; `AnimationStatsDemo` skripti raqamlarni sahnada yozib turadi.
 
 ---
@@ -656,7 +656,7 @@ buriladi; `AnimationStatsDemo` skripti raqamlarni sahnada yozib turadi.
 Adventure3D `Scenes/Island.zscene` — orqadagi ark ostidagi ikki tabaqali darvoza (`Darvoza` obyekti):
 
 ```
-Darvoza                (Animation Player: Animations/DarvozaOchilishi.zanim, Avto boshlash o'chiq; ProximityDoor skripti)
+Darvoza                (Animation Player: Animations/GateOpening.zanim, Avto boshlash o'chiq; ProximityDoor skripti)
 ├── ChapOshiq          (chap oshiq — klip shuni buradi)
 │   └── ChapTabaqa     (taxta: kinematik Rigidbody 3D + Box Collider — qahramonni to'sadi va itaradi)
 ├── OngOshiq
@@ -682,7 +682,7 @@ class ProximityDoor : public ScriptableEntity
 {
 public:
     std::string Player = "Player";
-    std::string Clip = "DarvozaOchilishi";
+    std::string Clip = "GateOpening";
     float OpenRadius = 4.5f, CloseRadius = 6.5f, CloseDelay = 1.0f;
     std::string CreakSound = "Audio/DoorCreak.wav", ThudSound = "Audio/DoorThud.wav";
 
@@ -878,7 +878,7 @@ bosilganda masshtab) — [UI.md](UI.md#10-ui-animatsiyalari). UI xususiyatlari (
 |---|---|---|
 | Showcase3D `Scenes/Animation.zscene` | property kliplar (mayoq, eshik), glTF Animator event'lari | `AnimationEventDemo` |
 | Showcase3D `Scenes/Animator.zscene` | blend tree, "Har qanday holat" trigger'i, maskali qatlam, morph target'lar, suyakka biriktirish | `AnimatorDemo`, `BlendShapeDemo` |
-| Showcase3D `Scenes/Olomon.zscene` | 168 ta animator: poza keshi, kesish | `AnimationStatsDemo`, `SweepCamera` |
+| Showcase3D `Scenes/Crowd.zscene` | 168 ta animator: poza keshi, kesish | `AnimationStatsDemo`, `SweepCamera` |
 | Showcase3D `Scenes/Splines.zscene` | spline yo'llar, AnimationCurve | `CurveBob`, `SplineMagnet` |
 | Adventure3D `Scenes/Island.zscene` | robot (Idle / Walk / Run blend tree, qadam tovushlari, qo'ldagi fonar), darvoza | `ThirdPersonController`, `ProximityDoor` |
 | Platformer2D `Scenes/Level1.zscene` | grid sprite animatsiyasi | `PlayerController` |

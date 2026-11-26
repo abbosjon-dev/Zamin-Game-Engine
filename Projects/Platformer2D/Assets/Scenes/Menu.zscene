@@ -55,7 +55,7 @@
         "TextureUUID": "a5aec7978306d03b",
         "Tiling": 1.0
       },
-      "Tag": "Tog'lar",
+      "Tag": "Mountains",
       "Transform": {
         "Rotation": [
           0.0,
@@ -100,7 +100,7 @@
         "TextureUUID": "e39e530532ed7a58",
         "Tiling": 1.0
       },
-      "Tag": "O'yinchi",
+      "Tag": "Player",
       "Transform": {
         "Rotation": [
           0.0,
@@ -145,7 +145,7 @@
         "TextureUUID": "a5d48a3f60a91293",
         "Tiling": 1.0
       },
-      "Tag": "Tanga",
+      "Tag": "Coin",
       "Transform": {
         "Rotation": [
           0.0,
@@ -285,7 +285,7 @@
           }
         }
       },
-      "Tag": "Bosh menyu",
+      "Tag": "Main menu",
       "Transform": {
         "Rotation": [
           0,
@@ -668,7 +668,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "menu.main_title",
-        "Text": "Bosh menyu"
+        "Text": "Main menu"
       },
       "Transform": {
         "Rotation": [
@@ -729,7 +729,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "menu.play",
-        "Text": "O'ynash"
+        "Text": "Play"
       },
       "Transform": {
         "Rotation": [
@@ -857,7 +857,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "pause.settings",
-        "Text": "Sozlamalar"
+        "Text": "Settings"
       },
       "Transform": {
         "Rotation": [
@@ -985,7 +985,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "pause.quit",
-        "Text": "Chiqish"
+        "Text": "Quit"
       },
       "Transform": {
         "Rotation": [
@@ -1113,7 +1113,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "menu.nav_hint",
-        "Text": "Strelkalar / Enter yoki sichqoncha  ·  Esc - orqaga"
+        "Text": "Arrows / Enter or the mouse  ·  Esc - back"
       },
       "Transform": {
         "Rotation": [
@@ -1332,7 +1332,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.title",
-        "Text": "Sozlamalar"
+        "Text": "Settings"
       },
       "Transform": {
         "Rotation": [
@@ -1556,7 +1556,7 @@
     {
       "Entity": 7815000000000116,
       "Parent": 7815000000000115,
-      "Tag": "Ekran Header",
+      "Tag": "Display Header",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -1570,7 +1570,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.display",
-        "Text": "Ekran"
+        "Text": "Display"
       },
       "Transform": {
         "Rotation": [
@@ -1758,7 +1758,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.fullscreen",
-        "Text": "To'liq ekran"
+        "Text": "Fullscreen"
       },
       "Transform": {
         "Rotation": [
@@ -1862,7 +1862,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.vsync",
-        "Text": "Vertikal sinxronlash (VSync)"
+        "Text": "Vertical sync (VSync)"
       },
       "Transform": {
         "Rotation": [
@@ -1952,7 +1952,7 @@
     {
       "Entity": 7815000000000120,
       "Parent": 7815000000000115,
-      "Tag": "Grafika Header",
+      "Tag": "Graphics Header",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -1966,7 +1966,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.graphics",
-        "Text": "Grafika"
+        "Text": "Graphics"
       },
       "Transform": {
         "Rotation": [
@@ -2402,7 +2402,7 @@
     {
       "Entity": 7815000000000126,
       "Parent": 7815000000000115,
-      "Tag": "Ovoz Header",
+      "Tag": "Sound Header",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -2416,7 +2416,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.audio",
-        "Text": "Ovoz"
+        "Text": "Audio"
       },
       "Transform": {
         "Rotation": [
@@ -2468,7 +2468,7 @@
       ],
       "Entity": 7815000000000127,
       "Parent": 7815000000000115,
-      "Tag": "Umumiy ovoz",
+      "Tag": "Master volume",
       "Transform": {
         "Rotation": [
           0,
@@ -2514,7 +2514,7 @@
     {
       "Entity": 7815000000000128,
       "Parent": 7815000000000127,
-      "Tag": "Umumiy ovoz Label",
+      "Tag": "Master volume Label",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -2528,7 +2528,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.master",
-        "Text": "Umumiy ovoz"
+        "Text": "Master volume"
       },
       "Transform": {
         "Rotation": [
@@ -2575,7 +2575,7 @@
     {
       "Entity": 7815000000000129,
       "Parent": 7815000000000127,
-      "Tag": "Umumiy ovoz Slider",
+      "Tag": "Master volume Slider",
       "Transform": {
         "Rotation": [
           0,
@@ -2665,7 +2665,7 @@
     {
       "Entity": 7815000000000130,
       "Parent": 7815000000000127,
-      "Tag": "Umumiy ovoz Value",
+      "Tag": "Master volume Value",
       "Text": {
         "AlignH": "Right",
         "AlignV": "Middle",
@@ -2730,7 +2730,7 @@
       ],
       "Entity": 7815000000000131,
       "Parent": 7815000000000115,
-      "Tag": "Musiqa",
+      "Tag": "Music",
       "Transform": {
         "Rotation": [
           0,
@@ -2776,7 +2776,7 @@
     {
       "Entity": 7815000000000132,
       "Parent": 7815000000000131,
-      "Tag": "Musiqa Label",
+      "Tag": "Music Label",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -2790,7 +2790,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.music",
-        "Text": "Musiqa"
+        "Text": "Music"
       },
       "Transform": {
         "Rotation": [
@@ -2837,7 +2837,7 @@
     {
       "Entity": 7815000000000133,
       "Parent": 7815000000000131,
-      "Tag": "Musiqa Slider",
+      "Tag": "Music Slider",
       "Transform": {
         "Rotation": [
           0,
@@ -2927,7 +2927,7 @@
     {
       "Entity": 7815000000000134,
       "Parent": 7815000000000131,
-      "Tag": "Musiqa Value",
+      "Tag": "Music Value",
       "Text": {
         "AlignH": "Right",
         "AlignV": "Middle",
@@ -2992,7 +2992,7 @@
       ],
       "Entity": 7815000000000135,
       "Parent": 7815000000000115,
-      "Tag": "Effektlar",
+      "Tag": "Effects",
       "Transform": {
         "Rotation": [
           0,
@@ -3038,7 +3038,7 @@
     {
       "Entity": 7815000000000136,
       "Parent": 7815000000000135,
-      "Tag": "Effektlar Label",
+      "Tag": "Effects Label",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -3052,7 +3052,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.sfx",
-        "Text": "Effektlar"
+        "Text": "Effects"
       },
       "Transform": {
         "Rotation": [
@@ -3099,7 +3099,7 @@
     {
       "Entity": 7815000000000137,
       "Parent": 7815000000000135,
-      "Tag": "Effektlar Slider",
+      "Tag": "Effects Slider",
       "Transform": {
         "Rotation": [
           0,
@@ -3189,7 +3189,7 @@
     {
       "Entity": 7815000000000138,
       "Parent": 7815000000000135,
-      "Tag": "Effektlar Value",
+      "Tag": "Effects Value",
       "Text": {
         "AlignH": "Right",
         "AlignV": "Middle",
@@ -3249,7 +3249,7 @@
     {
       "Entity": 7815000000000139,
       "Parent": 7815000000000115,
-      "Tag": "Til Header",
+      "Tag": "Language Header",
       "Text": {
         "AlignH": "Left",
         "AlignV": "Middle",
@@ -3263,7 +3263,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.language_header",
-        "Text": "Til"
+        "Text": "Language"
       },
       "Transform": {
         "Rotation": [
@@ -3451,7 +3451,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.back",
-        "Text": "Orqaga"
+        "Text": "Back"
       },
       "Transform": {
         "Rotation": [
@@ -3579,7 +3579,7 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "LocalizationKey": "settings.reset",
-        "Text": "Standart"
+        "Text": "Defaults"
       },
       "Transform": {
         "Rotation": [
@@ -3856,7 +3856,7 @@
       "Active": false,
       "Entity": 7815000000000031,
       "Parent": 7815000000000030,
-      "Tag": "Sessiya HUD",
+      "Tag": "Session HUD",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -3928,11 +3928,11 @@
     }
   ],
   "Metadata": {
-    "Author": "Zamin jamoasi",
-    "Description": "Bosh menyu (Prefabs/GameMenu.zprefab namunasi): \"O'ynash\" yuklanish ekraniga, u esa 1-darajaga olib boradi; \"Sozlamalar\" - ekran o'lchami, to'liq ekran, VSync, grafika sifati, gamma, ovoz va til; \"Chiqish\". GameSession shu yerda yaratiladi va butun o'yin davomida yashaydi (DontDestroyOnLoad).",
+    "Author": "The Zamin team",
+    "Description": "The main menu (an instance of Prefabs/GameMenu.zprefab): \"Play\" leads to the loading screen and that to level 1; \"Settings\" - resolution, fullscreen, VSync, graphics quality, gamma, sound and language; \"Quit\". GameSession is created here and lives for the whole game (DontDestroyOnLoad).",
     "Tags": [
-      "menyu",
-      "oqim"
+      "menu",
+      "flow"
     ]
   },
   "RootOrder": [

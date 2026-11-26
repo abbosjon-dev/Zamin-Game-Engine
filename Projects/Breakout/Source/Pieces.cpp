@@ -6,19 +6,19 @@
 using namespace Zamin;
 using namespace BreakoutUtil;
 
-// Raketka, to'p, g'isht, bonus kapsulasi va effekt skriptlari.
-// To'p devor va g'ishtlardan Box2D bilan qaytadi (restitution 1, ishqalanishsiz); tezligini skript har kadr
-// to'g'rilaydi (darajaga qarab, sekin bonusi bilan) va juda yotiq uchishiga yo'l qo'ymaydi. Raketkaga tegishni skript
-// o'zi hisoblaydi: qaytish burchagi tegish nuqtasiga bog'liq (o'rtada tik, chetida 62 darajagacha) - raketka kengligi
-// o'zgarsa ham aniq ishlaydi.
+// The paddle, ball, brick, power-up capsule and effect scripts.
+// The ball bounces off the walls and bricks with Box2D (restitution 1, no friction); the script corrects its speed every
+// frame (by level, with the slow power-up) and never lets it fly too flat. The script itself works out a paddle hit:
+// the bounce angle depends on the point of contact (straight up in the middle, up to 62 degrees at the edge) - it stays
+// exact when the paddle's width changes.
 
 // ---------------------------------------------------------------------------------------- Paddle
 
 void PaddleController::OnCreate()
 {
     m_Visual = FindChild("Visual");
-    m_TurretLeft = FindChild("Lazer (chap)");
-    m_TurretRight = FindChild("Lazer (o'ng)");
+    m_TurretLeft = FindChild("Laser (left)");
+    m_TurretRight = FindChild("Laser (right)");
     m_Position = glm::vec2(Transform().Translation);
     m_Width = m_TargetWidth = Width;
 }
@@ -108,7 +108,7 @@ void PaddleController::OnUpdate(Timestep ts)
 void Ball::OnCreate()
 {
     m_Visual = FindChild("Visual");
-    m_Trail = FindChild("Iz");
+    m_Trail = FindChild("Trail");
     m_Position = glm::vec2(GetWorldPosition());
 }
 

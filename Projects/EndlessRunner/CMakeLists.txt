@@ -1,4 +1,4 @@
-# Zamin namuna o'yini: Ipak Yo'li (endless runner) - C++ skriptlar moduli (libEndlessRunner.so)
+# Zamin sample game: Silk Road (endless runner) - the C++ script module (libEndlessRunner.so)
 cmake_minimum_required(VERSION 3.20)
 project(EndlessRunner LANGUAGES C CXX)
 
@@ -8,8 +8,8 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Engine ichida build qilinganda Zamin target mavjud; aks holda
-# -DZamin_DIR=<engine build papkasi> orqali topiladi (Editor buni avtomatik beradi).
+# When built inside the engine the Zamin target exists; otherwise it is found
+# through -DZamin_DIR=<engine build folder> (the editor passes it automatically).
 if(NOT TARGET Zamin)
     find_package(Zamin REQUIRED CONFIG)
 endif()

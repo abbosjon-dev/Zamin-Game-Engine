@@ -54,7 +54,7 @@ namespace Zamin {
             std::vector<std::filesystem::path> Written;   // files written now (the texture, the .zmat)
             bool Existed = false;                         // shared: the file was there already (nothing written)
         };
-        // The active project's folder for the shared copies of the presets (Assets/Materials/Standart;
+        // The active project's folder for the shared copies of the presets (Assets/Materials/Standard - or Materials/Standart, the older name, in a project that already has it;
         // empty without a project). Generated textures go to its Textures folder.
         static std::filesystem::path GetSharedFolder();
         // Where a preset's generated texture is used from for a material written into `folder`:

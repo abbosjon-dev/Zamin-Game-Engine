@@ -8,12 +8,12 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libTopDownShooter.so",
         "EngineVersion": "0.1.0",
-        "Description": "2D twin-stick shooter: neon maydon, 5 xil dushman, to'lqinlar, kombo, bonuslar, 2D yorug'lik va zarralar",
+        "Description": "2D twin-stick shooter: a neon arena, 5 kinds of enemy, waves, combos, power-ups, 2D lighting and particles",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",
-        "Product": "Neon Maydon",
+        "Product": "Neon Arena",
         "Version": "1.0.0",
         "Width": 1280,
         "Height": 720,

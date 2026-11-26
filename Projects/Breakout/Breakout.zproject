@@ -8,7 +8,7 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libBreakout.so",
         "EngineVersion": "0.1.0",
-        "Description": "2D Breakout: raketka, Box2D to'p fizikasi, 5 xil g'isht, 6 ta bonus, 6 ta daraja, kombo va rekord",
+        "Description": "2D Breakout: a paddle, Box2D ball physics, 5 kinds of brick, 6 power-ups, 6 levels, combos and a high score",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {

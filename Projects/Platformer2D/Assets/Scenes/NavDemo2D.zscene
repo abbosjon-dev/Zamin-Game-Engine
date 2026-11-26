@@ -2,10 +2,10 @@
   "Scene": "NavDemo2D",
   "Version": 1,
   "Metadata": {
-    "Description": "M20: TopDown2D nusxasi - NavGrid 2D tilemap va statik collider'lardan quriladi, uchta ta'qibchi Nav Agent o'yinchi ortidan yo'l topib yuradi",
-    "Author": "Zamin",
+    "Description": "M20: a copy of TopDown2D - the NavGrid 2D is built from the tilemap and the static colliders, three chaser Nav Agents find their way after the player",
+    "Author": "Floor",
     "Tags": [
-      "navigatsiya",
+      "navigation",
       "AI",
       "M20"
     ]
@@ -148,7 +148,7 @@
     },
     {
       "Entity": 7510000000000002,
-      "Tag": "Zamin",
+      "Tag": "Floor",
       "Transform": {
         "Translation": [
           -20.0,
@@ -177,7 +177,7 @@
         "TileSize": 1.0,
         "Layers": [
           {
-            "Name": "O't",
+            "Name": "Grass",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 0,
@@ -1226,7 +1226,7 @@
             ]
           },
           {
-            "Name": "Yo'lak",
+            "Name": "Path",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 1,
@@ -2275,7 +2275,7 @@
             ]
           },
           {
-            "Name": "Bezaklar",
+            "Name": "Decor",
             "Visible": true,
             "Collision": false,
             "SortingOrder": 2,
@@ -3338,7 +3338,7 @@
     },
     {
       "Entity": 7510000000000003,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           0,
@@ -3382,7 +3382,7 @@
     },
     {
       "Entity": 7510000000000004,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           0,
@@ -3426,7 +3426,7 @@
     },
     {
       "Entity": 7510000000000005,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -20.5,
@@ -3470,7 +3470,7 @@
     },
     {
       "Entity": 7510000000000006,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           20.5,
@@ -3514,7 +3514,7 @@
     },
     {
       "Entity": 7510000000000007,
-      "Tag": "Uy",
+      "Tag": "House",
       "Transform": {
         "Translation": [
           0,
@@ -3555,7 +3555,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -3583,7 +3583,7 @@
     },
     {
       "Entity": 7510000000000008,
-      "Tag": "Deraza nuri",
+      "Tag": "Window light",
       "Transform": {
         "Translation": [
           0,
@@ -3620,7 +3620,7 @@
     },
     {
       "Entity": 7510000000000009,
-      "Tag": "Gulxan",
+      "Tag": "Campfire",
       "Transform": {
         "Translation": [
           0,
@@ -3660,7 +3660,7 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "SpriteAnimation": {
         "Columns": 1,
@@ -3751,7 +3751,7 @@
     },
     {
       "Entity": 7510000000000010,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           -2.0,
@@ -3792,7 +3792,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -3820,7 +3820,7 @@
     },
     {
       "Entity": 7510000000000011,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -3865,13 +3865,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000010
     },
     {
       "Entity": 7510000000000012,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           2.0,
@@ -3912,7 +3912,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -3940,7 +3940,7 @@
     },
     {
       "Entity": 7510000000000013,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -3985,13 +3985,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000012
     },
     {
       "Entity": 7510000000000014,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           -6.0,
@@ -4032,7 +4032,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4060,7 +4060,7 @@
     },
     {
       "Entity": 7510000000000015,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4105,13 +4105,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000014
     },
     {
       "Entity": 7510000000000016,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           6.0,
@@ -4152,7 +4152,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4180,7 +4180,7 @@
     },
     {
       "Entity": 7510000000000017,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4225,13 +4225,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000016
     },
     {
       "Entity": 7510000000000018,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           -14.5,
@@ -4272,7 +4272,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4300,7 +4300,7 @@
     },
     {
       "Entity": 7510000000000019,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4345,13 +4345,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000018
     },
     {
       "Entity": 7510000000000020,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           14.5,
@@ -4392,7 +4392,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4420,7 +4420,7 @@
     },
     {
       "Entity": 7510000000000021,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4465,13 +4465,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000020
     },
     {
       "Entity": 7510000000000022,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           -10.0,
@@ -4512,7 +4512,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4540,7 +4540,7 @@
     },
     {
       "Entity": 7510000000000023,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4585,13 +4585,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000022
     },
     {
       "Entity": 7510000000000024,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           10.0,
@@ -4632,7 +4632,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4660,7 +4660,7 @@
     },
     {
       "Entity": 7510000000000025,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4705,13 +4705,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000024
     },
     {
       "Entity": 7510000000000026,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Transform": {
         "Translation": [
           2.2,
@@ -4752,7 +4752,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4780,7 +4780,7 @@
     },
     {
       "Entity": 7510000000000027,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Transform": {
         "Translation": [
           0,
@@ -4825,13 +4825,13 @@
         "Fade": 0.9,
         "SortingOrder": 50,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       },
       "Parent": 7510000000000026
     },
     {
       "Entity": 7510000000000028,
-      "Tag": "Ko'rsatkich",
+      "Tag": "Indicator",
       "Transform": {
         "Translation": [
           2.6,
@@ -4872,12 +4872,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000029,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           2.85,
@@ -4918,7 +4918,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -4946,7 +4946,7 @@
     },
     {
       "Entity": 7510000000000030,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           1.35,
@@ -4987,7 +4987,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5015,7 +5015,7 @@
     },
     {
       "Entity": 7510000000000031,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           0.0968,
@@ -5056,7 +5056,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5084,7 +5084,7 @@
     },
     {
       "Entity": 7510000000000032,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -7.8706,
@@ -5125,7 +5125,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5153,7 +5153,7 @@
     },
     {
       "Entity": 7510000000000033,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -18.7408,
@@ -5194,7 +5194,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5222,7 +5222,7 @@
     },
     {
       "Entity": 7510000000000034,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           19.2854,
@@ -5263,7 +5263,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5291,7 +5291,7 @@
     },
     {
       "Entity": 7510000000000035,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           7.8246,
@@ -5332,7 +5332,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5360,7 +5360,7 @@
     },
     {
       "Entity": 7510000000000036,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           2.7917,
@@ -5401,7 +5401,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5429,7 +5429,7 @@
     },
     {
       "Entity": 7510000000000037,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           18.2703,
@@ -5470,7 +5470,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5498,7 +5498,7 @@
     },
     {
       "Entity": 7510000000000038,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -3.9956,
@@ -5539,7 +5539,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5567,7 +5567,7 @@
     },
     {
       "Entity": 7510000000000039,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -16.7516,
@@ -5608,7 +5608,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5636,7 +5636,7 @@
     },
     {
       "Entity": 7510000000000040,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -18.0303,
@@ -5677,7 +5677,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5705,7 +5705,7 @@
     },
     {
       "Entity": 7510000000000041,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           18.8741,
@@ -5746,7 +5746,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5774,7 +5774,7 @@
     },
     {
       "Entity": 7510000000000042,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -18.6378,
@@ -5815,7 +5815,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5843,7 +5843,7 @@
     },
     {
       "Entity": 7510000000000043,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -14.8668,
@@ -5884,7 +5884,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5912,7 +5912,7 @@
     },
     {
       "Entity": 7510000000000044,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -11.2865,
@@ -5953,7 +5953,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -5981,7 +5981,7 @@
     },
     {
       "Entity": 7510000000000045,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -19.0958,
@@ -6022,7 +6022,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6050,7 +6050,7 @@
     },
     {
       "Entity": 7510000000000046,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           3.76,
@@ -6091,7 +6091,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6119,7 +6119,7 @@
     },
     {
       "Entity": 7510000000000047,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -18.7061,
@@ -6160,7 +6160,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6188,7 +6188,7 @@
     },
     {
       "Entity": 7510000000000048,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           19.1911,
@@ -6229,7 +6229,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6257,7 +6257,7 @@
     },
     {
       "Entity": 7510000000000049,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           9.7696,
@@ -6298,7 +6298,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6326,7 +6326,7 @@
     },
     {
       "Entity": 7510000000000050,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           15.9261,
@@ -6367,7 +6367,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6395,7 +6395,7 @@
     },
     {
       "Entity": 7510000000000051,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -18.214,
@@ -6436,7 +6436,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6464,7 +6464,7 @@
     },
     {
       "Entity": 7510000000000052,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -11.9745,
@@ -6505,7 +6505,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6533,7 +6533,7 @@
     },
     {
       "Entity": 7510000000000053,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -19.0604,
@@ -6574,7 +6574,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6602,7 +6602,7 @@
     },
     {
       "Entity": 7510000000000054,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           18.6529,
@@ -6643,7 +6643,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6671,7 +6671,7 @@
     },
     {
       "Entity": 7510000000000055,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -9.156,
@@ -6712,7 +6712,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6740,7 +6740,7 @@
     },
     {
       "Entity": 7510000000000056,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           13.0457,
@@ -6781,7 +6781,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6809,7 +6809,7 @@
     },
     {
       "Entity": 7510000000000057,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           5.9369,
@@ -6850,7 +6850,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6878,7 +6878,7 @@
     },
     {
       "Entity": 7510000000000058,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -0.3611,
@@ -6919,7 +6919,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -6947,7 +6947,7 @@
     },
     {
       "Entity": 7510000000000059,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           13.1537,
@@ -6988,7 +6988,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7016,7 +7016,7 @@
     },
     {
       "Entity": 7510000000000060,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           15.7353,
@@ -7057,7 +7057,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7085,7 +7085,7 @@
     },
     {
       "Entity": 7510000000000061,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           2.0237,
@@ -7126,7 +7126,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7154,7 +7154,7 @@
     },
     {
       "Entity": 7510000000000062,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           10.9201,
@@ -7195,7 +7195,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7223,7 +7223,7 @@
     },
     {
       "Entity": 7510000000000063,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           19.3539,
@@ -7264,7 +7264,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7292,7 +7292,7 @@
     },
     {
       "Entity": 7510000000000064,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -7.1238,
@@ -7333,7 +7333,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7361,7 +7361,7 @@
     },
     {
       "Entity": 7510000000000065,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           19.0548,
@@ -7402,7 +7402,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7430,7 +7430,7 @@
     },
     {
       "Entity": 7510000000000066,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -19.2094,
@@ -7471,7 +7471,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7499,7 +7499,7 @@
     },
     {
       "Entity": 7510000000000067,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           6.0927,
@@ -7540,7 +7540,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7568,7 +7568,7 @@
     },
     {
       "Entity": 7510000000000068,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           18.5065,
@@ -7609,7 +7609,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7637,7 +7637,7 @@
     },
     {
       "Entity": 7510000000000069,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -10.3863,
@@ -7678,7 +7678,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7706,7 +7706,7 @@
     },
     {
       "Entity": 7510000000000070,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -11.118,
@@ -7747,7 +7747,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7775,7 +7775,7 @@
     },
     {
       "Entity": 7510000000000071,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -13.4476,
@@ -7816,7 +7816,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7844,7 +7844,7 @@
     },
     {
       "Entity": 7510000000000072,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -14.8526,
@@ -7885,7 +7885,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7913,7 +7913,7 @@
     },
     {
       "Entity": 7510000000000073,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -9.2296,
@@ -7954,7 +7954,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -7982,7 +7982,7 @@
     },
     {
       "Entity": 7510000000000074,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -11.6409,
@@ -8023,7 +8023,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8051,7 +8051,7 @@
     },
     {
       "Entity": 7510000000000075,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           12.8524,
@@ -8092,7 +8092,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8120,7 +8120,7 @@
     },
     {
       "Entity": 7510000000000076,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           8.5085,
@@ -8161,7 +8161,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8189,7 +8189,7 @@
     },
     {
       "Entity": 7510000000000077,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           10.5094,
@@ -8230,7 +8230,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8258,7 +8258,7 @@
     },
     {
       "Entity": 7510000000000078,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -7.5449,
@@ -8299,7 +8299,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8327,7 +8327,7 @@
     },
     {
       "Entity": 7510000000000079,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -11.7503,
@@ -8368,7 +8368,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8396,7 +8396,7 @@
     },
     {
       "Entity": 7510000000000080,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           -10.2137,
@@ -8437,7 +8437,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8465,7 +8465,7 @@
     },
     {
       "Entity": 7510000000000081,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           15.9129,
@@ -8506,7 +8506,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8534,7 +8534,7 @@
     },
     {
       "Entity": 7510000000000082,
-      "Tag": "Daraxt",
+      "Tag": "Tree",
       "Transform": {
         "Translation": [
           15.2023,
@@ -8575,7 +8575,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8603,7 +8603,7 @@
     },
     {
       "Entity": 7510000000000083,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           -17.9959,
@@ -8644,7 +8644,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8672,7 +8672,7 @@
     },
     {
       "Entity": 7510000000000084,
-      "Tag": "Qarag'ay",
+      "Tag": "Pine",
       "Transform": {
         "Translation": [
           4.2311,
@@ -8713,7 +8713,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8741,7 +8741,7 @@
     },
     {
       "Entity": 7510000000000085,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -13.2067,
@@ -8782,7 +8782,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8810,7 +8810,7 @@
     },
     {
       "Entity": 7510000000000086,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -12.8573,
@@ -8851,7 +8851,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8879,7 +8879,7 @@
     },
     {
       "Entity": 7510000000000087,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -2.1564,
@@ -8920,7 +8920,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -8948,7 +8948,7 @@
     },
     {
       "Entity": 7510000000000088,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -3.1784,
@@ -8989,7 +8989,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9017,7 +9017,7 @@
     },
     {
       "Entity": 7510000000000089,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -14.3833,
@@ -9058,7 +9058,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9086,7 +9086,7 @@
     },
     {
       "Entity": 7510000000000090,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -12.9661,
@@ -9127,7 +9127,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9155,7 +9155,7 @@
     },
     {
       "Entity": 7510000000000091,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           3.6003,
@@ -9196,7 +9196,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9224,7 +9224,7 @@
     },
     {
       "Entity": 7510000000000092,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -7.1406,
@@ -9265,7 +9265,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9293,7 +9293,7 @@
     },
     {
       "Entity": 7510000000000093,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           14.3249,
@@ -9334,7 +9334,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9362,7 +9362,7 @@
     },
     {
       "Entity": 7510000000000094,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           1.0183,
@@ -9403,7 +9403,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9431,7 +9431,7 @@
     },
     {
       "Entity": 7510000000000095,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -13.2486,
@@ -9472,7 +9472,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9500,7 +9500,7 @@
     },
     {
       "Entity": 7510000000000096,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           6.5859,
@@ -9541,7 +9541,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9569,7 +9569,7 @@
     },
     {
       "Entity": 7510000000000097,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -17.3992,
@@ -9610,7 +9610,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9638,7 +9638,7 @@
     },
     {
       "Entity": 7510000000000098,
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Translation": [
           -15.8231,
@@ -9679,7 +9679,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -9707,7 +9707,7 @@
     },
     {
       "Entity": 7510000000000099,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -8.0112,
@@ -9748,12 +9748,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000100,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           11.0902,
@@ -9794,12 +9794,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000101,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -3.9337,
@@ -9840,12 +9840,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000102,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -15.6199,
@@ -9886,12 +9886,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000103,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -13.7001,
@@ -9932,12 +9932,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000104,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           16.3086,
@@ -9978,12 +9978,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000105,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -16.9432,
@@ -10024,12 +10024,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000106,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -16.4146,
@@ -10070,12 +10070,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000107,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -11.5436,
@@ -10116,12 +10116,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000108,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -7.837,
@@ -10162,12 +10162,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000109,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -6.2172,
@@ -10208,12 +10208,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000110,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -5.5287,
@@ -10254,12 +10254,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000111,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           15.1659,
@@ -10300,12 +10300,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000112,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -4.5903,
@@ -10346,12 +10346,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000113,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -2.3406,
@@ -10392,12 +10392,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000114,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -6.6597,
@@ -10438,12 +10438,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000115,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -6.5499,
@@ -10484,12 +10484,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000116,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -8.634,
@@ -10530,12 +10530,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000117,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           17.3724,
@@ -10576,12 +10576,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000118,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           4.6907,
@@ -10622,12 +10622,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000119,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -15.679,
@@ -10668,12 +10668,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000120,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -16.7526,
@@ -10714,12 +10714,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000121,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           -9.1517,
@@ -10760,12 +10760,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000122,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           13.8475,
@@ -10806,12 +10806,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000123,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           4.7072,
@@ -10852,12 +10852,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000124,
-      "Tag": "Buta",
+      "Tag": "Bush",
       "Transform": {
         "Translation": [
           14.8564,
@@ -10898,12 +10898,12 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       }
     },
     {
       "Entity": 7510000000000125,
-      "Tag": "Kristall",
+      "Tag": "Crystal",
       "Transform": {
         "Translation": [
           -15.5,
@@ -10946,7 +10946,7 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -11028,7 +11028,7 @@
     },
     {
       "Entity": 7510000000000126,
-      "Tag": "Kristall",
+      "Tag": "Crystal",
       "Transform": {
         "Translation": [
           16.0,
@@ -11071,7 +11071,7 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -11153,7 +11153,7 @@
     },
     {
       "Entity": 7510000000000127,
-      "Tag": "Kristall",
+      "Tag": "Crystal",
       "Transform": {
         "Translation": [
           11.0,
@@ -11196,7 +11196,7 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -11278,7 +11278,7 @@
     },
     {
       "Entity": 7510000000000128,
-      "Tag": "Kristall",
+      "Tag": "Crystal",
       "Transform": {
         "Translation": [
           -3.5,
@@ -11321,7 +11321,7 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -11403,7 +11403,7 @@
     },
     {
       "Entity": 7510000000000129,
-      "Tag": "Kristall",
+      "Tag": "Crystal",
       "Transform": {
         "Translation": [
           17.0,
@@ -11446,7 +11446,7 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -11572,7 +11572,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "SpriteAnimation": {
         "Columns": 1,
@@ -11635,7 +11635,7 @@
     },
     {
       "Entity": 7510000000000130,
-      "Tag": "Soya",
+      "Tag": "Shadow",
       "Transform": {
         "Translation": [
           0,
@@ -11675,13 +11675,13 @@
         ],
         "PixelsPerUnit": 16.0,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "Parent": 7510000000009999
     },
     {
       "Entity": 7510000000000131,
-      "Tag": "Qo'l chirog'i",
+      "Tag": "Hand torch",
       "Transform": {
         "Translation": [
           0,
@@ -11719,7 +11719,7 @@
     },
     {
       "Entity": 7510000000000132,
-      "Tag": "Yaltiroq qo'ng'izlar",
+      "Tag": "Fireflies",
       "Transform": {
         "Translation": [
           0,
@@ -11789,12 +11789,12 @@
         "Texture": "",
         "SortingOrder": 100,
         "SortingLayer": 2,
-        "SortingLayerName": "Oldingi plan"
+        "SortingLayerName": "Foreground"
       }
     },
     {
       "Entity": 7520000000000001,
-      "Tag": "Navigatsiya",
+      "Tag": "Navigation",
       "Transform": {
         "Translation": [
           0,
@@ -11837,7 +11837,7 @@
     },
     {
       "Entity": 7520000000000010,
-      "Tag": "Ta'qibchi",
+      "Tag": "Chaser",
       "Tags": [
         "Enemy"
       ],
@@ -11881,7 +11881,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "NavAgent": {
         "Grid": 7520000000000001,
@@ -11902,7 +11902,7 @@
     },
     {
       "Entity": 7520000000000011,
-      "Tag": "Ta'qibchi",
+      "Tag": "Chaser",
       "Tags": [
         "Enemy"
       ],
@@ -11946,7 +11946,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "NavAgent": {
         "Grid": 7520000000000001,
@@ -11967,7 +11967,7 @@
     },
     {
       "Entity": 7520000000000012,
-      "Tag": "Ta'qibchi",
+      "Tag": "Chaser",
       "Tags": [
         "Enemy"
       ],
@@ -12011,7 +12011,7 @@
         "PixelsPerUnit": 16.0,
         "Lit": true,
         "SortingLayer": 3,
-        "SortingLayerName": "Obyektlar"
+        "SortingLayerName": "Objects"
       },
       "NavAgent": {
         "Grid": 7520000000000001,
@@ -12102,7 +12102,7 @@
         ]
       },
       "Text": {
-        "Text": "Kristallar: 0 / 5",
+        "Text": "Crystals: 0 / 5",
         "Color": [
           0.85,
           0.95,
@@ -12119,7 +12119,7 @@
         "Fields": {
           "Title": {
             "Type": "String",
-            "Value": "Kristallar"
+            "Value": "Crystals"
           }
         }
       },

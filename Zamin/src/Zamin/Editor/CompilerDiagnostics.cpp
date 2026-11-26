@@ -137,7 +137,7 @@ namespace Zamin {
         {
             case DiagnosticSeverity::Error: return Tr("xato");
             case DiagnosticSeverity::Warning: return Tr("ogohlantirish");
-            default: return "izoh";
+            default: return Tr("izoh");
         }
     }
 

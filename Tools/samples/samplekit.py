@@ -731,7 +731,7 @@ def ui_text(text, col=(1, 1, 1, 1), h="Center", vert="Middle", key=None, wrap=Fa
 
 
 # The control names of the "[Action]" hints (Input::ExpandBindings) in the games' language files ("input.<id>" keys).
-# English repeats the engine's own names: a key missing in a language falls back to the default language (Uzbek).
+# English repeats the engine's own names: a key missing in a language falls back to the default language (English).
 INPUT_NAMES = {
     "uz": {"key": {"Arrows": "strelkalar", "Left": "chap strelka", "Right": "o'ng strelka", "Up": "yuqori strelka",
                    "Down": "past strelka"},
@@ -869,8 +869,8 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Engine ichida build qilinganda Zamin target mavjud; aks holda
-# -DZamin_DIR=<engine build papkasi> orqali topiladi (Editor buni avtomatik beradi).
+# When built inside the engine the Zamin target exists; otherwise it is found
+# through -DZamin_DIR=<engine build folder> (the editor passes it automatically).
 if(NOT TARGET Zamin)
     find_package(Zamin REQUIRED CONFIG)
 endif()

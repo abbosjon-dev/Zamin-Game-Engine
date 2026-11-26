@@ -8,7 +8,7 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libFPSArena.so",
         "EngineVersion": "0.1.0",
-        "Description": "3D birinchi shaxs: sichqoncha bilan qarash, yugurish, sakrash, parkur yo'lagi; raycast bilan otish, nishonlar va 60 soniyalik raund",
+        "Description": "3D first person: mouse look, sprinting, jumping, a parkour course; raycast shooting, targets and a 60-second round",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {

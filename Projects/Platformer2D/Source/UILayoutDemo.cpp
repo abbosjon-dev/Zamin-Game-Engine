@@ -15,8 +15,8 @@ using namespace Zamin;
 // - klaviatura / gamepad: strelkalar yoki D-pad tanlaydi, Enter / A bosadi, Tab - keyingisi;
 // - UI animatsiyalari (UI Animation): menyu va inventar chetdan surilib, tugmalar ketma-ket sakrab
 //   chiqadi, ustiga kelganda kattalashadi / bosilganda kichrayadi; uya bosilganda tangalar yozuvi
-//   "sakraydi" (PunchUIScale); "Yangiliklar" paneli X bilan yopiladi (HideUI), "Yutuqlar" uni qaytaradi (ShowUI);
-// - matn: "Yangiliklar" matni so'z bo'yicha o'raladi, sig'magani uch nuqta bilan kesiladi; sarlavha
+//   "sakraydi" (PunchUIScale); "News" paneli X bilan yopiladi (HideUI), "Achievements" uni qaytaradi (ShowUI);
+// - matn: "News" matni so'z bo'yicha o'raladi, sig'magani uch nuqta bilan kesiladi; sarlavha
 //   markazda, sahifa raqami o'ng pastda, holat qatori uzun bo'lsa "..." bilan tugaydi.
 class UILayoutDemo : public ScriptableEntity
 {
@@ -97,7 +97,7 @@ public:
                                                                   GetScene().GetUIScale(GetEntity()));
         }
         if (Entity coins = Resolve(Coins); coins && coins.HasComponent<TextComponent>())
-            coins.GetComponent<TextComponent>().Text = std::format("Tangalar: {}", m_Coins);
+            coins.GetComponent<TextComponent>().Text = std::format("Coins: {}", m_Coins);
     }
 
 private:

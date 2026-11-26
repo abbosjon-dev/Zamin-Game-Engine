@@ -211,7 +211,7 @@ yangilanadi.
 
 **Editorda**: kontent brauzerda o'ng tugma → **Yangi material** (standart yoki kutubxonadan: metall, cho'tkalangan metall,
 oltin, mis, plastik, rezina, yog'och, shisha, keramika, beton, neon, suv — `MaterialPresets`; protsedural teksturalar
-`Assets/Materials/Standart/Textures/` ga bir marta yoziladi). Inspektordagi **material muharriri**: aylanadigan preview (shar
+`Assets/Materials/Standard/Textures/` ga bir marta yoziladi). Inspektordagi **material muharriri**: aylanadigan preview (shar
 / kub / tekislik / silindr, sahna HDRI'si bilan), o'zgarishlar sahnada darhol, **Saqlash** / **Bekor qilish**. `.zmat` ni
 viewport'dagi mesh ustiga sudrang — qo'yishdan oldin o'sha meshda ko'rinadi; ko'p qismli modelga `Shift` bilan qo'yilsa
 qaysi qism olishini so'raydi. Model inspektorida glTF materiallarini `.zmat` ga eksport qilish; ichki materialni bir
@@ -434,7 +434,7 @@ void OnMessage(const ScriptMessage& m) override
 - **Primitivlarning LOD'i** — shar, silindr va konus ekranda kichik bo'lsa (radiusi ko'rinish balandligi yarmining
   6 % idan kam) segmentlari yarmi, 1.5 % dan kam bo'lsa choragi bo'lgan nusxasi chiziladi (`MeshLibrary::GetPrimitive(type,
   lod)`, `GetPrimitiveLOD`): 1080p'da chegara 0.3 pikseldan kam o'zgaradi, uzoqdagi shar 2 304 o'rniga 576 / 144
-  uchburchak. Soya o'tishlari ham shu nusxani chizadi. Ipak Yo'li namunasida kadr uchburchaklari 119K -> 53K.
+  uchburchak. Soya o'tishlari ham shu nusxani chizadi. Silk Road namunasida kadr uchburchaklari 119K -> 53K.
 - **Animatsiya kesish** — ko'rinmaydigan modellar pozalanmaydi ([Animation.md](Animation.md#16-samaradorlik-keshlash-va-kesish)).
 - **2D batch tartibi** (`BatchOrder`) — saralangan 2D ro'yxatda sprite, doira va matnlar navbatma-navbat kelsa, har
   almashuv Renderer2D batch'ini chizdirardi. Endi ekranda **ustma-ust tushmaydigan** chizishlar o'z turidagi oldingisi

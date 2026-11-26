@@ -7,7 +7,7 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "",
         "EngineVersion": "0.1.0",
-        "Description": "4096 packed daraxt: ikki model LOD, GPU compute culling va OpenGL 4.1 CPU fallback.",
+        "Description": "4096 packed trees: two model LODs, GPU compute culling and an OpenGL 4.1 CPU fallback.",
         "Thumbnail": "Thumbnail.png"
     },
     "Player": {

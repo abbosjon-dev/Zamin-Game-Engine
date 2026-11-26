@@ -6,7 +6,7 @@
 using namespace Zamin;
 
 // Pauza menyusi (1-3 darajalar): Esc yoki gamepad Start o'yinni to'xtatadi va menyuni ochadi -
-// "Davom etish", "Sozlamalar", "Chiqish". O'yin vaqti to'xtaydi (PauseGame: fizika, animatsiyalar,
+// "Resume", "Settings", "Quit". O'yin vaqti to'xtaydi (PauseGame: fizika, animatsiyalar,
 // boshqa skriptlar), UI esa ishlayveradi - bu skript SetUpdateWhenPaused bilan pauzada ham ishlaydi.
 // Sozlamalar: ovoz guruhlari (Master, Music, SFX, UI) slayderlari audio mikserga ulangan, to'liq ekran
 // va VSync belgilashlari, gamma va yorqinlik slayderlari (Display::SetGamma / SetBrightness: player tasvirni
@@ -133,7 +133,7 @@ public:
         if (Entity overlay = Resolve(Overlay))
             overlay.SetActive(true); // its show animation plays
         if (Entity button = Resolve(ResumeButton))
-            GetScene().SetSelectedUI(button); // keys / gamepad start at "Davom etish"
+            GetScene().SetSelectedUI(button); // keys / gamepad start at "Resume"
         m_MusicFilter = Audio::GetGroupFilter("Music");
         if (MusicMuffle > 0.0f)
             Audio::SetGroupLowPass("Music", MusicMuffle);

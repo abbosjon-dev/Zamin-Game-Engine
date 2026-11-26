@@ -262,7 +262,7 @@ _Inspektorda: **Text**; qo'shish: **+ Komponent → Render → Text**; sahna fay
 
 | Maydon | Tur | Standart |
 |---|---|---|
-| `Text` | `std::string` | `"Matn"` |
+| `Text` | `std::string` | `"Text"` |
 | `LocalizationKey` | `std::string` | — |
 | `InputHints` | `bool` | `false` |
 | `Color` | `glm::vec4` | `{ 1.0f }` |
@@ -388,7 +388,7 @@ ijro etadi: transform, rang, yorug'lik, UI va skript `float` maydonlari, event'l
 boshlanadi (`PlayOnStart`); `Wrap` — klip oxirida nima bo'lishi. Skriptda: `PlayAnimation("DoorOpen")`,
 `PlayAnimation("DoorOpen", -1.0f)` (orqaga), `StopAnimation()` yoki
 `GetComponent<AnimationPlayerComponent>().Play(...)`. Namuna: Adventure3D darvozasi
-(`Animations/DarvozaOchilishi.zanim`). Batafsil: [Animation.md](Animation.md).
+(`Animations/GateOpening.zanim`). Batafsil: [Animation.md](Animation.md).
 
 <!-- gen:AnimationPlayerComponent -->
 _Inspektorda: **Animation Player**; qo'shish: **+ Komponent → Render → Animation Player (.zanim kliplar)**; sahna faylida: `"AnimationPlayer"`._
@@ -1981,7 +1981,7 @@ _Inspektorda: **UI Input Field**; qo'shish: **+ Komponent → Effektlar va UI �
 | Maydon | Tur | Standart |
 |---|---|---|
 | `Text` | `std::string` | — |
-| `Placeholder` | `std::string` | `"Matn kiriting..."` |
+| `Placeholder` | `std::string` | `"Enter text..."` |
 | `ContentType` | `UIContentType` | `UIContentType::Standard` |
 | `CharacterLimit` | `int` | `0` |
 | `Interactable` | `bool` | `true` |

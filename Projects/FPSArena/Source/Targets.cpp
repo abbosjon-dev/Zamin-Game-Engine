@@ -5,11 +5,11 @@
 
 using namespace Zamin;
 
-// Nishonlar. Turg'un va sirpanuvchi nishon urilganda orqaga yiqiladi (ilmoq - "Hinge" - X o'qi atrofida -90
-// gradusgacha buriladi) va RespawnTime soniyadan keyin qayta turadi; chiquvchi nishon yotgan holda kutadi, vaqti-
-// vaqti bilan bir necha soniyaga turadi; dron aylana bo'ylab uchadi, urilganda yorilib yo'qoladi va keyinroq
-// qaytadi. Urilgan joy markazga qanchalik yaqin bo'lsa, ochko shuncha ko'p (markaz - ikki baravar).
-// Yuz ("Face") - kinematik jism: harakatlanganda fizika uni o'zi kuzatadi, nur unga tegadi.
+// Targets. A standing or sliding target falls backwards when hit (the hinge - "Hinge" - turns to -90 degrees
+// around the X axis) and stands up again after RespawnTime seconds; a pop-up target waits lying down and stands
+// for a few seconds from time to time; a drone flies in a circle, bursts and disappears when hit and comes back
+// later. The closer the hit is to the centre, the more points (the centre - double).
+// The face ("Face") is a kinematic body: physics follows it as it moves, and the ray hits it.
 
 static constexpr float DownAngle = -glm::half_pi<float>();
 

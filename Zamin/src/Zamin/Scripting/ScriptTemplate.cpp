@@ -14,9 +14,9 @@ namespace Zamin {
 
         // Every callback of ScriptableEntity, each with a short example, plus one field of
         // each inspector kind (range, enum, color, tooltip, header, entity reference).
-        constexpr std::string_view FullTemplate = R"ZM(// $CLASS$ - C++ gameplay skripti.
-// Ishlatish: obyektga "C++ Skript" komponentini qo'shing va "Klass" ro'yxatidan $CLASS$ ni tanlang.
-// O'zgartirgach: Skriptlar > Kompilyatsiya (Ctrl+B) - editor modulni o'zi qayta yuklaydi.
+        constexpr std::string_view FullTemplate = R"ZM(// $CLASS$ - a C++ gameplay script.
+// To use it: add the "C++ Script" component to an entity and choose $CLASS$ in the "Class" list.
+// After a change: Scripts > Compile + reload (Ctrl+B) - the editor reloads the module by itself.
 #include <Zamin/Zamin.h>
 
 #include <cmath>
@@ -26,38 +26,38 @@ using namespace Zamin;
 class $CLASS$ : public ScriptableEntity
 {
 public:
-    // ================================================================ inspektor maydonlari
-    // Pastdagi ZM_REGISTER_SCRIPT ro'yxatidagi maydonlar inspektorda tahrirlanadi.
+    // ================================================================ inspector fields
+    // The fields listed in ZM_REGISTER_SCRIPT below are edited in the inspector.
     enum class MoveMode { Idle, Patrol, Follow };
 
-    float Speed = 3.0f;                            // ZM_FIELD_RANGE: 0..10 slayder
-    MoveMode Mode = MoveMode::Idle;                // ZM_FIELD_ENUM: ochiladigan ro'yxat
+    float Speed = 3.0f;                            // ZM_FIELD_RANGE: a 0..10 slider
+    MoveMode Mode = MoveMode::Idle;                // ZM_FIELD_ENUM: a drop-down list
     glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
     int Health = 100;
     bool ShowDebug = false;
-    glm::vec4 Tint = { 1.0f, 1.0f, 1.0f, 1.0f };   // ZM_FIELD_COLOR: rang tanlagich
-    std::string Greeting = "Salom";
-    EntityRef Target;                              // boshqa obyekt: ierarxiyadan sudrab qo'ying
+    glm::vec4 Tint = { 1.0f, 1.0f, 1.0f, 1.0f };   // ZM_FIELD_COLOR: a colour picker
+    std::string Greeting = "Hello";
+    EntityRef Target;                              // another entity: drag it here from the hierarchy
 
-    // ================================================================ hayot sikli
-    // Tartib: OnCreate -> OnEnable -> OnStart -> (OnUpdate -> OnLateUpdate) ... -> OnDisable -> OnDestroy
+    // ================================================================ life cycle
+    // Order: OnCreate -> OnEnable -> OnStart -> (OnUpdate -> OnLateUpdate) ... -> OnDisable -> OnDestroy
 
-    // Bir marta, skript yaratilganda (o'yin boshlanganda yoki obyekt paydo bo'lganda).
-    // Boshqa skriptlar hali yaratilmagan bo'lishi mumkin - ularni OnStart'da qidiring.
+    // Once, when the script is created (when the game starts or the entity appears).
+    // Other scripts may not exist yet - look for them in OnStart.
     void OnCreate() override
     {
-        ZM_INFO("$CLASS$ yaratildi: {} ({})", GetName(), Greeting);
+        ZM_INFO("$CLASS$ created: {} ({})", GetName(), Greeting);
     }
 
-    // Skript yoqilganda: OnCreate'dan keyin va har safar SetEnabled(true) qilinganda.
-    // Hodisalarga obuna bo'lish uchun qulay joy (OnDisable'da bekor qilinadi).
+    // When the script is enabled: after OnCreate and on every SetEnabled(true).
+    // A good place to subscribe to events (cancelled in OnDisable).
     void OnEnable() override
     {
         m_GameOverSubscription = Subscribe("GameOver", [this](const ScriptMessage&) { SetEnabled(false); });
     }
 
-    // Birinchi OnUpdate'dan oldin bir marta. Bu paytda sahnadagi hamma skriptlar
-    // OnCreate/OnEnable'dan o'tgan: boshqa obyektlarni topish uchun eng yaxshi joy.
+    // Once, before the first OnUpdate. By now every script in the scene has been through
+    // OnCreate/OnEnable: the best place to find other entities.
     void OnStart() override
     {
         Transform().Translation += Offset;
@@ -65,10 +65,10 @@ public:
         if (auto* sprite = TryGetComponent<SpriteRendererComponent>())
             sprite->Color = Tint;
         if (Entity target = Resolve(Target))
-            ZM_INFO("$CLASS$: nishon - {}", target.GetName());
+            ZM_INFO("$CLASS$: target - {}", target.GetName());
     }
 
-    // Har kadrda, fizikadan oldin. Input nomlari: Fayl > Loyiha sozlamalari > Input.
+    // Every frame, before physics. Input names: File > Project settings > Input.
     void OnUpdate(Timestep ts) override
     {
         switch (Mode)
@@ -93,79 +93,79 @@ public:
         }
 
         if (Input::IsActionJustPressed("Jump"))
-            ZM_INFO("$CLASS$: sakrash!");
-        // Debug chizish (editor va Development build'da; Shipping'da chaqiruvlar bo'sh):
+            ZM_INFO("$CLASS$: jump!");
+        // Debug drawing (in the editor and Development builds; the calls are empty in Shipping):
         // DebugDraw::Arrow(GetWorldPosition(), GetWorldPosition() + glm::vec3(0, 2, 0), DebugColor::Green);
         // DebugDraw::Text(GetWorldPosition() + glm::vec3(0, 2.5f, 0), GetName());
     }
 
-    // Har kadrda, fizikadan keyin (masalan, kamera kuzatishi uchun).
+    // Every frame, after physics (for a camera that follows, for example).
     void OnLateUpdate(Timestep /*ts*/) override
     {
     }
 
-    // Skript o'chirilganda (SetEnabled(false)) va OnDestroy'dan oldin.
+    // When the script is disabled (SetEnabled(false)) and before OnDestroy.
     void OnDisable() override
     {
         Unsubscribe(m_GameOverSubscription);
         m_GameOverSubscription = 0;
     }
 
-    // Obyekt o'chirilganda yoki o'yin to'xtaganda.
+    // When the entity is destroyed or the game stops.
     void OnDestroy() override
     {
-        // O'yinlar orasida saqlanadigan qiymat: SaveData::SetInt("BestHealth", Health);
+        // A value kept between runs of the game: SaveData::SetInt("BestHealth", Health);
     }
 
-    // ================================================================ fizika (2D va 3D)
-    // Qattiq to'qnashuv boshlandi / tugadi (ikkala collider ham sensor emas).
+    // ================================================================ physics (2D and 3D)
+    // A solid collision began / ended (neither collider is a sensor).
     void OnCollisionBegin(Entity other) override
     {
         if (ShowDebug)
-            ZM_INFO("$CLASS$ urildi: {}", other.GetName());
+            ZM_INFO("$CLASS$ hit: {}", other.GetName());
     }
 
     void OnCollisionEnd(Entity /*other*/) override
     {
     }
 
-    // Sensor hududiga (collider'da "Sensor" belgisi) kirildi / chiqildi.
+    // Something entered / left a sensor area (the collider's "Sensor" flag).
     void OnTriggerBegin(Entity other) override
     {
         if (ShowDebug && other.HasTag("Player"))
-            ZM_INFO("$CLASS$: o'yinchi hududga kirdi");
-        // Masalan, yig'iladigan buyum: PlaySound("Audio/pickup.wav"); Destroy();
+            ZM_INFO("$CLASS$: the player entered the area");
+        // A pickup, for example: PlaySound("Audio/pickup.wav"); Destroy();
     }
 
     void OnTriggerEnd(Entity /*other*/) override
     {
     }
 
-    // ================================================================ UI va xabarlar
-    // Shu obyektdagi UI tugma (UI Button) bosildi.
+    // ================================================================ UI and messages
+    // The UI button (UI Button) on this entity was clicked.
     void OnClick() override
     {
-        ZM_INFO("$CLASS$: tugma bosildi");
+        ZM_INFO("$CLASS$: the button was clicked");
     }
 
-    // SendMessage(entity, "Damage", 10) yoki Broadcast(...) bilan kelgan xabarlar.
+    // Messages sent with SendMessage(entity, "Damage", 10) or Broadcast(...).
     void OnMessage(const ScriptMessage& message) override
     {
         if (message.Name == "Damage")
         {
             Health -= message.Get<int>();
             if (Health <= 0)
-                Destroy(); // kadr oxirida o'chiriladi
+                Destroy(); // destroyed at the end of the frame
         }
     }
 
-    // ================================================================ sahnalar
-    // Sahna yuklandi (o'yinning birinchi sahnasi ham; Additive ham). LoadScene(1) - build indeksi bo'yicha,
-    // LoadNextScene() - build ro'yxatidagi keyingisi, ReloadScene() - shu darajani qaytadan.
+    // ================================================================ scenes
+    // A scene was loaded (the game's first scene too; Additive too). LoadScene(1) - by build index,
+    // LoadNextScene() - the next one in the build list, ReloadScene() - this level again.
     void OnSceneLoaded(const SceneEventInfo& scene) override
     {
         if (ShowDebug)
-            ZM_INFO("$CLASS$: '{}' sahnasi yuklandi (build indeksi {})", scene.Name, scene.BuildIndex);
+            ZM_INFO("$CLASS$: scene '{}' loaded (build index {})", scene.Name, scene.BuildIndex);
     }
 
 private:
@@ -173,21 +173,21 @@ private:
     SubscriptionID m_GameOverSubscription = 0;
 };
 
-// Inspektorda ko'rinadigan maydonlar. Atributlarni zanjir qilib ham qo'shish mumkin:
+// The fields the inspector shows. Attributes can also be chained:
 //   ZM_FIELD($CLASS$, Speed).Range(0, 10).Tooltip("...").Header("...").Label("...")
 ZM_REGISTER_SCRIPT($CLASS$,
-    ZM_FIELD_RANGE($CLASS$, Speed, 0.0f, 10.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
-    ZM_FIELD_ENUM($CLASS$, Mode, "Boshqaruv (Input)", "Patrul", "Nishonga ergashish").Label("Rejim"),
-    ZM_FIELD_TOOLTIP($CLASS$, Offset, "OnStart'da joyiga qo'shiladigan siljish"),
-    ZM_FIELD_RANGE($CLASS$, Health, 0, 100).Header("Holat"),
-    ZM_FIELD_TOOLTIP($CLASS$, ShowDebug, "To'qnashuv va triggerlarni konsolga yozish"),
-    ZM_FIELD_COLOR($CLASS$, Tint).Header("Ko'rinish").Tooltip("Sprite rangi (OnStart'da qo'llanadi)"),
+    ZM_FIELD_RANGE($CLASS$, Speed, 0.0f, 10.0f).Header("Movement").Tooltip("Movement speed (units per second)"),
+    ZM_FIELD_ENUM($CLASS$, Mode, "Control (Input)", "Patrol", "Follow the target").Label("Mode"),
+    ZM_FIELD_TOOLTIP($CLASS$, Offset, "The offset added to the position in OnStart"),
+    ZM_FIELD_RANGE($CLASS$, Health, 0, 100).Header("State"),
+    ZM_FIELD_TOOLTIP($CLASS$, ShowDebug, "Log collisions and triggers to the console"),
+    ZM_FIELD_COLOR($CLASS$, Tint).Header("Appearance").Tooltip("The sprite's colour (applied in OnStart)"),
     ZM_FIELD($CLASS$, Greeting).Multiline(),
-    ZM_FIELD($CLASS$, Target).Header("Havolalar").Tooltip("Ierarxiyadan obyektni shu yerga sudrab qo'ying"))
+    ZM_FIELD($CLASS$, Target).Header("References").Tooltip("Drag an entity here from the hierarchy"))
 )ZM";
 
-        constexpr std::string_view MinimalTemplate = R"ZM(// $CLASS$ - C++ gameplay skripti.
-// Ishlatish: obyektga "C++ Skript" komponentini qo'shing va "Klass" ro'yxatidan $CLASS$ ni tanlang.
+        constexpr std::string_view MinimalTemplate = R"ZM(// $CLASS$ - a C++ gameplay script.
+// To use it: add the "C++ Script" component to an entity and choose $CLASS$ in the "Class" list.
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
@@ -195,11 +195,11 @@ using namespace Zamin;
 class $CLASS$ : public ScriptableEntity
 {
 public:
-    float RotationSpeed = 0.0f; // radian/sekund (inspektorda o'zgartiring)
+    float RotationSpeed = 0.0f; // radians per second (change it in the inspector)
 
     void OnCreate() override
     {
-        ZM_INFO("$CLASS$ yaratildi: {}", GetName());
+        ZM_INFO("$CLASS$ created: {}", GetName());
     }
 
     void OnUpdate(Timestep ts) override
@@ -208,30 +208,30 @@ public:
     }
 };
 
-ZM_REGISTER_SCRIPT($CLASS$, ZM_FIELD_TOOLTIP($CLASS$, RotationSpeed, "Y o'qi atrofida aylanish tezligi"))
+ZM_REGISTER_SCRIPT($CLASS$, ZM_FIELD_TOOLTIP($CLASS$, RotationSpeed, "Rotation speed around the Y axis"))
 )ZM";
 
-        constexpr std::string_view ProjectStarter = R"ZM(// O'yin skriptlari (C++). Har bir klass ZM_REGISTER_SCRIPT orqali ro'yxatdan o'tadi
-// va Editor'da "C++ Skript" komponentida tanlanadi. Yangi skript: Skriptlar > Yangi C++ skript.
+        constexpr std::string_view ProjectStarter = R"ZM(// The game's scripts (C++). Every class is registered with ZM_REGISTER_SCRIPT
+// and chosen in the editor's "C++ Script" component. A new script: Scripts > New C++ script.
 #include <Zamin/Zamin.h>
 
 using namespace Zamin;
 
-// Obyektni doimiy aylantiradi.
+// Rotates the entity all the time.
 class Rotator : public ScriptableEntity
 {
 public:
-    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radian/sekund
+    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radians per second
 
     void OnUpdate(Timestep ts) override
     {
         Transform().Rotation += Speed * (float)ts;
     }
 };
-ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD_TOOLTIP(Rotator, Speed, "Har bir o'q atrofida aylanish tezligi (radian/sekund)"))
+ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD_TOOLTIP(Rotator, Speed, "Rotation speed around each axis (radians per second)"))
 
-// WASD / strelkalar / gamepad bilan harakatlanadigan obyekt. "Horizontal", "Vertical" va
-// "Jump" nomlari Loyiha sozlamalari > Input oynasida tugmalarga bog'lanadi.
+// An entity moved with WASD / the arrows / a gamepad. The names "Horizontal", "Vertical" and
+// "Jump" are bound to keys in Project settings > Input.
 class PlayerController : public ScriptableEntity
 {
 public:
@@ -239,10 +239,10 @@ public:
 
     void OnStart() override
     {
-        // SaveData: o'yinlar orasida saqlanadigan qiymatlar (~/.local/share/zamin/<loyiha>)
+        // SaveData: values kept between runs of the game (~/.local/share/zamin/<project>)
         int launches = SaveData::GetInt("Launches") + 1;
         SaveData::SetInt("Launches", launches);
-        ZM_INFO("PlayerController ishga tushdi: {}, {}-marta", GetName(), launches);
+        ZM_INFO("PlayerController started: {}, launch {}", GetName(), launches);
     }
 
     void OnUpdate(Timestep ts) override
@@ -250,17 +250,17 @@ public:
         glm::vec2 move = Input::GetAxis2D("Horizontal", "Vertical");
         Transform().Translation += glm::vec3(move.x, 0.0f, -move.y) * MoveSpeed * (float)ts;
         if (Input::IsActionJustPressed("Jump"))
-            ZM_INFO("Sakrash!");
+            ZM_INFO("Jump!");
     }
 
-    // Sensor collider'ga kirildi (masalan, yig'iladigan buyum).
+    // Something entered the sensor collider (a pickup, for example).
     void OnTriggerBegin(Entity other) override
     {
-        ZM_INFO("{} hududiga kirildi", other.GetName());
+        ZM_INFO("Entered the area of {}", other.GetName());
     }
 };
 ZM_REGISTER_SCRIPT(PlayerController,
-    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Tooltip("Yurish tezligi (birlik/sekund)"))
+    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Tooltip("Movement speed (units per second)"))
 )ZM";
 
         constexpr std::string_view CppKeywords[] = {

@@ -265,7 +265,12 @@ namespace Zamin {
 
     fs::path MaterialPresets::GetSharedFolder()
     {
-        return Project::GetActive() ? Project::GetAssetDirectory() / "Materials" / "Standart" : fs::path();
+        if (!Project::GetActive())
+            return fs::path();
+        // "Standart" was the folder's name before: a project that has it keeps using it (its materials point there).
+        const fs::path materials = Project::GetAssetDirectory() / "Materials";
+        std::error_code ec;
+        return fs::is_directory(materials / "Standart", ec) && !fs::is_directory(materials / "Standard", ec) ? materials / "Standart" : materials / "Standard";
     }
 
     fs::path MaterialPresets::GetTexturePath(const MaterialPreset& preset, const fs::path& folder)

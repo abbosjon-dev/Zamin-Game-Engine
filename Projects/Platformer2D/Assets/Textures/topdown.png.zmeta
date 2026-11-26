@@ -4,7 +4,7 @@
     "Import": {
         "AutoTiles": [
             {
-                "Name": "Yo'lak",
+                "Name": "Path",
                 "Mode": "Blob8",
                 "Tiles": [
                     8,

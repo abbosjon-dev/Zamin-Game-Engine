@@ -2,11 +2,11 @@
   "Scene": "AI3D",
   "Version": 4,
   "Metadata": {
-    "Description": "M20: AI namunasi - yopiq eshik (Nav Obstacle) katakni yopadi va agentlar boshqa yo'l topadi; qorovul holat mashinasi va ko'rish sensori bilan mehmonni ta'qib qiladi, yo'qotsa qidiradi; kuzatuv kamerasi ko'rganini kuzatadi; hammollar mo'ylov nurlari bilan aravani aylanib o'tadi; qo'ylar suruvi steering bilan yuradi",
-    "Author": "Zamin",
+    "Description": "M20: an AI sample - a closed door (Nav Obstacle) blocks a cell and the agents find another way; the watchman chases the visitor with a state machine and a sight sensor and searches when it loses them; the security camera tracks what it sees; the porters go around the cart with whisker rays; the flock of sheep moves by steering",
+    "Author": "Floor",
     "Tags": [
       "AI",
-      "navigatsiya",
+      "navigation",
       "M20"
     ]
   },
@@ -109,7 +109,7 @@
     },
     {
       "Entity": 7960000000000002,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [
           0,
@@ -139,7 +139,7 @@
     },
     {
       "Entity": 7960000000000003,
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Translation": [
           0,
@@ -206,7 +206,7 @@
     },
     {
       "Entity": 7960000000000004,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           0,
@@ -273,7 +273,7 @@
     },
     {
       "Entity": 7960000000000005,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           0,
@@ -340,7 +340,7 @@
     },
     {
       "Entity": 7960000000000006,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           -12.75,
@@ -407,7 +407,7 @@
     },
     {
       "Entity": 7960000000000007,
-      "Tag": "Chegara",
+      "Tag": "Boundary",
       "Transform": {
         "Translation": [
           12.75,
@@ -474,7 +474,7 @@
     },
     {
       "Entity": 7960000000000008,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           -7.0,
@@ -541,7 +541,7 @@
     },
     {
       "Entity": 7960000000000009,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Transform": {
         "Translation": [
           4.75,
@@ -608,7 +608,7 @@
     },
     {
       "Entity": 7960000000000010,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           -8,
@@ -675,7 +675,7 @@
     },
     {
       "Entity": 7960000000000011,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           -3.5,
@@ -742,7 +742,7 @@
     },
     {
       "Entity": 7960000000000012,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           3.5,
@@ -809,7 +809,7 @@
     },
     {
       "Entity": 7960000000000013,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           8.5,
@@ -876,7 +876,7 @@
     },
     {
       "Entity": 7960000000000014,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           3.5,
@@ -943,7 +943,7 @@
     },
     {
       "Entity": 7960000000000015,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           8.2,
@@ -1010,7 +1010,7 @@
     },
     {
       "Entity": 7960000000000016,
-      "Tag": "Navigatsiya",
+      "Tag": "Navigation",
       "Transform": {
         "Translation": [
           0,
@@ -1052,7 +1052,7 @@
     },
     {
       "Entity": 7960000000000017,
-      "Tag": "Eshik",
+      "Tag": "Door",
       "Transform": {
         "Translation": [
           0,
@@ -1166,7 +1166,7 @@
     },
     {
       "Entity": 7960000000000018,
-      "Tag": "Arava",
+      "Tag": "Cart",
       "Transform": {
         "Translation": [
           -4.5,
@@ -1272,7 +1272,7 @@
     },
     {
       "Entity": 7960000000000019,
-      "Tag": "Patrul yo'li",
+      "Tag": "Patrol path",
       "Transform": {
         "Translation": [
           0,
@@ -1293,7 +1293,7 @@
     },
     {
       "Entity": 7960000000000020,
-      "Tag": "Nuqta",
+      "Tag": "Point",
       "Parent": 7960000000000019,
       "Transform": {
         "Translation": [
@@ -1337,7 +1337,7 @@
     },
     {
       "Entity": 7960000000000021,
-      "Tag": "Nuqta",
+      "Tag": "Point",
       "Parent": 7960000000000019,
       "Transform": {
         "Translation": [
@@ -1381,7 +1381,7 @@
     },
     {
       "Entity": 7960000000000022,
-      "Tag": "Nuqta",
+      "Tag": "Point",
       "Parent": 7960000000000019,
       "Transform": {
         "Translation": [
@@ -1425,7 +1425,7 @@
     },
     {
       "Entity": 7960000000000023,
-      "Tag": "Nuqta",
+      "Tag": "Point",
       "Parent": 7960000000000019,
       "Transform": {
         "Translation": [
@@ -1469,7 +1469,7 @@
     },
     {
       "Entity": 7960000000000024,
-      "Tag": "Nuqta",
+      "Tag": "Point",
       "Parent": 7960000000000019,
       "Transform": {
         "Translation": [
@@ -1513,7 +1513,7 @@
     },
     {
       "Entity": 7960000000000025,
-      "Tag": "Nuqta",
+      "Tag": "Point",
       "Parent": 7960000000000019,
       "Transform": {
         "Translation": [
@@ -1557,7 +1557,7 @@
     },
     {
       "Entity": 7960000000000026,
-      "Tag": "Qorovul",
+      "Tag": "Watchman",
       "Transform": {
         "Translation": [
           -9.5,
@@ -1656,7 +1656,7 @@
     },
     {
       "Entity": 7960000000000027,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7960000000000026,
       "Transform": {
         "Translation": [
@@ -1700,7 +1700,7 @@
     },
     {
       "Entity": 7960000000000028,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000026,
       "Transform": {
         "Translation": [
@@ -1744,7 +1744,7 @@
     },
     {
       "Entity": 7960000000000029,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7960000000000026,
       "Transform": {
         "Translation": [
@@ -1788,7 +1788,7 @@
     },
     {
       "Entity": 7960000000000030,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Parent": 7960000000000026,
       "Transform": {
         "Translation": [
@@ -1832,7 +1832,7 @@
     },
     {
       "Entity": 7960000000000031,
-      "Tag": "Mehmon",
+      "Tag": "Visitor",
       "Tags": [
         "Player"
       ],
@@ -1925,7 +1925,7 @@
     },
     {
       "Entity": 7960000000000032,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7960000000000031,
       "Transform": {
         "Translation": [
@@ -1969,7 +1969,7 @@
     },
     {
       "Entity": 7960000000000033,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000031,
       "Transform": {
         "Translation": [
@@ -2013,7 +2013,7 @@
     },
     {
       "Entity": 7960000000000034,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7960000000000031,
       "Transform": {
         "Translation": [
@@ -2057,7 +2057,7 @@
     },
     {
       "Entity": 7960000000000035,
-      "Tag": "Hammol 1",
+      "Tag": "Porter 1",
       "Transform": {
         "Translation": [
           -0.5,
@@ -2137,7 +2137,7 @@
     },
     {
       "Entity": 7960000000000036,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7960000000000035,
       "Transform": {
         "Translation": [
@@ -2181,7 +2181,7 @@
     },
     {
       "Entity": 7960000000000037,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000035,
       "Transform": {
         "Translation": [
@@ -2225,7 +2225,7 @@
     },
     {
       "Entity": 7960000000000038,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7960000000000035,
       "Transform": {
         "Translation": [
@@ -2269,7 +2269,7 @@
     },
     {
       "Entity": 7960000000000039,
-      "Tag": "Hammol 2",
+      "Tag": "Porter 2",
       "Transform": {
         "Translation": [
           6.5,
@@ -2349,7 +2349,7 @@
     },
     {
       "Entity": 7960000000000040,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Parent": 7960000000000039,
       "Transform": {
         "Translation": [
@@ -2393,7 +2393,7 @@
     },
     {
       "Entity": 7960000000000041,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000039,
       "Transform": {
         "Translation": [
@@ -2437,7 +2437,7 @@
     },
     {
       "Entity": 7960000000000042,
-      "Tag": "Burun",
+      "Tag": "Nose",
       "Parent": 7960000000000039,
       "Transform": {
         "Translation": [
@@ -2481,7 +2481,7 @@
     },
     {
       "Entity": 7960000000000043,
-      "Tag": "Kamera ustuni",
+      "Tag": "Camera post",
       "Transform": {
         "Translation": [
           11.6,
@@ -2548,7 +2548,7 @@
     },
     {
       "Entity": 7960000000000044,
-      "Tag": "Kuzatuv kamerasi",
+      "Tag": "Security camera",
       "Transform": {
         "Translation": [
           11.6,
@@ -2623,7 +2623,7 @@
     },
     {
       "Entity": 7960000000000045,
-      "Tag": "Linza",
+      "Tag": "Lens",
       "Parent": 7960000000000044,
       "Transform": {
         "Translation": [
@@ -2667,7 +2667,7 @@
     },
     {
       "Entity": 7960000000000046,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Parent": 7960000000000044,
       "Transform": {
         "Translation": [
@@ -2711,7 +2711,7 @@
     },
     {
       "Entity": 7960000000000047,
-      "Tag": "Qo'ra",
+      "Tag": "Pen",
       "Transform": {
         "Translation": [
           -8.3,
@@ -2749,7 +2749,7 @@
     },
     {
       "Entity": 7960000000000048,
-      "Tag": "Qo'ra maydoni",
+      "Tag": "Pen area",
       "Transform": {
         "Translation": [
           -8.3,
@@ -2792,7 +2792,7 @@
     },
     {
       "Entity": 7960000000000049,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -2836,7 +2836,7 @@
     },
     {
       "Entity": 7960000000000050,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000049,
       "Transform": {
         "Translation": [
@@ -2880,7 +2880,7 @@
     },
     {
       "Entity": 7960000000000051,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -2924,7 +2924,7 @@
     },
     {
       "Entity": 7960000000000052,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000051,
       "Transform": {
         "Translation": [
@@ -2968,7 +2968,7 @@
     },
     {
       "Entity": 7960000000000053,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3012,7 +3012,7 @@
     },
     {
       "Entity": 7960000000000054,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000053,
       "Transform": {
         "Translation": [
@@ -3056,7 +3056,7 @@
     },
     {
       "Entity": 7960000000000055,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3100,7 +3100,7 @@
     },
     {
       "Entity": 7960000000000056,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000055,
       "Transform": {
         "Translation": [
@@ -3144,7 +3144,7 @@
     },
     {
       "Entity": 7960000000000057,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3188,7 +3188,7 @@
     },
     {
       "Entity": 7960000000000058,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000057,
       "Transform": {
         "Translation": [
@@ -3232,7 +3232,7 @@
     },
     {
       "Entity": 7960000000000059,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3276,7 +3276,7 @@
     },
     {
       "Entity": 7960000000000060,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000059,
       "Transform": {
         "Translation": [
@@ -3320,7 +3320,7 @@
     },
     {
       "Entity": 7960000000000061,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3364,7 +3364,7 @@
     },
     {
       "Entity": 7960000000000062,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000061,
       "Transform": {
         "Translation": [
@@ -3408,7 +3408,7 @@
     },
     {
       "Entity": 7960000000000063,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3452,7 +3452,7 @@
     },
     {
       "Entity": 7960000000000064,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000063,
       "Transform": {
         "Translation": [
@@ -3496,7 +3496,7 @@
     },
     {
       "Entity": 7960000000000065,
-      "Tag": "Qo'y",
+      "Tag": "Sheep",
       "Parent": 7960000000000047,
       "Transform": {
         "Translation": [
@@ -3540,7 +3540,7 @@
     },
     {
       "Entity": 7960000000000066,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 7960000000000065,
       "Transform": {
         "Translation": [

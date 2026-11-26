@@ -158,15 +158,15 @@ logiga qarab tekshiradi:
 
 - **demo**: oltita M24 o'yini `ZAMIN_DEMO=1` bilan ishga tushadi va ularni bot o'ynaydi. Jurnaldagi `Demo: ...`
   qatorlari natija bo'lishini ko'rsatishi kerak:
-  - Neon Maydon: hisob, o'ldirilgan dushmanlar, 2-to'lqin, kombo;
+  - Neon Arena: hisob, o'ldirilgan dushmanlar, 2-to'lqin, kombo;
   - Breakout: 1-daraja tugab, 2-daraja boshlanadi (`level6` holati: `ZAMIN_START_LEVEL=6` bilan oxirgi daraja);
   - FPS Arena: parkur aylanasi, nazorat nuqtalari, urilgan nishonlar;
-  - Omborchi: kamida 3 ta yechilgan daraja va undo;
-  - Ipak Yo'li: kamida 400 m masofa, bot hech narsaga urilmaydi;
-  - Vodiy Poygasi: birinchi aylana tugaydi.
+  - Warehouse Keeper: kamida 3 ta yechilgan daraja va undo;
+  - Silk Road: kamida 400 m masofa, bot hech narsaga urilmaydi;
+  - Valley Race: birinchi aylana tugaydi.
 - **menus**: bot yo'q, tugmalarni `ZAMIN_PLAYER_INPUT` bosadi. Bosh menyuda Enter ("O'ynash" tanlangan bo'ladi),
-  so'ng Esc — pauza, yana Esc — o'yin davom etadi, keyin pauza menyusidan "Bosh menyu". Omborchi va Ipak Yo'li
-  holatlarida natija oynasi ham ochiladi. Omborchi'ning `menuwait` holati bosh menyuda 10 s kutadi (orqadagi bot
+  so'ng Esc — pauza, yana Esc — o'yin davom etadi, keyin pauza menyusidan "Bosh menyu". Warehouse Keeper va Silk Road
+  holatlarida natija oynasi ham ochiladi. Warehouse Keeper'ning `menuwait` holati bosh menyuda 10 s kutadi (orqadagi bot
   keyingi darajaga o'tadi), so'ng "O'ynash" o'yinchining 1-darajasini ochishini va qadam animatsiyasi paytida tez
   bosilgan ikkinchi qadam yo'qolmasligini tekshiradi. O'yinlar har panel uchun jurnalga `Menu: main menu` / `pause` /
   `pause closed` / `results` yozadi, test shu qatorlarning tartibini tekshiradi. Platformer2D'da `Menu.zscene` dan
@@ -179,8 +179,8 @@ logiga qarab tekshiradi:
 - **gamepad**: oltita o'yin faqat simulyatsiya qilingan gamepad bilan (`ZAMIN_PLAYER_INPUT`: `pad=A`, `padhold=` /
   `padrelease=`, `stick=LeftX,0.8`). Bosh menyuda A, o'yinning o'z boshqaruvi (stiklar, tugmalar, triggerlar), Start —
   pauza va qaytish, D-pad pastga + A — bosh menyu. Ishoralar gamepad'ga o'tishi (`Input device: gamepad`,
-  klaviaturaga qaytmasdan) va o'yinda natija bo'lishi tekshiriladi: Neon Maydon'da RT bilan o'q otilgan, Breakout'da
-  g'isht singan, Omborchi'da 1-daraja D-pad bilan yechilgan, Ipak Yo'li'da masofa — rekord bo'lib yozilgan.
+  klaviaturaga qaytmasdan) va o'yinda natija bo'lishi tekshiriladi: Neon Arena'da RT bilan o'q otilgan, Breakout'da
+  g'isht singan, Warehouse Keeper'da 1-daraja D-pad bilan yechilgan, Silk Road'da masofa — rekord bo'lib yozilgan.
 
 Har bir ishga tushirishda yana quyidagilar tekshiriladi:
 
@@ -382,7 +382,7 @@ qamrovi topdi).
 Bo'lim nomi - `Tests/ZaminTests.cpp` dagi bo'lim sarlavhasi (kod izohi, ingliz tilida).
 
 <!-- test-catalog:begin -->
-_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 1369 ta unit test, 143 ta bo'lim (`ZaminTests` targetidagi fayllar tartibida). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
+_`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 1370 ta unit test, 143 ta bo'lim (`ZaminTests` targetidagi fayllar tartibida). Bitta testni ishga tushirish: `./build/bin/ZaminTests <Nom>`._
 
 | # | Bo'lim | Testlar | Nomlari |
 |---|---|---|---|
@@ -449,7 +449,7 @@ _`Tests/test_catalog.py --update docs/Testing.md` yaratgan: 1369 ta unit test, 1
 | 61 | debug drawing (M07) | 19 | `DebugDrawShapes`, `DebugDrawDurations`, `DebugDrawFollowsGameTime`, `DebugDrawRaycasts`, `DebugDrawContacts`, `DebugDrawShippingIsEmpty`, `DebugDrawSettingsSaved`, `DebugDrawVelocities`, `DebugDrawNavigationPath`, `FrustumCornersCamera`, `EditorGizmoSettingsSaved`, `TransformGizmoSettingsSaved`, `SelectionOutlineSettingsSaved`, `EditorBoundsAndSkeletonGizmosSaved`, `SelectionOutlineLookup`, `SelectionOutlineCoverage`, `SkeletonJointTransforms`, `EntityLocalBounds`, `ImageCompare` |
 | 62 | M07: profiler tree, overlay, normals, queue | 7 | `ProfilerHierarchy`, `ProfilerScopedTimersAndAverages`, `FrameTimeHistoryStats`, `StatsOverlaySettingsSaved`, `VertexNormalLines`, `DebugDrawPausedFramesDoNotPileUp`, `DebugDrawQueueLimitsAndShortDurations` |
 | 63 | M08: 2D (sprite sheets, 9-slice, sorting layers, parallax) | 13 | `SpriteSheetSliceGrid`, `SpriteFrameUVAndRegions`, `SpriteSheetStorageAndSequences`, `SpriteSheetFromAssetRegistry`, `SpriteGeometryNineSlice`, `SpriteGeometryTiled`, `SpriteRendererRectAndBounds`, `SortingLayerListEdits`, `SortKey2DOrder`, `SortingLayersInProjectFile`, `Scene2DFieldsSerialized`, `ParallaxOffsetAndRepeat`, `ParallaxCopiedWithScene` |
-| 64 | M08: 2D camera follow and shake | 5 | `Camera2DFollowMath`, `Camera2DFollowStep`, `Camera2DFollowInScene`, `CameraShakeTrauma`, `CameraShakeInScene` |
+| 64 | M08: 2D camera follow and shake | 6 | `Camera2DFollowMath`, `Camera2DFollowStep`, `Camera2DFollowInScene`, `CameraShakeTrauma`, `CameraShakeInScene`, `EnglishContentDefaults` |
 | 65 | M08: tilemap layers, auto-tiles, tools | 16 | `TilemapLayersEdit`, `TilemapLayersSerializedAndSolid`, `AutoTileMasks`, `AutoTilePaintEdges4`, `AutoTilePaintBlob8AndFallback`, `AutoTileSetStorage`, `TilemapFloodFillRectAndLine`, `TilemapSampleAutoTilesConsistent`, `TilesetPropertiesStorage`, `TilemapCollisionBoxes`, `OneWayPlatformDecision`, `OneWayBoxColliderInScene`, `TilemapTilePropertiesInScene`, `TileBrushStamp`, `SpriteFlashAndOutline`, `SpriteOutlineDrawModes` |
 | 66 | M08: tint animation, 2D lights, pixel perfect, Y-sort | 8 | `TintGradientAndPhases`, `TintAnimationInScene`, `TintAnimationOnSpawnedEntities`, `Light2DMathAndGathering`, `PixelPerfectCamera`, `PixelPerfectCameraOddSizes`, `YSortedSortingLayers`, `TopDown2DSampleScene` |
 | 67 | 2D joints (M09) | 9 | `DistanceJoint2DRodRopeAndWorldAnchor`, `DistanceJoint2DSpring`, `RevoluteJoint2DLimitAndMotor`, `PrismaticJoint2DAxisLimitAndMotor`, `WeldJoint2DRigidAndSoft`, `WheelJoint2DCarDrives`, `Joint2DBreakForceAndScriptCallback`, `Joint2DFollowsBodiesInAndOut`, `Joint2DSerializeAndRemap` |

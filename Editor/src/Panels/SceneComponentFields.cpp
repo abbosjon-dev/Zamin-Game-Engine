@@ -2832,7 +2832,7 @@ namespace Zamin {
                 m_TileRule = -1;
                 m_EditRule = false;
                 m_EditRuleVariant = -1;
-                m_TileLayer = std::max(0, c.FindLayer("Asosiy"));
+                m_TileLayer = std::max(0, c.FindLayer("Main") >= 0 ? c.FindLayer("Main") : c.FindLayer("Asosiy")); // "Asosiy": a file from before layers had names
             }
             m_TileEntity = (uint64_t)entity.GetUUID();
         }

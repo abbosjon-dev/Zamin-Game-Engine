@@ -44,15 +44,15 @@
     "Gravity3D": [0, -9.81, 0]
   },
   "Metadata": {
-    "Description": "Ipak Yo'li: 3D cheksiz yuguruvchi - uch yo'lak, sakrash, sirpanish, protsedurali to'siqlar, tangalar, bonuslar, oshib boruvchi tezlik",
+    "Description": "Silk Road: a 3D endless runner - three lanes, jumping, sliding, procedural obstacles, coins, power-ups, rising speed",
     "Author": "Zamin",
-    "Tags": ["namuna", "3D", "runner"]
+    "Tags": ["sample", "3D", "runner"]
   },
   "RootOrder": [8850000000000001, 8850000000000002, 8850000000000003, 8850000000000004, 8850000000000005, 8850000000000006, 8850000000000007, 8850000000000078, 8850000000000102, 8850000000000105, 8850000000000106],
   "Entities": [
     {
       "Entity": 8850000000000001,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [-0.5934119456780721, 0.6108652381980153, 0.0],
@@ -66,7 +66,7 @@
     },
     {
       "Entity": 8850000000000002,
-      "Tag": "Kamera",
+      "Tag": "Camera",
       "Transform": {
         "Translation": [0.0, 4.4, 7.8],
         "Rotation": [-0.3141592653589793, 0.0, 0.0],
@@ -97,7 +97,7 @@
     },
     {
       "Entity": 8850000000000003,
-      "Tag": "Yo'l",
+      "Tag": "Road",
       "Transform": {
         "Translation": [0.0, 0.0, -100.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -130,7 +130,7 @@
     },
     {
       "Entity": 8850000000000004,
-      "Tag": "Qum",
+      "Tag": "Sand",
       "Transform": {
         "Translation": [0.0, -0.05, -100.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -163,7 +163,7 @@
     },
     {
       "Entity": 8850000000000005,
-      "Tag": "Yo'l cheti (chap)",
+      "Tag": "Road edge (left)",
       "Transform": {
         "Translation": [-4.3500000000000005, 0.12, -100.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -196,7 +196,7 @@
     },
     {
       "Entity": 8850000000000006,
-      "Tag": "Yo'l cheti (o'ng)",
+      "Tag": "Road edge (right)",
       "Transform": {
         "Translation": [4.3500000000000005, 0.12, -100.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -229,7 +229,7 @@
     },
     {
       "Entity": 8850000000000007,
-      "Tag": "Shablonlar",
+      "Tag": "Templates",
       "Active": false,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -240,7 +240,7 @@
     },
     {
       "Entity": 8850000000000008,
-      "Tag": "Arava",
+      "Tag": "Cart",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -251,7 +251,7 @@
     },
     {
       "Entity": 8850000000000009,
-      "Tag": "Kuzov",
+      "Tag": "Body",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [0.0, 0.55, 0.0],
@@ -285,7 +285,7 @@
     },
     {
       "Entity": 8850000000000010,
-      "Tag": "G'ildirak",
+      "Tag": "Wheel",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [-0.8, 0.42, 0.0],
@@ -319,7 +319,7 @@
     },
     {
       "Entity": 8850000000000011,
-      "Tag": "G'ildirak",
+      "Tag": "Wheel",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [0.8, 0.42, 0.0],
@@ -353,7 +353,7 @@
     },
     {
       "Entity": 8850000000000012,
-      "Tag": "Qovun",
+      "Tag": "Melon",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [-0.35, 0.98, -0.4],
@@ -387,7 +387,7 @@
     },
     {
       "Entity": 8850000000000013,
-      "Tag": "Qovun",
+      "Tag": "Melon",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [0.35, 0.98, -0.35],
@@ -421,7 +421,7 @@
     },
     {
       "Entity": 8850000000000014,
-      "Tag": "Qovun",
+      "Tag": "Melon",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [0.0, 0.98, 0.3],
@@ -455,7 +455,7 @@
     },
     {
       "Entity": 8850000000000015,
-      "Tag": "Qovun",
+      "Tag": "Melon",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [-0.4, 0.98, 0.45],
@@ -489,7 +489,7 @@
     },
     {
       "Entity": 8850000000000016,
-      "Tag": "Qovun",
+      "Tag": "Melon",
       "Parent": 8850000000000008,
       "Transform": {
         "Translation": [0.4, 0.98, 0.4],
@@ -523,7 +523,7 @@
     },
     {
       "Entity": 8850000000000017,
-      "Tag": "To'siq",
+      "Tag": "Barrier",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -534,7 +534,7 @@
     },
     {
       "Entity": 8850000000000018,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000017,
       "Transform": {
         "Translation": [-3.7, 0.45, 0.0],
@@ -568,7 +568,7 @@
     },
     {
       "Entity": 8850000000000019,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000017,
       "Transform": {
         "Translation": [-1.2, 0.45, 0.0],
@@ -602,7 +602,7 @@
     },
     {
       "Entity": 8850000000000020,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000017,
       "Transform": {
         "Translation": [1.2, 0.45, 0.0],
@@ -636,7 +636,7 @@
     },
     {
       "Entity": 8850000000000021,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000017,
       "Transform": {
         "Translation": [3.7, 0.45, 0.0],
@@ -670,7 +670,7 @@
     },
     {
       "Entity": 8850000000000022,
-      "Tag": "Xoda",
+      "Tag": "Pole",
       "Parent": 8850000000000017,
       "Transform": {
         "Translation": [0.0, 0.4, 0.0],
@@ -704,7 +704,7 @@
     },
     {
       "Entity": 8850000000000023,
-      "Tag": "Xoda",
+      "Tag": "Pole",
       "Parent": 8850000000000017,
       "Transform": {
         "Translation": [0.0, 0.75, 0.0],
@@ -738,7 +738,7 @@
     },
     {
       "Entity": 8850000000000024,
-      "Tag": "Darvoza",
+      "Tag": "Gate",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -749,7 +749,7 @@
     },
     {
       "Entity": 8850000000000025,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000024,
       "Transform": {
         "Translation": [-4.45, 2.2, 0.0],
@@ -783,7 +783,7 @@
     },
     {
       "Entity": 8850000000000026,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000024,
       "Transform": {
         "Translation": [4.45, 2.2, 0.0],
@@ -817,7 +817,7 @@
     },
     {
       "Entity": 8850000000000027,
-      "Tag": "To'sin",
+      "Tag": "Beam",
       "Parent": 8850000000000024,
       "Transform": {
         "Translation": [0.0, 4.35, 0.0],
@@ -851,7 +851,7 @@
     },
     {
       "Entity": 8850000000000028,
-      "Tag": "Gilam",
+      "Tag": "Carpet",
       "Parent": 8850000000000024,
       "Transform": {
         "Translation": [0.0, 2.65, 0.0],
@@ -885,7 +885,7 @@
     },
     {
       "Entity": 8850000000000029,
-      "Tag": "Popuk",
+      "Tag": "Tassel",
       "Parent": 8850000000000024,
       "Transform": {
         "Translation": [0.0, 1.16, 0.0],
@@ -919,7 +919,7 @@
     },
     {
       "Entity": 8850000000000030,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -930,7 +930,7 @@
     },
     {
       "Entity": 8850000000000031,
-      "Tag": "G'isht",
+      "Tag": "Brick",
       "Parent": 8850000000000030,
       "Transform": {
         "Translation": [0.0, 1.5, 0.0],
@@ -964,7 +964,7 @@
     },
     {
       "Entity": 8850000000000032,
-      "Tag": "Koshin",
+      "Tag": "Tile",
       "Parent": 8850000000000030,
       "Transform": {
         "Translation": [0.0, 2.6, 0.0],
@@ -998,7 +998,7 @@
     },
     {
       "Entity": 8850000000000033,
-      "Tag": "Karvon",
+      "Tag": "Caravan",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1009,7 +1009,7 @@
     },
     {
       "Entity": 8850000000000034,
-      "Tag": "Asos",
+      "Tag": "Base",
       "Parent": 8850000000000033,
       "Transform": {
         "Translation": [0.0, 0.95, 0.0],
@@ -1043,7 +1043,7 @@
     },
     {
       "Entity": 8850000000000035,
-      "Tag": "Chodir",
+      "Tag": "Tent",
       "Parent": 8850000000000033,
       "Transform": {
         "Translation": [0.0, 1.45, 0.0],
@@ -1077,7 +1077,7 @@
     },
     {
       "Entity": 8850000000000036,
-      "Tag": "G'ildirak",
+      "Tag": "Wheel",
       "Parent": 8850000000000033,
       "Transform": {
         "Translation": [-1.05, 0.5, -3.4],
@@ -1111,7 +1111,7 @@
     },
     {
       "Entity": 8850000000000037,
-      "Tag": "G'ildirak",
+      "Tag": "Wheel",
       "Parent": 8850000000000033,
       "Transform": {
         "Translation": [1.05, 0.5, -3.4],
@@ -1145,7 +1145,7 @@
     },
     {
       "Entity": 8850000000000038,
-      "Tag": "G'ildirak",
+      "Tag": "Wheel",
       "Parent": 8850000000000033,
       "Transform": {
         "Translation": [-1.05, 0.5, 3.4],
@@ -1179,7 +1179,7 @@
     },
     {
       "Entity": 8850000000000039,
-      "Tag": "G'ildirak",
+      "Tag": "Wheel",
       "Parent": 8850000000000033,
       "Transform": {
         "Translation": [1.05, 0.5, 3.4],
@@ -1213,7 +1213,7 @@
     },
     {
       "Entity": 8850000000000040,
-      "Tag": "Tanga",
+      "Tag": "Coin",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1224,7 +1224,7 @@
     },
     {
       "Entity": 8850000000000041,
-      "Tag": "Tanga yuzi",
+      "Tag": "Coin face",
       "Parent": 8850000000000040,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1258,7 +1258,7 @@
     },
     {
       "Entity": 8850000000000042,
-      "Tag": "Magnit",
+      "Tag": "Magnet",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1269,7 +1269,7 @@
     },
     {
       "Entity": 8850000000000043,
-      "Tag": "Shar",
+      "Tag": "Sphere",
       "Parent": 8850000000000042,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1303,7 +1303,7 @@
     },
     {
       "Entity": 8850000000000044,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8850000000000042,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1337,7 +1337,7 @@
     },
     {
       "Entity": 8850000000000045,
-      "Tag": "Nur",
+      "Tag": "Glow",
       "Parent": 8850000000000042,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1352,7 +1352,7 @@
     },
     {
       "Entity": 8850000000000046,
-      "Tag": "Qalqon",
+      "Tag": "Shield",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1363,7 +1363,7 @@
     },
     {
       "Entity": 8850000000000047,
-      "Tag": "Shar",
+      "Tag": "Sphere",
       "Parent": 8850000000000046,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1397,7 +1397,7 @@
     },
     {
       "Entity": 8850000000000048,
-      "Tag": "Halqa",
+      "Tag": "Ring",
       "Parent": 8850000000000046,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1431,7 +1431,7 @@
     },
     {
       "Entity": 8850000000000049,
-      "Tag": "Nur",
+      "Tag": "Glow",
       "Parent": 8850000000000046,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1446,7 +1446,7 @@
     },
     {
       "Entity": 8850000000000050,
-      "Tag": "Minora",
+      "Tag": "Minaret",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1457,7 +1457,7 @@
     },
     {
       "Entity": 8850000000000051,
-      "Tag": "Tana",
+      "Tag": "Body",
       "Parent": 8850000000000050,
       "Transform": {
         "Translation": [0.0, 3.5, 0.0],
@@ -1491,7 +1491,7 @@
     },
     {
       "Entity": 8850000000000052,
-      "Tag": "Belbog'",
+      "Tag": "Band",
       "Parent": 8850000000000050,
       "Transform": {
         "Translation": [0.0, 6.2, 0.0],
@@ -1525,7 +1525,7 @@
     },
     {
       "Entity": 8850000000000053,
-      "Tag": "Gumbaz",
+      "Tag": "Dome",
       "Parent": 8850000000000050,
       "Transform": {
         "Translation": [0.0, 7.2, 0.0],
@@ -1559,7 +1559,7 @@
     },
     {
       "Entity": 8850000000000054,
-      "Tag": "Uchi",
+      "Tag": "Tip",
       "Parent": 8850000000000050,
       "Transform": {
         "Translation": [0.0, 8.3, 0.0],
@@ -1593,7 +1593,7 @@
     },
     {
       "Entity": 8850000000000055,
-      "Tag": "Palma",
+      "Tag": "Palm",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1604,7 +1604,7 @@
     },
     {
       "Entity": 8850000000000056,
-      "Tag": "Tana",
+      "Tag": "Trunk",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [0.0, 2.5, 0.0],
@@ -1638,7 +1638,7 @@
     },
     {
       "Entity": 8850000000000057,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [0.0, 4.85, 1.1],
@@ -1672,7 +1672,7 @@
     },
     {
       "Entity": 8850000000000058,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [0.8600146307148329, 4.85, 0.685838782044607],
@@ -1706,7 +1706,7 @@
     },
     {
       "Entity": 8850000000000059,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [1.0724207034000062, 4.85, -0.24477302735194578],
@@ -1740,7 +1740,7 @@
     },
     {
       "Entity": 8850000000000060,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [0.4772721130293141, 4.85, -0.991065754692661],
@@ -1774,7 +1774,7 @@
     },
     {
       "Entity": 8850000000000061,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [-0.4772721130293138, 4.85, -0.9910657546926611],
@@ -1808,7 +1808,7 @@
     },
     {
       "Entity": 8850000000000062,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [-1.0724207034000062, 4.85, -0.24477302735194606],
@@ -1842,7 +1842,7 @@
     },
     {
       "Entity": 8850000000000063,
-      "Tag": "Barg",
+      "Tag": "Leaf",
       "Parent": 8850000000000055,
       "Transform": {
         "Translation": [-0.860014630714833, 4.85, 0.6858387820446068],
@@ -1876,7 +1876,7 @@
     },
     {
       "Entity": 8850000000000064,
-      "Tag": "Uy",
+      "Tag": "House",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -1887,7 +1887,7 @@
     },
     {
       "Entity": 8850000000000065,
-      "Tag": "Devor",
+      "Tag": "Wall",
       "Parent": 8850000000000064,
       "Transform": {
         "Translation": [0.0, 1.6, 0.0],
@@ -1921,7 +1921,7 @@
     },
     {
       "Entity": 8850000000000066,
-      "Tag": "Tom",
+      "Tag": "Roof",
       "Parent": 8850000000000064,
       "Transform": {
         "Translation": [0.0, 3.25, 0.0],
@@ -1955,7 +1955,7 @@
     },
     {
       "Entity": 8850000000000067,
-      "Tag": "Gumbaz",
+      "Tag": "Dome",
       "Parent": 8850000000000064,
       "Transform": {
         "Translation": [0.0, 3.4, 0.0],
@@ -1989,7 +1989,7 @@
     },
     {
       "Entity": 8850000000000068,
-      "Tag": "Eshik",
+      "Tag": "Door",
       "Parent": 8850000000000064,
       "Transform": {
         "Translation": [-2.11, 1.0, 0.0],
@@ -2023,7 +2023,7 @@
     },
     {
       "Entity": 8850000000000069,
-      "Tag": "Eshik",
+      "Tag": "Door",
       "Parent": 8850000000000064,
       "Transform": {
         "Translation": [2.11, 1.0, 0.0],
@@ -2057,7 +2057,7 @@
     },
     {
       "Entity": 8850000000000070,
-      "Tag": "Qum tepa",
+      "Tag": "Dune",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, -0.6, 0.0],
@@ -2091,7 +2091,7 @@
     },
     {
       "Entity": 8850000000000071,
-      "Tag": "Ravoq",
+      "Tag": "Arch",
       "Parent": 8850000000000007,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -2102,7 +2102,7 @@
     },
     {
       "Entity": 8850000000000072,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000071,
       "Transform": {
         "Translation": [-5.6, 3.6, 0.0],
@@ -2136,7 +2136,7 @@
     },
     {
       "Entity": 8850000000000073,
-      "Tag": "Gumbazcha",
+      "Tag": "Small dome",
       "Parent": 8850000000000071,
       "Transform": {
         "Translation": [-5.6, 7.6, 0.0],
@@ -2170,7 +2170,7 @@
     },
     {
       "Entity": 8850000000000074,
-      "Tag": "Ustun",
+      "Tag": "Post",
       "Parent": 8850000000000071,
       "Transform": {
         "Translation": [5.6, 3.6, 0.0],
@@ -2204,7 +2204,7 @@
     },
     {
       "Entity": 8850000000000075,
-      "Tag": "Gumbazcha",
+      "Tag": "Small dome",
       "Parent": 8850000000000071,
       "Transform": {
         "Translation": [5.6, 7.6, 0.0],
@@ -2238,7 +2238,7 @@
     },
     {
       "Entity": 8850000000000076,
-      "Tag": "Peshtoq",
+      "Tag": "Portal",
       "Parent": 8850000000000071,
       "Transform": {
         "Translation": [0.0, 6.9, 0.0],
@@ -2272,7 +2272,7 @@
     },
     {
       "Entity": 8850000000000077,
-      "Tag": "Oltin hoshiya",
+      "Tag": "Gold trim",
       "Parent": 8850000000000071,
       "Transform": {
         "Translation": [0.0, 6.05, 0.71],
@@ -2306,7 +2306,7 @@
     },
     {
       "Entity": 8850000000000078,
-      "Tag": "Yuguruvchi",
+      "Tag": "Runner",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -2353,7 +2353,7 @@
     },
     {
       "Entity": 8850000000000079,
-      "Tag": "Tana",
+      "Tag": "Body",
       "Parent": 8850000000000078,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -2364,7 +2364,7 @@
     },
     {
       "Entity": 8850000000000080,
-      "Tag": "Chopon",
+      "Tag": "Robe",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 1.15, 0.0],
@@ -2398,7 +2398,7 @@
     },
     {
       "Entity": 8850000000000081,
-      "Tag": "Belbog'",
+      "Tag": "Band",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 0.88, 0.0],
@@ -2432,7 +2432,7 @@
     },
     {
       "Entity": 8850000000000082,
-      "Tag": "Etak",
+      "Tag": "Hem",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 0.72, 0.0],
@@ -2466,7 +2466,7 @@
     },
     {
       "Entity": 8850000000000083,
-      "Tag": "Hoshiya",
+      "Tag": "Trim",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 1.15, -0.172],
@@ -2500,7 +2500,7 @@
     },
     {
       "Entity": 8850000000000084,
-      "Tag": "Bosh",
+      "Tag": "Head",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 1.66, 0.0],
@@ -2534,7 +2534,7 @@
     },
     {
       "Entity": 8850000000000085,
-      "Tag": "Do'ppi",
+      "Tag": "Cap",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 1.83, 0.0],
@@ -2568,7 +2568,7 @@
     },
     {
       "Entity": 8850000000000086,
-      "Tag": "Do'ppi naqshi",
+      "Tag": "Cap pattern",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.0, 1.83, 0.0],
@@ -2602,7 +2602,7 @@
     },
     {
       "Entity": 8850000000000087,
-      "Tag": "Qo'l (chap)",
+      "Tag": "Arm (left)",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [-0.36, 1.42, 0.0],
@@ -2613,7 +2613,7 @@
     },
     {
       "Entity": 8850000000000088,
-      "Tag": "Yeng",
+      "Tag": "Sleeve",
       "Parent": 8850000000000087,
       "Transform": {
         "Translation": [0.0, -0.28, 0.0],
@@ -2647,7 +2647,7 @@
     },
     {
       "Entity": 8850000000000089,
-      "Tag": "Kaft",
+      "Tag": "Hand",
       "Parent": 8850000000000087,
       "Transform": {
         "Translation": [0.0, -0.6, 0.0],
@@ -2681,7 +2681,7 @@
     },
     {
       "Entity": 8850000000000090,
-      "Tag": "Qo'l (o'ng)",
+      "Tag": "Arm (right)",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.36, 1.42, 0.0],
@@ -2692,7 +2692,7 @@
     },
     {
       "Entity": 8850000000000091,
-      "Tag": "Yeng",
+      "Tag": "Sleeve",
       "Parent": 8850000000000090,
       "Transform": {
         "Translation": [0.0, -0.28, 0.0],
@@ -2726,7 +2726,7 @@
     },
     {
       "Entity": 8850000000000092,
-      "Tag": "Kaft",
+      "Tag": "Hand",
       "Parent": 8850000000000090,
       "Transform": {
         "Translation": [0.0, -0.6, 0.0],
@@ -2760,7 +2760,7 @@
     },
     {
       "Entity": 8850000000000093,
-      "Tag": "Oyoq (chap)",
+      "Tag": "Leg (left)",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [-0.15, 0.62, 0.0],
@@ -2771,7 +2771,7 @@
     },
     {
       "Entity": 8850000000000094,
-      "Tag": "Shim",
+      "Tag": "Trousers",
       "Parent": 8850000000000093,
       "Transform": {
         "Translation": [0.0, -0.28, 0.0],
@@ -2805,7 +2805,7 @@
     },
     {
       "Entity": 8850000000000095,
-      "Tag": "Etik",
+      "Tag": "Boot",
       "Parent": 8850000000000093,
       "Transform": {
         "Translation": [0.0, -0.58, -0.06],
@@ -2839,7 +2839,7 @@
     },
     {
       "Entity": 8850000000000096,
-      "Tag": "Oyoq (o'ng)",
+      "Tag": "Leg (right)",
       "Parent": 8850000000000079,
       "Transform": {
         "Translation": [0.15, 0.62, 0.0],
@@ -2850,7 +2850,7 @@
     },
     {
       "Entity": 8850000000000097,
-      "Tag": "Shim",
+      "Tag": "Trousers",
       "Parent": 8850000000000096,
       "Transform": {
         "Translation": [0.0, -0.28, 0.0],
@@ -2884,7 +2884,7 @@
     },
     {
       "Entity": 8850000000000098,
-      "Tag": "Etik",
+      "Tag": "Boot",
       "Parent": 8850000000000096,
       "Transform": {
         "Translation": [0.0, -0.58, -0.06],
@@ -2918,7 +2918,7 @@
     },
     {
       "Entity": 8850000000000099,
-      "Tag": "Chang",
+      "Tag": "Dust",
       "Parent": 8850000000000078,
       "Transform": {
         "Translation": [0.0, 0.05, 0.3],
@@ -2958,7 +2958,7 @@
     },
     {
       "Entity": 8850000000000100,
-      "Tag": "Qalqon pufagi",
+      "Tag": "Shield bubble",
       "Active": false,
       "Parent": 8850000000000078,
       "Transform": {
@@ -2993,7 +2993,7 @@
     },
     {
       "Entity": 8850000000000101,
-      "Tag": "Yuguruvchi chirog'i",
+      "Tag": "Runner light",
       "Parent": 8850000000000078,
       "Transform": {
         "Translation": [0.0, 2.5, 1.5],
@@ -3008,7 +3008,7 @@
     },
     {
       "Entity": 8850000000000102,
-      "Tag": "Effektlar",
+      "Tag": "Effects",
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
@@ -3018,7 +3018,7 @@
     },
     {
       "Entity": 8850000000000103,
-      "Tag": "Tanga uchqunlari",
+      "Tag": "Coin sparks",
       "Parent": 8850000000000102,
       "Transform": {
         "Translation": [0.0, -20.0, 0.0],
@@ -3058,7 +3058,7 @@
     },
     {
       "Entity": 8850000000000104,
-      "Tag": "To'qnashuv",
+      "Tag": "Crash",
       "Parent": 8850000000000102,
       "Transform": {
         "Translation": [0.0, -20.0, 0.0],
@@ -3338,7 +3338,7 @@
     },
     {
       "Entity": 8850000000000108,
-      "Tag": "Yuqori fon",
+      "Tag": "Top backdrop",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3365,7 +3365,7 @@
     },
     {
       "Entity": 8850000000000109,
-      "Tag": "Ochko",
+      "Tag": "Score popup",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3393,7 +3393,7 @@
     },
     {
       "Entity": 8850000000000110,
-      "Tag": "Masofa",
+      "Tag": "Distance",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3421,7 +3421,7 @@
     },
     {
       "Entity": 8850000000000111,
-      "Tag": "Rekord",
+      "Tag": "Best",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3449,7 +3449,7 @@
     },
     {
       "Entity": 8850000000000112,
-      "Tag": "Tangalar",
+      "Tag": "Coins",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3477,7 +3477,7 @@
     },
     {
       "Entity": 8850000000000113,
-      "Tag": "Tezlik",
+      "Tag": "Speed",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3505,7 +3505,7 @@
     },
     {
       "Entity": 8850000000000114,
-      "Tag": "Bonuslar",
+      "Tag": "Power-ups",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3533,7 +3533,7 @@
     },
     {
       "Entity": 8850000000000115,
-      "Tag": "E'lon",
+      "Tag": "Banner",
       "Parent": 8850000000000107,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3575,7 +3575,7 @@
     },
     {
       "Entity": 8850000000000116,
-      "Tag": "E'lon izohi",
+      "Tag": "Banner note",
       "Parent": 8850000000000115,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3603,7 +3603,7 @@
     },
     {
       "Entity": 8850000000000117,
-      "Tag": "Demo belgisi",
+      "Tag": "Demo badge",
       "Active": false,
       "Parent": 8850000000000107,
       "Transform": {
@@ -3621,7 +3621,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "DEMO - avtomatik o'yin",
+        "Text": "DEMO - autoplay",
         "Color": [1.0, 0.9, 0.6, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3633,7 +3633,7 @@
     },
     {
       "Entity": 8850000000000118,
-      "Tag": "Bosh menyu",
+      "Tag": "Main menu",
       "Parent": 8850000000000106,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3674,7 +3674,7 @@
     },
     {
       "Entity": 8850000000000119,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Parent": 8850000000000118,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3707,7 +3707,7 @@
     },
     {
       "Entity": 8850000000000120,
-      "Tag": "Sarlavha soyasi",
+      "Tag": "Title shadow",
       "Parent": 8850000000000119,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3724,7 +3724,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "IPAK YO'LI",
+        "Text": "SILK ROAD",
         "Color": [0.35, 0.12, 0.02, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3736,7 +3736,7 @@
     },
     {
       "Entity": 8850000000000121,
-      "Tag": "Sarlavha matni",
+      "Tag": "Title text",
       "Parent": 8850000000000119,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3753,7 +3753,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "IPAK YO'LI",
+        "Text": "SILK ROAD",
         "Color": [1.0, 0.85, 0.45, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3765,7 +3765,7 @@
     },
     {
       "Entity": 8850000000000122,
-      "Tag": "Taglavha",
+      "Tag": "Subtitle",
       "Parent": 8850000000000118,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3782,7 +3782,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Cheksiz yugurish  ·  Zamin Engine namunasi",
+        "Text": "An endless run  ·  a Zamin Engine sample",
         "Color": [1.0, 0.95, 0.85, 0.95],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3794,7 +3794,7 @@
     },
     {
       "Entity": 8850000000000123,
-      "Tag": "Menyu paneli",
+      "Tag": "Menu panel",
       "Parent": 8850000000000118,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3850,7 +3850,7 @@
     },
     {
       "Entity": 8850000000000124,
-      "Tag": "O'ynash",
+      "Tag": "Play",
       "Parent": 8850000000000123,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3885,7 +3885,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "O'ynash",
+        "Text": "Play",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -3920,7 +3920,7 @@
     },
     {
       "Entity": 8850000000000125,
-      "Tag": "Til",
+      "Tag": "Language",
       "Parent": 8850000000000123,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -3989,7 +3989,7 @@
     },
     {
       "Entity": 8850000000000126,
-      "Tag": "Chiqish",
+      "Tag": "Quit",
       "Parent": 8850000000000123,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4024,7 +4024,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Chiqish",
+        "Text": "Quit",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4059,7 +4059,7 @@
     },
     {
       "Entity": 8850000000000127,
-      "Tag": "Bosh menyu rekordi",
+      "Tag": "Main menu best",
       "Parent": 8850000000000118,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4087,7 +4087,7 @@
     },
     {
       "Entity": 8850000000000128,
-      "Tag": "Boshqaruv",
+      "Tag": "Controls",
       "Parent": 8850000000000118,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4104,7 +4104,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "[Steer|][pad: yoki ][Left] - chapga, [Right] - o'ngga   ·   [Jump] - sakrash   ·   [Slide] - sirpanish   ·   [Pause] - pauza\n[kb:Gamepad ham ishlaydi - uni ishlatsangiz, ishoralar uning tugmalarini ko'rsatadi][pad:Gamepad - klaviatura yoki sichqoncha ishlatilsa, ishoralar ularga qaytadi]",
+        "Text": "[Steer|][pad: or ][Left] - left, [Right] - right   ·   [Jump] - jump   ·   [Slide] - slide   ·   [Pause] - pause\n[kb:A gamepad works too - use it and the hints show its buttons][pad:Gamepad - use the keyboard or mouse and the hints switch back]",
         "Color": [1.0, 0.95, 0.9, 0.9],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4117,7 +4117,7 @@
     },
     {
       "Entity": 8850000000000129,
-      "Tag": "Pauza menyusi",
+      "Tag": "Pause menu",
       "Active": false,
       "Parent": 8850000000000106,
       "Transform": {
@@ -4159,7 +4159,7 @@
     },
     {
       "Entity": 8850000000000130,
-      "Tag": "Pauza paneli",
+      "Tag": "Pause panel",
       "Parent": 8850000000000129,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4215,7 +4215,7 @@
     },
     {
       "Entity": 8850000000000131,
-      "Tag": "Pauza sarlavhasi",
+      "Tag": "Pause title",
       "Parent": 8850000000000130,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4232,7 +4232,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "PAUZA",
+        "Text": "PAUSED",
         "Color": [1.0, 0.85, 0.5, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4244,7 +4244,7 @@
     },
     {
       "Entity": 8850000000000132,
-      "Tag": "Davom etish",
+      "Tag": "Resume",
       "Parent": 8850000000000130,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4279,7 +4279,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Davom etish",
+        "Text": "Resume",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4314,7 +4314,7 @@
     },
     {
       "Entity": 8850000000000133,
-      "Tag": "Qaytadan",
+      "Tag": "Restart",
       "Parent": 8850000000000130,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4349,7 +4349,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Qaytadan",
+        "Text": "Restart",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4384,7 +4384,7 @@
     },
     {
       "Entity": 8850000000000134,
-      "Tag": "Bosh menyuga",
+      "Tag": "To main menu",
       "Parent": 8850000000000130,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4419,7 +4419,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4454,7 +4454,7 @@
     },
     {
       "Entity": 8850000000000135,
-      "Tag": "O'yin tugadi",
+      "Tag": "Game over",
       "Active": false,
       "Parent": 8850000000000106,
       "Transform": {
@@ -4496,7 +4496,7 @@
     },
     {
       "Entity": 8850000000000136,
-      "Tag": "Natija paneli",
+      "Tag": "Results panel",
       "Parent": 8850000000000135,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4552,7 +4552,7 @@
     },
     {
       "Entity": 8850000000000137,
-      "Tag": "Natija sarlavhasi",
+      "Tag": "Results title",
       "Parent": 8850000000000136,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4569,7 +4569,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "YIQILDINGIZ!",
+        "Text": "YOU FELL!",
         "Color": [1.0, 0.55, 0.35, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4581,7 +4581,7 @@
     },
     {
       "Entity": 8850000000000138,
-      "Tag": "Natija ochkosi",
+      "Tag": "Results points",
       "Parent": 8850000000000136,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4609,7 +4609,7 @@
     },
     {
       "Entity": 8850000000000139,
-      "Tag": "Natija statistikasi",
+      "Tag": "Results stats",
       "Parent": 8850000000000136,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4637,7 +4637,7 @@
     },
     {
       "Entity": 8850000000000140,
-      "Tag": "Natija rekordi",
+      "Tag": "Results best",
       "Parent": 8850000000000136,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4665,7 +4665,7 @@
     },
     {
       "Entity": 8850000000000141,
-      "Tag": "Qayta yugurish",
+      "Tag": "Run again",
       "Parent": 8850000000000136,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4700,7 +4700,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Qaytadan",
+        "Text": "Restart",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,
@@ -4735,7 +4735,7 @@
     },
     {
       "Entity": 8850000000000142,
-      "Tag": "Natijadan menyuga",
+      "Tag": "Results to menu",
       "Parent": 8850000000000136,
       "Transform": {
         "Translation": [0.0, 0.0, 0.0],
@@ -4770,7 +4770,7 @@
         "BorderScale": 1.0
       },
       "Text": {
-        "Text": "Bosh menyu",
+        "Text": "Main menu",
         "Color": [1.0, 1.0, 1.0, 1.0],
         "Kerning": 0.0,
         "LineSpacing": 0.0,

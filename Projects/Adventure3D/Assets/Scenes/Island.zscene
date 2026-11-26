@@ -3382,7 +3382,7 @@
         ],
         "States": [
           {
-            "Name": "Harakat",
+            "Name": "Move",
             "Clip": "Idle",
             "Speed": 1,
             "Loop": true,
@@ -3536,7 +3536,7 @@
     },
     {
       "Entity": 7394000000000901,
-      "Tag": "Fonar",
+      "Tag": "Flashlight",
       "Parent": 7394000000000052,
       "Transform": {
         "Translation": [
@@ -3688,7 +3688,7 @@
         "Order": 5
       },
       "Text": {
-        "Text": "Kristallar: 0",
+        "Text": "Crystals: 0",
         "Color": [
           1,
           1,
@@ -3754,7 +3754,7 @@
     },
     {
       "Entity": 7394000000001000,
-      "Tag": "Darvoza",
+      "Tag": "Gate",
       "Transform": {
         "Translation": [
           0,
@@ -3775,7 +3775,7 @@
       "AnimationPlayer": {
         "Clips": [
           {
-            "Path": "Animations/DarvozaOchilishi.zanim"
+            "Path": "Animations/GateOpening.zanim"
           }
         ],
         "Speed": 1.0,
@@ -3789,7 +3789,7 @@
     },
     {
       "Entity": 7394000000001001,
-      "Tag": "ChapOshiq",
+      "Tag": "LeftHinge",
       "Parent": 7394000000001000,
       "Transform": {
         "Translation": [
@@ -3811,7 +3811,7 @@
     },
     {
       "Entity": 7394000000001002,
-      "Tag": "ChapTabaqa",
+      "Tag": "LeftLeaf",
       "Parent": 7394000000001001,
       "Transform": {
         "Translation": [
@@ -3878,7 +3878,7 @@
     },
     {
       "Entity": 7394000000001003,
-      "Tag": "ChapTasma",
+      "Tag": "LeftBand",
       "Parent": 7394000000001001,
       "Transform": {
         "Translation": [
@@ -3922,7 +3922,7 @@
     },
     {
       "Entity": 7394000000001004,
-      "Tag": "ChapTasma",
+      "Tag": "LeftBand",
       "Parent": 7394000000001001,
       "Transform": {
         "Translation": [
@@ -3966,7 +3966,7 @@
     },
     {
       "Entity": 7394000000001005,
-      "Tag": "OngOshiq",
+      "Tag": "RightHinge",
       "Parent": 7394000000001000,
       "Transform": {
         "Translation": [
@@ -3988,7 +3988,7 @@
     },
     {
       "Entity": 7394000000001006,
-      "Tag": "OngTabaqa",
+      "Tag": "RightLeaf",
       "Parent": 7394000000001005,
       "Transform": {
         "Translation": [
@@ -4055,7 +4055,7 @@
     },
     {
       "Entity": 7394000000001007,
-      "Tag": "OngTasma",
+      "Tag": "RightBand",
       "Parent": 7394000000001005,
       "Transform": {
         "Translation": [
@@ -4099,7 +4099,7 @@
     },
     {
       "Entity": 7394000000001008,
-      "Tag": "OngTasma",
+      "Tag": "RightBand",
       "Parent": 7394000000001005,
       "Transform": {
         "Translation": [
@@ -4143,7 +4143,7 @@
     },
     {
       "Entity": 7394000000001009,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Parent": 7394000000001000,
       "Transform": {
         "Translation": [
@@ -4197,7 +4197,7 @@
     },
     {
       "Entity": 7394000000002001,
-      "Tag": "Navigatsiya",
+      "Tag": "Navigation",
       "Transform": {
         "Translation": [
           0,
@@ -4239,7 +4239,7 @@
     },
     {
       "Entity": 7394000000002007,
-      "Tag": "Holat paneli",
+      "Tag": "Status panel",
       "Active": false,
       "Transform": {
         "Translation": [
@@ -4288,7 +4288,7 @@
     },
     {
       "Entity": 7394000000002006,
-      "Tag": "Holat",
+      "Tag": "Status",
       "Transform": {
         "Translation": [
           0,
@@ -4336,7 +4336,7 @@
     },
     {
       "Entity": 7394000000002002,
-      "Tag": "Orol qo'riqchisi",
+      "Tag": "Island guard",
       "Transform": {
         "Translation": [
           -4.5,
@@ -4527,7 +4527,7 @@
         ],
         "States": [
           {
-            "Name": "Harakat",
+            "Name": "Move",
             "Clip": "Idle",
             "Speed": 1,
             "Loop": true,
@@ -4668,7 +4668,7 @@
     },
     {
       "Entity": 7394000000002004,
-      "Tag": "Chiroq",
+      "Tag": "Light",
       "Parent": 7394000000002002,
       "Transform": {
         "Translation": [
@@ -4724,7 +4724,7 @@
     },
     {
       "Entity": 7394000000002005,
-      "Tag": "Fonar nuri",
+      "Tag": "Flashlight beam",
       "Parent": 7394000000002002,
       "Transform": {
         "Translation": [

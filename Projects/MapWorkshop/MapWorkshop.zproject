@@ -7,7 +7,7 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "",
         "EngineVersion": "0.1.0",
-        "Description": "Terrain map tayyorlash: relyef, yo'l, daraxt va collider'lar. O'yin mantiqi keyingi bosqichda.",
+        "Description": "Preparing a terrain map: relief, a road, trees and colliders. The game logic comes in the next stage.",
         "Thumbnail": "Thumbnail.png"
     },
     "Player": {

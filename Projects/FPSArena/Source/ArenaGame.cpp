@@ -7,16 +7,16 @@
 
 using namespace Zamin;
 
-// Arena o'yini, ikki rejim:
-//  - Parkur: yorqin nuqtalardan ketma-ket o'tish, aylana vaqti va rekord (SaveData::SubmitRecord "FPSArena.BestLap"); yo'l
-//    bo'yidagi nishonlarni otish ochko beradi.
-//  - Nishon otish: RangeSeconds soniyalik raund - nishonlar tezroq qaytadi, ochko (markaz - x2, ketma-ket tegishlar
-//    seriyasi - x4 gacha), aniqlik, rekord (SaveData "FPSArena.BestRange"); oxirida natijalar oynasi.
-// HUD (vaqt, nuqta / nishonlar, ochko, seriya, o'q-dori, qayta o'qlash, tegish belgisi, "+ochko" yozuvlari, tezlik,
-// holat, chidamlilik), menyular (bosh menyu - orqada bot yuguradi va otadi; pauza - sichqoncha sezgirligi slayderi,
-// SaveData "FPSArena.Sensitivity"; natijalar). O'yin paytida kursor qulflanadi.
-// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot parkur yo'lagini aylanadi va yo'lda nishonlarni otadi; ZAMIN_DEMO=range -
-// bot "Nishon otish" raundlarini o'ynaydi. Jurnalga "Demo: ..." yoziladi.
+// The arena game, two modes:
+//  - Parkour: pass the bright checkpoints in order, the lap time and the record (SaveData::SubmitRecord "FPSArena.BestLap");
+//    shooting the targets along the way gives points.
+//  - Target range: a round of RangeSeconds seconds - the targets come back faster, points (the centre - x2, a streak
+//    of hits - up to x4), accuracy, the record (SaveData "FPSArena.BestRange"); the results window at the end.
+// The HUD (time, checkpoint / targets, score, streak, ammo, reload, the hit marker, the "+points" popups, speed,
+// status, stamina), the menus (the main menu - a bot runs and shoots behind it; pause - the mouse sensitivity slider,
+// SaveData "FPSArena.Sensitivity"; results). The cursor is locked while playing.
+// Demo: ZAMIN_DEMO=1 (or AutoDemo) - the bot laps the parkour course and shoots the targets on the way; ZAMIN_DEMO=range -
+// the bot plays "Target range" rounds. "Demo: ..." goes to the log.
 
 static const glm::vec3 SpawnPoint{ 0.0f, 0.05f, -20.0f };
 static constexpr float SpawnYaw = glm::pi<float>(); // facing +Z (into the arena)

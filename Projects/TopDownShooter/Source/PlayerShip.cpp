@@ -9,18 +9,18 @@
 using namespace Zamin;
 using namespace NeonUtil;
 
-// O'yinchi kemasi. Boshqaruv (Loyiha sozlamalari > Input): "Move" vektori (WASD / chap stik), nishon - sichqoncha
-// yoki "Aim" vektori (strelkalar / o'ng stik: og'dirilganda o'zi otadi), "Fire" (LKM / J / RT), "Dash" (Space / A).
-// Siltanish (dash) qisqa vaqt tez uchiradi va o'q tegmaydi. Jon tugasa - ShooterGame::OnPlayerDied.
-// Bot (demo / bosh menyu orqasida): yaqin dushmanlar va o'qlardan qochadi, devor va to'siqlardan uzoqlashadi,
-// eng yaqin dushmanni oldindan mo'ljallab otadi, bonuslarni yig'adi.
+// The player's ship. Controls (Project settings > Input): the "Move" vector (WASD / left stick), aiming - the mouse
+// or the "Aim" vector (arrows / right stick: it fires by itself when tilted), "Fire" (LMB / J / RT), "Dash" (Space / A).
+// A dash flies fast for a short time and shots do not hit. When the lives run out - ShooterGame::OnPlayerDied.
+// The bot (the demo / behind the main menu): dodges near enemies and shots, keeps away from walls and blocks,
+// leads the nearest enemy when firing, collects power-ups.
 
 void PlayerShip::OnCreate()
 {
     m_Visual = FindChild("Visual");
-    m_Thruster = FindChild("Dvigatel");
-    m_Shield = FindChild("Qalqon");
-    m_Reticle = FindEntity("Nishon");
+    m_Thruster = FindChild("Thruster");
+    m_Shield = FindChild("Shield");
+    m_Reticle = FindEntity("Crosshair");
     m_Health = MaxHealth;
 }
 

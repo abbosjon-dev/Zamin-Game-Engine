@@ -5,7 +5,7 @@
   "Wrap": "PingPong",
   "Tracks": [
     {
-      "Path": "Oshiq",
+      "Path": "Hinge",
       "Property": "Transform.Rotation",
       "Keys": [
         {
@@ -47,7 +47,7 @@
       ]
     },
     {
-      "Path": "Chiroq",
+      "Path": "Light",
       "Property": "Light.Color",
       "Keys": [
         {
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "Path": "Chiroq",
+      "Path": "Light",
       "Property": "MeshRenderer.Color",
       "Keys": [
         {
@@ -119,11 +119,11 @@
   "Events": [
     {
       "Time": 0.5,
-      "Name": "Ochilmoqda"
+      "Name": "Opening"
     },
     {
       "Time": 2.2,
-      "Name": "Ochildi"
+      "Name": "Opened"
     }
   ]
 }

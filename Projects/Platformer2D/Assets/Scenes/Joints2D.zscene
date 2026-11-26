@@ -102,7 +102,7 @@
         "FlipY": false,
         "TextureUUID": "a5aec7978306d03b",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       }
     },
     {
@@ -140,7 +140,7 @@
         "FlipY": false,
         "TextureUUID": "f3f49249dc28ff90",
         "SortingLayer": 1,
-        "SortingLayerName": "Fon"
+        "SortingLayerName": "Background"
       }
     },
     {
@@ -1072,7 +1072,7 @@
     },
     {
       "Entity": 8200000000000017,
-      "Tag": "Yozuv: Ko'prik (Revolute)",
+      "Tag": "Label: Bridge (Revolute)",
       "Transform": {
         "Translation": [
           -11.5,
@@ -1326,7 +1326,7 @@
     },
     {
       "Entity": 8200000000000022,
-      "Tag": "Yozuv: Lift (Prismatic)",
+      "Tag": "Label: Lift (Prismatic)",
       "Transform": {
         "Translation": [
           -5.0,
@@ -1540,7 +1540,7 @@
     },
     {
       "Entity": 8200000000000026,
-      "Tag": "Yozuv: Mayatnik (Revolute + Weld)",
+      "Tag": "Label: Pendulum (Revolute + Weld)",
       "Transform": {
         "Translation": [
           -0.5,
@@ -1559,7 +1559,7 @@
         ]
       },
       "Text": {
-        "Text": "Mayatnik (Revolute + Weld)",
+        "Text": "Pendulum (Revolute + Weld)",
         "Color": [
           1,
           1,
@@ -1788,7 +1788,7 @@
     },
     {
       "Entity": 8200000000000031,
-      "Tag": "Yozuv: Arqon va prujina (Distance)",
+      "Tag": "Label: Rope and spring (Distance)",
       "Transform": {
         "Translation": [
           5.9,
@@ -1989,7 +1989,7 @@
     },
     {
       "Entity": 8200000000000035,
-      "Tag": "Yozuv: Uziladigan (Break Force)",
+      "Tag": "Label: Breakable (Break Force)",
       "Transform": {
         "Translation": [
           11.0,
@@ -2008,7 +2008,7 @@
         ]
       },
       "Text": {
-        "Text": "Uziladigan (Break Force)",
+        "Text": "Breakable (Break Force)",
         "Color": [
           1,
           1,
@@ -2323,7 +2323,7 @@
     },
     {
       "Entity": 8200000000000040,
-      "Tag": "Yozuv: Minora (yumshoq Weld)",
+      "Tag": "Label: Tower (soft Weld)",
       "Transform": {
         "Translation": [
           14.0,
@@ -2706,7 +2706,7 @@
     },
     {
       "Entity": 8200000000000047,
-      "Tag": "Yozuv: Mashina (Wheel): A / D",
+      "Tag": "Label: Car (Wheel): A / D",
       "Transform": {
         "Translation": [
           2.0,
@@ -2725,7 +2725,7 @@
         ]
       },
       "Text": {
-        "Text": "Mashina (Wheel): A / D",
+        "Text": "Car (Wheel): A / D",
         "Color": [
           1,
           1,

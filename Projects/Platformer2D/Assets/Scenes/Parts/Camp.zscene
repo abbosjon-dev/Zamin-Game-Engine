@@ -39,7 +39,7 @@
         "Texture": "",
         "Tiling": 1.0
       },
-      "Tag": "Lager yeri",
+      "Tag": "Camp ground",
       "Transform": {
         "Rotation": [
           0.0,
@@ -75,7 +75,7 @@
         "TextureUUID": "e255accb1a466884",
         "Tiling": 1.0
       },
-      "Tag": "Butalar",
+      "Tag": "Bushes",
       "Transform": {
         "Rotation": [
           0.0,
@@ -111,7 +111,7 @@
         "TextureUUID": "fdea186c26a9b1a3",
         "Tiling": 1.0
       },
-      "Tag": "Tosh",
+      "Tag": "Rock",
       "Transform": {
         "Rotation": [
           0.0,
@@ -147,7 +147,7 @@
         "TextureUUID": "9ac80625d7d84a9d",
         "Tiling": 1.0
       },
-      "Tag": "Kristall",
+      "Tag": "Crystal",
       "Transform": {
         "Rotation": [
           0.0,
@@ -205,7 +205,7 @@
         "Texture": "",
         "Tiling": 1.0
       },
-      "Tag": "Yashik",
+      "Tag": "Box",
       "Transform": {
         "Rotation": [
           0.0,
@@ -226,7 +226,7 @@
     },
     {
       "Entity": 9298100000000006,
-      "Tag": "Lager belgisi",
+      "Tag": "Camp sign",
       "Text": {
         "AlignH": "Center",
         "AlignV": "Middle",
@@ -239,7 +239,7 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Lager"
+        "Text": "Camp"
       },
       "Transform": {
         "Rotation": [
@@ -261,11 +261,11 @@
     }
   ],
   "Metadata": {
-    "Author": "Zamin jamoasi",
-    "Description": "Sub-sahna bo'lagi: kichik lager (platforma, butalar, tosh, kristall, tushadigan yashik). SubScenes.zscene uni uch joyga qo'yadi.",
+    "Author": "The Zamin team",
+    "Description": "A sub-scene part: a small camp (a platform, bushes, a rock, a crystal, a falling box). SubScenes.zscene places it in three spots.",
     "Tags": [
-      "bo'lak",
-      "sub-sahna"
+      "part",
+      "sub-scene"
     ]
   },
   "RootOrder": [

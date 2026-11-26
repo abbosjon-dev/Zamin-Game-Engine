@@ -8,13 +8,13 @@
 using namespace Zamin;
 using namespace NeonUtil;
 
-// O'yin oqimi. Holatlar: Menu (bosh menyu; orqada bot o'ynaydi - "attract" rejimi), Playing, Paused, GameOver.
-// To'lqinlar: e'lon -> dushmanlar portallardan chiqadi -> hammasi o'ldirilsa "to'lqin tozalandi" va bonus.
-// Hisob: har bir dushman o'z ochkosi x kombo ko'paytuvchisi (ketma-ket o'ldirishlar, ComboWindow ichida).
-// Rekord SaveData'da ("Neon.BestScore", "Neon.BestWave", SaveData::SubmitRecord): o'yin tugaganda, pauzadan bosh
-// menyuga yoki qaytadan boshlanganda va o'yin yopilganda ham hisoblanadi. Bot (menyu orqasidagi) rekord qo'ymaydi.
-// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot o'ynaydi, HUD'da DEMO belgisi, jurnalga "Demo: ..." qatorlari yoziladi
-// (headless testlar shularni tekshiradi); ZAMIN_DEMO_RECORDS=1 bilan demo natijasi ham rekordga yoziladi (testlar).
+// The game flow. States: Menu (the main menu; a bot plays behind it - "attract" mode), Playing, Paused, GameOver.
+// Waves: the announcement -> enemies come out of portals -> when all are killed, "wave cleared" and a bonus.
+// Score: every enemy's own points x the combo multiplier (kills in a row, within ComboWindow).
+// The record is in SaveData ("Neon.BestScore", "Neon.BestWave", SaveData::SubmitRecord): counted when the game ends,
+// on leaving to the main menu or restarting from pause, and when the game is closed. The bot (behind the menu) sets no record.
+// Demo: ZAMIN_DEMO=1 (or AutoDemo) - the bot plays, a DEMO badge in the HUD, "Demo: ..." lines go to the log
+// (the headless tests check them); with ZAMIN_DEMO_RECORDS=1 the demo's result is recorded as well (tests).
 
 ShooterGame* ShooterGame::s_Instance = nullptr;
 
@@ -207,7 +207,7 @@ void ShooterGame::StartGame()
     SetActiveRef(Reticle, !m_Bot);
     Cursor::SetVisible(m_Bot);
     if (!m_Bot)
-        ZM_INFO("Neon Maydon: game started");
+        ZM_INFO("Neon Arena: game started");
 }
 
 void ShooterGame::OpenPause()
@@ -798,7 +798,7 @@ void ShooterGame::SubmitRecords(const char* when)
     if (!m_RecordPending)
         return;
     m_RecordPending = false;
-    ZM_INFO("Neon Maydon: result ({}) - score {}, wave {}, {} enemies, {} shots", when, m_Score, m_Wave, m_Kills, m_ShotsFired);
+    ZM_INFO("Neon Arena: result ({}) - score {}, wave {}, {} enemies, {} shots", when, m_Score, m_Wave, m_Kills, m_ShotsFired);
     if (m_Score > 0 && SaveData::SubmitRecord("Neon.BestScore", m_Score))
     {
         m_BestScore = m_Score;

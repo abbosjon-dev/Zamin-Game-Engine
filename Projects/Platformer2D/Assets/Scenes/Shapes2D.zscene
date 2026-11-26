@@ -102,7 +102,7 @@
                 "FlipY": false,
                 "TextureUUID": "a5aec7978306d03b",
                 "SortingLayer": 1,
-                "SortingLayerName": "Fon"
+                "SortingLayerName": "Background"
             }
         },
         {
@@ -140,7 +140,7 @@
                 "FlipY": false,
                 "TextureUUID": "f3f49249dc28ff90",
                 "SortingLayer": 1,
-                "SortingLayerName": "Fon"
+                "SortingLayerName": "Background"
             }
         },
         {
@@ -382,7 +382,7 @@
         },
         {
             "Entity": 8300000000000006,
-            "Tag": "Yozuv: Edge",
+            "Tag": "Label: Edge",
             "Transform": {
                 "Translation": [
                     -6.5,
@@ -532,7 +532,7 @@
         },
         {
             "Entity": 8300000000000008,
-            "Tag": "Yozuv: Polygon",
+            "Tag": "Label: Polygon",
             "Transform": {
                 "Translation": [
                     0.5,
@@ -626,7 +626,7 @@
         },
         {
             "Entity": 8300000000000010,
-            "Tag": "Yozuv: Muz",
+            "Tag": "Label: Ice",
             "Transform": {
                 "Translation": [
                     -11.2,
@@ -868,7 +868,7 @@
         },
         {
             "Entity": 8300000000000014,
-            "Tag": "Yozuv: Effector",
+            "Tag": "Label: Effector",
             "Transform": {
                 "Translation": [
                     11.0,
@@ -902,7 +902,7 @@
         },
         {
             "Entity": 8300000000000015,
-            "Tag": "Yozuv: Rezina",
+            "Tag": "Label: Rubber",
             "Transform": {
                 "Translation": [
                     12.4,
@@ -936,7 +936,7 @@
         },
         {
             "Entity": 8300000000000016,
-            "Tag": "Shablonlar",
+            "Tag": "Templates",
             "Active": false,
             "Transform": {
                 "Translation": [
@@ -1402,7 +1402,7 @@
         },
         {
             "Entity": 8300000000000024,
-            "Tag": "Yozuv: Qatlamlar",
+            "Tag": "Label: Layers",
             "Transform": {
                 "Translation": [
                     -1.0,

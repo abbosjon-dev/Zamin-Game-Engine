@@ -6,12 +6,12 @@
 
 using namespace Zamin;
 
-// Birinchi shaxs boshqaruvchisi. Tana (Character Controller 3D) faqat aylanadi (yaw), bosh / kamera bolasi esa
-// yuqoriga-pastga qaraydi (pitch). Boshqaruv (Loyiha sozlamalari > Input): "Move" vektori, "Look" vektori (o'ng stik),
-// sichqoncha harakati (kursor qulflangan), "Jump", "Sprint", "Crouch".
-// Sakrash: yerdan chiqqandan keyin ham 0.12 s ichida sakrash mumkin ("coyote time"), yerga tushishdan oldinroq
-// bosilgan sakrash ham hisobga olinadi (bufer). Yugurish chidamlilikni sarflaydi. Kamera: qadam bilan tebranadi,
-// yonga yurganda biroz qiyshayadi, yugurganda FOV kengayadi, qattiq qo'nganda pastga "cho'kadi" va silkinadi.
+// The first-person controller. The body (Character Controller 3D) only turns (yaw), while the head / camera child
+// looks up and down (pitch). Controls (Project settings > Input): the "Move" vector, the "Look" vector (right stick),
+// mouse movement (the cursor is locked), "Jump", "Sprint", "Crouch".
+// Jumping: a jump is still possible for 0.12 s after leaving the ground ("coyote time"), and a jump pressed a little
+// before landing counts too (a buffer). Sprinting spends stamina. The camera: bobs with the steps,
+// tilts a little when strafing, the FOV widens when sprinting, a hard landing makes it "dip" and shake.
 
 static constexpr float Gravity = 9.81f;
 

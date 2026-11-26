@@ -89,7 +89,7 @@
     },
     {
       "Entity": 7700000000000002,
-      "Tag": "Tog'lar",
+      "Tag": "Mountains",
       "Transform": {
         "Translation": [
           0,
@@ -201,7 +201,7 @@
     },
     {
       "Entity": 7700000000000004,
-      "Tag": "Yuqori panel",
+      "Tag": "Top panel",
       "Transform": {
         "Translation": [
           0,
@@ -263,7 +263,7 @@
     },
     {
       "Entity": 7700000000000005,
-      "Tag": "Sarlavha",
+      "Tag": "Title",
       "Transform": {
         "Translation": [
           0,
@@ -322,7 +322,7 @@
     },
     {
       "Entity": 7700000000000006,
-      "Tag": "Tangalar",
+      "Tag": "Coins",
       "Transform": {
         "Translation": [
           0,
@@ -366,7 +366,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Tangalar: 120",
+        "Text": "Coins: 120",
         "Color": [
           1.0,
           0.85,
@@ -381,7 +381,7 @@
     },
     {
       "Entity": 7700000000000007,
-      "Tag": "Masshtab",
+      "Tag": "Scale",
       "Transform": {
         "Translation": [
           0,
@@ -440,7 +440,7 @@
     },
     {
       "Entity": 7700000000000008,
-      "Tag": "Menyu",
+      "Tag": "Menu",
       "Transform": {
         "Translation": [
           0,
@@ -533,7 +533,7 @@
     },
     {
       "Entity": 7700000000000009,
-      "Tag": "Menyu sarlavhasi",
+      "Tag": "Menu title",
       "Transform": {
         "Translation": [
           0,
@@ -592,7 +592,7 @@
     },
     {
       "Entity": 7700000000000010,
-      "Tag": "O'yinni boshlash",
+      "Tag": "Start game",
       "Transform": {
         "Translation": [
           0,
@@ -718,7 +718,7 @@
     },
     {
       "Entity": 7700000000000011,
-      "Tag": "Davom etish",
+      "Tag": "Resume",
       "Transform": {
         "Translation": [
           0,
@@ -829,7 +829,7 @@
     },
     {
       "Entity": 7700000000000012,
-      "Tag": "Sozlamalar",
+      "Tag": "Settings",
       "Transform": {
         "Translation": [
           0,
@@ -940,7 +940,7 @@
     },
     {
       "Entity": 7700000000000013,
-      "Tag": "Yutuqlar",
+      "Tag": "Achievements",
       "Transform": {
         "Translation": [
           0,
@@ -1023,7 +1023,7 @@
         "BorderScale": 3.0
       },
       "Text": {
-        "Text": "Yutuqlar",
+        "Text": "Achievements",
         "Color": [
           0.08,
           0.12,
@@ -1051,7 +1051,7 @@
     },
     {
       "Entity": 7700000000000014,
-      "Tag": "Chiqish",
+      "Tag": "Quit",
       "Transform": {
         "Translation": [
           0,
@@ -1162,7 +1162,7 @@
     },
     {
       "Entity": 7700000000000015,
-      "Tag": "Inventar",
+      "Tag": "Inventory",
       "Transform": {
         "Translation": [
           0,
@@ -1255,7 +1255,7 @@
     },
     {
       "Entity": 7700000000000016,
-      "Tag": "Inventar sarlavhasi",
+      "Tag": "Inventory title",
       "Transform": {
         "Translation": [
           0,
@@ -1314,7 +1314,7 @@
     },
     {
       "Entity": 7700000000000017,
-      "Tag": "Uyalar",
+      "Tag": "Slots",
       "Transform": {
         "Translation": [
           0,
@@ -1384,7 +1384,7 @@
     },
     {
       "Entity": 7700000000000018,
-      "Tag": "1-uya",
+      "Tag": "Slot 1",
       "Transform": {
         "Translation": [
           0,
@@ -1482,7 +1482,7 @@
     },
     {
       "Entity": 7700000000000019,
-      "Tag": "Belgi",
+      "Tag": "Marker",
       "Transform": {
         "Translation": [
           0,
@@ -1542,7 +1542,7 @@
     },
     {
       "Entity": 7700000000000020,
-      "Tag": "2-uya",
+      "Tag": "Slot 2",
       "Transform": {
         "Translation": [
           0,
@@ -1640,7 +1640,7 @@
     },
     {
       "Entity": 7700000000000021,
-      "Tag": "Belgi",
+      "Tag": "Marker",
       "Transform": {
         "Translation": [
           0,
@@ -1700,7 +1700,7 @@
     },
     {
       "Entity": 7700000000000022,
-      "Tag": "3-uya",
+      "Tag": "Slot 3",
       "Transform": {
         "Translation": [
           0,
@@ -1798,7 +1798,7 @@
     },
     {
       "Entity": 7700000000000023,
-      "Tag": "Belgi",
+      "Tag": "Marker",
       "Transform": {
         "Translation": [
           0,
@@ -1858,7 +1858,7 @@
     },
     {
       "Entity": 7700000000000024,
-      "Tag": "4-uya",
+      "Tag": "Slot 4",
       "Transform": {
         "Translation": [
           0,
@@ -1956,7 +1956,7 @@
     },
     {
       "Entity": 7700000000000025,
-      "Tag": "Belgi",
+      "Tag": "Marker",
       "Transform": {
         "Translation": [
           0,
@@ -2016,7 +2016,7 @@
     },
     {
       "Entity": 7700000000000026,
-      "Tag": "5-uya",
+      "Tag": "Slot 5",
       "Transform": {
         "Translation": [
           0,
@@ -2114,7 +2114,7 @@
     },
     {
       "Entity": 7700000000000027,
-      "Tag": "6-uya",
+      "Tag": "Slot 6",
       "Transform": {
         "Translation": [
           0,
@@ -2212,7 +2212,7 @@
     },
     {
       "Entity": 7700000000000028,
-      "Tag": "Belgi",
+      "Tag": "Marker",
       "Transform": {
         "Translation": [
           0,
@@ -2272,7 +2272,7 @@
     },
     {
       "Entity": 7700000000000029,
-      "Tag": "7-uya",
+      "Tag": "Slot 7",
       "Transform": {
         "Translation": [
           0,
@@ -2370,7 +2370,7 @@
     },
     {
       "Entity": 7700000000000030,
-      "Tag": "Belgi",
+      "Tag": "Marker",
       "Transform": {
         "Translation": [
           0,
@@ -2430,7 +2430,7 @@
     },
     {
       "Entity": 7700000000000031,
-      "Tag": "8-uya",
+      "Tag": "Slot 8",
       "Transform": {
         "Translation": [
           0,
@@ -2528,7 +2528,7 @@
     },
     {
       "Entity": 7700000000000032,
-      "Tag": "Pastki panel",
+      "Tag": "Bottom panel",
       "Transform": {
         "Translation": [
           0,
@@ -2608,7 +2608,7 @@
     },
     {
       "Entity": 7700000000000033,
-      "Tag": "Ovoz",
+      "Tag": "Sound",
       "Transform": {
         "Translation": [
           0,
@@ -2708,7 +2708,7 @@
     },
     {
       "Entity": 7700000000000034,
-      "Tag": "Musiqa",
+      "Tag": "Music",
       "Transform": {
         "Translation": [
           0,
@@ -2808,7 +2808,7 @@
     },
     {
       "Entity": 7700000000000035,
-      "Tag": "Titrash",
+      "Tag": "Vibration",
       "Transform": {
         "Translation": [
           0,
@@ -2880,7 +2880,7 @@
         ]
       },
       "Text": {
-        "Text": "Titrash",
+        "Text": "Vibration",
         "Color": [
           0.86,
           0.9,
@@ -2908,7 +2908,7 @@
     },
     {
       "Entity": 7700000000000036,
-      "Tag": "Yorqinlik",
+      "Tag": "Brightness",
       "Transform": {
         "Translation": [
           0,
@@ -2998,7 +2998,7 @@
     },
     {
       "Entity": 7700000000000037,
-      "Tag": "Holat",
+      "Tag": "Status",
       "Transform": {
         "Translation": [
           0,
@@ -3058,7 +3058,7 @@
     },
     {
       "Entity": 7700000000000038,
-      "Tag": "Yordam",
+      "Tag": "Help",
       "Transform": {
         "Translation": [
           0,
@@ -3117,7 +3117,7 @@
     },
     {
       "Entity": 7700000000000040,
-      "Tag": "Yangiliklar",
+      "Tag": "News",
       "Transform": {
         "Translation": [
           0,
@@ -3192,7 +3192,7 @@
     },
     {
       "Entity": 7700000000000041,
-      "Tag": "Yangiliklar sarlavhasi",
+      "Tag": "News title",
       "Transform": {
         "Translation": [
           0,
@@ -3236,7 +3236,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Yangiliklar",
+        "Text": "News",
         "Color": [
           1.0,
           0.85,
@@ -3252,7 +3252,7 @@
     },
     {
       "Entity": 7700000000000042,
-      "Tag": "Yangilik matni",
+      "Tag": "News text",
       "Transform": {
         "Translation": [
           0,
@@ -3314,7 +3314,7 @@
     },
     {
       "Entity": 7700000000000043,
-      "Tag": "Muallif",
+      "Tag": "Author",
       "Transform": {
         "Translation": [
           0,
@@ -3358,7 +3358,7 @@
         "Order": 0
       },
       "Text": {
-        "Text": "Zamin jamoasi",
+        "Text": "The Zamin team",
         "Color": [
           0.65,
           0.75,
@@ -3374,7 +3374,7 @@
     },
     {
       "Entity": 7700000000000044,
-      "Tag": "Sahifa",
+      "Tag": "Page",
       "Transform": {
         "Translation": [
           0,
@@ -3434,7 +3434,7 @@
     },
     {
       "Entity": 7700000000000045,
-      "Tag": "Yopish",
+      "Tag": "Close",
       "Transform": {
         "Translation": [
           0,

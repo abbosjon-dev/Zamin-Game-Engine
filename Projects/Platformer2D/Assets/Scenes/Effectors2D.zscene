@@ -102,7 +102,7 @@
                 "FlipY": false,
                 "TextureUUID": "a5aec7978306d03b",
                 "SortingLayer": 1,
-                "SortingLayerName": "Fon"
+                "SortingLayerName": "Background"
             }
         },
         {
@@ -140,7 +140,7 @@
                 "FlipY": false,
                 "TextureUUID": "f3f49249dc28ff90",
                 "SortingLayer": 1,
-                "SortingLayerName": "Fon"
+                "SortingLayerName": "Background"
             }
         },
         {
@@ -424,7 +424,7 @@
         },
         {
             "Entity": 8500000000000009,
-            "Tag": "Yozuv: Suv",
+            "Tag": "Label: Water",
             "Transform": {
                 "Translation": [
                     -8,
@@ -967,7 +967,7 @@
         },
         {
             "Entity": 8500000000000018,
-            "Tag": "Yozuv: Shamol",
+            "Tag": "Label: Wind",
             "Transform": {
                 "Translation": [
                     12.6,
@@ -1001,7 +1001,7 @@
         },
         {
             "Entity": 8500000000000019,
-            "Tag": "Yozuv: Yon shamol",
+            "Tag": "Label: Side wind",
             "Transform": {
                 "Translation": [
                     2.75,
@@ -1035,7 +1035,7 @@
         },
         {
             "Entity": 8500000000000020,
-            "Tag": "Shablonlar",
+            "Tag": "Templates",
             "Transform": {
                 "Translation": [
                     0,
@@ -1421,7 +1421,7 @@
         },
         {
             "Entity": 8500000000000027,
-            "Tag": "Yozuv: Nur",
+            "Tag": "Label: Ray",
             "Transform": {
                 "Translation": [
                     12.6,
@@ -1567,7 +1567,7 @@
         },
         {
             "Entity": 8500000000000030,
-            "Tag": "Yozuv: Portlash",
+            "Tag": "Label: Explosion",
             "Transform": {
                 "Translation": [
                     -8,

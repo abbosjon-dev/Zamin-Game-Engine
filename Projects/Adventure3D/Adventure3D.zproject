@@ -8,7 +8,7 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libAdventure3D.so",
         "EngineVersion": "0.1.0",
-        "Description": "3D sarguzasht: orol, uchinchi shaxs qahramoni, NPC'lar (patrul, ko'rish, quvish), suv va kun yorug'ligi",
+        "Description": "3D adventure: an island, a third-person hero, NPCs (patrol, sight, chase), water and daylight",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {

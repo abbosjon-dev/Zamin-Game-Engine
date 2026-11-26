@@ -5,7 +5,7 @@
   "Wrap": "Loop",
   "Tracks": [
     {
-      "Path": "Kristall",
+      "Path": "Crystal",
       "Property": "Transform.Position",
       "Keys": [
         {
@@ -38,7 +38,7 @@
       ]
     },
     {
-      "Path": "Kristall",
+      "Path": "Crystal",
       "Property": "Transform.Rotation",
       "Keys": [
         {
@@ -62,7 +62,7 @@
       ]
     },
     {
-      "Path": "Kristall",
+      "Path": "Crystal",
       "Property": "MeshRenderer.Color",
       "Keys": [
         {
@@ -98,7 +98,7 @@
       ]
     },
     {
-      "Path": "Nur",
+      "Path": "Glow",
       "Property": "Light.Color",
       "Keys": [
         {
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "Path": "Nur",
+      "Path": "Glow",
       "Property": "Light.Intensity",
       "Keys": [
         {
@@ -152,7 +152,7 @@
       ]
     },
     {
-      "Path": "Nur",
+      "Path": "Glow",
       "Property": "Transform.Position",
       "Keys": [
         {

@@ -182,7 +182,7 @@
     },
     {
       "Entity": 7629766202384951,
-      "Tag": "Yarim quvur",
+      "Tag": "Half-pipe",
       "Transform": {
         "Translation": [
           -7.0,
@@ -237,7 +237,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Mesh Collider 3D\n(botiq yarim quvur)"
+            "Value": "Mesh Collider 3D\n(a concave half-pipe)"
           },
           "Offset": {
             "Type": "Vec3",
@@ -261,7 +261,7 @@
     },
     {
       "Entity": 4531029242109063,
-      "Tag": "Quvur shari",
+      "Tag": "Pipe ball",
       "Transform": {
         "Translation": [
           -8.0,
@@ -314,7 +314,7 @@
     },
     {
       "Entity": 8290590143469724,
-      "Tag": "Quvur shari",
+      "Tag": "Pipe ball",
       "Transform": {
         "Translation": [
           -5.88,
@@ -367,7 +367,7 @@
     },
     {
       "Entity": 5731525614102775,
-      "Tag": "Quvur shari",
+      "Tag": "Pipe ball",
       "Transform": {
         "Translation": [
           -8.24,
@@ -420,7 +420,7 @@
     },
     {
       "Entity": 4989194777989694,
-      "Tag": "Quvur shari",
+      "Tag": "Pipe ball",
       "Transform": {
         "Translation": [
           -5.640000000000001,
@@ -473,7 +473,7 @@
     },
     {
       "Entity": 7664300829686200,
-      "Tag": "Quvur shari",
+      "Tag": "Pipe ball",
       "Transform": {
         "Translation": [
           -8.48,
@@ -526,7 +526,7 @@
     },
     {
       "Entity": 7011825166520959,
-      "Tag": "Panjara",
+      "Tag": "Grate",
       "Transform": {
         "Translation": [
           0.0,
@@ -587,7 +587,7 @@
         "Fields": {
           "Text": {
             "Type": "String",
-            "Value": "Qatlamlar: qutilar panjarada,\nArvoh sharlar undan o'tadi"
+            "Value": "Layers: the crates rest on the grate,\nGhost balls pass through it"
           },
           "Offset": {
             "Type": "Vec3",
@@ -611,7 +611,7 @@
     },
     {
       "Entity": 8197304577179386,
-      "Tag": "Quti",
+      "Tag": "Crate",
       "Transform": {
         "Translation": [
           -1.3,
@@ -668,7 +668,7 @@
     },
     {
       "Entity": 5905468920164201,
-      "Tag": "Quti",
+      "Tag": "Crate",
       "Transform": {
         "Translation": [
           -0.4,
@@ -725,7 +725,7 @@
     },
     {
       "Entity": 7476545887264603,
-      "Tag": "Quti",
+      "Tag": "Crate",
       "Transform": {
         "Translation": [
           0.5,
@@ -782,7 +782,7 @@
     },
     {
       "Entity": 6097479424049447,
-      "Tag": "Quti",
+      "Tag": "Crate",
       "Transform": {
         "Translation": [
           1.4000000000000001,
@@ -839,7 +839,7 @@
     },
     {
       "Entity": 4915707715588629,
-      "Tag": "Arvoh shar",
+      "Tag": "Ghost ball",
       "Transform": {
         "Translation": [
           -1.2,
@@ -899,7 +899,7 @@
     },
     {
       "Entity": 7509756171782110,
-      "Tag": "Arvoh shar",
+      "Tag": "Ghost ball",
       "Transform": {
         "Translation": [
           -0.3999999999999999,
@@ -959,7 +959,7 @@
     },
     {
       "Entity": 6508435385963325,
-      "Tag": "Arvoh shar",
+      "Tag": "Ghost ball",
       "Transform": {
         "Translation": [
           0.40000000000000013,
@@ -1019,7 +1019,7 @@
     },
     {
       "Entity": 5578838623821114,
-      "Tag": "Arvoh shar",
+      "Tag": "Ghost ball",
       "Transform": {
         "Translation": [
           1.2000000000000004,
@@ -1079,7 +1079,7 @@
     },
     {
       "Entity": 8304137167336163,
-      "Tag": "Skaner (SphereCast3DAll)",
+      "Tag": "Scanner (SphereCast3DAll)",
       "Transform": {
         "Translation": [
           8.9,
@@ -1140,7 +1140,7 @@
     },
     {
       "Entity": 7692378607887176,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           6.1,
@@ -1194,7 +1194,7 @@
     },
     {
       "Entity": 8012703493689192,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           4.199999999999999,
@@ -1248,7 +1248,7 @@
     },
     {
       "Entity": 5341290388380278,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           2.8000000000000003,
@@ -1302,7 +1302,7 @@
     },
     {
       "Entity": 7247746609773797,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           4.8,
@@ -1356,7 +1356,7 @@
     },
     {
       "Entity": 7729233751575714,
-      "Tag": "Ustun",
+      "Tag": "Pillar",
       "Transform": {
         "Translation": [
           7.199999999999999,
@@ -1410,7 +1410,7 @@
     },
     {
       "Entity": 6563906841363844,
-      "Tag": "Arvoh ustun",
+      "Tag": "Ghost pillar",
       "Transform": {
         "Translation": [
           5.8,
@@ -1530,7 +1530,7 @@
     },
     {
       "Entity": 7522560884306872,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           7.699999999999999,
@@ -1587,7 +1587,7 @@
     },
     {
       "Entity": 6033029942213007,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           6.984630623531594,
@@ -1644,7 +1644,7 @@
     },
     {
       "Entity": 5375498688749314,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           5.377210225483003,
@@ -1701,7 +1701,7 @@
     },
     {
       "Entity": 6797813858672871,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           4.088159150985404,
@@ -1758,7 +1758,7 @@
     },
     {
       "Entity": 8992667738455766,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           4.088159150985404,
@@ -1815,7 +1815,7 @@
     },
     {
       "Entity": 5703925220843561,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           5.377210225483002,
@@ -1872,7 +1872,7 @@
     },
     {
       "Entity": 5088437588582548,
-      "Tag": "Kub",
+      "Tag": "Cube",
       "Transform": {
         "Translation": [
           6.984630623531594,
@@ -1929,7 +1929,7 @@
     },
     {
       "Entity": 4507590653728264,
-      "Tag": "Lazer (Raycast3DAll)",
+      "Tag": "Laser (Raycast3DAll)",
       "Transform": {
         "Translation": [
           11.0,
@@ -1978,7 +1978,7 @@
     },
     {
       "Entity": 8465664397188103,
-      "Tag": "Oyna",
+      "Tag": "Window",
       "Transform": {
         "Translation": [
           8.6,
@@ -2036,7 +2036,7 @@
     },
     {
       "Entity": 5859044809129032,
-      "Tag": "Oyna",
+      "Tag": "Window",
       "Transform": {
         "Translation": [
           6.6,
@@ -2094,7 +2094,7 @@
     },
     {
       "Entity": 8541271288297860,
-      "Tag": "Oyna",
+      "Tag": "Window",
       "Transform": {
         "Translation": [
           4.6,
@@ -2152,7 +2152,7 @@
     },
     {
       "Entity": 8745347002939342,
-      "Tag": "Oyna",
+      "Tag": "Window",
       "Transform": {
         "Translation": [
           2.5999999999999996,

@@ -15600,7 +15600,7 @@ TEST(MaterialSerializationFields)
     CHECK(back.SortPriority == 0 && back.PreserveSpecular && back.BlendMode == MaterialBlendMode::Transparent);
     CHECK_NEAR(back.Albedo.a, 0.3f, 1e-6f);
 
-    // The Showcase sample's materials (with the standard library's copies in Materials/Standart)
+    // The Showcase sample's materials (with the standard library's copies in Materials/Standard)
     // read cleanly and write back unchanged in their values.
     fs::path samples = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Materials";
     int checked = 0;
@@ -15908,35 +15908,35 @@ TEST(MaterialPresetLibrary)
     CHECK(Project::Load(projectDir / "PresetGame.zproject") != nullptr);
     const MaterialPreset* concrete = MaterialPresets::Find("concrete");
     MaterialPresets::CreateResult inProject;
-    CHECK(concrete && MaterialPresets::Create(*concrete, Project::GetAssetDirectory() / "Materials" / "Standart", true, inProject, &error));
+    CHECK(concrete && MaterialPresets::Create(*concrete, Project::GetAssetDirectory() / "Materials" / "Standard", true, inProject, &error));
     MaterialData concreteData;
     CHECK(MaterialSerializer::Deserialize(inProject.Material, concreteData) &&
-          concreteData.AlbedoMap == "Materials/Standart/Textures/Concrete_Albedo.png");
+          concreteData.AlbedoMap == "Materials/Standard/Textures/Concrete_Albedo.png");
     AssetRegistry* registry = Project::GetAssetRegistry();
-    CHECK(registry && registry->GetHandle("Materials/Standart/Concrete.zmat") && registry->GetHandle("Materials/Standart/Textures/Concrete_Albedo.png"));
+    CHECK(registry && registry->GetHandle("Materials/Standard/Concrete.zmat") && registry->GetHandle("Materials/Standard/Textures/Concrete_Albedo.png"));
     if (registry)
         CHECK(FileSystem::ReadTextFile(inProject.Material).find("\"AlbedoMapUUID\": \"" +
-              registry->GetHandle("Materials/Standart/Textures/Concrete_Albedo.png").ToString()) != std::string::npos);
+              registry->GetHandle("Materials/Standard/Textures/Concrete_Albedo.png").ToString()) != std::string::npos);
     {
         FakeTextureLoader loader;
         Ref<MaterialAsset> loaded = MaterialLibrary::Load(inProject.Material);
         CHECK(loaded && loaded->GetMaterial().AlbedoMap && loaded->GetMaterial().Roughness == concrete->Data.Roughness);
     }
-    CHECK(MaterialPresets::GetSharedFolder() == Project::GetAssetDirectory() / "Materials" / "Standart");
+    CHECK(MaterialPresets::GetSharedFolder() == Project::GetAssetDirectory() / "Materials" / "Standard");
     // A copy elsewhere (the content browser's "Yangi material" in Materials/) uses the shared
     // texture: no second Textures folder with the same image.
-    fs::path sharedConcrete = Project::GetAssetDirectory() / "Materials" / "Standart" / "Textures" / "Concrete_Albedo.png";
+    fs::path sharedConcrete = Project::GetAssetDirectory() / "Materials" / "Standard" / "Textures" / "Concrete_Albedo.png";
     CHECK(MaterialPresets::GetTexturePath(*concrete, Project::GetAssetDirectory() / "Materials") == sharedConcrete);
     MaterialPresets::CreateResult copy;
     CHECK(MaterialPresets::Create(*concrete, Project::GetAssetDirectory() / "Materials", false, copy, &error));
     CHECK(copy.Written == std::vector<fs::path>({ Project::GetAssetDirectory() / "Materials" / "Concrete.zmat" }));
     CHECK(!fs::exists(Project::GetAssetDirectory() / "Materials" / "Textures"));
     MaterialData copyData;
-    CHECK(MaterialSerializer::Deserialize(copy.Material, copyData) && copyData.AlbedoMap == "Materials/Standart/Textures/Concrete_Albedo.png");
+    CHECK(MaterialSerializer::Deserialize(copy.Material, copyData) && copyData.AlbedoMap == "Materials/Standard/Textures/Concrete_Albedo.png");
     // The first copy anywhere writes it there, too.
     MaterialPresets::CreateResult firstWood;
     CHECK(MaterialPresets::Create(*wood, Project::GetAssetDirectory() / "Props", false, firstWood, &error));
-    fs::path sharedWood = Project::GetAssetDirectory() / "Materials" / "Standart" / "Textures" / "Wood_Albedo.png";
+    fs::path sharedWood = Project::GetAssetDirectory() / "Materials" / "Standard" / "Textures" / "Wood_Albedo.png";
     CHECK(firstWood.Written.size() == 2 && firstWood.Written.front() == sharedWood && fs::exists(sharedWood));
     // One a folder has of its own (an older editor wrote one per folder) stays in use.
     fs::path oldTexture = Project::GetAssetDirectory() / "Old" / "Textures" / "Wood_Albedo.png";
@@ -19022,13 +19022,47 @@ TEST(CameraShakeInScene)
     CHECK(!Scene::Copy(scene)->FindEntityByName("Camera").GetComponent<CameraComponent>().Shake.IsActive());
 }
 
+// New content is named in English; what an older file stored - or never stored - keeps its meaning.
+TEST(EnglishContentDefaults)
+{
+    CHECK(TextComponent().Text == "Text" && UIInputFieldComponent().Placeholder == "Enter text...");
+    TilemapComponent tm;
+    tm.Width = 2; tm.Height = 2;
+    tm.EnsureSize();
+    CHECK(tm.Layers[0].Name == "Main" && tm.AddLayer() == 1 && tm.Layers[1].Name == "Layer" && tm.MakeUniqueLayerName("") == "Layer 2");
+    CHECK(AutoTileRule().Name == "Ground" && AutoTileSet().MakeUniqueName("") == "Ground");
+
+    // Stored values load as they are (the serializer writes them whatever the default is) ...
+    const char* stored = R"({"Scene":"S","Entities":[
+        {"Entity":1,"Tag":"T","Transform":{"Translation":[0,0,0],"Rotation":[0,0,0],"Scale":[1,1,1]},"Text":{"Text":"Matn"}},
+        {"Entity":2,"Tag":"M","Transform":{"Translation":[0,0,0],"Rotation":[0,0,0],"Scale":[1,1,1]},
+         "Tilemap":{"Width":1,"Height":1,"Layers":[{"Name":"Asosiy","Tiles":[3]},{"Name":"Qatlam","Tiles":[4]}]}},
+        {"Entity":3,"Tag":"L","Transform":{"Translation":[0,0,0],"Rotation":[0,0,0],"Scale":[1,1,1]},"Tilemap":{"Width":1,"Height":1,"Tiles":[7]}}]})";
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).DeserializeFromString(stored));
+    Entity t = scene->FindEntityByName("T"), m = scene->FindEntityByName("M"), l = scene->FindEntityByName("L");
+    CHECK(t && m && l);
+    if (!t || !m || !l) return;
+    CHECK(t.GetComponent<TextComponent>().Text == "Matn");
+    const auto& layers = m.GetComponent<TilemapComponent>();
+    CHECK(layers.GetLayerCount() == 2 && layers.Layers[0].Name == "Asosiy" && layers.Layers[1].Name == "Qatlam" && layers.Get(0, 0, 1) == 4);
+    // ... and a tilemap from before layers had names keeps the one name it has always loaded with.
+    const auto& legacy = l.GetComponent<TilemapComponent>();
+    CHECK(legacy.GetLayerCount() == 1 && legacy.Layers[0].Name == "Asosiy" && legacy.Get(0, 0) == 7);
+    // Saved again and loaded: the same names.
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    Entity l2 = again->FindEntityByName("L"), t2 = again->FindEntityByName("T");
+    CHECK(l2 && t2 && l2.GetComponent<TilemapComponent>().Layers[0].Name == "Asosiy" && t2.GetComponent<TextComponent>().Text == "Matn");
+}
+
 // ------------------------------------------------------------------ M08: tilemap layers, auto-tiles, tools
 TEST(TilemapLayersEdit)
 {
     TilemapComponent tm;
     tm.Width = 6; tm.Height = 4;
     tm.EnsureSize();
-    CHECK(tm.GetLayerCount() == 1 && tm.Layers[0].Name == "Asosiy" && tm.Layers[0].Collision && tm.Layers[0].Tiles.size() == 24);
+    CHECK(tm.GetLayerCount() == 1 && tm.Layers[0].Name == "Main" && tm.Layers[0].Collision && tm.Layers[0].Tiles.size() == 24);
     int deco = tm.AddLayer("Bezak");
     int deco2 = tm.AddLayer("Bezak");
     CHECK(deco == 1 && deco2 == 2 && tm.Layers[2].Name == "Bezak 2" && !tm.Layers[1].Collision && tm.Layers[1].Tiles.size() == 24);
@@ -19045,7 +19079,7 @@ TEST(TilemapLayersEdit)
     tm.Layers[1].Collision = true;
     CHECK(tm.IsSolid(2, 1));
     // Order: moving and removing (the last layer stays).
-    CHECK(tm.MoveLayer(2, 0) && tm.Layers[0].Name == "Bezak 2" && tm.Layers[1].Name == "Asosiy" && tm.Get(1, 1, 1) == 5);
+    CHECK(tm.MoveLayer(2, 0) && tm.Layers[0].Name == "Bezak 2" && tm.Layers[1].Name == "Main" && tm.Get(1, 1, 1) == 5);
     CHECK(!tm.MoveLayer(0, 5) && !tm.MoveLayer(1, 1));
     CHECK(tm.RemoveLayer(0) && tm.GetLayerCount() == 2 && tm.Get(1, 1, 0) == 5);
     CHECK(tm.RemoveLayer(1) && !tm.RemoveLayer(0) && tm.GetLayerCount() == 1);
@@ -19354,7 +19388,7 @@ TEST(TilemapSampleAutoTilesConsistent)
     CHECK(meta.has_value());
     AutoTileSet rules = meta ? AutoTileSet::FromImportSettings(meta->Import) : AutoTileSet();
     CHECK(rules.Rules.size() == 2);
-    CHECK(rules.Find("Tosh") == 0 && rules.Rules[0].Mode == AutoTileMode::Edges4 && rules.Find("O't") == 1 && rules.Rules[1].Mode == AutoTileMode::Blob8);
+    CHECK(rules.Find("Rock") == 0 && rules.Rules[0].Mode == AutoTileMode::Edges4 && rules.Find("Grass") == 1 && rules.Rules[1].Mode == AutoTileMode::Blob8);
 
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(assets / "Scenes" / "Tilemap2D.zscene"));
@@ -19363,9 +19397,9 @@ TEST(TilemapSampleAutoTilesConsistent)
     if (!level || !level.HasComponent<TilemapComponent>())
         return;
     auto& tm = level.GetComponent<TilemapComponent>();
-    CHECK(tm.GetLayerCount() == 3 && tm.FindLayer("Asosiy") == 1 && tm.Layers[1].Collision && !tm.Layers[0].Collision && !tm.Layers[2].Collision);
+    CHECK(tm.GetLayerCount() == 3 && tm.FindLayer("Main") == 1 && tm.Layers[1].Collision && !tm.Layers[0].Collision && !tm.Layers[2].Collision);
     CHECK(tm.Layers[2].SortingOrder > 0 && tm.Layers[2].Opacity < 1.0f);
-    const int main = tm.FindLayer("Asosiy");
+    const int main = tm.FindLayer("Main");
     size_t terrain = 0;
     for (const AutoTileRule& rule : rules.Rules)
     {
@@ -20380,7 +20414,7 @@ TEST(YSortedSortingLayers)
 TEST(TopDown2DSampleScene)
 {
     namespace fs = std::filesystem;
-    // The Platformer2D sample's TopDown2D scene: a Y-sorted "Obyektlar" layer, Lit sprites and a Lit
+    // The Platformer2D sample's TopDown2D scene: a Y-sorted "Objects" layer, Lit sprites and a Lit
     // tilemap under 2D lights at night, tint animations, a pixel-perfect camera following the hero and
     // an auto-tiled path. The project file is only read (its sorting layers).
     fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
@@ -20393,19 +20427,19 @@ TEST(TopDown2DSampleScene)
         size_t open = text.find('[', at), close = text.find(']', open);
         CHECK(ProjectSerializer::SortingLayersFromString(text.substr(open, close - open + 1), layers));
     }
-    const SortingLayer* objects = layers.FindByName("Obyektlar");
+    const SortingLayer* objects = layers.FindByName("Objects");
     CHECK(objects && objects->YSort && layers.GetIndex(objects->ID) > layers.GetIndex(SortingLayerList::DefaultID));
     CHECK(!layers.IsYSorted(SortingLayerList::DefaultID));
 
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "TopDown2D.zscene"));
-    Entity player = scene->FindEntityByName("Player"), camera = scene->FindEntityByName("Main Camera"), ground = scene->FindEntityByName("Zamin");
+    Entity player = scene->FindEntityByName("Player"), camera = scene->FindEntityByName("Main Camera"), ground = scene->FindEntityByName("Floor");
     CHECK(player && camera && ground);
     if (!player || !camera || !ground || !objects)
         return;
     // The hero: on the Y-sorted layer, its shadow a part of it (sorted at its feet, under it).
     CHECK(player.GetComponent<SpriteRendererComponent>().SortingLayer == objects->ID && player.GetComponent<SpriteRendererComponent>().Lit);
-    Entity shadow = scene->FindChild(player, "Soya");
+    Entity shadow = scene->FindChild(player, "Shadow");
     CHECK(shadow && scene->GetSortRoot(shadow, objects->ID) == player && !shadow.GetComponent<SpriteRendererComponent>().Lit);
     CHECK(player.GetComponent<Rigidbody2DComponent>().GravityScale == 0.0f && scene->GetSettings().Gravity == glm::vec2(0.0f));
     // The camera: pixel perfect (16 px per unit, 320 x 180), following the hero inside the map.
@@ -20415,7 +20449,7 @@ TEST(TopDown2DSampleScene)
     CHECK(camera.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)player.GetUUID() && camera.GetComponent<Camera2DFollowComponent>().UseBounds);
     // The ground: Lit, three layers, the path painted with the tileset's auto-tile rule.
     auto& tm = ground.GetComponent<TilemapComponent>();
-    CHECK(tm.Lit && tm.GetLayerCount() == 3 && tm.FindLayer("Yo'lak") == 1 && !tm.Collision);
+    CHECK(tm.Lit && tm.GetLayerCount() == 3 && tm.FindLayer("Path") == 1 && !tm.Collision);
     std::optional<AssetMetadata> meta = AssetMetaFile::Read(root / "Assets" / "Textures" / "topdown.png");
     AutoTileSet rules = meta ? AutoTileSet::FromImportSettings(meta->Import) : AutoTileSet();
     CHECK(rules.Rules.size() == 1 && rules.Rules[0].Mode == AutoTileMode::Blob8);
@@ -20448,12 +20482,12 @@ TEST(TopDown2DSampleScene)
     glm::vec3 start = play->FindEntityByName("Player").GetTransform().Translation;
     for (int k = 0; k < 40; k++)
         play->OnUpdateRuntime(1.0f / 60.0f);
-    std::vector<Entity> crystals = play->FindEntitiesByName("Kristall");
+    std::vector<Entity> crystals = play->FindEntitiesByName("Crystal");
     CHECK(crystals.size() == 5);
     if (crystals.size() == 5)
         CHECK(Scene::GetTint(crystals[0]) != Scene::GetTint(crystals[1]) && crystals[0].GetComponent<TintAnimationComponent>().Playing);
     CHECK(glm::length(play->FindEntityByName("Player").GetTransform().Translation - start) < 1e-3f);
-    Entity fire = play->FindEntityByName("Gulxan");
+    Entity fire = play->FindEntityByName("Campfire");
     Lighting2DData near = play->CollectLights2D(glm::vec2(fire.GetTransform().Translation));
     CHECK(!near.Lights.empty() && near.Lights[0].Position == glm::vec2(fire.GetTransform().Translation));
     play->OnRuntimeStop();
@@ -23452,10 +23486,10 @@ TEST(Joints3DSampleScene)
     ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Joints3D.zscene"));
-    Entity door = scene->FindEntityByName("Eshik"), lift = scene->FindEntityByName("Lift"), blade = scene->FindEntityByName("Tegirmon parragi");
-    Entity shrine = scene->FindEntityByName("Kristall ziyoratgoh"), la = scene->FindEntityByName("L qismi A"), lb = scene->FindEntityByName("L qismi B");
-    std::vector<Entity> links = scene->FindEntitiesByName("Zanjir halqasi");
-    links.push_back(scene->FindEntityByName("Zanjir yuki"));
+    Entity door = scene->FindEntityByName("Door"), lift = scene->FindEntityByName("Lift"), blade = scene->FindEntityByName("Windmill blade");
+    Entity shrine = scene->FindEntityByName("Crystal shrine"), la = scene->FindEntityByName("L part A"), lb = scene->FindEntityByName("L part B");
+    std::vector<Entity> links = scene->FindEntitiesByName("Chain link");
+    links.push_back(scene->FindEntityByName("Chain weight"));
     CHECK(door && lift && blade && shrine && la && lb && links.size() == 7);
     if (!(door && lift && blade && shrine && la && lb && links.size() == 7))
         return;
@@ -23483,7 +23517,7 @@ TEST(Joints3DSampleScene)
     // Without the script module (no SliderShuttle) the lift's motor takes it up to its limit.
     CHECK_NEAR(lift.GetComponent<SliderJoint3DComponent>().JointTranslation, 2.6f, 0.05f);
     CHECK_NEAR(glm::length(Pos3D(lb) - Pos3D(la)), weld, 0.03f);
-    for (const char* name : { "Konus", "Silindr" })
+    for (const char* name : { "Cone", "Cylinder" })
         for (Entity e : scene->FindEntitiesByName(name))
             CHECK(e.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff && Pos3D(e).y > 0.0f && Pos3D(e).y < 4.0f);
     CHECK(Pos3D(shrine).y > -0.05f && Pos3D(shrine).y < 3.0f);
@@ -23517,14 +23551,14 @@ TEST(Ragdoll3DSampleScene)
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Ragdoll3D.zscene"));
     std::vector<Entity> ragdolls = scene->FindEntitiesByName("Ragdoll");
     CHECK(ragdolls.size() == 3);
-    Entity spawner = scene->FindEntityByName("Ragdoll tashlagich");
+    Entity spawner = scene->FindEntityByName("Ragdoll thrower");
     CHECK(spawner && spawner.GetComponent<NativeScriptComponent>().ClassName == "RagdollSpawner3D");
     if (spawner)
     {
         auto& fields = spawner.GetComponent<NativeScriptComponent>().Fields;
         CHECK(fields.count("Prefab") && fields["Prefab"].Get<std::string>() == "Prefabs/Ragdoll3D.zprefab");
     }
-    CHECK(scene->FindEntitiesByName("Zina 8").size() == 1 && scene->FindEntityByName("Arg'imchoq").HasComponent<HingeJoint3DComponent>());
+    CHECK(scene->FindEntitiesByName("Stair 8").size() == 1 && scene->FindEntityByName("Swing").HasComponent<HingeJoint3DComponent>());
     auto checkRagdoll = [&](Ref<Scene>& sc, Entity r, std::vector<Entity>& cones, std::vector<Entity>& hinges) {
         std::vector<Entity> parts = sc->GetChildren(r);
         std::unordered_set<uint64_t> inside;
@@ -23581,7 +23615,7 @@ TEST(Ragdoll3DSampleScene)
     for (Entity p : play->GetChildren(spawned[0]))
         if (p.HasComponent<Rigidbody3DComponent>())
             world->SetLinearVelocity(p.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 4.5f, 0.0f, 0.0f }); // pushed towards the stairs
-    Entity chest = play->FindChild(spawned[0], "Ko'krak");
+    Entity chest = play->FindChild(spawned[0], "Chest");
     const float startY = play->GetWorldPosition(chest).y;
     float worstGap = 0.0f, worstHinge = 0.0f, worstSwing = 0.0f;
     bool allJoined = true;
@@ -24066,12 +24100,12 @@ TEST(Queries3DSampleScene)
     Project::SetActive(project);
     ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
     const CollisionLayers2D& layers = Project::GetCollisionLayers2D();
-    CHECK(layers.Find("Arvoh") == 1 && layers.Find("Panjara") == 2 && !layers.CanCollide(1, 2) && layers.CanCollide(0, 2));
+    CHECK(layers.Find("Ghost") == 1 && layers.Find("Grate") == 2 && !layers.CanCollide(1, 2) && layers.CanCollide(0, 2));
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Queries3D.zscene"));
-    Entity pipe = scene->FindEntityByName("Yarim quvur"), laser = scene->FindEntityByName("Lazer (Raycast3DAll)");
-    std::vector<Entity> balls = scene->FindEntitiesByName("Quvur shari"), crates = scene->FindEntitiesByName("Quti");
-    std::vector<Entity> ghosts = scene->FindEntitiesByName("Arvoh shar");
+    Entity pipe = scene->FindEntityByName("Half-pipe"), laser = scene->FindEntityByName("Laser (Raycast3DAll)");
+    std::vector<Entity> balls = scene->FindEntitiesByName("Pipe ball"), crates = scene->FindEntitiesByName("Crate");
+    std::vector<Entity> ghosts = scene->FindEntitiesByName("Ghost ball");
     CHECK(pipe && laser && balls.size() == 5 && crates.size() == 4 && ghosts.size() == 4);
     if (!(pipe && laser && balls.size() == 5 && crates.size() == 4 && ghosts.size() == 4))
         return;
@@ -24095,12 +24129,12 @@ TEST(Queries3DSampleScene)
     std::vector<RaycastHit> hits = scene->Raycast3DAll(Pos3D(laser), laser.GetTransform().GetForward(), 13.0f);
     CHECK(hits.size() == 4);
     for (const RaycastHit& hit : hits)
-        CHECK(scene->GetEntityByUUID(hit.EntityID).GetName() == "Oyna");
+        CHECK(scene->GetEntityByUUID(hit.EntityID).GetName() == "Window");
     for (size_t i = 1; i < hits.size(); i++)
         CHECK(hits[i - 1].Distance < hits[i].Distance);
     // A sphere over the grate finds the crates, not the ghosts below it.
     for (Entity e : scene->OverlapSphere3D({ 0.0f, 3.0f, 0.0f }, 2.5f))
-        CHECK(e.GetName() == "Quti" || e.GetName() == "Panjara");
+        CHECK(e.GetName() == "Crate" || e.GetName() == "Grate");
     scene->OnRuntimeStop();
 }
 
@@ -24664,17 +24698,17 @@ TEST(Physics3DSampleScene)
     } };
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Physics3D.zscene"));
-    Entity ice = scene->FindEntityByName("Muz qutisi"), plain = scene->FindEntityByName("Oddiy quti"), rubber = scene->FindEntityByName("Rezina quti");
-    Entity plate = scene->FindEntityByName("Bosish plitasi"), sweeper = scene->FindEntityByName("Supurgich");
-    Entity fast = scene->FindEntityByName("Tez shar (CCD)"), slow = scene->FindEntityByName("Tez shar");
-    Entity hero = scene->FindEntityByName("Qahramon"), radar = scene->FindEntityByName("Radar quti");
-    std::vector<Entity> pyramid = scene->FindEntitiesByName("Uxlagan quti");
+    Entity ice = scene->FindEntityByName("Ice crate"), plain = scene->FindEntityByName("Plain crate"), rubber = scene->FindEntityByName("Rubber crate");
+    Entity plate = scene->FindEntityByName("Pressure plate"), sweeper = scene->FindEntityByName("Sweeper");
+    Entity fast = scene->FindEntityByName("Fast ball (CCD)"), slow = scene->FindEntityByName("Fast ball");
+    Entity hero = scene->FindEntityByName("Hero"), radar = scene->FindEntityByName("Radar box");
+    std::vector<Entity> pyramid = scene->FindEntitiesByName("Sleeping crate");
     CHECK(ice && plain && rubber && plate && sweeper && fast && slow && hero && radar && pyramid.size() == 6);
     if (!(ice && plain && rubber && plate && sweeper && fast && slow && hero && radar && pyramid.size() == 6))
         return;
-    CHECK(ice.GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Muz.zphysmat");
-    CHECK(rubber.GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Rezina.zphysmat");
-    for (const char* file : { "Muz", "Rezina", "Sakraydigan" })
+    CHECK(ice.GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Ice.zphysmat");
+    CHECK(rubber.GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Rubber.zphysmat");
+    for (const char* file : { "Ice", "Rubber", "Bouncy" })
         CHECK(PhysicsMaterialLibrary::Load(std::string("Physics/") + file + ".zphysmat") != nullptr);
     CHECK(fast.GetComponent<Rigidbody3DComponent>().ContinuousCollision && !slow.GetComponent<Rigidbody3DComponent>().ContinuousCollision);
     CHECK(radar.GetComponent<SphereCollider3DComponent>().IsSensor && !radar.GetComponent<BoxCollider3DComponent>().IsSensor);
@@ -25154,9 +25188,9 @@ TEST(PhysicsDebug3DSampleScene)
     ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "PhysicsDebug3D.zscene"));
-    Entity view = scene->FindEntityByName("Fizika debug"), swinging = scene->FindEntityByName("Tebranuvchi chiroq");
-    Entity heavy = scene->FindEntityByName("Og'ir chiroq"), shelf = scene->FindEntityByName("Javon"), crate = scene->FindEntityByName("Quti");
-    std::vector<Entity> tower = scene->FindEntitiesByName("Uxlagan quti");
+    Entity view = scene->FindEntityByName("Physics debug"), swinging = scene->FindEntityByName("Swinging lamp");
+    Entity heavy = scene->FindEntityByName("Heavy lamp"), shelf = scene->FindEntityByName("Shelf"), crate = scene->FindEntityByName("Crate");
+    std::vector<Entity> tower = scene->FindEntitiesByName("Sleeping crate");
     CHECK(view && swinging && heavy && shelf && crate && tower.size() == 3);
     if (!(view && swinging && heavy && shelf && crate && tower.size() == 3))
         return;
@@ -25233,8 +25267,8 @@ TEST(AudioSampleScene)
 
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Audio.zscene"));
-    Entity listener = scene->FindEntityByName("Tinglovchi"), shrine = scene->FindEntityByName("Qo'shiq aytuvchi ziyoratgoh");
-    Entity director = scene->FindEntityByName("Musiqa direktori");
+    Entity listener = scene->FindEntityByName("Listener"), shrine = scene->FindEntityByName("Singing shrine");
+    Entity director = scene->FindEntityByName("Music director");
     CHECK(listener && shrine && director);
     if (!(listener && shrine && director))
         return;
@@ -25245,7 +25279,7 @@ TEST(AudioSampleScene)
     const auto& script = director.GetComponent<NativeScriptComponent>();
     CHECK(script.ClassName == "MusicDirector");
     // The Doppler fly-by and the wind chimes (random pitch, instance limit, pausing the hum).
-    Entity drone = scene->FindEntityByName("Uchuvchi dron"), chimes = scene->FindEntityByName("Shamol qo'ng'iroqchalari");
+    Entity drone = scene->FindEntityByName("Flying drone"), chimes = scene->FindEntityByName("Wind chimes");
     CHECK(drone && chimes);
     if (!(drone && chimes))
         return;
@@ -25261,8 +25295,8 @@ TEST(AudioSampleScene)
         CHECK(fs::exists(root / "Assets" / (std::string(file) + ".zmeta")));
     }
     // The radio (fades, "small speaker" filter), the pool (group low-pass) and the player's settings.
-    Entity radio = scene->FindEntityByName("Radio"), pool = scene->FindEntityByName("Suv havzasi");
-    Entity options = scene->FindEntityByName("Ovoz sozlamalari");
+    Entity radio = scene->FindEntityByName("Radio"), pool = scene->FindEntityByName("Water pool");
+    Entity options = scene->FindEntityByName("Sound settings");
     CHECK(radio && pool && options);
     if (!(radio && pool && options))
         return;
@@ -25278,8 +25312,8 @@ TEST(AudioSampleScene)
     CHECK(radioSettings.LoadMode == AudioLoadMode::Decompress && radioSettings.Preload && std::abs(radioSettings.Volume - 0.9f) < 1e-6f);
     CHECK(radioSettings.LoopStart == 4.0f && radioSettings.LoopEnd == 0.0f); // a 4 s intro, then the second phrase loops
     // The loudspeaker: a directional cone facing -X (its horn a child mesh).
-    Entity speaker = scene->FindEntityByName("Karnay");
-    CHECK(speaker && speaker.HasComponent<AudioSourceComponent>() && scene->FindEntityByName("Karnay shoxi"));
+    Entity speaker = scene->FindEntityByName("Loudspeaker");
+    CHECK(speaker && speaker.HasComponent<AudioSourceComponent>() && scene->FindEntityByName("Loudspeaker horn"));
     if (speaker)
     {
         const auto& pa = speaker.GetComponent<AudioSourceComponent>();
@@ -25290,7 +25324,7 @@ TEST(AudioSampleScene)
         CHECK_NEAR(Audio::GetClipLength("Audio/PaChime.wav"), 2.6f, 1e-3f);
     }
     // The forest ambience: a box over the calm (green) zone, in Ambience; the listener starts inside it.
-    Entity forest = scene->FindEntityByName("O'rmon shovqini");
+    Entity forest = scene->FindEntityByName("Forest ambience");
     CHECK(forest && forest.HasComponent<AmbientZoneComponent>());
     if (forest)
     {
@@ -26118,8 +26152,8 @@ TEST(UIWidgetsSampleScene)
     ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "UIWidgets.zscene"));
-    Entity panel = scene->FindEntityByName("Panel"), music = scene->FindEntityByName("Musiqa"), name = scene->FindEntityByName("Ism maydoni");
-    Entity easy = scene->FindEntityByName("Oson"), medium = scene->FindEntityByName("O'rta"), cooldown = scene->FindEntityByName("Kristall");
+    Entity panel = scene->FindEntityByName("Panel"), music = scene->FindEntityByName("Music"), name = scene->FindEntityByName("Name field");
+    Entity easy = scene->FindEntityByName("Easy"), medium = scene->FindEntityByName("Middle"), cooldown = scene->FindEntityByName("Crystal");
     CHECK(panel && music && name && easy && medium && cooldown);
     if (!(panel && music && name && easy && medium && cooldown))
         return;
@@ -27026,9 +27060,9 @@ TEST(UILayoutSampleScene)
     ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "UILayout.zscene"));
-    Entity canvas = scene->FindEntityByName("Canvas"), menu = scene->FindEntityByName("Menyu"), start = scene->FindEntityByName("O'yinni boshlash");
-    Entity next = scene->FindEntityByName("Davom etish"), bottom = scene->FindEntityByName("Pastki panel"), inventory = scene->FindEntityByName("Inventar");
-    Entity slot = scene->FindEntityByName("3-uya"), coins = scene->FindEntityByName("Tangalar");
+    Entity canvas = scene->FindEntityByName("Canvas"), menu = scene->FindEntityByName("Menu"), start = scene->FindEntityByName("Start game");
+    Entity next = scene->FindEntityByName("Resume"), bottom = scene->FindEntityByName("Bottom panel"), inventory = scene->FindEntityByName("Inventory");
+    Entity slot = scene->FindEntityByName("Slot 3"), coins = scene->FindEntityByName("Coins");
     CHECK(canvas && menu && start && next && bottom && inventory && slot && coins);
     if (!(canvas && menu && start && next && bottom && inventory && slot && coins))
         return;
@@ -27044,7 +27078,7 @@ TEST(UILayoutSampleScene)
     CHECK_NEAR(scene->GetUIRect(inventory).Max.x, 1872.0f, 1e-3f);
     CHECK_NEAR(scene->GetUIRect(coins).Max.x, 1920.0f - 24.0f - 36.0f, 1e-3f);                        // pinned to the bar's right end
     // The news panel between the menu and the inventory, apart from both (16:9 and 16:10).
-    Entity news = scene->FindEntityByName("Yangiliklar");
+    Entity news = scene->FindEntityByName("News");
     CHECK(news);
     if (news)
         for (glm::uvec2 size : { glm::uvec2(1600, 900), glm::uvec2(1920, 1200) })
@@ -28371,7 +28405,7 @@ TEST(PauseMenuSampleScene)
     auto find = [&](const char* name) { return scene->FindEntityByName(name); };
     Entity menu = find("Pause Menu"), overlay = find("Overlay"), main = find("Main Panel"), settings = find("Settings Panel");
     Entity resume = find("Resume Button"), settingsButton = find("Settings Button"), quit = find("Quit Button"), back = find("Back Button");
-    Entity scroll = find("Settings Scroll"), list = find("Settings List"), music = find("Musiqa Slider"), fullscreen = find("To'liq ekran");
+    Entity scroll = find("Settings Scroll"), list = find("Settings List"), music = find("Music Slider"), fullscreen = find("Fullscreen");
     Entity restart = find("Restart Button"), player = find("Player");
     CHECK(menu && overlay && main && settings && resume && settingsButton && quit && back && scroll && list && music && fullscreen && restart && player);
     if (!(menu && overlay && main && settings && resume && settingsButton && quit && back && scroll && list && music && fullscreen && restart && player))
@@ -28420,7 +28454,7 @@ TEST(PauseMenuSampleScene)
     for (int i = 0; i < 10; i++)
         scene->OnUpdateRuntime(0.016f);
     CHECK(!scene->IsGamePaused());
-    // Esc: the game stops, the menu opens with "Davom etish" selected.
+    // Esc: the game stops, the menu opens with "Resume" selected.
     UIKeyFrame(scene, { Key::Escape });
     CHECK(scene->IsGamePaused() && overlay.IsActive() && main.IsActive());
     CHECK(scene->GetSelectedUI() == resume);
@@ -28434,7 +28468,7 @@ TEST(PauseMenuSampleScene)
     CHECK(scene->GetSelectedUI() == settingsButton);
     UIKeyFrame(scene, { Key::Enter });
     CHECK(settings.IsActive() && !main.IsActive());
-    CHECK(scene->GetSelectedUI() == find("Umumiy ovoz Slider"));
+    CHECK(scene->GetSelectedUI() == find("Master volume Slider"));
     // The music slider: three steps left (a tenth each) -> the Music group at 70%.
     UIKeyFrame(scene, { Key::Down });
     CHECK(scene->GetSelectedUI() == music);
@@ -28442,7 +28476,7 @@ TEST(PauseMenuSampleScene)
         UIKeyFrame(scene, { Key::Left });
     CHECK_NEAR(music.GetComponent<UISliderComponent>().Value, 0.7f, 1e-4f);
     CHECK_NEAR(Audio::GetGroupVolume("Music"), 0.7f, 1e-4f);
-    CHECK(find("Musiqa Value").GetComponent<TextComponent>().Text == "70%");
+    CHECK(find("Music Value").GetComponent<TextComponent>().Text == "70%");
     // Down to the fullscreen switch (Enter switches it), then to VSync below the view: the list
     // scrolls to show it.
     for (int i = 0; i < 3; i++)
@@ -28450,7 +28484,7 @@ TEST(PauseMenuSampleScene)
     CHECK(scene->GetSelectedUI() == fullscreen);
     UIKeyFrame(scene, { Key::Enter });
     CHECK(fullscreen.GetComponent<UIToggleComponent>().IsOn && Display::IsFullscreen());
-    Entity vsync = find("Vertikal sinxronlash (VSync)");
+    Entity vsync = find("Vertical sync (VSync)");
     CHECK(scene->GetScrollPosition(scroll).y == 1.0f);
     UIKeyFrame(scene, { Key::Down });
     CHECK(vsync && scene->GetSelectedUI() == vsync);
@@ -28470,7 +28504,7 @@ TEST(PauseMenuSampleScene)
     CHECK(!overlay.IsActive() && !scene->IsGamePaused());
     scene->OnUpdateRuntime(0.016f);
     CHECK(scene->GetTime() > time);
-    // Gamepad: Start opens the menu, A on "Davom etish" closes it. A is also the game's Jump: the
+    // Gamepad: Start opens the menu, A on "Resume" closes it. A is also the game's Jump: the
     // game goes on from the next frame, so the press that closed the menu does not make the player jump.
     for (int i = 0; i < 120; i++)
         scene->OnUpdateRuntime(0.016f); // the player stands on the ground
@@ -36164,10 +36198,10 @@ TEST(GameMenuSampleScene)
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Menu.zscene"));
     auto find = [&](const Ref<Scene>& s, const char* name) { return s->FindEntityByName(name); };
-    Entity menu = find(scene, "Bosh menyu"), overlay = find(scene, "Overlay"), main = find(scene, "Main Panel"), settings = find(scene, "Settings Panel");
+    Entity menu = find(scene, "Main menu"), overlay = find(scene, "Overlay"), main = find(scene, "Main Panel"), settings = find(scene, "Settings Panel");
     Entity play = find(scene, "Play Button"), settingsButton = find(scene, "Settings Button"), quit = find(scene, "Quit Button");
     Entity resolution = find(scene, "Resolution Button"), quality = find(scene, "Quality Button"), language = find(scene, "Language Button");
-    Entity gamma = find(scene, "Gamma Slider"), master = find(scene, "Umumiy ovoz Slider"), version = find(scene, "Settings Version");
+    Entity gamma = find(scene, "Gamma Slider"), master = find(scene, "Master volume Slider"), version = find(scene, "Settings Version");
     Entity session = find(scene, "GameSession");
     const bool all = menu && overlay && main && settings && play && settingsButton && quit && resolution && quality && language && gamma && master &&
                      version && session;
@@ -36246,7 +36280,7 @@ TEST(GameMenuSampleScene)
     scene->OnRuntimeStart();
     for (int i = 0; i < 5; i++)
         scene->OnUpdateRuntime(0.016f);
-    // The main menu: shown, "O'ynash" selected, the game's name, the versions in the corners.
+    // The main menu: shown, "Play" selected, the game's name, the versions in the corners.
     CHECK(overlay.IsActive() && main.IsActive() && !settings.IsActive() && !scene->IsGamePaused());
     CHECK(scene->GetSelectedUI() == play);
     CHECK(find(scene, "Menu Title").GetComponent<TextComponent>().Text == Application::GetProductName());
@@ -36287,7 +36321,7 @@ TEST(GameMenuSampleScene)
     CHECK(scene->GetSelectedUI() == master);
     UIKeyFrame(scene, { Key::Left });
     CHECK_NEAR(Audio::GetGroupVolume("Master"), 0.9f, 1e-4f);
-    CHECK(find(scene, "Umumiy ovoz Value").GetComponent<TextComponent>().Text == "90%");
+    CHECK(find(scene, "Master volume Value").GetComponent<TextComponent>().Text == "90%");
     // Down to the language button (music, effects between), Enter: the next language, its texts follow.
     for (int i = 0; i < 3; i++)
         UIKeyFrame(scene, { Key::Down });
@@ -36302,7 +36336,7 @@ TEST(GameMenuSampleScene)
     const SavedDisplaySettings saved = Display::GetSavedSettings();
     CHECK(saved.Resolution && *saved.Resolution == first && saved.Gamma && *saved.Gamma > 1.0f);
     CHECK(Quality::HasSavedSettings() && SaveData::HasKey(Audio::SettingsKey));
-    // "Standart": the display as the next start opens it - the project's window mode (here borderless, so
+    // "Standard": the display as the next start opens it - the project's window mode (here borderless, so
     // fullscreen), its vsync and window size, gamma 1; nothing saved.
     {
         PlayerSettings& player = project->GetConfig().Player;
@@ -36317,14 +36351,14 @@ TEST(GameMenuSampleScene)
         CHECK(!Display::HasSavedSettings());
         player = playerWas;
     }
-    // Up, Enter: "O'ynash" - the loading screen (with a fade).
+    // Up, Enter: "Play" - the loading screen (with a fade).
     UIKeyFrame(scene, { Key::Up });
     CHECK(scene->GetSelectedUI() == play);
     UIKeyFrame(scene, { Key::Enter });
     CHECK(scene->GetPendingSceneLoad().generic_string().find("Loading.zscene") != std::string::npos);
     scene->OnRuntimeStop();
 
-    // The same prefab as a pause menu: hidden until Esc, which stops the game; "Davom etish" goes back.
+    // The same prefab as a pause menu: hidden until Esc, which stops the game; "Resume" goes back.
     auto level = CreateRef<Scene>();
     Entity pause = spawnPrefab(*level);
     CHECK(pause);
@@ -36998,8 +37032,8 @@ TEST(SplineSampleScenes)
         ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Splines.zscene"));
-        Entity track = scene->FindEntityByName("Poyga yo'li"), cart = scene->FindEntityByName("Vagon 2");
-        Entity lift = scene->FindEntityByName("Ko'tarma"), liftPath = scene->FindEntityByName("Ko'tarma yo'li");
+        Entity track = scene->FindEntityByName("Race path"), cart = scene->FindEntityByName("Wagon 2");
+        Entity lift = scene->FindEntityByName("Climb"), liftPath = scene->FindEntityByName("Climb path");
         CHECK(track && cart && lift && liftPath);
         if (!(track && cart && lift && liftPath))
             return;
@@ -37023,7 +37057,7 @@ TEST(SplineSampleScenes)
     {
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets" / "Scenes" / "Level2.zscene"));
-        Entity path = scene->FindEntityByName("Platforma yo'li");
+        Entity path = scene->FindEntityByName("Platform path");
         Entity platform;
         for (Entity e : scene->FindEntitiesByName("Platform"))
             if (e.HasComponent<SplineFollowerComponent>())
@@ -39395,10 +39429,10 @@ TEST(GeometrySampleScene)
     namespace fs = std::filesystem;
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Geometry.zscene"));
-    const std::vector<Entity> targets = scene->FindEntitiesWithTag("Nishon");
+    const std::vector<Entity> targets = scene->FindEntitiesWithTag("Target");
     CHECK(targets.size() == 6);
-    Entity fan = scene->FindEntityByName("Nur yelpig'ichi");
-    CHECK(fan && fan.HasComponent<NativeScriptComponent>() && scene->FindEntityByName("Zond") && scene->FindEntityByName("Chegaralar"));
+    Entity fan = scene->FindEntityByName("Ray fan");
+    CHECK(fan && fan.HasComponent<NativeScriptComponent>() && scene->FindEntityByName("Probe") && scene->FindEntityByName("Boundaries"));
     if (!fan)
         return;
     const glm::vec3 origin = scene->GetWorldPosition(fan);
@@ -40231,7 +40265,7 @@ TEST(NavSampleScene3D)
     namespace fs = std::filesystem;
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Navigation3D.zscene"));
-    Entity nav = scene->FindEntityByName("Navigatsiya"), beacon = scene->FindEntityByName("Mayoq");
+    Entity nav = scene->FindEntityByName("Navigation"), beacon = scene->FindEntityByName("Beacon");
     CHECK(nav && beacon && nav.HasComponent<NavGrid3DComponent>());
     if (!nav || !beacon)
         return;
@@ -41560,8 +41594,8 @@ TEST(PatrolSampleScenes)
     {
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets" / "Scenes" / "Chase2D.zscene"));
-        Entity south = scene->FindEntityByName("Qo'riqchi (janub)"), east = scene->FindEntityByName("Qo'riqchi (sharq)");
-        Entity nav = scene->FindEntityByName("Navigatsiya");
+        Entity south = scene->FindEntityByName("Guard (south)"), east = scene->FindEntityByName("Guard (east)");
+        Entity nav = scene->FindEntityByName("Navigation");
         CHECK(south && east && nav);
         if (!(south && east && nav))
             return;
@@ -41572,7 +41606,7 @@ TEST(PatrolSampleScenes)
             CHECK(guard.HasComponent<NavAgentComponent>() && guard.HasComponent<PatrolPathComponent>());
             std::vector<glm::vec3> points;
             CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() >= 3);
-            Entity eyes = guard.GetComponent<NativeScriptComponent>().Fields.size() > 0 ? scene->FindEntityByName("Ko'z") : Entity();
+            Entity eyes = guard.GetComponent<NativeScriptComponent>().Fields.size() > 0 ? scene->FindEntityByName("Eye") : Entity();
             CHECK(eyes && eyes.HasComponent<SightSensorComponent>() && eyes.HasComponent<Light2DComponent>());
         }
         scene->OnRuntimeStart();
@@ -41608,7 +41642,7 @@ TEST(PatrolSampleScenes)
         CHECK(SceneSerializer(scene).DeserializeFromString(text));
         for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
             camera.RemoveComponent<CameraComponent>();
-        Entity guard = scene->FindEntityByName("Orol qo'riqchisi"), hero = scene->FindEntityByName("Player");
+        Entity guard = scene->FindEntityByName("Island guard"), hero = scene->FindEntityByName("Player");
         CHECK(guard && hero);
         if (!(guard && hero))
             return;
@@ -42254,7 +42288,7 @@ TEST(FormationSerializationAndCopies)
 
 TEST(FormationSampleScene)
 {
-    // Showcase3D "Squad3D": the commander walks its round with six soldiers (tagged "Askar") in a
+    // Showcase3D "Squad3D": the commander walks its round with six soldiers (tagged "Soldier") in a
     // column; the caravan goes back and forth in a ring of five guards (its scripts live in the
     // game's module: only the components run here).
     namespace fs = std::filesystem;
@@ -42262,7 +42296,7 @@ TEST(FormationSampleScene)
     CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Scenes" / "Squad3D.zscene"));
     for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
         camera.RemoveComponent<CameraComponent>(); // headless: nothing is drawn
-    Entity commander = scene->FindEntityByName("Komandir"), cart = scene->FindEntityByName("Karvon"), nav = scene->FindEntityByName("Navigatsiya");
+    Entity commander = scene->FindEntityByName("Commander"), cart = scene->FindEntityByName("Caravan"), nav = scene->FindEntityByName("Navigation");
     CHECK(commander && cart && nav);
     if (!(commander && cart && nav))
         return;
@@ -42993,7 +43027,7 @@ TEST(PrefabLegacyLinkMenuScene)
     const std::string sceneBytes = FileSystem::ReadTextFile(sceneFile), prefabBytes = FileSystem::ReadTextFile(prefabFile);
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(sceneFile));
-    Entity menu = scene->FindEntityByName("Bosh menyu");
+    Entity menu = scene->FindEntityByName("Main menu");
     CHECK(menu && PrefabUtility::IsLegacyInstance(menu));
     if (!menu)
         return;
@@ -43025,7 +43059,7 @@ TEST(PrefabLegacyLinkMenuScene)
     auto again = CreateRef<Scene>();
     CHECK(SceneSerializer(again).DeserializeFromString(after));
     CHECK(SceneSerializer(again).SerializeToString() == after);
-    Entity menu2 = again->FindEntityByName("Bosh menyu");
+    Entity menu2 = again->FindEntityByName("Main menu");
     CHECK(menu2 && !PrefabUtility::IsLegacyInstance(menu2) && !PrefabUtility::RecordOverrides(menu2, db));
     CHECK(PrefabUtility::SyncScene(*again, db).Changed == 0);
     // With the project open (asset UUIDs written next to the paths): still nothing differs.
@@ -43040,7 +43074,7 @@ TEST(PrefabLegacyLinkMenuScene)
             CHECK(SceneSerializer(withProject).Deserialize(sceneFile));
             PrefabDatabase projectDB;
             CHECK(PrefabUtility::LinkLegacyInstances(*withProject, projectDB) == 1);
-            Entity root = withProject->FindEntityByName("Bosh menyu");
+            Entity root = withProject->FindEntityByName("Main menu");
             CHECK(root && PrefabUtility::GetOverrides(root).empty());
             CHECK(root && (uint64_t)root.GetComponent<PrefabLinkComponent>().PrefabUUID == 0x6d2e9b47c1a83f05ull); // the .zmeta's
             CHECK(PrefabUtility::SyncScene(*withProject, projectDB).Changed == 0);

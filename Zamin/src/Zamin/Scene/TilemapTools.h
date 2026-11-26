@@ -27,7 +27,7 @@ namespace Zamin {
     // the terrain when it holds any of these tiles, so painted maps need nothing else stored.
     struct AutoTileRule
     {
-        std::string Name = "Yer";
+        std::string Name = "Ground";
         AutoTileMode Mode = AutoTileMode::Edges4;
         std::vector<int> Tiles;        // GetVariantCount() entries; -1 = no tile drawn for that variant
         bool ConnectOutside = false;   // cells outside the map count as this terrain (no edge at the map's border)

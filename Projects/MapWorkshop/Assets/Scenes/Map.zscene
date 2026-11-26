@@ -26,7 +26,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -87,7 +87,7 @@
         "Tiling": 1.0
       },
       "Parent": 8215044689014010263,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -145,7 +145,7 @@
         "Tiling": 1.0
       },
       "Parent": 6858528323110327077,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -203,7 +203,7 @@
         "Tiling": 1.0
       },
       "Parent": 3660496581285549112,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -248,7 +248,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -309,7 +309,7 @@
         "Tiling": 1.0
       },
       "Parent": 16008372800486210956,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -367,7 +367,7 @@
         "Tiling": 1.0
       },
       "Parent": 16210781217748444924,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -412,7 +412,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -473,7 +473,7 @@
         "Tiling": 1.0
       },
       "Parent": 7627684532053125774,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -531,7 +531,7 @@
         "Tiling": 1.0
       },
       "Parent": 18017238758498465772,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -589,7 +589,7 @@
         "Tiling": 1.0
       },
       "Parent": 14477450916032366699,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -638,7 +638,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -699,7 +699,7 @@
         "Tiling": 1.0
       },
       "Parent": 1970142647230906712,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -757,7 +757,7 @@
         "Tiling": 1.0
       },
       "Parent": 8258687521399021972,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -815,7 +815,7 @@
         "Tiling": 1.0
       },
       "Parent": 3660496581285549112,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -873,7 +873,7 @@
         "Tiling": 1.0
       },
       "Parent": 13218593031786254417,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -931,7 +931,7 @@
         "Tiling": 1.0
       },
       "Parent": 5889805757338558406,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -976,7 +976,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -1037,7 +1037,7 @@
         "Tiling": 1.0
       },
       "Parent": 14817798429034688346,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1095,7 +1095,7 @@
         "Tiling": 1.0
       },
       "Parent": 2795802850714212876,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1153,7 +1153,7 @@
         "Tiling": 1.0
       },
       "Parent": 3374801496779783397,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1211,7 +1211,7 @@
         "Tiling": 1.0
       },
       "Parent": 577275073582586854,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1269,7 +1269,7 @@
         "Tiling": 1.0
       },
       "Parent": 10767590944783381579,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1327,7 +1327,7 @@
         "Tiling": 1.0
       },
       "Parent": 12806448247547671093,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1376,7 +1376,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -1437,7 +1437,7 @@
         "Tiling": 1.0
       },
       "Parent": 13898560293918988434,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1486,7 +1486,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -1547,7 +1547,7 @@
         "Tiling": 1.0
       },
       "Parent": 10558226067953437870,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1596,7 +1596,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -1657,7 +1657,7 @@
         "Tiling": 1.0
       },
       "Parent": 18017238758498465772,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1715,7 +1715,7 @@
         "Tiling": 1.0
       },
       "Parent": 7826538741037637907,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1773,7 +1773,7 @@
         "Tiling": 1.0
       },
       "Parent": 8258687521399021972,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1831,7 +1831,7 @@
         "Tiling": 1.0
       },
       "Parent": 10960652561110131161,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1889,7 +1889,7 @@
         "Tiling": 1.0
       },
       "Parent": 14750473798630330837,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1947,7 +1947,7 @@
         "Tiling": 1.0
       },
       "Parent": 17215459728813736287,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -1992,7 +1992,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2053,7 +2053,7 @@
         "Tiling": 1.0
       },
       "Parent": 3236088996468908041,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2098,7 +2098,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2159,7 +2159,7 @@
         "Tiling": 1.0
       },
       "Parent": 14045959691254529958,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2204,7 +2204,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2265,7 +2265,7 @@
         "Tiling": 1.0
       },
       "Parent": 1970142647230906712,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2310,7 +2310,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2362,7 +2362,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2423,7 +2423,7 @@
         "Tiling": 1.0
       },
       "Parent": 3438757567218338204,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2481,7 +2481,7 @@
         "Tiling": 1.0
       },
       "Parent": 5889805757338558406,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2530,7 +2530,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2591,7 +2591,7 @@
         "Tiling": 1.0
       },
       "Parent": 2391305491127218580,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2636,7 +2636,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2684,7 +2684,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -2745,7 +2745,7 @@
         "Tiling": 1.0
       },
       "Parent": 6244930775589865784,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2803,7 +2803,7 @@
         "Tiling": 1.0
       },
       "Parent": 7404556392643784511,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2861,7 +2861,7 @@
         "Tiling": 1.0
       },
       "Parent": 1446374017853439454,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2919,7 +2919,7 @@
         "Tiling": 1.0
       },
       "Parent": 7558441219648608178,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -2964,7 +2964,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3016,7 +3016,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3068,7 +3068,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3129,7 +3129,7 @@
         "Tiling": 1.0
       },
       "Parent": 5500701442709212702,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3174,7 +3174,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3226,7 +3226,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3287,7 +3287,7 @@
         "Tiling": 1.0
       },
       "Parent": 6398452892787931732,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3345,7 +3345,7 @@
         "Tiling": 1.0
       },
       "Parent": 1817040625417157797,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3390,7 +3390,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3451,7 +3451,7 @@
         "Tiling": 1.0
       },
       "Parent": 3690574265684032529,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3509,7 +3509,7 @@
         "Tiling": 1.0
       },
       "Parent": 2654785804403570919,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3558,7 +3558,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3619,7 +3619,7 @@
         "Tiling": 1.0
       },
       "Parent": 17247052267347785052,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3677,7 +3677,7 @@
         "Tiling": 1.0
       },
       "Parent": 11686521117884253721,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3735,7 +3735,7 @@
         "Tiling": 1.0
       },
       "Parent": 17748473779497744040,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3793,7 +3793,7 @@
         "Tiling": 1.0
       },
       "Parent": 16340366402901344835,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3842,7 +3842,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -3903,7 +3903,7 @@
         "Tiling": 1.0
       },
       "Parent": 10703855705112835201,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -3961,7 +3961,7 @@
         "Tiling": 1.0
       },
       "Parent": 3374801496779783397,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -4010,7 +4010,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -4100,7 +4100,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -4161,7 +4161,7 @@
         "Tiling": 1.0
       },
       "Parent": 8215044689014010263,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -4210,7 +4210,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -4271,7 +4271,7 @@
         "Tiling": 1.0
       },
       "Parent": 6769537574795499267,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11211,7 +11211,7 @@
         "Tiling": 1.0
       },
       "Parent": 7558441219648608178,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11256,7 +11256,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -11317,7 +11317,7 @@
         "Tiling": 1.0
       },
       "Parent": 8506253259724550983,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11375,7 +11375,7 @@
         "Tiling": 1.0
       },
       "Parent": 4247326539503244176,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11420,7 +11420,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -11481,7 +11481,7 @@
         "Tiling": 1.0
       },
       "Parent": 17247052267347785052,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11526,7 +11526,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -11587,7 +11587,7 @@
         "Tiling": 1.0
       },
       "Parent": 5360811462359493832,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11645,7 +11645,7 @@
         "Tiling": 1.0
       },
       "Parent": 14817798429034688346,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11703,7 +11703,7 @@
         "Tiling": 1.0
       },
       "Parent": 8042718613837989258,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11748,7 +11748,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -11809,7 +11809,7 @@
         "Tiling": 1.0
       },
       "Parent": 10063517373324616666,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -11854,7 +11854,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -11906,7 +11906,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -11967,7 +11967,7 @@
         "Tiling": 1.0
       },
       "Parent": 8535856568284082009,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12025,7 +12025,7 @@
         "Tiling": 1.0
       },
       "Parent": 11373885939164412079,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12074,7 +12074,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -12135,7 +12135,7 @@
         "Tiling": 1.0
       },
       "Parent": 16008372800486210956,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12193,7 +12193,7 @@
         "Tiling": 1.0
       },
       "Parent": 17215459728813736287,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12238,7 +12238,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -12299,7 +12299,7 @@
         "Tiling": 1.0
       },
       "Parent": 10767590944783381579,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12357,7 +12357,7 @@
         "Tiling": 1.0
       },
       "Parent": 5360811462359493832,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12415,7 +12415,7 @@
         "Tiling": 1.0
       },
       "Parent": 3236088996468908041,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12464,7 +12464,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -12525,7 +12525,7 @@
         "Tiling": 1.0
       },
       "Parent": 14477450916032366699,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12583,7 +12583,7 @@
         "Tiling": 1.0
       },
       "Parent": 12296095604255176481,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12641,7 +12641,7 @@
         "Tiling": 1.0
       },
       "Parent": 3926553532837502257,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12699,7 +12699,7 @@
         "Tiling": 1.0
       },
       "Parent": 2188606910952565831,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12757,7 +12757,7 @@
         "Tiling": 1.0
       },
       "Parent": 993084870286941362,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12815,7 +12815,7 @@
         "Tiling": 1.0
       },
       "Parent": 8506253259724550983,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12873,7 +12873,7 @@
         "Tiling": 1.0
       },
       "Parent": 13895117152338072482,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -12918,7 +12918,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -12979,7 +12979,7 @@
         "Tiling": 1.0
       },
       "Parent": 12057622013884326924,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13037,7 +13037,7 @@
         "Tiling": 1.0
       },
       "Parent": 4622816496065918056,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13082,7 +13082,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13143,7 +13143,7 @@
         "Tiling": 1.0
       },
       "Parent": 14258107923103932307,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13188,7 +13188,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13249,7 +13249,7 @@
         "Tiling": 1.0
       },
       "Parent": 1446374017853439454,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13294,7 +13294,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13355,7 +13355,7 @@
         "Tiling": 1.0
       },
       "Parent": 9423573364666354147,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13404,7 +13404,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13465,7 +13465,7 @@
         "Tiling": 1.0
       },
       "Parent": 8768538067220912575,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13514,7 +13514,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13575,7 +13575,7 @@
         "Tiling": 1.0
       },
       "Parent": 9501264619523779730,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13633,7 +13633,7 @@
         "Tiling": 1.0
       },
       "Parent": 4035004935650132799,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13691,7 +13691,7 @@
         "Tiling": 1.0
       },
       "Parent": 10063517373324616666,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13749,7 +13749,7 @@
         "Tiling": 1.0
       },
       "Parent": 8535856568284082009,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -13794,7 +13794,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13846,7 +13846,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13894,7 +13894,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13946,7 +13946,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -13994,7 +13994,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -14055,7 +14055,7 @@
         "Tiling": 1.0
       },
       "Parent": 3765661770478194768,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14100,7 +14100,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -14152,7 +14152,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -14213,7 +14213,7 @@
         "Tiling": 1.0
       },
       "Parent": 14931285320272280666,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14262,7 +14262,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -14323,7 +14323,7 @@
         "Tiling": 1.0
       },
       "Parent": 16237204797599613822,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14381,7 +14381,7 @@
         "Tiling": 1.0
       },
       "Parent": 577275073582586854,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14426,7 +14426,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -14487,7 +14487,7 @@
         "Tiling": 1.0
       },
       "Parent": 4552447603866742820,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14545,7 +14545,7 @@
         "Tiling": 1.0
       },
       "Parent": 8635756083249199799,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14603,7 +14603,7 @@
         "Tiling": 1.0
       },
       "Parent": 15274641017555732965,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14661,7 +14661,7 @@
         "Tiling": 1.0
       },
       "Parent": 5500701442709212702,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14719,7 +14719,7 @@
         "Tiling": 1.0
       },
       "Parent": 4851874067072322393,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14764,7 +14764,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -14825,7 +14825,7 @@
         "Tiling": 1.0
       },
       "Parent": 1817040625417157797,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14883,7 +14883,7 @@
         "Tiling": 1.0
       },
       "Parent": 9783634083369644981,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14941,7 +14941,7 @@
         "Tiling": 1.0
       },
       "Parent": 15004564470453828900,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -14986,7 +14986,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15047,7 +15047,7 @@
         "Tiling": 1.0
       },
       "Parent": 14458245562812035564,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15105,7 +15105,7 @@
         "Tiling": 1.0
       },
       "Parent": 3438757567218338204,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15163,7 +15163,7 @@
         "Tiling": 1.0
       },
       "Parent": 15274641017555732965,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15208,7 +15208,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15269,7 +15269,7 @@
         "Tiling": 1.0
       },
       "Parent": 8810125880408236276,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15327,7 +15327,7 @@
         "Tiling": 1.0
       },
       "Parent": 8447827080041697150,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15376,7 +15376,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15437,7 +15437,7 @@
         "Tiling": 1.0
       },
       "Parent": 2188606910952565831,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15495,7 +15495,7 @@
         "Tiling": 1.0
       },
       "Parent": 8042718613837989258,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15544,7 +15544,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15605,7 +15605,7 @@
         "Tiling": 1.0
       },
       "Parent": 16210781217748444924,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15654,7 +15654,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15706,7 +15706,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15778,7 +15778,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -15839,7 +15839,7 @@
         "Tiling": 1.0
       },
       "Parent": 8447827080041697150,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15897,7 +15897,7 @@
         "Tiling": 1.0
       },
       "Parent": 15004564470453828900,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -15955,7 +15955,7 @@
         "Tiling": 1.0
       },
       "Parent": 4870255490622427907,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16013,7 +16013,7 @@
         "Tiling": 1.0
       },
       "Parent": 15792841714236261730,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16071,7 +16071,7 @@
         "Tiling": 1.0
       },
       "Parent": 8810125880408236276,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16129,7 +16129,7 @@
         "Tiling": 1.0
       },
       "Parent": 10703855705112835201,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16187,7 +16187,7 @@
         "Tiling": 1.0
       },
       "Parent": 13391425659682496444,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16236,7 +16236,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -16284,7 +16284,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -16345,7 +16345,7 @@
         "Tiling": 1.0
       },
       "Parent": 15683946801732873534,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16403,7 +16403,7 @@
         "Tiling": 1.0
       },
       "Parent": 16237204797599613822,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16452,7 +16452,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -16513,7 +16513,7 @@
         "Tiling": 1.0
       },
       "Parent": 9783634083369644981,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16571,7 +16571,7 @@
         "Tiling": 1.0
       },
       "Parent": 4287985234687107358,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16616,7 +16616,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -16677,7 +16677,7 @@
         "Tiling": 1.0
       },
       "Parent": 15792841714236261730,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16726,7 +16726,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -16787,7 +16787,7 @@
         "Tiling": 1.0
       },
       "Parent": 4247326539503244176,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16845,7 +16845,7 @@
         "Tiling": 1.0
       },
       "Parent": 7404556392643784511,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16903,7 +16903,7 @@
         "Tiling": 1.0
       },
       "Parent": 12296095604255176481,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -16961,7 +16961,7 @@
         "Tiling": 1.0
       },
       "Parent": 8433575398215370360,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17019,7 +17019,7 @@
         "Tiling": 1.0
       },
       "Parent": 4035004935650132799,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17077,7 +17077,7 @@
         "Tiling": 1.0
       },
       "Parent": 13895117152338072482,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17135,7 +17135,7 @@
         "Tiling": 1.0
       },
       "Parent": 4870255490622427907,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17193,7 +17193,7 @@
         "Tiling": 1.0
       },
       "Parent": 15683946801732873534,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17242,7 +17242,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -17303,7 +17303,7 @@
         "Tiling": 1.0
       },
       "Parent": 17748473779497744040,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17361,7 +17361,7 @@
         "Tiling": 1.0
       },
       "Parent": 3690574265684032529,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17419,7 +17419,7 @@
         "Tiling": 1.0
       },
       "Parent": 7826538741037637907,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17477,7 +17477,7 @@
         "Tiling": 1.0
       },
       "Parent": 8433575398215370360,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17535,7 +17535,7 @@
         "Tiling": 1.0
       },
       "Parent": 8768538067220912575,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17580,7 +17580,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -17641,7 +17641,7 @@
         "Tiling": 1.0
       },
       "Parent": 7627684532053125774,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17699,7 +17699,7 @@
         "Tiling": 1.0
       },
       "Parent": 6858528323110327077,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17757,7 +17757,7 @@
         "Tiling": 1.0
       },
       "Parent": 4622816496065918056,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17815,7 +17815,7 @@
         "Tiling": 1.0
       },
       "Parent": 11373885939164412079,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17860,7 +17860,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -17921,7 +17921,7 @@
         "Tiling": 1.0
       },
       "Parent": 8635756083249199799,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -17979,7 +17979,7 @@
         "Tiling": 1.0
       },
       "Parent": 2578887387804351357,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18037,7 +18037,7 @@
         "Tiling": 1.0
       },
       "Parent": 16340366402901344835,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18086,7 +18086,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18147,7 +18147,7 @@
         "Tiling": 1.0
       },
       "Parent": 12806448247547671093,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18205,7 +18205,7 @@
         "Tiling": 1.0
       },
       "Parent": 14458245562812035564,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18250,7 +18250,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18298,7 +18298,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18359,7 +18359,7 @@
         "Tiling": 1.0
       },
       "Parent": 6163218253053803710,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18417,7 +18417,7 @@
         "Tiling": 1.0
       },
       "Parent": 993084870286941362,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18462,7 +18462,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18523,7 +18523,7 @@
         "Tiling": 1.0
       },
       "Parent": 14045959691254529958,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18568,7 +18568,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18629,7 +18629,7 @@
         "Tiling": 1.0
       },
       "Parent": 4552447603866742820,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18687,7 +18687,7 @@
         "Tiling": 1.0
       },
       "Parent": 6398452892787931732,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18736,7 +18736,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18784,7 +18784,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18845,7 +18845,7 @@
         "Tiling": 1.0
       },
       "Parent": 14258107923103932307,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -18890,7 +18890,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18938,7 +18938,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -18986,7 +18986,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -19047,7 +19047,7 @@
         "Tiling": 1.0
       },
       "Parent": 4287985234687107358,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19092,7 +19092,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -19153,7 +19153,7 @@
         "Tiling": 1.0
       },
       "Parent": 6163218253053803710,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19211,7 +19211,7 @@
         "Tiling": 1.0
       },
       "Parent": 13747554694476774045,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19269,7 +19269,7 @@
         "Tiling": 1.0
       },
       "Parent": 2654785804403570919,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19327,7 +19327,7 @@
         "Tiling": 1.0
       },
       "Parent": 2892382515232935608,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19385,7 +19385,7 @@
         "Tiling": 1.0
       },
       "Parent": 14931285320272280666,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19434,7 +19434,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -19495,7 +19495,7 @@
         "Tiling": 1.0
       },
       "Parent": 13747554694476774045,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19544,7 +19544,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -19605,7 +19605,7 @@
         "Tiling": 1.0
       },
       "Parent": 2795802850714212876,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19654,7 +19654,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -19715,7 +19715,7 @@
         "Tiling": 1.0
       },
       "Parent": 6769537574795499267,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19773,7 +19773,7 @@
         "Tiling": 1.0
       },
       "Parent": 2391305491127218580,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19831,7 +19831,7 @@
         "Tiling": 1.0
       },
       "Parent": 10960652561110131161,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19889,7 +19889,7 @@
         "Tiling": 1.0
       },
       "Parent": 13218593031786254417,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19947,7 +19947,7 @@
         "Tiling": 1.0
       },
       "Parent": 11686521117884253721,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -19996,7 +19996,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -20057,7 +20057,7 @@
         "Tiling": 1.0
       },
       "Parent": 14750473798630330837,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20102,7 +20102,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -20163,7 +20163,7 @@
         "Tiling": 1.0
       },
       "Parent": 6244930775589865784,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20208,7 +20208,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -20269,7 +20269,7 @@
         "Tiling": 1.0
       },
       "Parent": 109714202465499698,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20327,7 +20327,7 @@
         "Tiling": 1.0
       },
       "Parent": 2578887387804351357,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20372,7 +20372,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -20433,7 +20433,7 @@
         "Tiling": 1.0
       },
       "Parent": 627911896708401600,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20491,7 +20491,7 @@
         "Tiling": 1.0
       },
       "Parent": 2892382515232935608,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20549,7 +20549,7 @@
         "Tiling": 1.0
       },
       "Parent": 7660487018990512770,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20607,7 +20607,7 @@
         "Tiling": 1.0
       },
       "Parent": 11456795494666540538,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20665,7 +20665,7 @@
         "Tiling": 1.0
       },
       "Parent": 4851874067072322393,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20723,7 +20723,7 @@
         "Tiling": 1.0
       },
       "Parent": 13391425659682496444,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20781,7 +20781,7 @@
         "Tiling": 1.0
       },
       "Parent": 9501264619523779730,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20839,7 +20839,7 @@
         "Tiling": 1.0
       },
       "Parent": 11456795494666540538,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -20884,7 +20884,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -20932,7 +20932,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -20993,7 +20993,7 @@
         "Tiling": 1.0
       },
       "Parent": 12057622013884326924,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21051,7 +21051,7 @@
         "Tiling": 1.0
       },
       "Parent": 7660487018990512770,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21109,7 +21109,7 @@
         "Tiling": 1.0
       },
       "Parent": 3926553532837502257,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21154,7 +21154,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -21245,7 +21245,7 @@
         "Tiling": 1.0
       },
       "Parent": 13898560293918988434,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21303,7 +21303,7 @@
         "Tiling": 1.0
       },
       "Parent": 4993427022192682106,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21361,7 +21361,7 @@
         "Tiling": 1.0
       },
       "Parent": 627911896708401600,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21406,7 +21406,7 @@
         "LockRotation": false,
         "Mass": 1.0
       },
-      "Tag": "Map daraxti",
+      "Tag": "Map tree",
       "Tags": [
         "TerrainPainted"
       ],
@@ -21467,7 +21467,7 @@
         "Tiling": 1.0
       },
       "Parent": 4993427022192682106,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21525,7 +21525,7 @@
         "Tiling": 1.0
       },
       "Parent": 109714202465499698,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21583,7 +21583,7 @@
         "Tiling": 1.0
       },
       "Parent": 9423573364666354147,
-      "Tag": "Shoxlar",
+      "Tag": "Branches",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21641,7 +21641,7 @@
         "Tiling": 1.0
       },
       "Parent": 3765661770478194768,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,
@@ -21699,7 +21699,7 @@
         "Tiling": 1.0
       },
       "Parent": 10558226067953437870,
-      "Tag": "Tana",
+      "Tag": "Torso",
       "Transform": {
         "Rotation": [
           0.0,

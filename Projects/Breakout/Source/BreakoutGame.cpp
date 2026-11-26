@@ -8,13 +8,14 @@
 using namespace Zamin;
 using namespace BreakoutUtil;
 
-// O'yin oqimi: bosh menyu (orqada bot 1-darajani o'ynaydi), o'yin, pauza, daraja tugashi, o'yin tugashi / g'alaba.
-// Darajalar Levels.cpp'dagi qatorlardan quriladi (g'isht shabloni Instantiate qilinadi, qatorma-qator paydo bo'ladi).
-// Hisob: g'isht ochkosi x kombo (raketkaga tegmasdan ketma-ket singan g'ishtlar). Bonuslar (taxminan har 7-g'ishtdan):
-// keng raketka, uchta to'p, sekin to'p, olov to'pi, lazer, +1 jon. Rekord SaveData'da ("Breakout.BestScore",
-// "Breakout.BestLevel", SaveData::SubmitRecord): o'yin tugaganda, pauzadan chiqib ketilganda yoki o'yin yopilganda.
-// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot o'ynaydi, jurnalga "Demo: ..." yoziladi; ZAMIN_DEMO_RECORDS=1 bilan demo
-// natijasi ham rekordga yoziladi (testlar).
+// The game flow: the main menu (a bot plays level 1 behind it), the game, pause, level clear, game over / victory.
+// Levels are built from the rows in Levels.cpp (the brick template is Instantiated, the rows appear one by one).
+// Score: the brick's points x the combo (bricks broken in a row without touching the paddle). Power-ups (about every
+// 7th brick): wide paddle, three balls, slow ball, fireball, laser, +1 life. The record is in SaveData
+// ("Breakout.BestScore", "Breakout.BestLevel", SaveData::SubmitRecord): when the game ends, when the player leaves from
+// the pause menu or when the game is closed.
+// Demo: ZAMIN_DEMO=1 (or AutoDemo) - the bot plays and "Demo: ..." goes to the log; with ZAMIN_DEMO_RECORDS=1 the
+// demo's result is recorded as well (tests).
 
 BreakoutGame* BreakoutGame::s_Instance = nullptr;
 

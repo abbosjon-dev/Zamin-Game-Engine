@@ -131,7 +131,7 @@ namespace Zamin {
 
     std::string AutoTileSet::MakeUniqueName(std::string_view base) const
     {
-        std::string name(base.empty() ? std::string_view("Yer") : base);
+        std::string name(base.empty() ? std::string_view("Ground") : base);
         if (Find(name) < 0)
             return name;
         for (int n = 2;; n++)

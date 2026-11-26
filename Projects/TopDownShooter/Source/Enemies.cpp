@@ -6,9 +6,9 @@
 using namespace Zamin;
 using namespace NeonUtil;
 
-// Dushmanlar (bitta Enemy klassi, Kind maydoni bilan), o'qlar (Projectile), bonuslar (Pickup) va qisqa
-// effektlar (FxAnimator). Har bir dushman portaldan "o'sib" chiqadi (SpawnTime), o'q tekkanda oq chaqnaydi va
-// orqaga suriladi; o'lganda ShooterGame::OnEnemyKilled (portlash, ochko, kombo, ba'zan bonus).
+// Enemies (one Enemy class with a Kind field), shots (Projectile), power-ups (Pickup) and short
+// effects (FxAnimator). Every enemy "grows" out of a portal (SpawnTime), flashes white and is knocked back when a
+// shot hits it; on death ShooterGame::OnEnemyKilled (explosion, points, combo, sometimes a power-up).
 
 // ------------------------------------------------------------------------------------------- Enemy
 
@@ -305,7 +305,7 @@ void Projectile::Spend(const glm::vec2& where, bool sparks)
 void Pickup::OnCreate()
 {
     m_Base = Transform().Translation;
-    m_Ring = FindChild("Halqa");
+    m_Ring = FindChild("Ring");
     m_Visual = FindChild("Visual");
 }
 

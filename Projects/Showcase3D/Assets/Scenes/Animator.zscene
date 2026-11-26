@@ -95,7 +95,7 @@
     },
     {
       "Entity": 7414000000000002,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [
           0,
@@ -125,7 +125,7 @@
     },
     {
       "Entity": 7414000000000003,
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Translation": [
           0,
@@ -230,7 +230,7 @@
         ],
         "States": [
           {
-            "Name": "Aralash",
+            "Name": "Mixed",
             "Clip": "",
             "Speed": 1.0,
             "Loop": true,
@@ -260,7 +260,7 @@
             ]
           },
           {
-            "Name": "Aylanish",
+            "Name": "Rotate",
             "Clip": "Twist",
             "Speed": 1.6,
             "Loop": false,
@@ -332,7 +332,7 @@
     },
     {
       "Entity": 7414000000000005,
-      "Tag": "Qatlamli",
+      "Tag": "Layered",
       "Transform": {
         "Translation": [
           2.2,
@@ -391,7 +391,7 @@
         "Transitions": [],
         "Layers": [
           {
-            "Name": "Uchi",
+            "Name": "Tip",
             "Clip": "Twist",
             "Speed": 1.0,
             "Loop": true,
@@ -409,7 +409,7 @@
         "Fields": {
           "Title": {
             "Type": "String",
-            "Value": "Qatlam: uchi (Bone2 maskasi) - Twist"
+            "Value": "Layer: the tip (Bone2 mask) - Twist"
           },
           "Parameter": {
             "Type": "String",
@@ -491,7 +491,7 @@
     },
     {
       "Entity": 7414000000000011,
-      "Tag": "Blob (skript)",
+      "Tag": "Blob (script)",
       "Transform": {
         "Translation": [
           0,
@@ -543,7 +543,7 @@
     },
     {
       "Entity": 7414000000000012,
-      "Tag": "Kristal (Bone3)",
+      "Tag": "Crystal (Bone3)",
       "Parent": 7414000000000004,
       "Transform": {
         "Translation": [

@@ -1034,7 +1034,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(NOT TARGET Zamin)
-    set(Zamin_DIR "{1}" CACHE PATH "Zamin engine build papkasi")
+    set(Zamin_DIR "{1}" CACHE PATH "The Zamin engine build folder")
     find_package(Zamin REQUIRED CONFIG)
 endif()
 

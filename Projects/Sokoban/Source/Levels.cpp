@@ -1,7 +1,7 @@
 #include "Board.h"
 
-// Darajalar: oddiydan murakkabga. Har biri yechiladi (Tools/samples/gen_sokoban.py va demo bot - Solve - tekshiradi).
-// Yozuv: '#' devor, ' ' pol, '.' maqsad, '$' quti, '*' maqsaddagi quti, '@' o'yinchi, '+' maqsaddagi o'yinchi.
+// Levels: from simple to hard. Each can be solved (Tools/samples/gen_sokoban.py and the demo bot - Solve - check it).
+// Notation: '#' wall, ' ' floor, '.' goal, '$' crate, '*' crate on a goal, '@' player, '+' player on a goal.
 
 namespace Sokoban {
 

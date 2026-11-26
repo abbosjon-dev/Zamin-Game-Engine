@@ -79,14 +79,14 @@ WASD / Space / Shift / E. [Gameplay qo‘llanmasi](Gameplay.md).
 
 | | |
 |---|---|
-| ![Neon Maydon](images/sample-topdownshooter.jpg) | ![Zamin Breakout](images/sample-breakout.jpg) |
-| **[Neon Maydon](../Projects/TopDownShooter/README.md)** — 2D twin-stick shooter | **[Zamin Breakout](../Projects/Breakout/README.md)** — 2D g'isht sindirish |
-| ![FPS Arena](images/sample-fpsarena.jpg) | ![Omborchi](images/sample-sokoban.jpg) |
-| **[FPS Arena](../Projects/FPSArena/README.md)** — 3D birinchi shaxs, parkur va nishon otish | **[Omborchi](../Projects/Sokoban/README.md)** — 3D Sokoban, 10 daraja |
-| ![Ipak Yo'li](images/sample-endlessrunner.jpg) | ![Vodiy Poygasi](images/sample-racing.jpg) |
-| **[Ipak Yo'li](../Projects/EndlessRunner/README.md)** — 3D cheksiz yugurish | **[Vodiy Poygasi](../Projects/Racing/README.md)** — 3D poyga |
+| ![Neon Arena](images/sample-topdownshooter.jpg) | ![Zamin Breakout](images/sample-breakout.jpg) |
+| **[Neon Arena](../Projects/TopDownShooter/README.md)** — 2D twin-stick shooter | **[Zamin Breakout](../Projects/Breakout/README.md)** — 2D g'isht sindirish |
+| ![FPS Arena](images/sample-fpsarena.jpg) | ![Warehouse Keeper](images/sample-sokoban.jpg) |
+| **[FPS Arena](../Projects/FPSArena/README.md)** — 3D birinchi shaxs, parkur va nishon otish | **[Warehouse Keeper](../Projects/Sokoban/README.md)** — 3D Sokoban, 10 daraja |
+| ![Silk Road](images/sample-endlessrunner.jpg) | ![Valley Race](images/sample-racing.jpg) |
+| **[Silk Road](../Projects/EndlessRunner/README.md)** — 3D cheksiz yugurish | **[Valley Race](../Projects/Racing/README.md)** — 3D poyga |
 
-### Neon Maydon (`Projects/TopDownShooter`)
+### Neon Arena (`Projects/TopDownShooter`)
 
 Neon maydonda kema: chap stik / WASD bilan yurasiz, o'ng stik / sichqoncha bilan nishonga olasiz. Dushmanlar
 to'lqin-to'lqin bo'lib portallardan chiqadi (besh xil: quvuvchi, to'da, otuvchi, hujumchi, har 5-to'lqinda tank),
@@ -110,21 +110,21 @@ otish (raycast qurol, to'rt xil nishon, seriya ko'paytuvchisi). **Ko'rsatadi:** 
 qulfi, `Raycast` bilan otish, soyalar, SSAO, tuman, normal xaritali PBR materiallar. **Rekord:** eng yaxshi aylana
 vaqti va nishon otish ochkosi.
 
-### Omborchi (`Projects/Sokoban`)
+### Warehouse Keeper (`Projects/Sokoban`)
 
 Kichik robot qutilarni yorqin doiralarga itaradi: 10 ta daraja, orqaga qaytarish (undo), darajani qaytadan boshlash,
 darajalar menyusi. Demo bot har darajani BFS yechuvchi bilan yechadi. **Ko'rsatadi:** o'yin qoidalari dvigateldan
 alohida (`Board.cpp`) — headless test qilinadi, katakma-katak silliq harakat (tween), konfetti zarralari, 3D yorug'lik
 va soyalar. **Rekord:** har daraja uchun eng kam qadam.
 
-### Ipak Yo'li (`Projects/EndlessRunner`)
+### Silk Road (`Projects/EndlessRunner`)
 
 Ipak yo'li bo'ylab savdogar yuguradi: uch yo'lak, sakrash, sirpanish, besh xil to'siq naqshi, tangalar, magnit va
 qalqon. Tezlik masofa bilan oshadi, dunyo oldinda protsedurali quriladi. **Ko'rsatadi:** cheksiz yo'l (UV
 siljishi), obyektlarni qayta ishlatish, kichik qadamli simulyatsiya (sekin kadrda ham to'siqdan o'tib ketmaydi),
 tuman va kun yorug'ligi. **Rekord:** eng katta ochko va eng uzoq masofa.
 
-### Vodiy Poygasi (`Projects/Racing`)
+### Valley Race (`Projects/Racing`)
 
 Tog' vodiysidagi 750 metrlik aylanma trassada uchta bot raqib bilan uch aylana: start svetofori, 8 ta nazorat
 nuqtasi, aylana vaqti, o'rinlar. Arkada mashina fizikasi: tezlanish, tezlikka bog'liq rul, yon ilashish, qo'l
@@ -157,12 +157,12 @@ HUD rekordni ko'rsatadi, natijalar oynasi esa "YANGI REKORD!" deydi.
 
 | O'yin | SaveData kalitlari | Qaysi biri yaxshi |
 |---|---|---|
-| Neon Maydon | `Neon.BestScore`, `Neon.BestWave` | katta |
+| Neon Arena | `Neon.BestScore`, `Neon.BestWave` | katta |
 | Zamin Breakout | `Breakout.BestScore`, `Breakout.BestLevel` | katta |
 | FPS Arena | `FPSArena.BestLap` / `FPSArena.BestRange` (+ `FPSArena.Sensitivity` sozlamasi) | kichik vaqt / katta ochko |
-| Omborchi | `Sokoban.Best.<daraja>` (+ `Sokoban.Level` — keyingi daraja) | kam qadam |
-| Ipak Yo'li | `EndlessRunner.Best`, `EndlessRunner.BestDistance` | katta |
-| Vodiy Poygasi | `Racing.BestLap` (har aylana tugaganda) | kichik vaqt |
+| Warehouse Keeper | `Sokoban.Best.<daraja>` (+ `Sokoban.Level` — keyingi daraja) | kam qadam |
+| Silk Road | `EndlessRunner.Best`, `EndlessRunner.BestDistance` | katta |
+| Valley Race | `Racing.BestLap` (har aylana tugaganda) | kichik vaqt |
 
 Fayl: `~/.local/share/Zamin Studio/<Mahsulot>/savedata.json`. `ZAMIN_DEMO_RECORDS=1` bilan demo botning natijasi ham
 rekord bo'ladi — testlar rekord yozilib, keyingi ishga tushirishda o'qilishini shunday tekshiradi.
@@ -178,12 +178,12 @@ klaviatura bilan "WASD - yurish", gamepad qo'lga olinishi bilan "chap stik / D-p
 
 | O'yin | Harakatlar (klaviatura · gamepad) | O'qlar / vektorlar |
 |---|---|---|
-| Neon Maydon | `Fire` LKM, J · RT, RB; `Dash` Space, Shift · A, LB; `Pause` Esc, P · Start | `Move` WASD · chap stik, D-pad; `Aim` strelkalar · o'ng stik |
+| Neon Arena | `Fire` LKM, J · RT, RB; `Dash` Space, Shift · A, LB; `Pause` Esc, P · Start | `Move` WASD · chap stik, D-pad; `Aim` strelkalar · o'ng stik |
 | Zamin Breakout | `Action` Space, LKM, Up, W · A, RT; `Pause` Esc, P · Start | `MoveX` A/D, strelkalar · chap stik, D-pad |
 | FPS Arena | `Jump` Space · A; `Sprint` Shift · L3; `Crouch` C, Ctrl · B; `Fire` LKM · RT, RB; `Reload` R · X; `Pause` Esc, P · Start | `Move` WASD, strelkalar · chap stik; `Look` sichqoncha · o'ng stik |
-| Omborchi | `Undo` Z, Backspace · X; `Restart` R · Y; `Pause` Esc, P · Start | `Move` WASD, strelkalar · chap stik, D-pad |
-| Ipak Yo'li | `Left` / `Right` A/D, strelkalar · D-pad, LB/RB; `Jump` Space, W, Up · A; `Slide` S, Down · B; `Pause` Esc, P · Start | `Steer` · chap stik |
-| Vodiy Poygasi | `Handbrake` Space · X, A; `Reset` R · Y; `Pause` Esc, P · Start | `Steer` A/D, strelkalar · chap stik; `Throttle` W, Up · RT; `Brake` S, Down · LT |
+| Warehouse Keeper | `Undo` Z, Backspace · X; `Restart` R · Y; `Pause` Esc, P · Start | `Move` WASD, strelkalar · chap stik, D-pad |
+| Silk Road | `Left` / `Right` A/D, strelkalar · D-pad, LB/RB; `Jump` Space, W, Up · A; `Slide` S, Down · B; `Pause` Esc, P · Start | `Steer` · chap stik |
+| Valley Race | `Handbrake` Space · X, A; `Reset` R · Y; `Pause` Esc, P · Start | `Steer` A/D, strelkalar · chap stik; `Throttle` W, Up · RT; `Brake` S, Down · LT |
 
 `Tests/samples_assets.py` (ctest `SampleAssets`) xaritani tekshiradi: har harakatda ikkala qurilma bor, skriptlar
 o'qiydigan har nom xaritada bor va xaritadagi har nom o'qiladi, skriptlar klaviatura yoki gamepad'ni to'g'ridan-to'g'ri
@@ -192,7 +192,7 @@ so'ramaydi (faqat sichqoncha — nishon / qarash uchun), menyudagi ishora faqat 
 ### Demo rejim
 
 `ZAMIN_DEMO=1` (yoki o'yin skriptining `AutoDemo` maydoni) — bot o'ynaydi va jurnalga `Demo: ...` qatorlarini yozadi.
-FPS Arena'da `ZAMIN_DEMO=range` — nishon otish raundi; Breakout va Omborchi'da `ZAMIN_START_LEVEL=<n>` — shu
+FPS Arena'da `ZAMIN_DEMO=range` — nishon otish raundi; Breakout va Warehouse Keeper'da `ZAMIN_START_LEVEL=<n>` — shu
 darajadan. Kadr vaqti qat'iy bo'lsa (`ZAMIN_CAPTURE_FPS=20`), bot har kompyuterda bir xil o'ynaydi.
 
 ## Testlar
@@ -232,12 +232,12 @@ python3 Tests/samples_test.py --exported build/SampleExports --kind gamepad   # 
 
 | Namuna | Eksport | Hajmi | Fayllar | Kadr (o'rtacha) | Eksportdagi o'yin |
 |---|---|---:|---:|---:|---|
-| Neon Maydon | OK | 44.2 MiB | 66 | 54.7 ms | demo + rekord OK |
+| Neon Arena | OK | 44.2 MiB | 66 | 54.7 ms | demo + rekord OK |
 | Zamin Breakout | OK | 43.9 MiB | 66 | 56.0 ms | demo + rekord OK |
 | FPS Arena | OK | 44.3 MiB | 92 | 243.7 ms | demo + rekord OK |
-| Omborchi | OK | 44.1 MiB | 68 | 264.3 ms | demo + rekord OK |
-| Ipak Yo'li | OK | 43.9 MiB | 72 | 267.9 ms | demo + rekord OK |
-| Vodiy Poygasi | OK | 44.7 MiB | 70 | 221.6 ms | demo + rekord OK |
+| Warehouse Keeper | OK | 44.1 MiB | 68 | 264.3 ms | demo + rekord OK |
+| Silk Road | OK | 43.9 MiB | 72 | 267.9 ms | demo + rekord OK |
+| Valley Race | OK | 44.7 MiB | 70 | 221.6 ms | demo + rekord OK |
 | Platformer2D | OK | 45.1 MiB | 125 | 28.2 ms | smoke OK |
 | Showcase3D | OK | 49.5 MiB | 202 | 188.0 ms | smoke OK |
 | Adventure3D | OK | 43.1 MiB | 50 | 158.8 ms | smoke OK |
@@ -245,7 +245,7 @@ python3 Tests/samples_test.py --exported build/SampleExports --kind gamepad   # 
 Hajmning ~40 MiB i — player va dvigatel (Debug build'dan eksport: strip qilingan bo'lsa ham kattaroq); o'yinning o'zi
 1–5 MiB. Kadr vaqti — `export_test.sh` ning 60 kadrlik o'lchovi (Debug dvigatel, bosh menyu, 1280x720, llvmpipe).
 
-**Eksport topgan xato.** Birinchi eksportda Neon Maydon va Zamin Breakout eksportdagi o'yinda ovoz chiqarmasdi:
+**Eksport topgan xato.** Birinchi eksportda Neon Arena va Zamin Breakout eksportdagi o'yinda ovoz chiqarmasdi:
 ular ovozni qisqa nomi bilan chaqiradi (`Sfx("hit")` → `"Audio/hit.wav"` ish vaqtida yasaladi), eksport esa C++
 satrlarida to'liq yo'l ko'rmagani uchun WAV fayllarni "ishlatilmagan" deb tashlab ketardi (`excluded-assets.txt`).
 Ikkala loyihaga `"Export": { "AlwaysInclude": [ "Audio/*.wav" ] }` qo'shildi
@@ -290,24 +290,24 @@ Qanday o'qish kerak:
 
 - **Kadrni rasterizatsiya oladi, o'yin kodi emas.** Har o'yinda skriptlar, fizika, particle'lar va animatsiya birga
   kadrda 0.03–0.55 ms. Qolgani — piksellarni CPU'da bo'yash (llvmpipe): 3D sahnaning PBR yoritilishi va soyalari,
-  SSAO, bloom, 2D yorug'liklar (Neon Maydon va Breakout'da har piksel uchun 20+ ta 2D chiroq). Haqiqiy GPU'da hamma
+  SSAO, bloom, 2D yorug'liklar (Neon Arena va Breakout'da har piksel uchun 20+ ta 2D chiroq). Haqiqiy GPU'da hamma
   namuna 60 FPS dan ancha tez ishlaydi.
 - **Vaqt qayerda ko'rinishi.** llvmpipe chizishni kechiktiradi va rasm birinchi o'qilganda bajaradi: 3D sahnaning
   bo'yalishi "SSAO" ichida (u chuqurlikni birinchi o'qiydi), 2D sahnaniki "Bloom" ichida ko'rinadi. Profiler'da endi
   post-processing o'tishlari alohida (`SSAO`, `Bloom`, `FXAA`).
 - **Obyektlar soni kichik** (48–552): ECS yangilanishi va sahna bo'ylab yurish kadrda sezilmaydi; eng ko'pi Vodiy
-  Poygasi (552 — trassa bo'laklari, daraxtlar, to'siqlar) va Ipak Yo'li (502 — oldinda qurilgan dunyo, uchburchaklar
+  Poygasi (552 — trassa bo'laklari, daraxtlar, to'siqlar) va Silk Road (502 — oldinda qurilgan dunyo, uchburchaklar
   eng ko'p: 155K).
 
 ### Topilgan va tuzatilgan muammolar
 
 | Muammo | Sabab | Tuzatish | Natija (o'rtacha / eng sekin kadr) |
 |---|---|---|---|
-| O'yin o'rtasida 0.5–3 soniyalik qotishlar (banner, ochko yozuvi chiqqanda) | Har yangi shrift o'lchami (task 232) — yangi atlas tekstura; u 2D batch'ning 16 ta slotli shaderiga kirganda drayver shaderni shu teksturalar to'plami uchun qaytadan kompilyatsiya qiladi (llvmpipe'da har "variant" ~1-2 s) | Matn o'z batch'ida, bitta sampler'li shader bilan chiziladi (`Renderer2D`: `TEXT_ATLAS` dasturi) — uning varianti bitta, sprite'lar shaderi esa endi shrift atlaslarini ko'rmaydi | Breakout 66.0 / 2993 → **44.9 / 141 ms**; Neon Maydon 63.1 / 2317 → **53.3 / 784 ms**; FPS Arena 129.9 / 1614 → **123.5 / 197 ms** |
+| O'yin o'rtasida 0.5–3 soniyalik qotishlar (banner, ochko yozuvi chiqqanda) | Har yangi shrift o'lchami (task 232) — yangi atlas tekstura; u 2D batch'ning 16 ta slotli shaderiga kirganda drayver shaderni shu teksturalar to'plami uchun qaytadan kompilyatsiya qiladi (llvmpipe'da har "variant" ~1-2 s) | Matn o'z batch'ida, bitta sampler'li shader bilan chiziladi (`Renderer2D`: `TEXT_ATLAS` dasturi) — uning varianti bitta, sprite'lar shaderi esa endi shrift atlaslarini ko'rmaydi | Breakout 66.0 / 2993 → **44.9 / 141 ms**; Neon Arena 63.1 / 2317 → **53.3 / 784 ms**; FPS Arena 129.9 / 1614 → **123.5 / 197 ms** |
 | Bir xil o'lchamdagi shrift atlasini qayta-qayta yasash | Atlaslar 8 ta bilan cheklangan edi, o'yin UI'si esa ~12 o'lcham ishlatadi: 2 s ishlatilmagan atlas o'chib, banner yana chiqqanda qayta yasalardi (har biri 4-20 ms) | `Font::MaxSizedAtlases` 16 | qayta yasash yo'q |
 | SSAO har namunada (piksel boshiga 16 ta matritsa teskarisi) | Ko'rinish nuqtasi har namunada `inverse(projection)` × vec4 bilan tiklanardi | Perspektiv proyeksiya hadlaridan bir necha amal bilan (natija o'sha) | ~3% (llvmpipe'da asosiy vaqt sahnaning o'zida) |
 
-Qolgan bir martalik qotishlar (Neon Maydon ~0.8 s, Omborchi ~0.45 s — yangi sprite / material birinchi chizilganda
+Qolgan bir martalik qotishlar (Neon Arena ~0.8 s, Warehouse Keeper ~0.45 s — yangi sprite / material birinchi chizilganda
 shader varianti) faqat llvmpipe'da sezilarli; o'yin davomida takrorlanmaydi. Oldingi o'lchovlar bilan solishtirish
 uchun jadvalni shu kompyuterda qayta oling ([Benchmarks.md](Benchmarks.md)).
 
@@ -336,7 +336,7 @@ vaqtining yuqori chegarasi. Rasterizatsiya (GPU ishi) — chapdagi 1280x720 ustu
 (TopDownShooter ~0.8 s, keyingi ishga tushirishlarda diskdagi keshdan — eng sekin kadr 866 -> 148 ms).
 
 Xulosa: o'yin kodi hamma joyda ≤ 0.55 ms; 2D namunalar va beshta 3D namuna CPU bo'yicha 60 FPS byudjetiga sig'adi.
-Ipak Yo'li (EndlessRunner) sig'magan edi — 155K uchburchagining vertex ishi llvmpipe'da CPU'da bajariladi. Endi
+Silk Road (EndlessRunner) sig'magan edi — 155K uchburchagining vertex ishi llvmpipe'da CPU'da bajariladi. Endi
 uzoqdagi shar / silindr / konuslar soddaroq nusxasini chizadi (primitivlar LOD'i, [Rendering.md](Rendering.md#15-samaradorlik-va-sifat-darajalari)):
 kadr uchburchaklari 155K -> 67K. Release build, 284x160, Low, navbatma-navbat 3 juft o'lchov (`ZAMIN_PRIMITIVE_LOD=0` -
 LOD'siz): LOD'siz o'rtacha 22.7-24.1 ms (p95 28.9-31.4), LOD bilan **15.1-15.5 ms** (p95 18.7-20.3) - o'rtacha 60 FPS

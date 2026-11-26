@@ -17,19 +17,19 @@ Bunday build eski CPU uchun tarqatilmaydi. [Build va runtime sozlamalari](docs/B
 |---|---|---|
 | ![Platformer2D](docs/images/game-platformer2d.jpg) | ![Showcase3D](docs/images/game-showcase3d.jpg) | ![Adventure3D](docs/images/game-adventure3d.jpg) |
 
-| Neon Maydon | Vodiy Poygasi | Ipak Yo'li |
+| Neon Arena | Valley Race | Silk Road |
 |---|---|---|
-| ![Neon Maydon](docs/images/sample-topdownshooter.jpg) | ![Vodiy Poygasi](docs/images/sample-racing.jpg) | ![Ipak Yo'li](docs/images/sample-endlessrunner.jpg) |
+| ![Neon Arena](docs/images/sample-topdownshooter.jpg) | ![Valley Race](docs/images/sample-racing.jpg) | ![Silk Road](docs/images/sample-endlessrunner.jpg) |
 
 *Namuna o'yinlar `Projects/` papkasida; rasmlar `ZaminPlayer` dan headless olingan. Hammasi bir sahifada:
 **[namuna o'yinlar galereyasi](docs/Samples.md)**. Har bir namunaning README'si bor (boshqaruv, ko'rsatilgan
 imkoniyatlar, kod bo'ylab sayohat):*
-[Neon Maydon](Projects/TopDownShooter/README.md) ·
+[Neon Arena](Projects/TopDownShooter/README.md) ·
 [Zamin Breakout](Projects/Breakout/README.md) ·
 [FPS Arena](Projects/FPSArena/README.md) ·
-[Omborchi](Projects/Sokoban/README.md) ·
-[Ipak Yo'li](Projects/EndlessRunner/README.md) ·
-[Vodiy Poygasi](Projects/Racing/README.md) ·
+[Warehouse Keeper](Projects/Sokoban/README.md) ·
+[Silk Road](Projects/EndlessRunner/README.md) ·
+[Valley Race](Projects/Racing/README.md) ·
 [Platformer2D](Projects/Platformer2D/README.md) ·
 [Showcase3D](Projects/Showcase3D/README.md) ·
 [Adventure3D](Projects/Adventure3D/README.md) ·

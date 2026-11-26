@@ -1,9 +1,10 @@
 #pragma once
 
-// Zamin Breakout (Zamin Engine namuna o'yini).
-// Skriptlar: BreakoutGame (o'yin oqimi: menyular, darajalar, jonlar, hisob/kombo, bonuslar, rekord, bot va demo),
-// PaddleController (raketka), Ball (to'p: Box2D fizikasi devor va g'ishtlar bilan, raketkaga tegish burchagi skriptda),
-// Brick (g'isht turlari), PowerUp (tushayotgan bonus kapsulalari), FxAnimator (halqa / nur / ochko effektlari).
+// Zamin Breakout (a Zamin Engine sample game).
+// Scripts: BreakoutGame (the game flow: menus, levels, lives, score/combo, power-ups, the record, the bot and the demo),
+// PaddleController (the paddle), Ball (the ball: Box2D physics against the walls and bricks, the bounce angle off the
+// paddle in the script), Brick (the brick kinds), PowerUp (the falling power-up capsules), FxAnimator (the ring / beam /
+// score effects).
 
 #include <Zamin/Zamin.h>
 

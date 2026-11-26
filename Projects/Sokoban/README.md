@@ -1,6 +1,6 @@
-# Omborchi — 3D Sokoban
+# Warehouse Keeper — 3D Sokoban
 
-![Omborchi](Thumbnail.jpg)
+![Warehouse Keeper](Thumbnail.jpg)
 
 Kichik robot omborda qutilarni yorqin doiralarga itarib qo'yadi. Qutini faqat itarish mumkin, tortib bo'lmaydi.
 O'yinda oddiydan murakkabga qarab 10 ta daraja bor ("Birinchi qadam" dan "Katta ombor" gacha). Xato qadamni orqaga

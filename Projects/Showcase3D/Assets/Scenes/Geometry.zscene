@@ -2,8 +2,8 @@
   "Scene": "Geometry",
   "Version": 4,
   "Metadata": {
-    "Description": "M19: Math/Geometry - fizikasiz nur testlari (Geometry::Raycast: yo'naltirilgan qutilar va sharlar), eng yaqin nuqtalar va sfera-AABB kesishuvi, Sphere::FromPoints, AABB'ni tekislikka nisbatan tasniflash (DebugDraw bilan)",
-    "Author": "Zamin",
+    "Description": "M19: Math/Geometry - ray tests without physics (Geometry::Raycast: oriented boxes and spheres), closest points and sphere-AABB intersection, Sphere::FromPoints, classifying an AABB against a plane (with DebugDraw)",
+    "Author": "Floor",
     "Tags": [
       "geometry",
       "raycast",
@@ -109,7 +109,7 @@
     },
     {
       "Entity": 7910000000000002,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [
           0,
@@ -139,7 +139,7 @@
     },
     {
       "Entity": 7910000000000003,
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Translation": [
           0,
@@ -182,7 +182,7 @@
     },
     {
       "Entity": 7910000000000004,
-      "Tag": "Quti A",
+      "Tag": "Crate A",
       "Transform": {
         "Translation": [
           -4.2,
@@ -201,7 +201,7 @@
         ]
       },
       "Tags": [
-        "Nishon"
+        "Target"
       ],
       "MeshRenderer": {
         "Mesh": "Cube",
@@ -241,7 +241,7 @@
     },
     {
       "Entity": 7910000000000005,
-      "Tag": "Quti B",
+      "Tag": "Crate B",
       "Transform": {
         "Translation": [
           3.6,
@@ -260,7 +260,7 @@
         ]
       },
       "Tags": [
-        "Nishon"
+        "Target"
       ],
       "MeshRenderer": {
         "Mesh": "Cube",
@@ -300,7 +300,7 @@
     },
     {
       "Entity": 7910000000000006,
-      "Tag": "Quti C",
+      "Tag": "Crate C",
       "Transform": {
         "Translation": [
           -7.0,
@@ -319,7 +319,7 @@
         ]
       },
       "Tags": [
-        "Nishon"
+        "Target"
       ],
       "MeshRenderer": {
         "Mesh": "Cube",
@@ -359,7 +359,7 @@
     },
     {
       "Entity": 7910000000000007,
-      "Tag": "Shar A",
+      "Tag": "Ball A",
       "Transform": {
         "Translation": [
           0.2,
@@ -378,7 +378,7 @@
         ]
       },
       "Tags": [
-        "Nishon"
+        "Target"
       ],
       "MeshRenderer": {
         "Mesh": "Sphere",
@@ -405,7 +405,7 @@
     },
     {
       "Entity": 7910000000000008,
-      "Tag": "Shar B",
+      "Tag": "Ball B",
       "Transform": {
         "Translation": [
           6.6,
@@ -424,7 +424,7 @@
         ]
       },
       "Tags": [
-        "Nishon"
+        "Target"
       ],
       "MeshRenderer": {
         "Mesh": "Sphere",
@@ -451,7 +451,7 @@
     },
     {
       "Entity": 7910000000000009,
-      "Tag": "Silindr",
+      "Tag": "Cylinder",
       "Transform": {
         "Translation": [
           -1.2,
@@ -470,7 +470,7 @@
         ]
       },
       "Tags": [
-        "Nishon"
+        "Target"
       ],
       "MeshRenderer": {
         "Mesh": "Cylinder",
@@ -510,7 +510,7 @@
     },
     {
       "Entity": 7910000000000010,
-      "Tag": "Nur yelpig'ichi",
+      "Tag": "Ray fan",
       "Transform": {
         "Translation": [
           0.0,
@@ -574,7 +574,7 @@
     },
     {
       "Entity": 7910000000000011,
-      "Tag": "Zond",
+      "Tag": "Probe",
       "Transform": {
         "Translation": [
           0.0,
@@ -634,7 +634,7 @@
     },
     {
       "Entity": 7910000000000012,
-      "Tag": "Chegaralar",
+      "Tag": "Boundaries",
       "Transform": {
         "Translation": [
           0.0,

@@ -1,10 +1,10 @@
 #pragma once
 
-// Omborchi (Sokoban) - Zamin Engine namuna o'yini: qutilarni maqsad nuqtalariga itarib qo'yish.
-// Skript: SokobanGame - darajani 3D bloklardan quradi (devor, pol, maqsad, quti shablonlaridan), robotni
-// boshqaradi (katakma-katak silliq harakat, qutini surish, to'siqqa urilish), orqaga qaytarish (undo) va qaytadan
-// boshlash, darajalar menyusi, HUD, menyular, rekordlar (SaveData), demo / bosh menyu orqasida bot (Board.h'dagi
-// yechuvchi bilan yechadi).
+// Warehouse Keeper (Sokoban) - a Zamin Engine sample game: push the crates onto the goals.
+// Script: SokobanGame - builds the level from 3D blocks (from the wall, floor, goal and crate templates), drives
+// the robot (smooth cell-by-cell movement, pushing a crate, bumping into an obstacle), undo and
+// restart, the level menu, the HUD, menus, records (SaveData), the demo / the bot behind the main menu (it solves
+// with the solver in Board.h).
 
 #include "Board.h"
 

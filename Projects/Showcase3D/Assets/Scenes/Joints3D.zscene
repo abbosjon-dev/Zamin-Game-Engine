@@ -182,7 +182,7 @@
     },
     {
       "Entity": 7834820225845166,
-      "Tag": "Eshik ustuni",
+      "Tag": "Door post",
       "Transform": {
         "Translation": [
           -8.5,
@@ -239,7 +239,7 @@
     },
     {
       "Entity": 7352645245870049,
-      "Tag": "Eshik",
+      "Tag": "Door",
       "Transform": {
         "Translation": [
           -7.55,
@@ -328,7 +328,7 @@
     },
     {
       "Entity": 6088392493432277,
-      "Tag": "Zanjir to'sini",
+      "Tag": "Chain beam",
       "Transform": {
         "Translation": [
           -4.6,
@@ -385,7 +385,7 @@
     },
     {
       "Entity": 5889562036652928,
-      "Tag": "Zanjir halqasi",
+      "Tag": "Chain link",
       "Transform": {
         "Translation": [
           -3.0,
@@ -461,7 +461,7 @@
     },
     {
       "Entity": 6579390001281602,
-      "Tag": "Zanjir halqasi",
+      "Tag": "Chain link",
       "Transform": {
         "Translation": [
           -2.5,
@@ -537,7 +537,7 @@
     },
     {
       "Entity": 7439420387660240,
-      "Tag": "Zanjir halqasi",
+      "Tag": "Chain link",
       "Transform": {
         "Translation": [
           -2.0,
@@ -613,7 +613,7 @@
     },
     {
       "Entity": 6878625130951610,
-      "Tag": "Zanjir halqasi",
+      "Tag": "Chain link",
       "Transform": {
         "Translation": [
           -1.5,
@@ -689,7 +689,7 @@
     },
     {
       "Entity": 7896139474100333,
-      "Tag": "Zanjir halqasi",
+      "Tag": "Chain link",
       "Transform": {
         "Translation": [
           -1.0,
@@ -765,7 +765,7 @@
     },
     {
       "Entity": 7778149933450070,
-      "Tag": "Zanjir halqasi",
+      "Tag": "Chain link",
       "Transform": {
         "Translation": [
           -0.5,
@@ -841,7 +841,7 @@
     },
     {
       "Entity": 8551040262068128,
-      "Tag": "Zanjir yuki",
+      "Tag": "Chain weight",
       "Transform": {
         "Translation": [
           0.0,
@@ -917,7 +917,7 @@
     },
     {
       "Entity": 8435382078980570,
-      "Tag": "Lift ustuni",
+      "Tag": "Lift post",
       "Transform": {
         "Translation": [
           2.9,
@@ -1072,7 +1072,7 @@
     },
     {
       "Entity": 7604443486021640,
-      "Tag": "Lift yuki",
+      "Tag": "Lift load",
       "Transform": {
         "Translation": [
           2.9,
@@ -1129,7 +1129,7 @@
     },
     {
       "Entity": 6219066069267794,
-      "Tag": "Tegirmon ustuni",
+      "Tag": "Windmill post",
       "Transform": {
         "Translation": [
           6.6,
@@ -1186,7 +1186,7 @@
     },
     {
       "Entity": 7883969917076520,
-      "Tag": "Tegirmon parragi",
+      "Tag": "Windmill blade",
       "Transform": {
         "Translation": [
           6.6,
@@ -1275,7 +1275,7 @@
     },
     {
       "Entity": 8564853998832600,
-      "Tag": "L qismi A",
+      "Tag": "L part A",
       "Transform": {
         "Translation": [
           -3.0,
@@ -1332,7 +1332,7 @@
     },
     {
       "Entity": 5208343574660204,
-      "Tag": "L qismi B",
+      "Tag": "L part B",
       "Transform": {
         "Translation": [
           -3.708643020716916,
@@ -1406,7 +1406,7 @@
     },
     {
       "Entity": 5726548225641308,
-      "Tag": "Qiyalik",
+      "Tag": "Incline",
       "Transform": {
         "Translation": [
           5.0,
@@ -1463,7 +1463,7 @@
     },
     {
       "Entity": 8702533727910555,
-      "Tag": "Konus",
+      "Tag": "Cone",
       "Transform": {
         "Translation": [
           3.6,
@@ -1517,7 +1517,7 @@
     },
     {
       "Entity": 4741114958673481,
-      "Tag": "Silindr",
+      "Tag": "Cylinder",
       "Transform": {
         "Translation": [
           4.6,
@@ -1571,7 +1571,7 @@
     },
     {
       "Entity": 8881066193625093,
-      "Tag": "Konus",
+      "Tag": "Cone",
       "Transform": {
         "Translation": [
           5.8,
@@ -1625,7 +1625,7 @@
     },
     {
       "Entity": 7759882634463365,
-      "Tag": "Silindr",
+      "Tag": "Cylinder",
       "Transform": {
         "Translation": [
           6.6,
@@ -1679,7 +1679,7 @@
     },
     {
       "Entity": 5756735089293543,
-      "Tag": "Kristall ziyoratgoh",
+      "Tag": "Crystal shrine",
       "Transform": {
         "Translation": [
           3.4,

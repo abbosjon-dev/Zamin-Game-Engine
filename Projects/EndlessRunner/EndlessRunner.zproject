@@ -8,12 +8,12 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libEndlessRunner.so",
         "EngineVersion": "0.1.0",
-        "Description": "3D cheksiz yugurish: uch yo'lak, sakrash va sirpanish, protsedurali to'siqlar, tangalar, oshib boruvchi tezlik",
+        "Description": "3D endless runner: three lanes, jumping and sliding, procedural obstacles, coins, rising speed",
         "Thumbnail": "Thumbnail.jpg"
     },
     "Player": {
         "Company": "Zamin Studio",
-        "Product": "Ipak Yo'li",
+        "Product": "Silk Road",
         "Version": "1.0.0",
         "Width": 1280,
         "Height": 720,

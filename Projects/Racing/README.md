@@ -1,6 +1,6 @@
-# Vodiy Poygasi — oddiy mashina fizikasi bilan poyga (3D)
+# Valley Race — oddiy mashina fizikasi bilan poyga (3D)
 
-![Vodiy Poygasi](Thumbnail.jpg)
+![Valley Race](Thumbnail.jpg)
 
 Tog' vodiysidagi 750 metrlik aylanma trassada uchta bot raqib bilan uch aylana poyga qilasiz. Start svetofori
 yonib-o'chadi, keyin GO! Trassada 8 ta nazorat nuqtasi bor, aylana vaqti hisoblanadi va eng yaxshisi saqlanadi.

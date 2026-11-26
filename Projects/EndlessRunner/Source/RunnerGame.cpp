@@ -7,15 +7,15 @@
 
 using namespace Zamin;
 
-// Dunyo yuguruvchi bilan birga quriladi: oldinda SpawnAhead metrgacha har SegmentLength metrda bitta to'siq naqshi
-// (arava, to'siq, gilam osilgan darvoza, devor, karvon - har doim kamida bitta o'tish yo'li bor), tangalar qatori /
-// yoyi, ba'zan bonus (magnit, qalqon); yo'l chetida manzara (minoralar, palmalar, qum tepalari, uylar, ravoqlar).
-// Orqada qolganlari o'chiriladi. Yo'l va qum tekisliklari yuguruvchi bilan siljiydi, teksturasi esa joyida turadi
-// (UV siljishi) - cheksiz yo'l. Tezlik masofa bilan StartSpeed'dan MaxSpeed'gacha oshadi.
-// Hisob: masofa + tanga x 10; rekord SaveData "EndlessRunner.Best" / "EndlessRunner.BestDistance" (SaveData::
-// SubmitRecord): yugurish tugaganda, pauzadan chiqib ketilganda yoki o'yin yopilganda.
-// Demo: ZAMIN_DEMO=1 (yoki AutoDemo) - bot yuguradi, jurnalga "Demo: ..." yoziladi; yiqilsa yangi yugurish;
-// ZAMIN_DEMO_RECORDS=1 bilan demo natijasi ham rekordga yoziladi (testlar).
+// The world is built along with the runner: up to SpawnAhead metres ahead, every SegmentLength metres, one obstacle
+// pattern (a cart, a barrier, a gate with a carpet hung on it, a wall, a caravan - there is always at least one way
+// through), a row / arc of coins, sometimes a power-up (magnet, shield); scenery beside the road (minarets, palms,
+// dunes, houses, arches). What is left behind is destroyed. The road and sand planes move with the runner while their
+// texture stays in place (a UV offset) - an endless road. The speed rises with distance from StartSpeed to MaxSpeed.
+// Score: distance + coins x 10; the record is SaveData "EndlessRunner.Best" / "EndlessRunner.BestDistance" (SaveData::
+// SubmitRecord): when a run ends, when the player leaves from the pause menu or when the game is closed.
+// Demo: ZAMIN_DEMO=1 (or AutoDemo) - the bot runs and "Demo: ..." goes to the log; a new run after a fall;
+// with ZAMIN_DEMO_RECORDS=1 the demo's result is recorded as well (tests).
 
 static constexpr int AllLanes = -2;
 
@@ -152,7 +152,7 @@ void RunnerGame::StartRun(bool bot)
     if (m_State != State::Menu)
         ShowBanner(Localize("hud.go"), Localize("hud.go_sub"), 1.8f);
     if (!m_Bot)
-        ZM_INFO("Ipak Yo'li: run started");
+        ZM_INFO("Silk Road: run started");
     RefreshTexts();
 }
 

@@ -1,12 +1,11 @@
 {
   "Albedo": [
-    1.0,
-    1.0,
-    1.0,
+    0.7200000286102295,
+    0.7300000190734863,
+    0.75,
     1.0
   ],
-  "AlbedoMap": "Materials/Standart/Textures/Wood_Albedo.png",
-  "AlbedoMapUUID": "a8a00e30cde93260",
+  "AlbedoMap": "",
   "AlphaCutoff": 0.5,
   "BlendMode": "Opaque",
   "DoubleSided": false,
@@ -17,8 +16,9 @@
   ],
   "EmissionStrength": 0.0,
   "EmissiveMap": "",
-  "MetalRoughMap": "",
-  "Metallic": 0.0,
+  "MetalRoughMap": "Materials/Standard/Textures/BrushedMetal_MetalRough.png",
+  "MetalRoughMapUUID": "fbea33c060cbf9a4",
+  "Metallic": 1.0,
   "NormalMap": "",
   "NormalStrength": 1.0,
   "Offset": [
@@ -26,12 +26,12 @@
     0.0
   ],
   "PreserveSpecular": true,
-  "Roughness": 0.6200000047683716,
+  "Roughness": 1.0,
   "Shader": "Lit",
   "SortPriority": 0,
   "Tiling": [
-    1.0,
-    1.0
+    2.0,
+    2.0
   ],
   "Version": 1
 }

@@ -186,15 +186,15 @@ public:
 ZM_REGISTER_SCRIPT(AutoDestroy, ZM_FIELD(AutoDestroy, Seconds))
 
 // Darvoza: qahramon yaqinlashsa ochiladi, uzoqlashsa (biroz kutib) yopiladi. Harakatning o'zi
-// Animations/DarvozaOchilishi.zanim klipida (Animation Player): ikki tabaqa oshiq atrofida buriladi,
-// chiroq qizil -> sariq -> yashil bo'ladi. Ovozlar klip event'laridan: "Gichirlash" (ochilish /
-// yopilish boshida) va "Taqillash" (yopilib bo'lganda) - har biri qaysi yo'nalishda kerakligini
+// Animations/GateOpening.zanim klipida (Animation Player): ikki tabaqa oshiq atrofida buriladi,
+// chiroq qizil -> sariq -> yashil bo'ladi. Ovozlar klip event'laridan: "Creak" (ochilish /
+// yopilish boshida) va "Thud" (yopilib bo'lganda) - har biri qaysi yo'nalishda kerakligini
 // event parametri aytadi.
 class ProximityDoor : public ScriptableEntity
 {
 public:
     std::string Player = "Player";
-    std::string Clip = "DarvozaOchilishi";
+    std::string Clip = "GateOpening";
     float OpenRadius = 4.5f;   // closer than this (XZ): opens
     float CloseRadius = 6.5f;  // farther than this for CloseDelay seconds: closes
     float CloseDelay = 1.0f;
@@ -205,14 +205,14 @@ public:
 
     void OnCreate() override
     {
-        AddAnimationEventHandler("Gichirlash", [this](const AnimationEventInfo& e) {
+        AddAnimationEventHandler("Creak", [this](const AnimationEventInfo& e) {
             // The clip has a creak near each end; the one for the way the door moves is heard.
-            if ((e.Parameter == "ochilish") != m_Opening)
+            if ((e.Parameter == "opening") != m_Opening)
                 return;
             Sound(CreakSound, 0.9f, { 0.9f, 1.1f });
             m_LastEvent = std::format("{} ({})", e.Name, e.Parameter);
         });
-        AddAnimationEventHandler("Taqillash", [this](const AnimationEventInfo& e) {
+        AddAnimationEventHandler("Thud", [this](const AnimationEventInfo& e) {
             if (!m_Opening)
             {
                 Sound(ThudSound, 1.0f, { 0.95f, 1.05f });

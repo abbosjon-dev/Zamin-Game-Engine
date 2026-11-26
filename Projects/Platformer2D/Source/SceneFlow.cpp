@@ -201,7 +201,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(GameSession, ZM_FIELD(GameSession, Hud).Tooltip("Session text (UI): shown only in the levels"))
 
-// Sub-sahnalar namunasi (SubScenes.zscene): bitta "Lager" bo'lagi (Scenes/Parts/Camp.zscene) uch joyda.
+// Sub-sahnalar namunasi (SubScenes.zscene): bitta "Camp" bo'lagi (Scenes/Parts/Camp.zscene) uch joyda.
 // Ikkitasi sahna bilan yuklanadi (SubSceneComponent, "Sahna bilan yuklash"), uchinchisini shu skript
 // Delay sekunddan keyin LoadSubScene() bilan yuklaydi - masalan, o'yinchi yaqinlashganda ochiladigan
 // xona. Label (ixtiyoriy) holatni ko'rsatadi.

@@ -2,8 +2,8 @@
   "Scene": "Splines",
   "Version": 4,
   "Metadata": {
-    "Description": "M19: spline yo'llar (Catmull-Rom halqa, Bezier ko'tarma), Spline Follower vagonlar, shovqin ustunlari, AnimationCurve bilan suzuvchi sharlar, rang g'ildiragi (HSV)",
-    "Author": "Zamin",
+    "Description": "M19: spline paths (a Catmull-Rom loop, a Bezier climb), Spline Follower wagons, noise pillars, balls floating on an AnimationCurve, a colour wheel (HSV)",
+    "Author": "Floor",
     "Tags": [
       "spline",
       "noise",
@@ -109,7 +109,7 @@
     },
     {
       "Entity": 7900000000000002,
-      "Tag": "Quyosh",
+      "Tag": "Sun",
       "Transform": {
         "Translation": [
           0,
@@ -139,7 +139,7 @@
     },
     {
       "Entity": 7900000000000003,
-      "Tag": "Yer",
+      "Tag": "Ground",
       "Transform": {
         "Translation": [
           0,
@@ -206,7 +206,7 @@
     },
     {
       "Entity": 7900000000000004,
-      "Tag": "Poyga yo'li",
+      "Tag": "Race path",
       "Transform": {
         "Translation": [
           0,
@@ -285,7 +285,7 @@
     },
     {
       "Entity": 7900000000000005,
-      "Tag": "Vagon 1",
+      "Tag": "Wagon 1",
       "Transform": {
         "Translation": [
           -14.0,
@@ -354,7 +354,7 @@
     },
     {
       "Entity": 7900000000000006,
-      "Tag": "Vagon 2",
+      "Tag": "Wagon 2",
       "Transform": {
         "Translation": [
           9.596,
@@ -423,7 +423,7 @@
     },
     {
       "Entity": 7900000000000007,
-      "Tag": "Vagon 3",
+      "Tag": "Wagon 3",
       "Transform": {
         "Translation": [
           4.584,
@@ -492,7 +492,7 @@
     },
     {
       "Entity": 7900000000000008,
-      "Tag": "Ko'tarma yo'li",
+      "Tag": "Climb path",
       "Transform": {
         "Translation": [
           18,
@@ -567,7 +567,7 @@
     },
     {
       "Entity": 7900000000000009,
-      "Tag": "Ko'tarma",
+      "Tag": "Climb",
       "Transform": {
         "Translation": [
           18,
@@ -647,7 +647,7 @@
     },
     {
       "Entity": 7900000000000010,
-      "Tag": "Shovqin maydoni",
+      "Tag": "Noise field",
       "Transform": {
         "Translation": [
           0,
@@ -707,7 +707,7 @@
     },
     {
       "Entity": 7900000000000011,
-      "Tag": "Ustun 0-0",
+      "Tag": "Pillar 0-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -751,7 +751,7 @@
     },
     {
       "Entity": 7900000000000012,
-      "Tag": "Ustun 0-1",
+      "Tag": "Pillar 0-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -795,7 +795,7 @@
     },
     {
       "Entity": 7900000000000013,
-      "Tag": "Ustun 0-2",
+      "Tag": "Pillar 0-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -839,7 +839,7 @@
     },
     {
       "Entity": 7900000000000014,
-      "Tag": "Ustun 0-3",
+      "Tag": "Pillar 0-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -883,7 +883,7 @@
     },
     {
       "Entity": 7900000000000015,
-      "Tag": "Ustun 0-4",
+      "Tag": "Pillar 0-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -927,7 +927,7 @@
     },
     {
       "Entity": 7900000000000016,
-      "Tag": "Ustun 0-5",
+      "Tag": "Pillar 0-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -971,7 +971,7 @@
     },
     {
       "Entity": 7900000000000017,
-      "Tag": "Ustun 0-6",
+      "Tag": "Pillar 0-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1015,7 +1015,7 @@
     },
     {
       "Entity": 7900000000000018,
-      "Tag": "Ustun 0-7",
+      "Tag": "Pillar 0-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1059,7 +1059,7 @@
     },
     {
       "Entity": 7900000000000019,
-      "Tag": "Ustun 0-8",
+      "Tag": "Pillar 0-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1103,7 +1103,7 @@
     },
     {
       "Entity": 7900000000000020,
-      "Tag": "Ustun 0-9",
+      "Tag": "Pillar 0-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1147,7 +1147,7 @@
     },
     {
       "Entity": 7900000000000021,
-      "Tag": "Ustun 0-10",
+      "Tag": "Pillar 0-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1191,7 +1191,7 @@
     },
     {
       "Entity": 7900000000000022,
-      "Tag": "Ustun 0-11",
+      "Tag": "Pillar 0-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1235,7 +1235,7 @@
     },
     {
       "Entity": 7900000000000023,
-      "Tag": "Ustun 0-12",
+      "Tag": "Pillar 0-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1279,7 +1279,7 @@
     },
     {
       "Entity": 7900000000000024,
-      "Tag": "Ustun 1-0",
+      "Tag": "Pillar 1-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1323,7 +1323,7 @@
     },
     {
       "Entity": 7900000000000025,
-      "Tag": "Ustun 1-1",
+      "Tag": "Pillar 1-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1367,7 +1367,7 @@
     },
     {
       "Entity": 7900000000000026,
-      "Tag": "Ustun 1-2",
+      "Tag": "Pillar 1-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1411,7 +1411,7 @@
     },
     {
       "Entity": 7900000000000027,
-      "Tag": "Ustun 1-3",
+      "Tag": "Pillar 1-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1455,7 +1455,7 @@
     },
     {
       "Entity": 7900000000000028,
-      "Tag": "Ustun 1-4",
+      "Tag": "Pillar 1-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1499,7 +1499,7 @@
     },
     {
       "Entity": 7900000000000029,
-      "Tag": "Ustun 1-5",
+      "Tag": "Pillar 1-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1543,7 +1543,7 @@
     },
     {
       "Entity": 7900000000000030,
-      "Tag": "Ustun 1-6",
+      "Tag": "Pillar 1-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1587,7 +1587,7 @@
     },
     {
       "Entity": 7900000000000031,
-      "Tag": "Ustun 1-7",
+      "Tag": "Pillar 1-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1631,7 +1631,7 @@
     },
     {
       "Entity": 7900000000000032,
-      "Tag": "Ustun 1-8",
+      "Tag": "Pillar 1-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1675,7 +1675,7 @@
     },
     {
       "Entity": 7900000000000033,
-      "Tag": "Ustun 1-9",
+      "Tag": "Pillar 1-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1719,7 +1719,7 @@
     },
     {
       "Entity": 7900000000000034,
-      "Tag": "Ustun 1-10",
+      "Tag": "Pillar 1-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1763,7 +1763,7 @@
     },
     {
       "Entity": 7900000000000035,
-      "Tag": "Ustun 1-11",
+      "Tag": "Pillar 1-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1807,7 +1807,7 @@
     },
     {
       "Entity": 7900000000000036,
-      "Tag": "Ustun 1-12",
+      "Tag": "Pillar 1-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1851,7 +1851,7 @@
     },
     {
       "Entity": 7900000000000037,
-      "Tag": "Ustun 2-0",
+      "Tag": "Pillar 2-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1895,7 +1895,7 @@
     },
     {
       "Entity": 7900000000000038,
-      "Tag": "Ustun 2-1",
+      "Tag": "Pillar 2-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1939,7 +1939,7 @@
     },
     {
       "Entity": 7900000000000039,
-      "Tag": "Ustun 2-2",
+      "Tag": "Pillar 2-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -1983,7 +1983,7 @@
     },
     {
       "Entity": 7900000000000040,
-      "Tag": "Ustun 2-3",
+      "Tag": "Pillar 2-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2027,7 +2027,7 @@
     },
     {
       "Entity": 7900000000000041,
-      "Tag": "Ustun 2-4",
+      "Tag": "Pillar 2-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2071,7 +2071,7 @@
     },
     {
       "Entity": 7900000000000042,
-      "Tag": "Ustun 2-5",
+      "Tag": "Pillar 2-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2115,7 +2115,7 @@
     },
     {
       "Entity": 7900000000000043,
-      "Tag": "Ustun 2-6",
+      "Tag": "Pillar 2-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2159,7 +2159,7 @@
     },
     {
       "Entity": 7900000000000044,
-      "Tag": "Ustun 2-7",
+      "Tag": "Pillar 2-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2203,7 +2203,7 @@
     },
     {
       "Entity": 7900000000000045,
-      "Tag": "Ustun 2-8",
+      "Tag": "Pillar 2-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2247,7 +2247,7 @@
     },
     {
       "Entity": 7900000000000046,
-      "Tag": "Ustun 2-9",
+      "Tag": "Pillar 2-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2291,7 +2291,7 @@
     },
     {
       "Entity": 7900000000000047,
-      "Tag": "Ustun 2-10",
+      "Tag": "Pillar 2-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2335,7 +2335,7 @@
     },
     {
       "Entity": 7900000000000048,
-      "Tag": "Ustun 2-11",
+      "Tag": "Pillar 2-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2379,7 +2379,7 @@
     },
     {
       "Entity": 7900000000000049,
-      "Tag": "Ustun 2-12",
+      "Tag": "Pillar 2-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2423,7 +2423,7 @@
     },
     {
       "Entity": 7900000000000050,
-      "Tag": "Ustun 3-0",
+      "Tag": "Pillar 3-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2467,7 +2467,7 @@
     },
     {
       "Entity": 7900000000000051,
-      "Tag": "Ustun 3-1",
+      "Tag": "Pillar 3-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2511,7 +2511,7 @@
     },
     {
       "Entity": 7900000000000052,
-      "Tag": "Ustun 3-2",
+      "Tag": "Pillar 3-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2555,7 +2555,7 @@
     },
     {
       "Entity": 7900000000000053,
-      "Tag": "Ustun 3-3",
+      "Tag": "Pillar 3-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2599,7 +2599,7 @@
     },
     {
       "Entity": 7900000000000054,
-      "Tag": "Ustun 3-4",
+      "Tag": "Pillar 3-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2643,7 +2643,7 @@
     },
     {
       "Entity": 7900000000000055,
-      "Tag": "Ustun 3-5",
+      "Tag": "Pillar 3-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2687,7 +2687,7 @@
     },
     {
       "Entity": 7900000000000056,
-      "Tag": "Ustun 3-6",
+      "Tag": "Pillar 3-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2731,7 +2731,7 @@
     },
     {
       "Entity": 7900000000000057,
-      "Tag": "Ustun 3-7",
+      "Tag": "Pillar 3-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2775,7 +2775,7 @@
     },
     {
       "Entity": 7900000000000058,
-      "Tag": "Ustun 3-8",
+      "Tag": "Pillar 3-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2819,7 +2819,7 @@
     },
     {
       "Entity": 7900000000000059,
-      "Tag": "Ustun 3-9",
+      "Tag": "Pillar 3-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2863,7 +2863,7 @@
     },
     {
       "Entity": 7900000000000060,
-      "Tag": "Ustun 3-10",
+      "Tag": "Pillar 3-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2907,7 +2907,7 @@
     },
     {
       "Entity": 7900000000000061,
-      "Tag": "Ustun 3-11",
+      "Tag": "Pillar 3-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2951,7 +2951,7 @@
     },
     {
       "Entity": 7900000000000062,
-      "Tag": "Ustun 3-12",
+      "Tag": "Pillar 3-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -2995,7 +2995,7 @@
     },
     {
       "Entity": 7900000000000063,
-      "Tag": "Ustun 4-0",
+      "Tag": "Pillar 4-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3039,7 +3039,7 @@
     },
     {
       "Entity": 7900000000000064,
-      "Tag": "Ustun 4-1",
+      "Tag": "Pillar 4-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3083,7 +3083,7 @@
     },
     {
       "Entity": 7900000000000065,
-      "Tag": "Ustun 4-2",
+      "Tag": "Pillar 4-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3127,7 +3127,7 @@
     },
     {
       "Entity": 7900000000000066,
-      "Tag": "Ustun 4-3",
+      "Tag": "Pillar 4-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3171,7 +3171,7 @@
     },
     {
       "Entity": 7900000000000067,
-      "Tag": "Ustun 4-4",
+      "Tag": "Pillar 4-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3215,7 +3215,7 @@
     },
     {
       "Entity": 7900000000000068,
-      "Tag": "Ustun 4-5",
+      "Tag": "Pillar 4-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3259,7 +3259,7 @@
     },
     {
       "Entity": 7900000000000069,
-      "Tag": "Ustun 4-6",
+      "Tag": "Pillar 4-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3303,7 +3303,7 @@
     },
     {
       "Entity": 7900000000000070,
-      "Tag": "Ustun 4-7",
+      "Tag": "Pillar 4-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3347,7 +3347,7 @@
     },
     {
       "Entity": 7900000000000071,
-      "Tag": "Ustun 4-8",
+      "Tag": "Pillar 4-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3391,7 +3391,7 @@
     },
     {
       "Entity": 7900000000000072,
-      "Tag": "Ustun 4-9",
+      "Tag": "Pillar 4-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3435,7 +3435,7 @@
     },
     {
       "Entity": 7900000000000073,
-      "Tag": "Ustun 4-10",
+      "Tag": "Pillar 4-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3479,7 +3479,7 @@
     },
     {
       "Entity": 7900000000000074,
-      "Tag": "Ustun 4-11",
+      "Tag": "Pillar 4-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3523,7 +3523,7 @@
     },
     {
       "Entity": 7900000000000075,
-      "Tag": "Ustun 4-12",
+      "Tag": "Pillar 4-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3567,7 +3567,7 @@
     },
     {
       "Entity": 7900000000000076,
-      "Tag": "Ustun 5-0",
+      "Tag": "Pillar 5-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3611,7 +3611,7 @@
     },
     {
       "Entity": 7900000000000077,
-      "Tag": "Ustun 5-1",
+      "Tag": "Pillar 5-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3655,7 +3655,7 @@
     },
     {
       "Entity": 7900000000000078,
-      "Tag": "Ustun 5-2",
+      "Tag": "Pillar 5-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3699,7 +3699,7 @@
     },
     {
       "Entity": 7900000000000079,
-      "Tag": "Ustun 5-3",
+      "Tag": "Pillar 5-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3743,7 +3743,7 @@
     },
     {
       "Entity": 7900000000000080,
-      "Tag": "Ustun 5-4",
+      "Tag": "Pillar 5-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3787,7 +3787,7 @@
     },
     {
       "Entity": 7900000000000081,
-      "Tag": "Ustun 5-5",
+      "Tag": "Pillar 5-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3831,7 +3831,7 @@
     },
     {
       "Entity": 7900000000000082,
-      "Tag": "Ustun 5-6",
+      "Tag": "Pillar 5-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3875,7 +3875,7 @@
     },
     {
       "Entity": 7900000000000083,
-      "Tag": "Ustun 5-7",
+      "Tag": "Pillar 5-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3919,7 +3919,7 @@
     },
     {
       "Entity": 7900000000000084,
-      "Tag": "Ustun 5-8",
+      "Tag": "Pillar 5-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -3963,7 +3963,7 @@
     },
     {
       "Entity": 7900000000000085,
-      "Tag": "Ustun 5-9",
+      "Tag": "Pillar 5-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4007,7 +4007,7 @@
     },
     {
       "Entity": 7900000000000086,
-      "Tag": "Ustun 5-10",
+      "Tag": "Pillar 5-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4051,7 +4051,7 @@
     },
     {
       "Entity": 7900000000000087,
-      "Tag": "Ustun 5-11",
+      "Tag": "Pillar 5-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4095,7 +4095,7 @@
     },
     {
       "Entity": 7900000000000088,
-      "Tag": "Ustun 5-12",
+      "Tag": "Pillar 5-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4139,7 +4139,7 @@
     },
     {
       "Entity": 7900000000000089,
-      "Tag": "Ustun 6-0",
+      "Tag": "Pillar 6-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4183,7 +4183,7 @@
     },
     {
       "Entity": 7900000000000090,
-      "Tag": "Ustun 6-1",
+      "Tag": "Pillar 6-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4227,7 +4227,7 @@
     },
     {
       "Entity": 7900000000000091,
-      "Tag": "Ustun 6-2",
+      "Tag": "Pillar 6-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4271,7 +4271,7 @@
     },
     {
       "Entity": 7900000000000092,
-      "Tag": "Ustun 6-3",
+      "Tag": "Pillar 6-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4315,7 +4315,7 @@
     },
     {
       "Entity": 7900000000000093,
-      "Tag": "Ustun 6-4",
+      "Tag": "Pillar 6-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4359,7 +4359,7 @@
     },
     {
       "Entity": 7900000000000094,
-      "Tag": "Ustun 6-5",
+      "Tag": "Pillar 6-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4403,7 +4403,7 @@
     },
     {
       "Entity": 7900000000000095,
-      "Tag": "Ustun 6-6",
+      "Tag": "Pillar 6-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4447,7 +4447,7 @@
     },
     {
       "Entity": 7900000000000096,
-      "Tag": "Ustun 6-7",
+      "Tag": "Pillar 6-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4491,7 +4491,7 @@
     },
     {
       "Entity": 7900000000000097,
-      "Tag": "Ustun 6-8",
+      "Tag": "Pillar 6-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4535,7 +4535,7 @@
     },
     {
       "Entity": 7900000000000098,
-      "Tag": "Ustun 6-9",
+      "Tag": "Pillar 6-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4579,7 +4579,7 @@
     },
     {
       "Entity": 7900000000000099,
-      "Tag": "Ustun 6-10",
+      "Tag": "Pillar 6-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4623,7 +4623,7 @@
     },
     {
       "Entity": 7900000000000100,
-      "Tag": "Ustun 6-11",
+      "Tag": "Pillar 6-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4667,7 +4667,7 @@
     },
     {
       "Entity": 7900000000000101,
-      "Tag": "Ustun 6-12",
+      "Tag": "Pillar 6-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4711,7 +4711,7 @@
     },
     {
       "Entity": 7900000000000102,
-      "Tag": "Ustun 7-0",
+      "Tag": "Pillar 7-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4755,7 +4755,7 @@
     },
     {
       "Entity": 7900000000000103,
-      "Tag": "Ustun 7-1",
+      "Tag": "Pillar 7-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4799,7 +4799,7 @@
     },
     {
       "Entity": 7900000000000104,
-      "Tag": "Ustun 7-2",
+      "Tag": "Pillar 7-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4843,7 +4843,7 @@
     },
     {
       "Entity": 7900000000000105,
-      "Tag": "Ustun 7-3",
+      "Tag": "Pillar 7-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4887,7 +4887,7 @@
     },
     {
       "Entity": 7900000000000106,
-      "Tag": "Ustun 7-4",
+      "Tag": "Pillar 7-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4931,7 +4931,7 @@
     },
     {
       "Entity": 7900000000000107,
-      "Tag": "Ustun 7-5",
+      "Tag": "Pillar 7-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -4975,7 +4975,7 @@
     },
     {
       "Entity": 7900000000000108,
-      "Tag": "Ustun 7-6",
+      "Tag": "Pillar 7-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5019,7 +5019,7 @@
     },
     {
       "Entity": 7900000000000109,
-      "Tag": "Ustun 7-7",
+      "Tag": "Pillar 7-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5063,7 +5063,7 @@
     },
     {
       "Entity": 7900000000000110,
-      "Tag": "Ustun 7-8",
+      "Tag": "Pillar 7-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5107,7 +5107,7 @@
     },
     {
       "Entity": 7900000000000111,
-      "Tag": "Ustun 7-9",
+      "Tag": "Pillar 7-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5151,7 +5151,7 @@
     },
     {
       "Entity": 7900000000000112,
-      "Tag": "Ustun 7-10",
+      "Tag": "Pillar 7-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5195,7 +5195,7 @@
     },
     {
       "Entity": 7900000000000113,
-      "Tag": "Ustun 7-11",
+      "Tag": "Pillar 7-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5239,7 +5239,7 @@
     },
     {
       "Entity": 7900000000000114,
-      "Tag": "Ustun 7-12",
+      "Tag": "Pillar 7-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5283,7 +5283,7 @@
     },
     {
       "Entity": 7900000000000115,
-      "Tag": "Ustun 8-0",
+      "Tag": "Pillar 8-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5327,7 +5327,7 @@
     },
     {
       "Entity": 7900000000000116,
-      "Tag": "Ustun 8-1",
+      "Tag": "Pillar 8-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5371,7 +5371,7 @@
     },
     {
       "Entity": 7900000000000117,
-      "Tag": "Ustun 8-2",
+      "Tag": "Pillar 8-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5415,7 +5415,7 @@
     },
     {
       "Entity": 7900000000000118,
-      "Tag": "Ustun 8-3",
+      "Tag": "Pillar 8-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5459,7 +5459,7 @@
     },
     {
       "Entity": 7900000000000119,
-      "Tag": "Ustun 8-4",
+      "Tag": "Pillar 8-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5503,7 +5503,7 @@
     },
     {
       "Entity": 7900000000000120,
-      "Tag": "Ustun 8-5",
+      "Tag": "Pillar 8-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5547,7 +5547,7 @@
     },
     {
       "Entity": 7900000000000121,
-      "Tag": "Ustun 8-6",
+      "Tag": "Pillar 8-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5591,7 +5591,7 @@
     },
     {
       "Entity": 7900000000000122,
-      "Tag": "Ustun 8-7",
+      "Tag": "Pillar 8-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5635,7 +5635,7 @@
     },
     {
       "Entity": 7900000000000123,
-      "Tag": "Ustun 8-8",
+      "Tag": "Pillar 8-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5679,7 +5679,7 @@
     },
     {
       "Entity": 7900000000000124,
-      "Tag": "Ustun 8-9",
+      "Tag": "Pillar 8-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5723,7 +5723,7 @@
     },
     {
       "Entity": 7900000000000125,
-      "Tag": "Ustun 8-10",
+      "Tag": "Pillar 8-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5767,7 +5767,7 @@
     },
     {
       "Entity": 7900000000000126,
-      "Tag": "Ustun 8-11",
+      "Tag": "Pillar 8-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5811,7 +5811,7 @@
     },
     {
       "Entity": 7900000000000127,
-      "Tag": "Ustun 8-12",
+      "Tag": "Pillar 8-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5855,7 +5855,7 @@
     },
     {
       "Entity": 7900000000000128,
-      "Tag": "Ustun 9-0",
+      "Tag": "Pillar 9-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5899,7 +5899,7 @@
     },
     {
       "Entity": 7900000000000129,
-      "Tag": "Ustun 9-1",
+      "Tag": "Pillar 9-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5943,7 +5943,7 @@
     },
     {
       "Entity": 7900000000000130,
-      "Tag": "Ustun 9-2",
+      "Tag": "Pillar 9-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -5987,7 +5987,7 @@
     },
     {
       "Entity": 7900000000000131,
-      "Tag": "Ustun 9-3",
+      "Tag": "Pillar 9-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6031,7 +6031,7 @@
     },
     {
       "Entity": 7900000000000132,
-      "Tag": "Ustun 9-4",
+      "Tag": "Pillar 9-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6075,7 +6075,7 @@
     },
     {
       "Entity": 7900000000000133,
-      "Tag": "Ustun 9-5",
+      "Tag": "Pillar 9-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6119,7 +6119,7 @@
     },
     {
       "Entity": 7900000000000134,
-      "Tag": "Ustun 9-6",
+      "Tag": "Pillar 9-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6163,7 +6163,7 @@
     },
     {
       "Entity": 7900000000000135,
-      "Tag": "Ustun 9-7",
+      "Tag": "Pillar 9-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6207,7 +6207,7 @@
     },
     {
       "Entity": 7900000000000136,
-      "Tag": "Ustun 9-8",
+      "Tag": "Pillar 9-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6251,7 +6251,7 @@
     },
     {
       "Entity": 7900000000000137,
-      "Tag": "Ustun 9-9",
+      "Tag": "Pillar 9-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6295,7 +6295,7 @@
     },
     {
       "Entity": 7900000000000138,
-      "Tag": "Ustun 9-10",
+      "Tag": "Pillar 9-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6339,7 +6339,7 @@
     },
     {
       "Entity": 7900000000000139,
-      "Tag": "Ustun 9-11",
+      "Tag": "Pillar 9-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6383,7 +6383,7 @@
     },
     {
       "Entity": 7900000000000140,
-      "Tag": "Ustun 9-12",
+      "Tag": "Pillar 9-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6427,7 +6427,7 @@
     },
     {
       "Entity": 7900000000000141,
-      "Tag": "Ustun 10-0",
+      "Tag": "Pillar 10-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6471,7 +6471,7 @@
     },
     {
       "Entity": 7900000000000142,
-      "Tag": "Ustun 10-1",
+      "Tag": "Pillar 10-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6515,7 +6515,7 @@
     },
     {
       "Entity": 7900000000000143,
-      "Tag": "Ustun 10-2",
+      "Tag": "Pillar 10-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6559,7 +6559,7 @@
     },
     {
       "Entity": 7900000000000144,
-      "Tag": "Ustun 10-3",
+      "Tag": "Pillar 10-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6603,7 +6603,7 @@
     },
     {
       "Entity": 7900000000000145,
-      "Tag": "Ustun 10-4",
+      "Tag": "Pillar 10-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6647,7 +6647,7 @@
     },
     {
       "Entity": 7900000000000146,
-      "Tag": "Ustun 10-5",
+      "Tag": "Pillar 10-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6691,7 +6691,7 @@
     },
     {
       "Entity": 7900000000000147,
-      "Tag": "Ustun 10-6",
+      "Tag": "Pillar 10-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6735,7 +6735,7 @@
     },
     {
       "Entity": 7900000000000148,
-      "Tag": "Ustun 10-7",
+      "Tag": "Pillar 10-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6779,7 +6779,7 @@
     },
     {
       "Entity": 7900000000000149,
-      "Tag": "Ustun 10-8",
+      "Tag": "Pillar 10-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6823,7 +6823,7 @@
     },
     {
       "Entity": 7900000000000150,
-      "Tag": "Ustun 10-9",
+      "Tag": "Pillar 10-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6867,7 +6867,7 @@
     },
     {
       "Entity": 7900000000000151,
-      "Tag": "Ustun 10-10",
+      "Tag": "Pillar 10-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6911,7 +6911,7 @@
     },
     {
       "Entity": 7900000000000152,
-      "Tag": "Ustun 10-11",
+      "Tag": "Pillar 10-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6955,7 +6955,7 @@
     },
     {
       "Entity": 7900000000000153,
-      "Tag": "Ustun 10-12",
+      "Tag": "Pillar 10-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -6999,7 +6999,7 @@
     },
     {
       "Entity": 7900000000000154,
-      "Tag": "Ustun 11-0",
+      "Tag": "Pillar 11-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7043,7 +7043,7 @@
     },
     {
       "Entity": 7900000000000155,
-      "Tag": "Ustun 11-1",
+      "Tag": "Pillar 11-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7087,7 +7087,7 @@
     },
     {
       "Entity": 7900000000000156,
-      "Tag": "Ustun 11-2",
+      "Tag": "Pillar 11-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7131,7 +7131,7 @@
     },
     {
       "Entity": 7900000000000157,
-      "Tag": "Ustun 11-3",
+      "Tag": "Pillar 11-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7175,7 +7175,7 @@
     },
     {
       "Entity": 7900000000000158,
-      "Tag": "Ustun 11-4",
+      "Tag": "Pillar 11-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7219,7 +7219,7 @@
     },
     {
       "Entity": 7900000000000159,
-      "Tag": "Ustun 11-5",
+      "Tag": "Pillar 11-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7263,7 +7263,7 @@
     },
     {
       "Entity": 7900000000000160,
-      "Tag": "Ustun 11-6",
+      "Tag": "Pillar 11-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7307,7 +7307,7 @@
     },
     {
       "Entity": 7900000000000161,
-      "Tag": "Ustun 11-7",
+      "Tag": "Pillar 11-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7351,7 +7351,7 @@
     },
     {
       "Entity": 7900000000000162,
-      "Tag": "Ustun 11-8",
+      "Tag": "Pillar 11-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7395,7 +7395,7 @@
     },
     {
       "Entity": 7900000000000163,
-      "Tag": "Ustun 11-9",
+      "Tag": "Pillar 11-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7439,7 +7439,7 @@
     },
     {
       "Entity": 7900000000000164,
-      "Tag": "Ustun 11-10",
+      "Tag": "Pillar 11-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7483,7 +7483,7 @@
     },
     {
       "Entity": 7900000000000165,
-      "Tag": "Ustun 11-11",
+      "Tag": "Pillar 11-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7527,7 +7527,7 @@
     },
     {
       "Entity": 7900000000000166,
-      "Tag": "Ustun 11-12",
+      "Tag": "Pillar 11-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7571,7 +7571,7 @@
     },
     {
       "Entity": 7900000000000167,
-      "Tag": "Ustun 12-0",
+      "Tag": "Pillar 12-0",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7615,7 +7615,7 @@
     },
     {
       "Entity": 7900000000000168,
-      "Tag": "Ustun 12-1",
+      "Tag": "Pillar 12-1",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7659,7 +7659,7 @@
     },
     {
       "Entity": 7900000000000169,
-      "Tag": "Ustun 12-2",
+      "Tag": "Pillar 12-2",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7703,7 +7703,7 @@
     },
     {
       "Entity": 7900000000000170,
-      "Tag": "Ustun 12-3",
+      "Tag": "Pillar 12-3",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7747,7 +7747,7 @@
     },
     {
       "Entity": 7900000000000171,
-      "Tag": "Ustun 12-4",
+      "Tag": "Pillar 12-4",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7791,7 +7791,7 @@
     },
     {
       "Entity": 7900000000000172,
-      "Tag": "Ustun 12-5",
+      "Tag": "Pillar 12-5",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7835,7 +7835,7 @@
     },
     {
       "Entity": 7900000000000173,
-      "Tag": "Ustun 12-6",
+      "Tag": "Pillar 12-6",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7879,7 +7879,7 @@
     },
     {
       "Entity": 7900000000000174,
-      "Tag": "Ustun 12-7",
+      "Tag": "Pillar 12-7",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7923,7 +7923,7 @@
     },
     {
       "Entity": 7900000000000175,
-      "Tag": "Ustun 12-8",
+      "Tag": "Pillar 12-8",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -7967,7 +7967,7 @@
     },
     {
       "Entity": 7900000000000176,
-      "Tag": "Ustun 12-9",
+      "Tag": "Pillar 12-9",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -8011,7 +8011,7 @@
     },
     {
       "Entity": 7900000000000177,
-      "Tag": "Ustun 12-10",
+      "Tag": "Pillar 12-10",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -8055,7 +8055,7 @@
     },
     {
       "Entity": 7900000000000178,
-      "Tag": "Ustun 12-11",
+      "Tag": "Pillar 12-11",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -8099,7 +8099,7 @@
     },
     {
       "Entity": 7900000000000179,
-      "Tag": "Ustun 12-12",
+      "Tag": "Pillar 12-12",
       "Parent": 7900000000000010,
       "Transform": {
         "Translation": [
@@ -8143,7 +8143,7 @@
     },
     {
       "Entity": 7900000000000180,
-      "Tag": "Suzuvchi shar 1",
+      "Tag": "Floating ball 1",
       "Transform": {
         "Translation": [
           -6.5,
@@ -8195,7 +8195,7 @@
     },
     {
       "Entity": 7900000000000181,
-      "Tag": "Suzuvchi shar 2",
+      "Tag": "Floating ball 2",
       "Transform": {
         "Translation": [
           -3.9,
@@ -8247,7 +8247,7 @@
     },
     {
       "Entity": 7900000000000182,
-      "Tag": "Suzuvchi shar 3",
+      "Tag": "Floating ball 3",
       "Transform": {
         "Translation": [
           -1.2999999999999998,
@@ -8299,7 +8299,7 @@
     },
     {
       "Entity": 7900000000000183,
-      "Tag": "Mayoq",
+      "Tag": "Beacon",
       "Transform": {
         "Translation": [
           17,
@@ -8372,7 +8372,7 @@
     },
     {
       "Entity": 7900000000000184,
-      "Tag": "Magnit",
+      "Tag": "Magnet",
       "Transform": {
         "Translation": [
           0,

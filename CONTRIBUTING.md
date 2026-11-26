@@ -151,7 +151,7 @@ TEST(MyFeatureRoundTrip)
 
 ## 6. A new component or script API
 
-A new component — the list in [Architecture.md, section 17](docs/Architecture.md#17-yangi-komponent-qoshish):
+A new component — the list in [Architecture.md, section 17](docs/Architecture.md#17-adding-a-new-component):
 `Components.h` (the struct + `AllComponents`), `ComponentRegistry`, `SceneSerializer.cpp` (writing and reading),
 `SceneHierarchyPanel.cpp` (the `AddSection<T>` inspector section and `DisplayAddComponentEntry<T>`), both variants of
 `ResetRuntimeData` in `Scene.cpp` if it has runtime fields, a unit test, then the documentation:

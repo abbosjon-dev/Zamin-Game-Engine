@@ -16,7 +16,7 @@ namespace Zamin::PrefabFieldLabels {
             { "SpriteRenderer", "O'lcham (birlik)", "SpriteRenderer/Size" },
             { "SpriteRenderer", "Chegaralar (px)", "SpriteRenderer/SliceBorder" },
             { "SpriteRenderer", "Piksel / birlik", "SpriteRenderer/PixelsPerUnit" },
-            { "SpriteRenderer", "Takrorlash", "SpriteRenderer/Tiling" },
+            { "SpriteRenderer", "Takrorlash (tekstura)", "SpriteRenderer/Tiling" },
             { "SpriteRenderer", "Pixel-art (aniq piksellar)", "SpriteRenderer/PixelArt" },
             { "SpriteRenderer", "Gorizontal aks (Flip X)", "SpriteRenderer/FlipX" },
             { "SpriteRenderer", "Vertikal aks (Flip Y)", "SpriteRenderer/FlipY" },

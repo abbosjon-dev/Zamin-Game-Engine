@@ -11649,7 +11649,7 @@ namespace Zamin {
         ImGui::InputTextWithHint("##pname", Tr("Loyiha nomi"), &m_NewProjectName);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 2 * ImGui::GetFrameHeight() - 140);
-        ImGui::InputTextWithHint("##ploc", Tr("Joylashuv"), &m_NewProjectLocation);
+        ImGui::InputTextWithHint("##ploc", Tr("Joylashuv (papka)"), &m_NewProjectLocation);
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_FOLDER_OPEN "##browse"))
         {

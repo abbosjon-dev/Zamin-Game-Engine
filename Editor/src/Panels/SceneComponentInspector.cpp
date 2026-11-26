@@ -609,7 +609,7 @@ namespace Zamin {
             Scene::ResolveMeshMaterials(c);
             changed = true;
         }
-        changed |= UI::PropertyFloat2("Takrorlash", c.Mat.Tiling, 0.05f);
+        changed |= UI::PropertyFloat2("Takrorlash (tekstura)", c.Mat.Tiling, 0.05f);
         changed |= UI::PropertyFloat2("Siljish", c.Mat.Offset, 0.01f);
         if (lit)
         {
@@ -2700,7 +2700,7 @@ namespace Zamin {
         AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [&](CharacterController3DComponent& c) {
             InactiveComponentNote(entity, Tr("Obyekt nofaol: qahramon fizikada yo'q (faollashganda joriy joyida qayta yaratiladi)"));
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.05f, 10.0f);
-            changed |= UI::PropertyFloat(EditorText::Choose("Balandlik", "Height"), c.Height, 0.01f, 0.2f, 20.0f);
+            changed |= UI::PropertyFloat("Balandlik (o'lcham)", c.Height, 0.01f, 0.2f, 20.0f);
             changed |= UI::PropertySlider("Maks. qiyalik (°)", c.MaxSlope, 0.0f, 89.0f);
             changed |= UI::PropertyFloat("Zinapoya balandligi", c.StepHeight, 0.01f, 0.0f, 2.0f);
             changed |= UI::PropertyFloat("Massa", c.Mass, 0.5f, 1.0f, 10000.0f);

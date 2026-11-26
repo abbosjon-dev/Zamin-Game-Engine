@@ -1104,7 +1104,7 @@ namespace Zamin {
         ImGui::TableSetupColumn(Tr("O'zgartirilgan"), sortFlags(AssetSortColumn::Modified, ImGuiTableColumnFlags_WidthFixed), 118.0f,
                                 (ImGuiID)AssetSortColumn::Modified);
         if (recursive)
-            ImGui::TableSetupColumn(Tr("Joylashuv"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 150.0f, 99);
+            ImGui::TableSetupColumn(Tr("Joylashuv (papka)"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, 150.0f, 99);
         ImGui::TableHeadersRow();
 
         if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsDirty)

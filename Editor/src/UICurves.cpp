@@ -502,7 +502,7 @@ namespace Zamin::UI {
         bool changed = KeyCurveEditor(curve.Keys, t0, t1, false, valueMin, valueMax, 0.0f);
 
         // Before the first / after the last key.
-        static const char* const wraps[] = { "Ushlab turish", "Takrorlash", "Borib-qaytish" };
+        static const char* const wraps[] = { "Ushlab turish", "Takrorlash (repeat)", "Borib-qaytish" };
         const float spacing = ImGui::GetStyle().ItemSpacing.x;
         const float half = std::max(40.0f, (ImGui::GetContentRegionAvail().x - spacing) * 0.5f);
         ImGui::SetNextItemWidth(half);

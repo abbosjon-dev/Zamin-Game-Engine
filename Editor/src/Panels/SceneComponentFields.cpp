@@ -1845,7 +1845,7 @@ namespace Zamin {
         else
         {
             ImGui::BeginDisabled(!c.SpriteName.empty());
-            changed |= UI::PropertyFloat("Takrorlash", c.TilingFactor, 0.05f, 0.0f, 100.0f);
+            changed |= UI::PropertyFloat("Takrorlash (tekstura)", c.TilingFactor, 0.05f, 0.0f, 100.0f);
             ImGui::EndDisabled();
         }
 

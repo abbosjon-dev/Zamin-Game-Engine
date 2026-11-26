@@ -103,6 +103,7 @@ namespace Zamin {
             { "Versiyani nusxalash", "Copy version" },
             // ---- layouts
             { "Joylashuv", "Layout" },
+            { "Joylashuv (papka)", "Location" }, // where a project or an asset is on disk ("Joylashuv" alone is a window layout)
             { "Joriy joylashuvni saqlash", "Save current layout" },
             { "Joylashuvlarni boshqarish", "Manage layouts" },
             { "Joylashuvni tiklash (standart)", "Reset layout (default)" },
@@ -857,12 +858,14 @@ namespace Zamin {
             { "O'yindagi debug chizish (skriptlarning DebugDraw'i va fizika ko'rinishlari).", "Debug drawing in the game (the scripts' DebugDraw and the physics views)." },
             { "O'yin SaveData bilan saqlagan qiymatlar (o'yinlar orasida qoladi; loyiha faylida emas).", "The values the game saved with SaveData (they stay between runs; not in the project file)." },
             // ---- inspector: component properties and their choices
-            { "Balandlik", "Volume" }, // the character controller's height: EditorText::Choose
+            { "Balandlik", "Volume" }, // a sound's loudness; a height is "Balandlik (o'lcham)"
+            { "Balandlik (o'lcham)", "Height" },
             { "Rang", "Color" },
             { "Siljish", "Offset" },
             { "O'q", "Axis" },
             { "Turi", "Type" },
-            { "Takrorlash", "Tiling" },
+            { "Takrorlash", "Loop" }, // a sound / clip / state that repeats; a texture's tiling is "Takrorlash (tekstura)"
+            { "Takrorlash (tekstura)", "Tiling" },
             { "Faol", "Enabled" },
             { "Cheklash", "Limit" },
             { "Tezlik", "Speed" },

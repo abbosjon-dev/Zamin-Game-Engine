@@ -292,7 +292,7 @@ namespace Zamin {
             EnableEmissionForMap(d); // else the new map would show nothing
 
         UI::PropertyHeader("UV");
-        changed |= UI::PropertyFloat2("Takrorlash", d.Tiling, 0.05f);
+        changed |= UI::PropertyFloat2("Takrorlash (tekstura)", d.Tiling, 0.05f);
         changed |= UI::PropertyFloat2("Siljish", d.Offset, 0.01f);
         UI::EndPropertyGrid();
         return changed;

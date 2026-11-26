@@ -545,7 +545,8 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
     auto prior = Project::GetActive();
     const auto root = std::filesystem::path(ZAMIN_SOURCE_DIR) / "Projects/VisualWorkshop";
     CHECK(Project::Load(root / "VisualWorkshop.zproject") != nullptr);
-    // RankOf(Total) returns the Rank enum (Bronze 0 / Silver 1 / Gold 2) through one of three Returns.
+    // RankOf(Total) returns the Rank enum (Bronze 0 / Silver 1 / Gold 2) through one of three Returns; both go into
+    // the Summary variable of the graph's Result struct.
     for (const auto& [name, expected, rank] : std::vector<std::tuple<std::string, double, int>>{ { "Visual2D", 12., 1 }, { "Visual3D", 18., 2 } })
     {
         auto scene = CreateRef<Scene>();
@@ -563,6 +564,8 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
                 CHECK(host->VM.Error().empty());
                 CHECK(host->VM.Variables().at("Total") == expected);
                 CHECK(host->VM.Variables().at("FinalRank") == rank);
+                // The Result struct made from Total and the rank, stored in Summary and read back by Break/GetField.
+                CHECK(host->VM.Variables().at("Summary") == Value({ { "Total", expected }, { "Rank", rank } }));
                 CHECK(host->VM.Pending() == 0);
             }
         }

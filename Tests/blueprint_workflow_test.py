@@ -54,11 +54,14 @@ def main():
                 # RankOf(Total) returns the Rank enum through one of three Returns; Enum.ToText prints its name.
                 if f'BLUEPRINT_RANK rank={rank}' not in text:
                     raise RuntimeError(f'{scene}/{mode}: missing rank {rank}; {log}')
+                # Make Result{Total, Rank} -> Set Summary -> Break (Total) + GetField (Rank) -> Print.
+                if f'BLUEPRINT_SUMMARY total={score} rank={rank}' not in text:
+                    raise RuntimeError(f'{scene}/{mode}: missing struct summary; {log}')
                 if any(marker in text for marker in ('GL_INVALID_', 'Assertion failed', "Visual graph '", 'Visual graph error', 'Visual graph:')):
                     raise RuntimeError(f'{scene}/{mode}: runtime diagnostic; {log}')
                 subprocess.run(['python3', str(ROOT / 'Tests/png_check.py'), str(png)], check=True)
                 results.append({'Scene': scene, 'Mode': mode, 'Frames': 120, 'Total': score, 'Rank': rank, 'NativeGameModule': False})
-                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return, total={score} rank={rank}', flush=True)
+                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary, total={score} rank={rank}', flush=True)
             if args.exports:
                 export_out = out / (scene+'-export')
                 export_env = dict(env, ZAMIN_BUILD_DIR=str(build))

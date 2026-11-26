@@ -1,6 +1,6 @@
 {
   "Format": "Zamin.VisualGraph",
-  "Version": 2,
+  "Version": 3,
   "Nodes": [
     {
       "ID": 1,
@@ -301,6 +301,102 @@
       "Inputs": {
         "Name": "RankOf"
       }
+    },
+    {
+      "ID": 60,
+      "Kind": "Struct.Make",
+      "X": 1340,
+      "Y": 1000,
+      "Inputs": {
+        "Struct": "Result"
+      }
+    },
+    {
+      "ID": 61,
+      "Kind": "Set.Struct",
+      "X": 1600,
+      "Y": 1000,
+      "Inputs": {
+        "Name": "Summary"
+      }
+    },
+    {
+      "ID": 62,
+      "Kind": "Get.Struct",
+      "X": 1340,
+      "Y": 1200,
+      "Inputs": {
+        "Name": "Summary"
+      }
+    },
+    {
+      "ID": 63,
+      "Kind": "Struct.Break",
+      "X": 1600,
+      "Y": 1200,
+      "Inputs": {
+        "Struct": "Result"
+      }
+    },
+    {
+      "ID": 64,
+      "Kind": "FormatNumber",
+      "X": 1860,
+      "Y": 1200,
+      "Inputs": {
+        "Decimals": 0
+      }
+    },
+    {
+      "ID": 65,
+      "Kind": "Concat",
+      "X": 1600,
+      "Y": 1520,
+      "Inputs": {
+        "A": "BLUEPRINT_SUMMARY total="
+      }
+    },
+    {
+      "ID": 66,
+      "Kind": "Concat",
+      "X": 1860,
+      "Y": 1520,
+      "Inputs": {
+        "B": " rank="
+      }
+    },
+    {
+      "ID": 67,
+      "Kind": "Struct.GetField",
+      "X": 1600,
+      "Y": 1340,
+      "Inputs": {
+        "Struct": "Result",
+        "Field": "Rank"
+      }
+    },
+    {
+      "ID": 68,
+      "Kind": "Enum.ToText",
+      "X": 1860,
+      "Y": 1340,
+      "Inputs": {
+        "Enum": "Rank"
+      }
+    },
+    {
+      "ID": 69,
+      "Kind": "Concat",
+      "X": 1860,
+      "Y": 1680,
+      "Inputs": {}
+    },
+    {
+      "ID": 70,
+      "Kind": "Print",
+      "X": 1860,
+      "Y": 1000,
+      "Inputs": {}
     }
   ],
   "Links": [
@@ -555,6 +651,90 @@
       "Output": "Then",
       "To": 33,
       "Input": "In"
+    },
+    {
+      "From": 33,
+      "Output": "Then",
+      "To": 61,
+      "Input": "In"
+    },
+    {
+      "From": 10,
+      "Output": "Number",
+      "To": 60,
+      "Input": "Total"
+    },
+    {
+      "From": 30,
+      "Output": "Rank",
+      "To": 60,
+      "Input": "Rank"
+    },
+    {
+      "From": 60,
+      "Output": "Value",
+      "To": 61,
+      "Input": "Value"
+    },
+    {
+      "From": 61,
+      "Output": "Then",
+      "To": 70,
+      "Input": "In"
+    },
+    {
+      "From": 62,
+      "Output": "Value",
+      "To": 63,
+      "Input": "Value"
+    },
+    {
+      "From": 63,
+      "Output": "Total",
+      "To": 64,
+      "Input": "Number"
+    },
+    {
+      "From": 64,
+      "Output": "Value",
+      "To": 65,
+      "Input": "B"
+    },
+    {
+      "From": 65,
+      "Output": "Value",
+      "To": 66,
+      "Input": "A"
+    },
+    {
+      "From": 62,
+      "Output": "Value",
+      "To": 67,
+      "Input": "Value"
+    },
+    {
+      "From": 67,
+      "Output": "Value",
+      "To": 68,
+      "Input": "Value"
+    },
+    {
+      "From": 66,
+      "Output": "Value",
+      "To": 69,
+      "Input": "A"
+    },
+    {
+      "From": 68,
+      "Output": "Value",
+      "To": 69,
+      "Input": "B"
+    },
+    {
+      "From": 69,
+      "Output": "Value",
+      "To": 70,
+      "Input": "Text"
     }
   ],
   "Variables": {
@@ -578,6 +758,14 @@
       "Type": "Enum",
       "Default": 0,
       "Enum": "Rank"
+    },
+    "Summary": {
+      "Type": "Struct",
+      "Default": {
+        "Total": 0,
+        "Rank": 0
+      },
+      "Struct": "Result"
     }
   },
   "Functions": {
@@ -644,6 +832,23 @@
         }
       ],
       "Source": ""
+    }
+  },
+  "Structs": {
+    "Result": {
+      "Fields": [
+        {
+          "Name": "Total",
+          "Type": "Number",
+          "Default": 0
+        },
+        {
+          "Name": "Rank",
+          "Type": "Enum",
+          "Default": 0,
+          "Enum": "Rank"
+        }
+      ]
     }
   }
 }

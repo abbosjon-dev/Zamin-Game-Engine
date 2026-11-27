@@ -31,6 +31,9 @@ namespace Zamin {
         Visual::Graph m_Loaded;
         size_t m_Instances = 0;
         int m_Sort = 2; // 0 node, 1 calls, 2 exclusive, 3 inclusive
+        // The node rows' order, kept while the mouse is over the table so a row doesn't move away under the cursor.
+        std::vector<uint32_t> m_RowOrder;
+        bool m_HoldOrder = false;
         std::string NodeName(uint32_t id) const;
     };
 }

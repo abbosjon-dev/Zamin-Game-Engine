@@ -119,22 +119,35 @@ namespace Zamin {
             if (ImGui::BeginCombo(Tr("Tartib###Sort"), Tr(sorts[m_Sort])))
             {
                 for (int i = 0; i < 4; ++i)
-                    if (ImGui::Selectable(Tr(sorts[i]), i == m_Sort)) m_Sort = i;
+                    if (ImGui::Selectable(Tr(sorts[i]), i == m_Sort)) { m_Sort = i; m_RowOrder.clear(); }
                 ImGui::EndCombo();
             }
-            std::vector<uint32_t> ids;
-            for (const auto& [id, n] : m_Profile.Nodes) ids.push_back(id);
             const auto& nodes = m_Profile.Nodes;
-            std::sort(ids.begin(), ids.end(), [&](uint32_t a, uint32_t b) {
-                const auto &x = nodes.at(a), &y = nodes.at(b);
-                if (m_Sort == 1 && x.Calls != y.Calls) return x.Calls > y.Calls;
-                if (m_Sort == 2 && x.Exclusive != y.Exclusive) return x.Exclusive > y.Exclusive;
-                if (m_Sort == 3 && x.Inclusive != y.Inclusive) return x.Inclusive > y.Inclusive;
-                return a < b;
-            });
-            if (ids.size() > 200) ids.resize(200);
+            // While playing, the times change every frame; re-sorting then would move the row under the cursor
+            // before it is clicked, so the order is held while the mouse is over the table.
+            bool reorder = !m_HoldOrder || m_RowOrder.empty();
+            for (uint32_t id : m_RowOrder)
+                if (!nodes.contains(id)) reorder = true;
+            if (reorder)
+            {
+                m_RowOrder.clear();
+                for (const auto& [id, n] : nodes) m_RowOrder.push_back(id);
+                std::sort(m_RowOrder.begin(), m_RowOrder.end(), [&](uint32_t a, uint32_t b) {
+                    const auto &x = nodes.at(a), &y = nodes.at(b);
+                    if (m_Sort == 1 && x.Calls != y.Calls) return x.Calls > y.Calls;
+                    if (m_Sort == 2 && x.Exclusive != y.Exclusive) return x.Exclusive > y.Exclusive;
+                    if (m_Sort == 3 && x.Inclusive != y.Inclusive) return x.Inclusive > y.Inclusive;
+                    return a < b;
+                });
+                if (m_RowOrder.size() > 200) m_RowOrder.resize(200);
+            }
+            const std::vector<uint32_t>& ids = m_RowOrder;
+            const float tableHeight = std::min(12.0f, float(ids.size()) + 1.5f) * ImGui::GetFrameHeight();
+            const ImVec2 tableMin = ImGui::GetCursorScreenPos();
+            const ImVec2 tableMax = { tableMin.x + ImGui::GetContentRegionAvail().x, tableMin.y + tableHeight };
+            m_HoldOrder = ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(tableMin, tableMax);
             if (ImGui::BeginTable("##profileNodes", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
-                                  { 0, std::min(12.0f, float(ids.size()) + 1.5f) * ImGui::GetFrameHeight() }))
+                                  { 0, tableHeight }))
             {
                 ImGui::TableSetupScrollFreeze(0, 1);
                 ImGui::TableSetupColumn(Tr("Tugun"), ImGuiTableColumnFlags_WidthStretch);
@@ -149,7 +162,7 @@ namespace Zamin {
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
                     if (ImGui::Selectable((NodeName(id) + "###node" + std::to_string(id)).c_str(), false, ImGuiSelectableFlags_SpanAllColumns) && OnSelectNode) OnSelectNode(id);
-                    GraphLayout::RecordRect("profiler/node/" + std::to_string(id), ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+                    if (ImGui::IsItemVisible()) GraphLayout::RecordRect("profiler/node/" + std::to_string(id), ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
                     ImGui::TableNextColumn();
                     ImGui::Text("%llu", (unsigned long long)n.Calls);
                     ImGui::TableNextColumn();

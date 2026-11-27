@@ -2,6 +2,7 @@
 #include "VisualGraphLayout.h"
 #include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
+#include "Zamin/Project/Project.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -176,14 +177,42 @@ namespace Zamin {
             m_Graph.Links.push_back({ id + 1, "X", id + 2, "Result" });
             m_Fit = true;
         }
-        std::string erase, renameFrom, renameTo, open;
+        std::string erase, renameFrom, renameTo, open, overrideName;
+        const auto overrides = m_Graph.FunctionOverrides();
         for (auto& [name, signature] : m_Graph.Functions)
         {
+            // An inherited function is read-only until it is overridden; an override keeps the parent's signature.
+            const bool inherited = m_Graph.IsInherited("Function", name), overriding = overrides.contains(name);
+            const std::string mark = inherited ? std::string(" [") + Tr("meros") + "]" : overriding ? std::string(" [") + Tr("qayta yozilgan") + "]" : "";
             ImGui::PushID(name.c_str());
-            const bool treeOpen = GraphLayout::TreeNode("signature", name + " (" + std::to_string(signature.Inputs.size()) + " -> " + std::to_string(signature.Outputs.size()) + ")", name);
+            const bool treeOpen = GraphLayout::TreeNode("signature", name + " (" + std::to_string(signature.Inputs.size()) + " -> " + std::to_string(signature.Outputs.size()) + ")" + mark, name);
             GraphLayout::PushScope(name);
             if (treeOpen)
             {
+                if (inherited)
+                {
+                    GraphLayout::FitText((std::string(Tr("meros")) + ": " + (m_Graph.Inherited.Chain.empty() ? m_Graph.Parent : m_Graph.Inherited.Chain.front())).c_str(), true);
+                    GraphLayout::RecordKey("inherited");
+                    if (GraphLayout::Button(Tr("Funksiyani qayta yozish###Override function"))) overrideName = name;
+                }
+                if (overriding)
+                {
+                    GraphLayout::FitText(Tr("Ota grafdagi funksiyani qayta yozadi"), true);
+                    GraphLayout::RecordKey("override");
+                    if (GraphLayout::Button(Tr("Ota funksiya chaqiruvini qo'shish###Add call parent node")))
+                    {
+                        uint32_t id = 0;
+                        for (const auto& node : m_Graph.Nodes) id = std::max(id, node.ID);
+                        if (id < UINT32_MAX && m_Graph.Nodes.size() < 4096)
+                        {
+                            Snapshot();
+                            m_Graph.Nodes.push_back({ id + 1, "Parent.Call", (100 - m_Pan.x) / m_Zoom, (100 - m_Pan.y) / m_Zoom, { { "Name", name } } });
+                            m_Selected = id + 1;
+                            m_Selection = { id + 1 };
+                        }
+                    }
+                }
+                ImGui::BeginDisabled(inherited || overriding);
                 char renamed[129]{};
                 std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
                 if (ImGui::InputText(GraphLayout::Field(Tr("Funksiyani qayta nomlash###Rename function")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
@@ -192,6 +221,7 @@ namespace Zamin {
                     renameTo = renamed;
                 }
                 GraphLayout::Record(Tr("Funksiyani qayta nomlash###Rename function"));
+                ImGui::EndDisabled();
                 if (GraphLayout::Button(Tr("Chaqiruv tugunini qo'shish###Add call node")))
                 {
                     uint32_t id = 0;
@@ -205,7 +235,7 @@ namespace Zamin {
                     }
                 }
                 GraphLayout::SameLineIfFits(GraphLayout::ButtonWidth(Tr("Funksiyani ochish###Open function")));
-                if (GraphLayout::Button(Tr("Funksiyani ochish###Open function"))) open = name;
+                if (!inherited && GraphLayout::Button(Tr("Funksiyani ochish###Open function"))) open = name;
                 auto draft = signature;
                 bool changed = false;
                 std::vector<std::pair<std::string, std::string>> pinRenames[2];
@@ -261,8 +291,11 @@ namespace Zamin {
                     GraphLayout::PopScope();
                     ImGui::TreePop();
                 };
+                ImGui::BeginDisabled(inherited || overriding);
                 pins(Tr("Parametrlar###Parameters"), draft.Inputs, 0);
                 pins(Tr("Natijalar###Returns"), draft.Outputs, 1);
+                ImGui::EndDisabled();
+                ImGui::BeginDisabled(inherited);
                 const bool localsOpen = ImGui::TreeNode(Tr("Lokal o'zgaruvchilar###Local variables"));
                 GraphLayout::Record(Tr("Lokal o'zgaruvchilar###Local variables"));
                 if (localsOpen)
@@ -317,7 +350,9 @@ namespace Zamin {
                     const auto removed = m_Graph.PruneInvalidPins();
                     if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
                 }
-                if (GraphLayout::Button(Tr("Funksiya va uning tugunlarini o'chirish###Delete function and its nodes"))) erase = name;
+                ImGui::EndDisabled();
+                // Deleting an override makes the parent's function the graph's again.
+                if (!inherited && GraphLayout::Button(overriding ? Tr("Qayta yozishni olib tashlash###Remove override") : Tr("Funksiya va uning tugunlarini o'chirish###Delete function and its nodes"))) erase = name;
                 ImGui::TreePop();
             }
             GraphLayout::PopScope();
@@ -339,13 +374,15 @@ namespace Zamin {
             Snapshot();
             std::set<uint32_t> nodes;
             for (const auto& node : m_Graph.Nodes)
-                if (node.Kind.starts_with("Function.") && node.Inputs.contains("Name") && node.Inputs.at("Name") == erase) nodes.insert(node.ID);
+                if ((node.Kind.starts_with("Function.") || node.Kind == "Parent.Call") && node.Inputs.contains("Name") && node.Inputs.at("Name") == erase) nodes.insert(node.ID);
             std::erase_if(m_Graph.Nodes, [&](const auto& node) { return nodes.contains(node.ID); });
             std::erase_if(m_Graph.Links, [&](const auto& link) { return nodes.contains(link.From) || nodes.contains(link.To); });
             m_Graph.Functions.erase(erase);
             if (m_FocusFunction == erase) m_FocusFunction.clear();
+            if (overrides.contains(erase)) Reinherit();
         }
         if (!open.empty()) FocusFunction(open);
+        if (!overrideName.empty()) OverrideFunction(overrideName);
     }
     void VisualGraphPanel::Enums()
     {
@@ -405,10 +442,13 @@ namespace Zamin {
         for (auto& [name, definition] : m_Graph.Enums)
         {
             ImGui::PushID(name.c_str());
-            const bool treeOpen = GraphLayout::TreeNode("enum", name + " (" + std::to_string(definition.Entries.size()) + ")", name);
+            // An inherited enum is read-only here: its parent owns it.
+            const bool inherited = m_Graph.IsInherited("Enum", name);
+            const bool treeOpen = GraphLayout::TreeNode("enum", (inherited ? name + " [" + Tr("meros") + "]" : name) + " (" + std::to_string(definition.Entries.size()) + ")", name);
             GraphLayout::PushScope(name);
             if (treeOpen)
             {
+                ImGui::BeginDisabled(inherited);
                 char renamed[65]{};
                 std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
                 if (ImGui::InputText(GraphLayout::Field(Tr("Enumni qayta nomlash###Rename enum")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
@@ -476,6 +516,7 @@ namespace Zamin {
                     if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
                 }
                 if (GraphLayout::Button(Tr("Enumni o'chirish###Delete enum"))) erase = name;
+                ImGui::EndDisabled();
                 ImGui::TreePop();
             }
             GraphLayout::PopScope();
@@ -529,10 +570,13 @@ namespace Zamin {
         for (auto& [name, definition] : m_Graph.Structs)
         {
             ImGui::PushID(name.c_str());
-            const bool treeOpen = GraphLayout::TreeNode("struct", name + " {" + std::to_string(definition.Fields.size()) + "}", name);
+            // An inherited struct is read-only here: its parent owns it.
+            const bool inherited = m_Graph.IsInherited("Struct", name);
+            const bool treeOpen = GraphLayout::TreeNode("struct", (inherited ? name + " [" + Tr("meros") + "]" : name) + " {" + std::to_string(definition.Fields.size()) + "}", name);
             GraphLayout::PushScope(name);
             if (treeOpen)
             {
+                ImGui::BeginDisabled(inherited);
                 char renamed[65]{};
                 std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
                 if (ImGui::InputText(GraphLayout::Field(Tr("Strukturani qayta nomlash###Rename struct")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
@@ -609,6 +653,7 @@ namespace Zamin {
                     if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
                 }
                 if (GraphLayout::Button(Tr("Strukturani o'chirish###Delete struct"))) erase = name;
+                ImGui::EndDisabled();
                 ImGui::TreePop();
             }
             GraphLayout::PopScope();
@@ -683,10 +728,13 @@ namespace Zamin {
         for (auto& [name, macro] : m_Graph.Macros)
         {
             ImGui::PushID(name.c_str());
-            const bool treeOpen = GraphLayout::TreeNode("macro", name + " (" + std::to_string(macro.Inputs.size()) + " -> " + std::to_string(macro.Outputs.size()) + ")", name);
+            // An inherited macro is read-only here: its parent owns it.
+            const bool inherited = m_Graph.IsInherited("Macro", name);
+            const bool treeOpen = GraphLayout::TreeNode("macro", (inherited ? name + " [" + Tr("meros") + "]" : name) + " (" + std::to_string(macro.Inputs.size()) + " -> " + std::to_string(macro.Outputs.size()) + ")", name);
             GraphLayout::PushScope(name);
             if (treeOpen)
             {
+                ImGui::BeginDisabled(inherited);
                 char renamed[65]{};
                 std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
                 if (ImGui::InputText(GraphLayout::Field(Tr("Makroni qayta nomlash###Rename macro")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
@@ -780,6 +828,7 @@ namespace Zamin {
                     if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
                 }
                 if (GraphLayout::Button(Tr("Makro va uning tugunlarini o'chirish###Delete macro and its nodes"))) erase = name;
+                ImGui::EndDisabled();
                 ImGui::TreePop();
             }
             GraphLayout::PopScope();
@@ -811,5 +860,130 @@ namespace Zamin {
             m_Selected = m_From = 0;
         }
         if (!open.empty()) OpenMacro(open);
+    }
+}
+namespace Zamin {
+    void VisualGraphPanel::Reinherit()
+    {
+        if (!m_Graph.Parent.empty() || m_Graph.Inherited.Base) m_Graph.LoadParent(Project::GetAssetDirectory(), m_Path);
+        std::snprintf(m_ParentPath, sizeof(m_ParentPath), "%s", m_Graph.Parent.c_str());
+        m_ValidateDirty = true;
+        m_Descriptions.clear();
+    }
+    void VisualGraphPanel::OverrideFunction(const std::string& name)
+    {
+        using namespace Visual;
+        if (!m_Graph.IsInherited("Function", name)) return;
+        uint32_t id = 0;
+        float bottom = 0;
+        for (const auto& node : m_Graph.Nodes)
+        {
+            id = std::max(id, node.ID);
+            if (node.Macro.empty()) bottom = std::max(bottom, node.Y + 140);
+        }
+        if (id > UINT32_MAX - 3 || m_Graph.Nodes.size() + 3 > 4096)
+        {
+            m_Error = Tr("Tugunlar soni chegarasiga yetildi");
+            return;
+        }
+        // The signature becomes the graph's own (the same pins); the body runs the parent's version and returns its
+        // results: entry -> Parent.Call -> return, every parameter and result wired through.
+        Snapshot();
+        m_Graph.Inherited.Functions.erase(name);
+        const auto& signature = m_Graph.Functions.at(name);
+        m_Graph.Nodes.push_back({ id + 1, "Function.Entry", 40, bottom, { { "Name", name } } });
+        m_Graph.Nodes.push_back({ id + 2, "Parent.Call", 340, bottom, { { "Name", name } } });
+        m_Graph.Nodes.push_back({ id + 3, "Function.Return", 660, bottom, { { "Name", name } } });
+        m_Graph.Links.push_back({ id + 1, "Then", id + 2, "In" });
+        m_Graph.Links.push_back({ id + 2, "Then", id + 3, "In" });
+        for (const auto& pin : signature.Inputs) m_Graph.Links.push_back({ id + 1, pin.Name, id + 2, pin.Name });
+        for (const auto& pin : signature.Outputs) m_Graph.Links.push_back({ id + 2, pin.Name, id + 3, pin.Name });
+        m_Error.clear();
+        OpenMacro("");
+        FocusFunction(name);
+    }
+    void VisualGraphPanel::OverrideEvent(const std::string& key)
+    {
+        if (!m_Graph.IsInherited("Event", key) || m_Graph.EventOverrides().contains(key)) return;
+        const bool custom = key.starts_with("Custom.");
+        const std::string kind = custom ? "Event.Custom" : "Event." + key;
+        if (!Visual::Catalog().contains(kind)) return;
+        uint32_t id = 0;
+        float bottom = 0;
+        for (const auto& node : m_Graph.Nodes)
+        {
+            id = std::max(id, node.ID);
+            if (node.Macro.empty()) bottom = std::max(bottom, node.Y + 140);
+        }
+        if (id > UINT32_MAX - 2 || m_Graph.Nodes.size() + 2 > 4096)
+        {
+            m_Error = Tr("Tugunlar soni chegarasiga yetildi");
+            return;
+        }
+        // The graph's own handler of the event replaces the parent's; Parent.Event runs the parent's first.
+        Snapshot();
+        std::map<std::string, Visual::Value> inputs;
+        if (custom) inputs["Name"] = key.substr(7);
+        m_Graph.Nodes.push_back({ id + 1, kind, 40, bottom, std::move(inputs) });
+        m_Graph.Nodes.push_back({ id + 2, "Parent.Event", 340, bottom, { { "Name", key } } });
+        m_Graph.Links.push_back({ id + 1, "Then", id + 2, "In" });
+        OpenMacro("");
+        m_Selected = id + 2;
+        m_Selection = { id + 2 };
+        m_Fit = true;
+    }
+    void VisualGraphPanel::Inheritance()
+    {
+        const bool sectionOpen = ImGui::CollapsingHeader(Tr("Meros###Inheritance"));
+        GraphLayout::Record(Tr("Meros###Inheritance"));
+        if (!sectionOpen) return;
+        GraphLayout::PushScope("inheritance");
+        struct ScopeGuard
+        {
+            ~ScopeGuard() { GraphLayout::PopScope(); }
+        } scopeGuard;
+        GraphLayout::FitText((std::string(Tr("Ota graf")) + ": " + (m_Graph.Parent.empty() ? std::string(Tr("(yo'q)")) : m_Graph.Parent)).c_str(), m_Graph.Parent.empty());
+        GraphLayout::RecordKey("Parent");
+        for (size_t i = 1; i < m_Graph.Inherited.Chain.size(); ++i) GraphLayout::FitText(("<- " + m_Graph.Inherited.Chain[i]).c_str(), true);
+        // The parent: an Assets-relative .zgraph path (another graph's variables, functions, structs, macros and
+        // events become this graph's). Set and clear are undoable.
+        ImGui::InputTextWithHint(GraphLayout::Field(Tr("Ota graf yo'li###Parent path")).c_str(), "Scripts/Base.zgraph", m_ParentPath, sizeof(m_ParentPath));
+        GraphLayout::Record(Tr("Ota graf yo'li###Parent path"));
+        auto setParent = [&](const std::string& parent) {
+            const auto self = Project::GetAssetRelativePath(m_Path);
+            if (!parent.empty() && (!parent.ends_with(".zgraph") || parent == self))
+            {
+                m_Error = Tr("Ota graf boshqa .zgraph fayli bo'lishi kerak");
+                return;
+            }
+            Snapshot();
+            m_Graph.ClearInherited();
+            m_Graph.Parent = parent;
+            Reinherit();
+            m_Error.clear();
+        };
+        if (GraphLayout::Button(Tr("Ota grafni o'rnatish###Set parent")) && m_ParentPath != m_Graph.Parent) setParent(m_ParentPath);
+        if (!m_Graph.Parent.empty())
+        {
+            GraphLayout::SameLineIfFits(GraphLayout::ButtonWidth(Tr("Ota grafni olib tashlash###Clear parent")));
+            if (GraphLayout::Button(Tr("Ota grafni olib tashlash###Clear parent"))) setParent("");
+        }
+        if (m_Graph.Inherited.Events.empty()) return;
+        // The parent's events: an inherited handler runs as it is until this graph handles the event too.
+        ImGui::SeparatorText(Tr("Ota hodisalar###Parent events"));
+        const auto overridden = m_Graph.EventOverrides();
+        std::string overrideKey;
+        for (const auto& key : m_Graph.Inherited.Events)
+        {
+            ImGui::PushID(key.c_str());
+            GraphLayout::PushScope(key);
+            const bool done = overridden.contains(key);
+            GraphLayout::FitText((key + (done ? std::string("  [") + Tr("qayta yozilgan") + "]" : std::string("  [") + Tr("meros") + "]")).c_str(), !done);
+            GraphLayout::RecordKey("event");
+            if (!done && GraphLayout::SmallButton(Tr("Hodisani qayta yozish###Override event"))) overrideKey = key;
+            GraphLayout::PopScope();
+            ImGui::PopID();
+        }
+        if (!overrideKey.empty()) OverrideEvent(overrideKey);
     }
 }

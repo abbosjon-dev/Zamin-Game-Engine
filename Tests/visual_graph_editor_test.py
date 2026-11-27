@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Real X11/ImGui visual graph edit regression, then a typed function, a graph struct and an inline macro (with a nested struct
-field and an enum array variable) authored in the UI and run in the Player.
+"""Real X11/ImGui visual graph edit regression, then a typed function, a graph struct, an inline macro (with a nested struct
+field and an enum array variable) and a child graph (a parent set, a curve variable edited key by key, an inherited function
+overridden with a call to the parent's, an inherited event overridden) authored in the UI and run in the Player.
 Run under xvfb-run with a 1600x1000x24 screen. Requires xdotool and ImageMagick.
 ZAMIN_BUILD_DIR chooses the build (default build); the sample is copied to a private temp directory.
 """
@@ -135,8 +136,8 @@ try:
  else:raise RuntimeError('Function graph window did not become ready')
  time.sleep(1)
  press('Typed functions');press('functions/Create function');save()
- j=readflow();assert j['Version']==4 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
- print('UI: function created; the format 1 graph saved as format 4',flush=True)
+ j=readflow();assert j['Version']==5 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
+ print('UI: function created; the format 1 graph saved as format 5',flush=True)
  click(160,282);save()
  j=readflow();calls=[n for n in j['Nodes'] if n['Kind']=='Function.Call'];assert len(calls)==1 and calls[0]['Inputs']['Name']=='Calculate',j['Nodes']
  call=calls[0]['ID'];print('UI: call node from the node library passed',flush=True)
@@ -172,7 +173,7 @@ finally:
 def struct_flow(project,env,build,out,scene):
  global app
  flow=project/'Assets/Scripts/StructFlow.zgraph'
- # A format 2 file (no Structs section): the editor writes the current format (4) on save.
+ # A format 2 file (no Structs section): the editor writes the current format (5) on save.
  flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':2,'Nodes':[node(1,'Event.Start',40,60),node(2,'Print',760,60),node(3,'Concat',560,420,{'A':'STRUCT_UI value='}),node(4,'FormatNumber',300,470,{'Decimals':0})],
   'Links':[{'From':1,'Output':'Then','To':2,'Input':'In'},{'From':3,'Output':'Value','To':2,'Input':'Text'},{'From':4,'Output':'Value','To':3,'Input':'B'}],'Variables':{},'Functions':{},'Enums':{}},indent=2))
  readstruct=lambda:json.loads(flow.read_text())
@@ -190,8 +191,8 @@ def struct_flow(project,env,build,out,scene):
   time.sleep(1)
   press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats');press('Stats/Add field')
   enter('Stats/0/Field name','Power');save()
-  j=readstruct();assert j['Version']==4 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
-  unclipped();print('UI: struct created, field added and renamed; saved as format 4',flush=True)
+  j=readstruct();assert j['Version']==5 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
+  unclipped();print('UI: struct created, field added and renamed; saved as format 5',flush=True)
   subprocess.run(['import','-window','root',str(out/'struct-editor.png')],check=True)
   # Make Stats from the node library (Structs / Make Stats), Power = 7; then a GetField node (struct and field preset).
   click(150,233);selectall();time.sleep(.3);x('type','--delay','150','make stats');time.sleep(1.2);click(155,283)
@@ -232,7 +233,7 @@ def struct_flow(project,env,build,out,scene):
 def macro_flow(project,env,build,out,scene):
  global app
  flow=project/'Assets/Scripts/MacroFlow.zgraph'
- # A format 3 file with an enum and a struct: the editor writes format 4 on save.
+ # A format 3 file with an enum and a struct: the editor writes format 5 on save.
  flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':3,'Nodes':[node(1,'Event.Start',40,60),node(2,'Print',760,60),node(3,'Concat',560,420,{'A':'MACRO_UI value='}),node(4,'FormatNumber',300,470,{'Decimals':0})],
   'Links':[{'From':3,'Output':'Value','To':2,'Input':'Text'},{'From':4,'Output':'Value','To':3,'Input':'B'}],'Variables':{},'Functions':{},
   'Enums':{'Rank':{'Entries':[{'Name':'Bronze','Value':0},{'Name':'Gold','Value':1}],'Source':''}},
@@ -255,8 +256,8 @@ def macro_flow(project,env,build,out,scene):
   press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats')
   press('Stats/0/Field type');press('popup/Struct');press('Stats/0/Default/fields');enter('Stats/0/Default/X','5');save()
   field=readmacro()['Structs']['Stats']['Fields'][0]
-  assert readmacro()['Version']==4 and field['Type']=='Struct' and field['Struct']=='Point' and field['Default']=={'X':5,'Y':0},field
-  unclipped();shot('nested-struct.png');print('UI: a struct field of struct type, its nested default edited field by field; saved as format 4',flush=True)
+  assert readmacro()['Version']==5 and field['Type']=='Struct' and field['Struct']=='Point' and field['Default']=={'X':5,'Y':0},field
+  unclipped();shot('nested-struct.png');print('UI: a struct field of struct type, its nested default edited field by field; saved as format 5',flush=True)
   press('Graph structs')
   # An enum array variable.
   press('Graph variables');press('variables/Variable name');x('type','--delay','150','Ranks');time.sleep(.4)
@@ -311,6 +312,112 @@ def macro_flow(project,env,build,out,scene):
  (out/'player-macros.log').write_text(run.stdout+run.stderr)
  assert run.returncode==0 and 'MACRO_UI value=7' in run.stdout+run.stderr and "Visual graph '" not in run.stdout+run.stderr,run.returncode
  print('UI: the authored macro graph runs in the Player (value=7)',flush=True)
+# Phase 5: graph inheritance and curves authored in the UI - a parent set (undo/redo) whose members show as inherited, a Curve
+# variable edited key by key (add, move by field and by dragging in the preview, interpolation, delete; undo/redo), an
+# inherited function overridden (undo/redo) and its body extended with the curve from the node library, an inherited event
+# overridden - and the child run in the Player through the parent's Start.
+def inherit_flow(project,env,build,out,scene):
+ global app
+ base=project/'Assets/Scripts/CurveBase.zgraph';flow=project/'Assets/Scripts/CurveChild.zgraph'
+ # Format 4 files: the parent (Start: Print(Bonus(Level)), Bonus(X) = X + 1) and the child-to-be (one Create handler).
+ base.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':4,'Nodes':[node(1,'Event.Start',40,60),node(2,'Get.Number',40,240,{'Name':'Level'}),node(3,'Function.Call',300,60,{'Name':'Bonus'}),
+  node(4,'FormatNumber',560,240,{'Decimals':2}),node(5,'Concat',820,240,{'A':'INHERIT_UI value='}),node(6,'Print',820,60),node(10,'Function.Entry',40,500,{'Name':'Bonus'}),node(11,'Add',300,560,{'B':1}),node(12,'Function.Return',560,500,{'Name':'Bonus'})],
+  'Links':[{'From':1,'Output':'Then','To':3,'Input':'In'},{'From':2,'Output':'Value','To':3,'Input':'X'},{'From':3,'Output':'Then','To':6,'Input':'In'},{'From':3,'Output':'Result','To':4,'Input':'Number'},
+   {'From':4,'Output':'Value','To':5,'Input':'B'},{'From':5,'Output':'Value','To':6,'Input':'Text'},{'From':10,'Output':'Then','To':12,'Input':'In'},{'From':10,'Output':'X','To':11,'Input':'A'},{'From':11,'Output':'Value','To':12,'Input':'Result'}],
+  'Variables':{'Level':{'Type':'Number','Default':2}},'Functions':{'Bonus':{'Inputs':[{'Name':'X','Type':'Number','Default':0}],'Outputs':[{'Name':'Result','Type':'Number','Default':0}],'Locals':{}}},
+  'Enums':{},'Structs':{},'Macros':{}},indent=2))
+ flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':4,'Nodes':[node(1,'Event.Create',40,60)],'Links':[],'Variables':{},'Functions':{},'Enums':{},'Structs':{},'Macros':{}},indent=2))
+ readchild=lambda:json.loads(flow.read_text())
+ shot=lambda name:subprocess.run(['import','-window','root',str(out/name)],check=True)
+ def rightclick(key):px,py=find(key);x('mousemove',px,py);time.sleep(.6);x('click',3);time.sleep(1.2)
+ def library(text):click(150,233);selectall();time.sleep(.3);x('type','--delay','150',text);time.sleep(1.2);click(155,283)
+ log=(work/'editor-inherit.log').open('w')
+ app=subprocess.Popen([str(build/'bin/ZaminEditor'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/CurveChild.zgraph'),stdout=log,stderr=subprocess.STDOUT)
+ try:
+  for i in range(150):
+   if app.poll() is not None:raise RuntimeError('Editor exited early')
+   if 'Scene opened:' in (work/'editor-inherit.log').read_text():break
+   time.sleep(.2)
+  for i in range(60):
+   if '#7D2F4C' in pixel(500,240) or '#7D7D2F2F4C4C' in pixel(500,240):break
+   time.sleep(.4)
+  else:raise RuntimeError('Inheritance graph window did not become ready')
+  time.sleep(1)
+  # The parent: set by path (one undo step); its variable shows as inherited and is not saved with the child.
+  press('Inheritance');press('inheritance/Parent path');selectall();time.sleep(.3);x('type','--delay','120','Scripts/CurveBase.zgraph');time.sleep(.4)
+  press('inheritance/Set parent');save()
+  j=readchild();assert j['Version']==5 and j.get('Parent')=='Scripts/CurveBase.zgraph' and j['Variables']=={},j
+  assert any(k.endswith('variables/Level/inherited') for k in items()['Items']),[k for k in items()['Items'] if 'Level' in k]
+  click(531,140);save();assert 'Parent' not in readchild()
+  click(585,140);save();assert readchild().get('Parent')=='Scripts/CurveBase.zgraph'
+  unclipped();print('UI: parent set (undo/redo); the inherited variable is listed and not saved; saved as format 5',flush=True)
+  # A Curve variable: two keys added, the second moved (Time) and raised (Value), the first made cubic, a third added and
+  # deleted (undo/redo), then the second dragged in the preview (one undo step).
+  press('variables/Variable name');x('type','--delay','150','Ramp');time.sleep(.4)
+  press('variables/Type');press('popup/Curve');press('variables/Add variable');save()
+  assert readchild()['Variables']['Ramp']=={'Type':'Curve','Default':{'Keys':[]}},readchild()['Variables']
+  press('Ramp/Add key');press('Ramp/Add key');press('Ramp/keys')
+  enter('Ramp/keys/1/Time','2');enter('Ramp/keys/1/Value','4')
+  press('Ramp/keys/0/Mode');press('popup/Cubic');save()
+  keys=lambda:readchild()['Variables']['Ramp']['Default']['Keys']
+  assert [(k['Time'],k['Value'],k['Mode']) for k in keys()]==[(0,0,'Cubic'),(2,4,'Linear')],keys()
+  press('Ramp/Add key');save();assert len(keys())==3 and keys()[2]['Time']==3,keys()
+  press('Ramp/keys/2/Delete key');save();assert len(keys())==2,keys()
+  click(531,140);save();assert len(keys())==3
+  click(585,140);save();assert [(k['Time'],k['Value'],k['Mode']) for k in keys()]==[(0,0,'Cubic'),(2,4,'Linear')],keys()
+  unclipped();shot('curve-editor.png')
+  # Drag the last key (top right of the preview) halfway left: its time moves to about 1, its value stays.
+  r=next(v['Rect'] for k,v in items()['Items'].items() if k.endswith('Ramp/Preview'));x0,y0,x1,y1=r
+  px,py=int(x1-8),int(y0+8);tx=int(x0+8+(x1-x0-16)*.5)
+  x('mousemove',px,py);time.sleep(.6);x('mousedown',1);time.sleep(.4)
+  for i in range(1,11):x('mousemove',px+(tx-px)*i//10,py);time.sleep(.15)
+  time.sleep(.4);x('mouseup',1);time.sleep(1.2);save()
+  moved=keys()[1];assert .8<moved['Time']<1.2 and abs(moved['Value']-4)<.2,keys()
+  click(531,140);save();assert keys()[1]['Time']==2 and keys()[1]['Value']==4,keys()
+  print('UI: curve keys added, moved, made cubic, deleted and dragged in the preview; undo/redo restore them',flush=True)
+  # The inherited function: listed read-only, then overridden (entry -> Parent.Call -> return, one undo step).
+  press('Graph variables');press('Typed functions');press('functions/Bonus')
+  assert any(k.endswith('functions/Bonus/inherited') for k in items()['Items'])
+  unclipped();shot('inherit-members.png')
+  press('Bonus/Override function');save()
+  j=readchild();kinds={n['ID']:(n['Kind'],n['Inputs'].get('Name')) for n in j['Nodes']}
+  assert 'Bonus' in j['Functions'] and sorted(kinds.values())==sorted([('Event.Create',None),('Function.Entry','Bonus'),('Parent.Call','Bonus'),('Function.Return','Bonus')]),(j['Functions'],kinds)
+  entry,call,ret=(next(i for i,v in kinds.items() if v[0]==k) for k in ('Function.Entry','Parent.Call','Function.Return'))
+  assert {(entry,'X',call,'X'),(call,'Result',ret,'Result')}<={(l['From'],l['Output'],l['To'],l['Input']) for l in j['Links']}
+  click(531,140);save();assert 'Bonus' not in readchild()['Functions'] and len(readchild()['Nodes'])==1
+  click(585,140);save();assert 'Bonus' in readchild()['Functions'] and len(readchild()['Nodes'])==4
+  assert any(k.endswith('Bonus/override') for k in items()['Items'])
+  unclipped();shot('inherit-override.png');print('UI: inherited function overridden with a call to the parent; undo/redo',flush=True)
+  # The override adds Ramp(1) to the parent's result: Get.Curve + Curve.Evaluate from the node library, wired into an Add.
+  library('get.curve');get=max(n['ID'] for n in readchild()['Nodes'])+1;drag(f'canvas/node/{get}',0,260);enter('node/Name','Ramp')
+  library('curve.evaluate');ev=get+1;drag(f'canvas/node/{ev}',260,260);enter('node/Time','1')
+  library('add');add=ev+1;drag(f'canvas/node/{add}',520,140)
+  rightclick(f'canvas/{ret}/in/Result')
+  for a,b in ((f'{get}/out/Value',f'{ev}/in/Curve'),(f'{call}/out/Result',f'{add}/in/A'),(f'{ev}/out/Value',f'{add}/in/B'),(f'{add}/out/Value',f'{ret}/in/Result')):press('canvas/'+a);press('canvas/'+b)
+  save();j=readchild();wires={(l['From'],l['Output'],l['To'],l['Input']) for l in j['Links']}
+  assert {(get,'Value',ev,'Curve'),(call,'Result',add,'A'),(ev,'Value',add,'B'),(add,'Value',ret,'Result')}<=wires and (call,'Result',ret,'Result') not in wires,wires
+  kinds={n['ID']:n for n in j['Nodes']};assert kinds[get]['Kind']=='Get.Curve' and kinds[get]['Inputs']=={'Name':'Ramp'} and kinds[ev]['Kind']=='Curve.Evaluate' and kinds[ev]['Inputs']=={'Time':1} and kinds[add]['Kind']=='Add',kinds
+  shot('inherit-curve.png');print('UI: the override evaluates the curve, wired from the node library',flush=True)
+  # The inherited Start event: overridden with a Parent.Event that runs the parent's handler first.
+  press('Typed functions');press('inheritance/Start/Override event');save()
+  j=readchild();starts=[n for n in j['Nodes'] if n['Kind']=='Event.Start'];parents=[n for n in j['Nodes'] if n['Kind']=='Parent.Event']
+  assert len(starts)==1 and len(parents)==1 and parents[0]['Inputs']=={'Name':'Start'} and {'From':starts[0]['ID'],'Output':'Then','To':parents[0]['ID'],'Input':'In'} in j['Links'],j['Nodes']
+  unclipped();print('UI: inherited event overridden with Parent.Event',flush=True)
+ except BaseException:
+  shot('editor-inherit-failure.png');raise
+ finally:
+  app.terminate()
+  try:app.wait(timeout=10)
+  except subprocess.TimeoutExpired:app.kill();app.wait()
+  log.close()
+  shutil.copyfile(work/'editor-inherit.log',out/'editor-inherit.log')
+ scene.write_text(scene.read_text().replace('Scripts/MacroFlow.zgraph','Scripts/CurveChild.zgraph'))
+ run=subprocess.run([str(build/'bin/ZaminPlayer'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_MAX_FRAMES='30'),capture_output=True,text=True,timeout=180)
+ (out/'player-inherit.log').write_text(run.stdout+run.stderr)
+ # The parent's Start (run through the child's Parent.Event) calls Bonus: the child's override adds Ramp(1) = 2 to the
+ # parent's Level + 1 = 3.
+ assert run.returncode==0 and 'INHERIT_UI value=5.00' in run.stdout+run.stderr and "Visual graph '" not in run.stdout+run.stderr,run.returncode
+ print('UI: the child graph runs in the Player through its parent (value=5.00)',flush=True)
 try:
  # Run: the Player starts the 2D scene with the authored graph on the Player entity.
  scene=project/'Assets/Scenes/Visual2D.zscene'
@@ -322,5 +429,6 @@ try:
  print('UI: the authored function runs in the Player (result=21)',flush=True)
  struct_flow(project,env,build,out,scene)
  macro_flow(project,env,build,out,scene)
+ inherit_flow(project,env,build,out,scene)
 finally:
  temporary.cleanup()

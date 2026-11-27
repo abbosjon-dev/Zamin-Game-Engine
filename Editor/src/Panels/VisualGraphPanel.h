@@ -40,6 +40,15 @@ namespace Zamin {
         void Enums();
         void Structs();
         void Macros();
+        // The parent graph (set/clear), the inherited events (override) and the parent chain.
+        void Inheritance();
+        // Loads the parent chain again (after open, undo/redo and a parent change): inherited members are refreshed.
+        void Reinherit();
+        // Overrides an inherited function: its signature becomes the graph's own, with an entry -> Parent.Call ->
+        // return body (one undo step); likewise an inherited event: the event node -> Parent.Event.
+        void OverrideFunction(const std::string& name);
+        void OverrideEvent(const std::string& key);
+        char m_ParentPath[512]{};
         // The canvas shows the graph itself (empty) or one macro's body; new and pasted nodes go there.
         std::string m_Macro;
         void OpenMacro(const std::string& name);

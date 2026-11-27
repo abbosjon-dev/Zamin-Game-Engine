@@ -27,6 +27,7 @@ namespace Zamin {
                 case Visual::Type::ArrayStruct: return IM_COL32(64, 205, 225, 255);
                 case Visual::Type::Enum:
                 case Visual::Type::ArrayEnum: return IM_COL32(245, 150, 60, 255);
+                case Visual::Type::Curve:  return IM_COL32(150, 230, 90, 255);
                 default:                   return IM_COL32(255, 194, 85, 255);
             }
         }
@@ -79,14 +80,244 @@ namespace Zamin {
             ImGui::TextDisabled("%s", Tr("Effekt, to'plam, qolgan vaqt"));
             for (size_t i = 0; i < count; ++i) ImGui::Text("%s  x%u  %.2f s", effects[i].Key.c_str(), effects[i].Stacks, effects[i].Remaining);
         }
+        // A curve value: a small graph preview (drag a key to move it; one undo step when released) and its keys, each
+        // with time, value, interpolation and (cubic) tangents. Recorded under "<label>/Preview", "<label>/keys",
+        // "<label>/Add key" and "<label>/<i>/Time|Value|Mode|In tangent|Out tangent|Delete key".
+        bool EditCurve(const char* label, Visual::Value& v)
+        {
+            using namespace Visual;
+            static std::map<ImGuiID, Value> drafts; // a key being dragged in a preview: the curve shown meanwhile
+            bool changed = false;
+            GraphLayout::FitText(label);
+            GraphLayout::PushScope(label);
+            const ImGuiID previewID = ImGui::GetID("##preview");
+            const auto draft = drafts.find(previewID);
+            auto keys = Visual::CurveKeys(draft != drafts.end() ? draft->second : v);
+            // The preview: the key range (at least 1 wide) and the value range of the drawn curve.
+            const float width = std::max(80.f, ImGui::GetContentRegionAvail().x), height = 96.f, pad = 8.f;
+            const ImVec2 a = ImGui::GetCursorScreenPos(), b{ a.x + width, a.y + height };
+            ImGui::InvisibleButton("##preview", { width, height });
+            GraphLayout::RecordKey("Preview");
+            auto* storage = ImGui::GetStateStorage();
+            const ImGuiID rangeID = ImGui::GetID("##range");
+            double t0 = keys.empty() ? 0 : keys.front().Time, t1 = keys.empty() ? 1 : keys.back().Time;
+            if (t1 - t0 < 1e-6)
+            {
+                t0 -= .5;
+                t1 += .5;
+            }
+            constexpr int samples = 96;
+            double lo = INFINITY, hi = -INFINITY;
+            for (int i = 0; i <= samples; ++i)
+            {
+                const double y = Visual::EvaluateCurve(keys, t0 + (t1 - t0) * i / samples);
+                lo = std::min(lo, y);
+                hi = std::max(hi, y);
+            }
+            if (hi - lo < 1e-6)
+            {
+                lo -= 1;
+                hi += 1;
+            }
+            // While a key is dragged the axes stay as they were when the drag started.
+            if (draft != drafts.end())
+            {
+                t0 = storage->GetFloat(rangeID + 1, float(t0));
+                t1 = storage->GetFloat(rangeID + 2, float(t1));
+                lo = storage->GetFloat(rangeID + 3, float(lo));
+                hi = storage->GetFloat(rangeID + 4, float(hi));
+            }
+            auto toScreen = [&](double t, double y) { return ImVec2(a.x + pad + float((t - t0) / (t1 - t0)) * (width - 2 * pad), b.y - pad - float((y - lo) / (hi - lo)) * (height - 2 * pad)); };
+            auto* draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled(a, b, IM_COL32(24, 27, 38, 255), 4);
+            draw->AddRect(a, b, IM_COL32(70, 76, 98, 255), 4);
+            if (lo < 0 && hi > 0) draw->AddLine(toScreen(t0, 0), toScreen(t1, 0), IM_COL32(60, 66, 86, 255));
+            ImVec2 points[samples + 1];
+            for (int i = 0; i <= samples; ++i)
+            {
+                const double t = t0 + (t1 - t0) * i / samples;
+                points[i] = toScreen(t, Visual::EvaluateCurve(keys, t));
+            }
+            draw->AddPolyline(points, samples + 1, IM_COL32(150, 230, 90, 255), 0, 2);
+            const auto mouse = ImGui::GetIO().MousePos;
+            const ImGuiID dragID = ImGui::GetID("##dragKey");
+            int dragged = storage->GetInt(dragID, -1);
+            for (size_t i = 0; i < keys.size(); ++i)
+            {
+                const auto p = toScreen(keys[i].Time, keys[i].Value);
+                draw->AddCircleFilled(p, int(i) == dragged ? 6.f : 4.5f, int(i) == dragged ? IM_COL32(255, 220, 120, 255) : IM_COL32(235, 238, 250, 255));
+            }
+            if (keys.empty()) draw->AddText({ a.x + pad, a.y + pad }, IM_COL32(150, 155, 176, 255), Tr("Egri chiziq bo'sh"));
+            if (ImGui::IsItemActivated())
+            {
+                // Pick the key under the pointer (within 8 px).
+                dragged = -1;
+                float best = 64;
+                for (size_t i = 0; i < keys.size(); ++i)
+                {
+                    const auto p = toScreen(keys[i].Time, keys[i].Value);
+                    const float d = (p.x - mouse.x) * (p.x - mouse.x) + (p.y - mouse.y) * (p.y - mouse.y);
+                    if (d < best)
+                    {
+                        best = d;
+                        dragged = int(i);
+                    }
+                }
+                storage->SetInt(dragID, dragged);
+                if (dragged >= 0)
+                {
+                    drafts[previewID] = v;
+                    storage->SetFloat(rangeID + 1, float(t0));
+                    storage->SetFloat(rangeID + 2, float(t1));
+                    storage->SetFloat(rangeID + 3, float(lo));
+                    storage->SetFloat(rangeID + 4, float(hi));
+                }
+            }
+            if (ImGui::IsItemActive() && dragged >= 0 && dragged < int(keys.size()) && drafts.contains(previewID))
+            {
+                // A key moves between its neighbours' times (never onto them).
+                auto& key = keys[size_t(dragged)];
+                const double t = t0 + (mouse.x - a.x - pad) / (width - 2 * pad) * (t1 - t0);
+                const double y = lo + (b.y - pad - mouse.y) / (height - 2 * pad) * (hi - lo);
+                const double span = (t1 - t0) * 1e-3;
+                const double before = dragged > 0 ? keys[size_t(dragged) - 1].Time + span : -1e9, after = size_t(dragged) + 1 < keys.size() ? keys[size_t(dragged) + 1].Time - span : 1e9;
+                key.Time = std::clamp(t, before, std::max(before, after));
+                key.Value = y;
+                drafts[previewID] = Visual::MakeCurve(keys);
+                ImGui::SetTooltip("%.3f, %.3f", key.Time, key.Value);
+            }
+            if (ImGui::IsItemDeactivated())
+            {
+                if (auto done = drafts.find(previewID); done != drafts.end())
+                {
+                    if (done->second != v && Visual::IsCurve(done->second))
+                    {
+                        v = done->second;
+                        changed = true;
+                    }
+                    drafts.erase(done);
+                }
+                storage->SetInt(dragID, -1);
+                keys = Visual::CurveKeys(v);
+            }
+            {
+                // The key list (edits apply at once; a time is committed with Enter and must stay unique). While a key is
+                // dragged it shows the dragged curve, read-only, so the column keeps its layout.
+                const bool dragging = drafts.find(previewID) != drafts.end();
+                if (dragging) ImGui::BeginDisabled();
+                bool edited = false;
+                size_t remove = SIZE_MAX;
+                if (GraphLayout::TreeNode("##keys", std::string(Tr("Kalitlar")) + " (" + std::to_string(keys.size()) + ")", "keys"))
+                {
+                    GraphLayout::PushScope("keys");
+                    for (size_t i = 0; i < keys.size(); ++i)
+                    {
+                        auto& key = keys[i];
+                        ImGui::PushID(int(i));
+                        GraphLayout::PushScope(std::to_string(i));
+                        if (i) ImGui::Separator();
+                        // A time is committed with Enter (a half-typed time must not jump past other keys).
+                        char text[64]{};
+                        std::snprintf(text, sizeof(text), "%.6g", key.Time);
+                        GraphLayout::InlineLabel(Tr("Vaqt"));
+                        char* end = nullptr;
+                        double time = key.Time;
+                        if (ImGui::InputText("##time", text, sizeof(text), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CharsScientific)) time = std::strtod(text, &end);
+                        if (end && end != text && std::isfinite(time) && time != key.Time)
+                        {
+                            if (std::any_of(keys.begin(), keys.end(), [&](const Visual::CurveKey& other) { return other.Time == time; })) ImGui::SetTooltip("%s", Tr("Bu vaqtda kalit bor"));
+                            else
+                            {
+                                key.Time = time;
+                                edited = true;
+                            }
+                        }
+                        GraphLayout::RecordKey("Time");
+                        GraphLayout::InlineLabel(Tr("Qiymat"));
+                        if (ImGui::InputDouble("##value", &key.Value, 0, 0, "%.3f") && std::isfinite(key.Value)) edited = true;
+                        GraphLayout::RecordKey("Value");
+                        GraphLayout::InlineLabel(Tr("Interpolyatsiya"));
+                        static const char* modes[] = { "Konstant", "Chiziqli", "Kubik" };
+                        if (ImGui::BeginCombo("##mode", Tr(modes[int(key.Mode)])))
+                        {
+                            for (int m = 0; m < 3; ++m)
+                            {
+                                const bool picked = ImGui::Selectable(Tr(modes[m]), int(key.Mode) == m);
+                                GraphLayout::RecordRect(std::string("popup/") + Visual::CurveModeName(Visual::CurveMode(m)), ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+                                if (picked && int(key.Mode) != m)
+                                {
+                                    key.Mode = Visual::CurveMode(m);
+                                    edited = true;
+                                }
+                            }
+                            ImGui::EndCombo();
+                        }
+                        GraphLayout::RecordKey("Mode");
+                        // Tangents shape the cubic segments around the key: In the one that ends here, Out the next.
+                        if (i > 0 && keys[i - 1].Mode == Visual::CurveMode::Cubic)
+                        {
+                            GraphLayout::InlineLabel(Tr("Kirish tangensi"));
+                            if (ImGui::InputDouble("##in", &key.In, 0, 0, "%.3f") && std::isfinite(key.In)) edited = true;
+                            GraphLayout::RecordKey("In tangent");
+                        }
+                        if (key.Mode == Visual::CurveMode::Cubic && i + 1 < keys.size())
+                        {
+                            GraphLayout::InlineLabel(Tr("Chiqish tangensi"));
+                            if (ImGui::InputDouble("##out", &key.Out, 0, 0, "%.3f") && std::isfinite(key.Out)) edited = true;
+                            GraphLayout::RecordKey("Out tangent");
+                        }
+                        if (GraphLayout::SmallButton(Tr("Kalitni o'chirish###Delete key"))) remove = i;
+                        GraphLayout::PopScope();
+                        ImGui::PopID();
+                    }
+                    GraphLayout::PopScope();
+                    ImGui::TreePop();
+                }
+                if (remove != SIZE_MAX)
+                {
+                    keys.erase(keys.begin() + std::ptrdiff_t(remove));
+                    edited = true;
+                }
+                if (keys.size() < MaxCurveKeys && GraphLayout::Button(Tr("Kalit qo'shish###Add key")))
+                {
+                    // A new key one time unit after the last, at its value (the first key: 0, 0).
+                    Visual::CurveKey key;
+                    if (!keys.empty())
+                    {
+                        key.Time = keys.back().Time + 1;
+                        key.Value = keys.back().Value;
+                    }
+                    keys.push_back(key);
+                    edited = true;
+                }
+                if (dragging) ImGui::EndDisabled();
+                if (edited && !dragging && !changed)
+                {
+                    auto next = Visual::MakeCurve(std::move(keys));
+                    if (Visual::IsCurve(next) && next != v)
+                    {
+                        v = std::move(next);
+                        changed = true;
+                    }
+                }
+            }
+            GraphLayout::PopScope();
+            return changed;
+        }
         // A literal editor. graph/named resolve a named type: an Enum value shows its entries as a combo, a Struct
         // value one editor per field, an ArrayStruct value struct elements.
         bool EditValue(const char* label, Visual::Type type, Visual::Value& v, const Visual::Graph* graph = nullptr, const std::string& named = {})
         {
             using namespace Visual;
             ImGui::PushID(label);
-            GraphLayout::InlineLabel(label);
             bool changed = false;
+            if (type == Type::Curve && IsCurve(v))
+            {
+                changed = EditCurve(label, v);
+                ImGui::PopID();
+                return changed;
+            }
+            GraphLayout::InlineLabel(label);
             const auto* enumeration = (type == Type::Enum || type == Type::ArrayEnum) && graph && graph->Enums.contains(named) ? &graph->Enums.at(named) : nullptr;
             const auto* structure = (type == Type::Struct || type == Type::ArrayStruct) && graph && graph->Structs.contains(named) ? &graph->Structs.at(named) : nullptr;
             if (!Matches(type, v) || ((structure || enumeration) && !graph->Fits(type, named, v)))
@@ -305,8 +536,9 @@ namespace Zamin {
                 m_Error = "Save the current graph before opening another asset.";
                 return;
             }
-            m_Graph = Visual::Graph::Load(path);
+            m_Graph = Visual::Graph::Load(path, Project::GetAssetDirectory());
             m_Path = path;
+            std::snprintf(m_ParentPath, sizeof(m_ParentPath), "%s", m_Graph.Parent.c_str());
             std::snprintf(m_File, sizeof(m_File), "%s", Project::GetAssetRelativePath(path).c_str());
             m_Undo.clear();
             m_Redo.clear();
@@ -385,6 +617,14 @@ namespace Zamin {
             ImGui::SameLine();
             ImGui::TextDisabled(Tr("(format %d: saqlash %d formatida yozadi)"), m_Graph.SourceVersion, Visual::Graph::FormatVersion);
         }
+        if (!m_Graph.Parent.empty())
+        {
+            // A child graph: its parent chain, the nearest first.
+            ImGui::SameLine();
+            std::string chain = m_Graph.Parent;
+            for (size_t i = 1; i < m_Graph.Inherited.Chain.size(); ++i) chain += " <- " + m_Graph.Inherited.Chain[i];
+            ImGui::TextColored({ .55f, .85f, .55f, 1 }, "%s: %s", Tr("Ota graf"), chain.c_str());
+        }
         if (!m_Macro.empty() && !m_Graph.Macros.contains(m_Macro)) OpenMacro(""); // e.g. undone
         if (!m_Macro.empty())
         {
@@ -449,6 +689,7 @@ namespace Zamin {
         {
             m_Redo.push_back(m_Graph.Serialize());
             m_Graph = Visual::Graph::Parse(m_Undo.back());
+            Reinherit(); // a snapshot holds the graph's own members; the parent chain comes from disk again
             m_ValidateDirty = true;
             m_Descriptions.clear();
             m_Selection.clear();
@@ -463,6 +704,7 @@ namespace Zamin {
         {
             m_Undo.push_back(m_Graph.Serialize());
             m_Graph = Visual::Graph::Parse(m_Redo.back());
+            Reinherit();
             m_ValidateDirty = true;
             m_Descriptions.clear();
             m_Selection.clear();
@@ -596,6 +838,9 @@ namespace Zamin {
                 std::map<std::string, Visual::Value> inputs;
                 if (key.starts_with("Function.")) inputs["Name"] = m_Graph.Functions.empty() ? "MyFunction" : m_Graph.Functions.begin()->first;
                 if (key == "Macro.Instance" && !m_Graph.Macros.empty()) inputs["Name"] = m_Graph.Macros.begin()->first;
+                // Call parent nodes start with the graph's first override (function / event).
+                if (key == "Parent.Call" && !m_Graph.FunctionOverrides().empty()) inputs["Name"] = *m_Graph.FunctionOverrides().begin();
+                if (key == "Parent.Event" && !m_Graph.EventOverrides().empty()) inputs["Name"] = *m_Graph.EventOverrides().begin();
                 // An enum node starts with the graph's first enum (variable/local Get/Set take their own instead).
                 const bool enumInput = std::any_of(def.Inputs.begin(), def.Inputs.end(), [](const Visual::Pin& p) { return p.Name == "Enum"; });
                 if (enumInput && !m_Graph.Enums.empty() && !key.starts_with("Get.") && !key.starts_with("Set.") && !key.starts_with("Local.")) inputs["Enum"] = m_Graph.Enums.begin()->first;
@@ -992,6 +1237,7 @@ namespace Zamin {
             if (GraphLayout::Button(Tr("Tugunni o'chirish###Delete node"))) DeleteSelection();
         }
         GraphLayout::PopScope();
+        Inheritance();
         const bool variablesOpen = ImGui::CollapsingHeader(Tr("Graf o'zgaruvchilari###Graph variables"), ImGuiTreeNodeFlags_DefaultOpen);
         GraphLayout::Record(Tr("Graf o'zgaruvchilari###Graph variables"));
         GraphLayout::PushScope("variables");
@@ -1025,6 +1271,22 @@ namespace Zamin {
         std::string remove, renameFrom, renameTo;
         for (auto& [name, v] : m_Graph.Variables)
         {
+            // An inherited variable is read-only here (its parent owns it); instance overrides still apply.
+            if (m_Graph.IsInherited("Variable", name))
+            {
+                ImGui::PushID(name.c_str());
+                ImGui::BeginDisabled();
+                auto value = v.Default;
+                EditValue(name.c_str(), v.Kind, value, &m_Graph, v.Enum);
+                ImGui::EndDisabled();
+                GraphLayout::PushScope(name);
+                GraphLayout::FitText((std::string(Tr("meros")) + ": " + (m_Graph.Inherited.Chain.empty() ? m_Graph.Parent : m_Graph.Inherited.Chain.front())).c_str(), true);
+                GraphLayout::RecordKey("inherited");
+                GraphLayout::PopScope();
+                ImGui::PopID();
+                ImGui::Spacing();
+                continue;
+            }
             auto value = v.Default;
             if (EditValue(name.c_str(), v.Kind, value, &m_Graph, v.Enum))
             {

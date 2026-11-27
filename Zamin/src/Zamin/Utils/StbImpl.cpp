@@ -11,6 +11,7 @@
 #include <stb_truetype.h>
 
 #include "Zamin/Utils/Image.h"
+#include "Zamin/Asset/TextureCook.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -51,6 +52,32 @@ namespace Zamin {
     {
         out = {};
         channels = channels < 1 ? 1 : channels > 4 ? 4 : channels;
+        // A cooked texture of an exported game (rows bottom first): converted to the asked channels / row order.
+        if (TextureCook::IsCookedFile(path))
+        {
+            std::vector<uint8_t> pixels;
+            CookedTextureInfo info;
+            if (!TextureCook::DecodeFile(path, pixels, info, error))
+                return false;
+            out.Width = info.Width;
+            out.Height = info.Height;
+            out.Channels = channels;
+            out.FileChannels = info.Channels;
+            out.Pixels.resize((size_t)info.Width * info.Height * channels);
+            for (uint32_t y = 0; y < info.Height; y++)
+                for (uint32_t x = 0; x < info.Width; x++)
+                {
+                    const uint8_t* in = pixels.data() + ((size_t)(flipVertically ? y : info.Height - 1 - y) * info.Width + x) * info.Channels;
+                    uint8_t* o = out.Pixels.data() + ((size_t)y * info.Width + x) * channels;
+                    const uint8_t r = in[0], g = info.Channels >= 3 ? in[1] : in[0], b = info.Channels >= 3 ? in[2] : in[0];
+                    const uint8_t a = info.Channels == 4 ? in[3] : 255;
+                    const uint8_t rgba[4] = { r, g, b, a };
+                    if (channels == 1) o[0] = r;
+                    else if (channels == 2) { o[0] = r; o[1] = a; }
+                    else for (uint32_t c = 0; c < channels; c++) o[c] = rgba[c];
+                }
+            return true;
+        }
         // Per thread: a loader on another thread (thumbnails) cannot change it in the middle, and
         // once a thread has set it, stb ignores the global setting there.
         stbi_set_flip_vertically_on_load_thread(flipVertically ? 1 : 0);

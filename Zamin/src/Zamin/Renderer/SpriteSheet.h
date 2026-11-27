@@ -33,7 +33,9 @@ namespace Zamin {
     // How a texture is cut into a grid of frames (Sprite Editor > Slice).
     struct SpriteSliceSettings
     {
-        enum class SliceMode { CellSize = 0, CellCount };
+        // Alpha: one frame per island of visible pixels (8-connected, alpha above AlphaThreshold), islands
+        // nearer than MergeDistance px joined; needs the pixels.
+        enum class SliceMode { CellSize = 0, CellCount, Alpha };
         SliceMode Mode = SliceMode::CellSize;
         glm::ivec2 CellSize{ 16, 16 };   // px (CellSize mode)
         glm::ivec2 CellCount{ 4, 1 };    // columns, rows (CellCount mode)
@@ -42,6 +44,9 @@ namespace Zamin {
         glm::vec2 Pivot{ 0.5f };
         std::string NamePrefix = "sprite"; // frames are named "<prefix>_<index>"
         bool SkipEmpty = false;          // cells whose pixels are all transparent are left out (needs the pixels)
+        int AlphaThreshold = 0;          // Alpha mode: a pixel is visible when its alpha is above this (0..254)
+        int MinSize = 2;                 // Alpha mode: islands smaller than this (px, both sides) are dust, skipped
+        int MergeDistance = 1;           // Alpha mode: islands this close (px) become one frame (a sword and its hilt)
 
         bool operator==(const SpriteSliceSettings&) const = default;
     };
@@ -77,6 +82,13 @@ namespace Zamin {
         // first) and SkipEmpty, cells without one visible pixel are left out too.
         static std::vector<SpriteFrame> SliceGrid(const SpriteSliceSettings& settings, uint32_t width, uint32_t height,
                                                   const uint8_t* rgba = nullptr);
+        // Alpha mode: the bounding boxes of the visible islands, top to bottom, left to right (rows of islands
+        // whose vertical ranges overlap read left to right). Empty without pixels.
+        static std::vector<SpriteFrame> SliceAlpha(const SpriteSliceSettings& settings, uint32_t width, uint32_t height, const uint8_t* rgba);
+        // Re-slicing keeps references: a new frame that covers mostly the same pixels as a frame of `previous`
+        // (intersection over union >= 0.5, each old frame used once) takes its name, pivot and 9-slice borders,
+        // so Sprite Renderers, tilemaps and clips that name it still find it. The others get unique names.
+        static void KeepReferences(const SpriteSheet& previous, std::vector<SpriteFrame>& frames);
 
         // ---- storage
         // A JSON array of { "Name", "Rect": [x, y, w, h], "Pivot": [x, y], "Border": [l, r, t, b] }.

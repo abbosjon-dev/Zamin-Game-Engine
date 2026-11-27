@@ -71,6 +71,9 @@ namespace Zamin {
         j["StripBinaries"] = StripBinaries;
         if (PrefabWarningsAsErrors)
             j["PrefabWarningsAsErrors"] = true;
+        if (!(Cook == TextureCookSettings()))
+            j["Cook"] = { { "Enabled", Cook.Enabled }, { "Compress", Cook.Compress }, { "MaxTextureSize", Cook.MaxTextureSize },
+                          { "MatchQuality", Cook.MatchQuality }, { "Always", Cook.Always } };
         return j.dump(4);
     }
 
@@ -94,6 +97,16 @@ namespace Zamin {
             s.StripBinaries = it->get<bool>();
         if (auto it = j.find("PrefabWarningsAsErrors"); it != j.end() && it->is_boolean())
             s.PrefabWarningsAsErrors = it->get<bool>();
+        if (auto it = j.find("Cook"); it != j.end() && it->is_object())
+        {
+            const auto& c = *it;
+            if (c.contains("Enabled") && c["Enabled"].is_boolean()) s.Cook.Enabled = c["Enabled"].get<bool>();
+            if (c.contains("Compress") && c["Compress"].is_boolean()) s.Cook.Compress = c["Compress"].get<bool>();
+            if (c.contains("MaxTextureSize") && c["MaxTextureSize"].is_number_unsigned())
+                s.Cook.MaxTextureSize = std::min<uint32_t>(c["MaxTextureSize"].get<uint32_t>(), 16384);
+            if (c.contains("MatchQuality") && c["MatchQuality"].is_boolean()) s.Cook.MatchQuality = c["MatchQuality"].get<bool>();
+            if (c.contains("Always") && c["Always"].is_boolean()) s.Cook.Always = c["Always"].get<bool>();
+        }
         out = std::move(s);
         return true;
     }

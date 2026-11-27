@@ -3,6 +3,9 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AsyncLoader.h"
+#include "Zamin/Asset/TextureCook.h"
+#include <cstdlib>
+#include <cstring>
 
 #include <glad/glad.h>
 #include <stb_image.h>
@@ -51,6 +54,7 @@ namespace Zamin {
         // Levels 1..n made on the CPU (BuildMips: staged textures) - uploaded like the base level instead of
         // glGenerateMipmap, whose cost on the main thread cannot be cut into pieces.
         std::vector<std::vector<uint8_t>> Mips;
+        uint32_t BakedSkips = 0; // a cooked texture: mip levels its export already removed (TextureCook)
 
         GLDecodedImage() = default;
         GLDecodedImage(const GLDecodedImage&) = delete;
@@ -68,6 +72,26 @@ namespace Zamin {
         {
             image.Error = std::move(unreadable);
             return false;
+        }
+        // An exported game's cooked texture (ZTEX at the source's path): decoded pixels, rows already bottom first.
+        if (TextureCook::IsCookedFile(path))
+        {
+            std::vector<uint8_t> pixels;
+            CookedTextureInfo info;
+            if (!TextureCook::DecodeFile(path, pixels, info, &image.Error))
+                return false;
+            image.Pixels = static_cast<stbi_uc*>(std::malloc(pixels.size())); // freed by stbi_image_free (free)
+            if (!image.Pixels)
+            {
+                image.Error = "out of memory";
+                return false;
+            }
+            std::memcpy(image.Pixels, pixels.data(), pixels.size());
+            image.Width = info.Width;
+            image.Height = info.Height;
+            image.Format = info.Channels == 3 ? ImageFormat::RGB8 : info.Channels == 1 ? ImageFormat::R8 : ImageFormat::RGBA8;
+            image.BakedSkips = info.BakedSkips;
+            return true;
         }
         int width, height, channels;
         stbi_set_flip_vertically_on_load_thread(1); // per thread (see Image::Load)
@@ -150,6 +174,7 @@ namespace Zamin {
         image.Height = ready.Height;
         image.Format = ready.Format;
         image.Mips = std::move(ready.Mips);
+        image.BakedSkips = ready.BakedSkips;
         ready.Pixels = nullptr;
         s_Predecoded.erase(it);
         return true;
@@ -413,6 +438,7 @@ namespace Zamin {
             {
                 ResolveSettingsLater();
                 AddToSampling(); // the quality level's sampling from the start (and on reloads)
+                m_BakedSkips = image->BakedSkips;
                 m_Specification.Width = image->Width;
                 m_Specification.Height = image->Height;
                 m_Specification.Format = image->Format;
@@ -538,6 +564,7 @@ namespace Zamin {
             }
             bool resized = !m_RendererID || image.Width != m_Specification.Width || image.Height != m_Specification.Height ||
                            image.Format != m_Specification.Format;
+            m_BakedSkips = image.BakedSkips;
             m_Specification.Width = image.Width;
             m_Specification.Height = image.Height;
             m_Specification.Format = image.Format;
@@ -558,6 +585,7 @@ namespace Zamin {
         void Upload(const GLDecodedImage& image)
         {
             AddToSampling(); // the quality level's sampling from the start (and on reloads)
+            m_BakedSkips = image.BakedSkips;
             m_Specification.Width = image.Width;
             m_Specification.Height = image.Height;
             m_Specification.Format = image.Format;
@@ -695,7 +723,7 @@ namespace Zamin {
             const SamplingQuality& q = Sampling();
             const bool mips = m_Specification.GenerateMips;
             const int maxLevel = MipLevelCount(m_Specification.Width, m_Specification.Height) - 1;
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, mips ? std::clamp(q.SkippedMips, 0, maxLevel) : 0);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, mips ? std::clamp(q.SkippedMips - (int)m_BakedSkips, 0, maxLevel) : 0);
             if (MaxSupportedAnisotropy() > 1.0f)
             {
                 const bool linear = m_Specification.Filter == TextureFilter::Linear;
@@ -718,6 +746,7 @@ namespace Zamin {
         uint32_t m_StagedRows = 0, m_StagedLevel = 0; // rows of the mip level a budgeted upload has sent so far (StepUpload)
         int8_t m_SettingsLater = -1;          // OnWorker: its import settings read at the upload (1: the pixel-art copy)
         std::unique_ptr<GLDecodedImage> m_PendingImage; // its pixels, decoded, not uploaded yet
+        uint32_t m_BakedSkips = 0;            // a cooked texture's mip levels removed at export (sampled as if present)
         std::string m_PendingError;
         TrackedMemory m_Memory{ MemoryCategory::Textures };
         friend class TextureLibrary;

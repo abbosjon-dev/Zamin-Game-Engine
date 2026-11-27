@@ -129,10 +129,133 @@ namespace Zamin {
         return false;
     }
 
+    std::vector<SpriteFrame> SpriteSheet::SliceAlpha(const SpriteSliceSettings& s, uint32_t width, uint32_t height, const uint8_t* rgba)
+    {
+        constexpr size_t MaxFrames = 10000;
+        std::vector<SpriteFrame> frames;
+        if (!rgba || width == 0 || height == 0)
+            return frames;
+        const int threshold = std::clamp(s.AlphaThreshold, 0, 254);
+        struct Box { int X0, Y0, X1, Y1; }; // inclusive
+        std::vector<Box> boxes;
+        std::vector<uint8_t> seen((size_t)width * height, 0);
+        std::vector<std::pair<int, int>> stack;
+        auto visible = [&](int x, int y) { return rgba[((size_t)y * width + x) * 4 + 3] > threshold; };
+        for (int y = 0; y < (int)height; y++)
+            for (int x = 0; x < (int)width; x++)
+            {
+                if (seen[(size_t)y * width + x] || !visible(x, y)) continue;
+                Box box{ x, y, x, y };
+                stack.assign(1, { x, y });
+                seen[(size_t)y * width + x] = 1;
+                while (!stack.empty())
+                {
+                    auto [cx, cy] = stack.back();
+                    stack.pop_back();
+                    box = { std::min(box.X0, cx), std::min(box.Y0, cy), std::max(box.X1, cx), std::max(box.Y1, cy) };
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            const int nx = cx + dx, ny = cy + dy;
+                            if (nx < 0 || ny < 0 || nx >= (int)width || ny >= (int)height) continue;
+                            uint8_t& mark = seen[(size_t)ny * width + nx];
+                            if (mark || !visible(nx, ny)) continue;
+                            mark = 1;
+                            stack.push_back({ nx, ny });
+                        }
+                }
+                boxes.push_back(box);
+            }
+        // Islands within MergeDistance of each other become one box (until nothing changes).
+        const int merge = std::max(0, s.MergeDistance);
+        for (bool changed = true; changed;)
+        {
+            changed = false;
+            for (size_t i = 0; i < boxes.size() && !changed; i++)
+                for (size_t j = i + 1; j < boxes.size(); j++)
+                {
+                    const Box& a = boxes[i];
+                    const Box& b = boxes[j];
+                    if (a.X0 - merge > b.X1 + 1 || b.X0 - merge > a.X1 + 1 || a.Y0 - merge > b.Y1 + 1 || b.Y0 - merge > a.Y1 + 1) continue;
+                    boxes[i] = { std::min(a.X0, b.X0), std::min(a.Y0, b.Y0), std::max(a.X1, b.X1), std::max(a.Y1, b.Y1) };
+                    boxes.erase(boxes.begin() + (std::ptrdiff_t)j);
+                    changed = true;
+                    break;
+                }
+        }
+        const int minSize = std::max(1, s.MinSize);
+        std::erase_if(boxes, [&](const Box& b) { return b.X1 - b.X0 + 1 < minSize && b.Y1 - b.Y0 + 1 < minSize; });
+        // Reading order: rows of boxes whose vertical ranges overlap the row's first box, each left to right.
+        std::sort(boxes.begin(), boxes.end(), [](const Box& a, const Box& b) { return a.Y0 != b.Y0 ? a.Y0 < b.Y0 : a.X0 < b.X0; });
+        std::vector<Box> ordered;
+        std::vector<bool> used(boxes.size(), false);
+        for (size_t i = 0; i < boxes.size(); i++)
+        {
+            if (used[i]) continue;
+            std::vector<size_t> row;
+            for (size_t j = i; j < boxes.size(); j++)
+                if (!used[j] && boxes[j].Y0 <= boxes[i].Y1) row.push_back(j);
+            std::sort(row.begin(), row.end(), [&](size_t a, size_t b) { return boxes[a].X0 != boxes[b].X0 ? boxes[a].X0 < boxes[b].X0 : boxes[a].Y0 < boxes[b].Y0; });
+            for (size_t j : row)
+            {
+                used[j] = true;
+                ordered.push_back(boxes[j]);
+            }
+        }
+        const std::string prefix = s.NamePrefix.empty() ? std::string("sprite") : s.NamePrefix;
+        for (const Box& b : ordered)
+        {
+            SpriteFrame f;
+            f.Name = std::format("{}_{}", prefix, frames.size());
+            f.Position = { b.X0, b.Y0 };
+            f.Size = { b.X1 - b.X0 + 1, b.Y1 - b.Y0 + 1 };
+            f.Pivot = glm::clamp(s.Pivot, glm::vec2(0.0f), glm::vec2(1.0f));
+            frames.push_back(std::move(f));
+            if (frames.size() >= MaxFrames) break;
+        }
+        return frames;
+    }
+
+    void SpriteSheet::KeepReferences(const SpriteSheet& previous, std::vector<SpriteFrame>& frames)
+    {
+        std::vector<bool> taken(previous.Frames.size(), false), matched(frames.size(), false);
+        auto iou = [](const SpriteFrame& a, const SpriteFrame& b) {
+            const glm::ivec2 lo = glm::max(a.Position, b.Position), hi = glm::min(a.Position + a.Size, b.Position + b.Size);
+            const int64_t inter = hi.x > lo.x && hi.y > lo.y ? int64_t(hi.x - lo.x) * (hi.y - lo.y) : 0;
+            const int64_t uni = int64_t(a.Size.x) * a.Size.y + int64_t(b.Size.x) * b.Size.y - inter;
+            return uni > 0 ? double(inter) / double(uni) : 0.0;
+        };
+        // Best matches first: every (new, old) pair by overlap, greedily.
+        struct Pair { double Score; size_t New, Old; };
+        std::vector<Pair> pairs;
+        for (size_t i = 0; i < frames.size(); i++)
+            for (size_t j = 0; j < previous.Frames.size(); j++)
+                if (double score = iou(frames[i], previous.Frames[j]); score >= 0.5) pairs.push_back({ score, i, j });
+        std::stable_sort(pairs.begin(), pairs.end(), [](const Pair& a, const Pair& b) { return a.Score > b.Score; });
+        SpriteSheet result;
+        for (const Pair& p : pairs)
+        {
+            if (taken[p.Old] || matched[p.New]) continue;
+            taken[p.Old] = matched[p.New] = true;
+            frames[p.New].Name = previous.Frames[p.Old].Name;
+            frames[p.New].Pivot = previous.Frames[p.Old].Pivot;
+            frames[p.New].Border = previous.Frames[p.Old].Border;
+            result.Frames.push_back(frames[p.New]);
+        }
+        for (size_t i = 0; i < frames.size(); i++)
+            if (!matched[i])
+            {
+                frames[i].Name = result.MakeUniqueName(frames[i].Name);
+                result.Frames.push_back(frames[i]);
+            }
+    }
+
     std::vector<SpriteFrame> SpriteSheet::SliceGrid(const SpriteSliceSettings& s, uint32_t width, uint32_t height, const uint8_t* rgba)
     {
         constexpr size_t MaxFrames = 10000;
         std::vector<SpriteFrame> frames;
+        if (s.Mode == SpriteSliceSettings::SliceMode::Alpha)
+            return SliceAlpha(s, width, height, rgba);
         if (width == 0 || height == 0)
             return frames;
         const glm::ivec2 cell = GetCellSize(s, width, height);

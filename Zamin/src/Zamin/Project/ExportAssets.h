@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Asset/AssetTypes.h"
+#include "Zamin/Asset/TextureCook.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -37,6 +38,12 @@ namespace Zamin {
         // The prefab check's warnings (PrefabExport: external references, unknown components, ...) fail
         // the export like its errors do.
         bool PrefabWarningsAsErrors = false;
+        // The textures the game takes are cooked (TextureCook): decoded, optionally halved to MaxTextureSize and
+        // by the mip levels every quality level skips, compressed - written in place of the source when smaller
+        // (or resized); the Player reads the cooked data. The cook cache (<project>/Build/CookCache) is keyed by
+        // the source's content hash, so an unchanged texture is not cooked again. Sprite atlases (.zatlas) whose
+        // sources changed are re-packed into the export.
+        TextureCookSettings Cook;
 
         bool operator==(const ExportSettings&) const = default;
         bool IsDefault() const { return *this == ExportSettings(); }

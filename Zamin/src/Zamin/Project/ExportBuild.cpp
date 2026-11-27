@@ -161,7 +161,29 @@ namespace Zamin {
         return Game == o.Game && Version == o.Version && Company == o.Company && OutputDirectory == o.OutputDirectory && Date == o.Date &&
                std::abs(Seconds - o.Seconds) < 1e-3 && Succeeded == o.Succeeded && TotalBytes == o.TotalBytes && FileCount == o.FileCount &&
                Categories == o.Categories && Largest == o.Largest && excludedEqual(Excluded, o.Excluded) && ExcludedBytes == o.ExcludedBytes &&
-               ScriptModule == o.ScriptModule && StrippedBytes == o.StrippedBytes && Warnings == o.Warnings && Errors == o.Errors;
+               ScriptModule == o.ScriptModule && StrippedBytes == o.StrippedBytes && Warnings == o.Warnings && Errors == o.Errors &&
+               Cooked == o.Cooked && CookCacheHits == o.CookCacheHits && CookedAtlases == o.CookedAtlases;
+    }
+
+    uintmax_t ExportReport::CookedSourceBytes() const
+    {
+        uintmax_t bytes = 0;
+        for (const CookedAsset& a : Cooked)
+            if (a.Action == "cooked") bytes += a.SourceBytes;
+        return bytes;
+    }
+
+    uintmax_t ExportReport::CookedBytes() const
+    {
+        uintmax_t bytes = 0;
+        for (const CookedAsset& a : Cooked)
+            if (a.Action == "cooked") bytes += a.CookedBytes;
+        return bytes;
+    }
+
+    size_t ExportReport::CookedCount() const
+    {
+        return (size_t)std::count_if(Cooked.begin(), Cooked.end(), [](const CookedAsset& a) { return a.Action == "cooked"; });
     }
 
     ExportCategory ExportReport::Categorize(const fs::path& path, bool elf)
@@ -285,6 +307,16 @@ namespace Zamin {
         j["ExcludedBytes"] = ExcludedBytes;
         j["ScriptModule"] = ScriptModule;
         j["StrippedBytes"] = StrippedBytes;
+        if (!Cooked.empty())
+        {
+            ordered_json cooked = ordered_json::array();
+            for (const CookedAsset& a : Cooked)
+                cooked.push_back({ { "Path", a.Path }, { "Action", a.Action }, { "SourceBytes", a.SourceBytes }, { "CookedBytes", a.CookedBytes },
+                                   { "Size", { a.Width, a.Height } }, { "SourceSize", { a.SourceWidth, a.SourceHeight } }, { "CacheHit", a.CacheHit },
+                                   { "Note", a.Note } });
+            j["Cook"] = { { "Textures", cooked }, { "CacheHits", CookCacheHits }, { "Atlases", CookedAtlases },
+                          { "Seconds", std::round(CookSeconds * 1000.0) / 1000.0 } };
+        }
         j["Warnings"] = Warnings;
         j["Errors"] = Errors;
         return j.dump(4);
@@ -348,6 +380,35 @@ namespace Zamin {
                     asset.Reason = item.value("Reason", std::string());
                     r.Excluded.push_back(std::move(asset));
                 }
+        if (auto it = j.find("Cook"); it != j.end() && it->is_object())
+        {
+            r.CookCacheHits = (size_t)size(*it, "CacheHits");
+            r.CookedAtlases = (size_t)size(*it, "Atlases");
+            if (auto s = it->find("Seconds"); s != it->end() && s->is_number()) r.CookSeconds = s->get<double>();
+            if (auto list = it->find("Textures"); list != it->end() && list->is_array())
+                for (const auto& item : *list)
+                {
+                    if (!item.is_object()) continue;
+                    CookedAsset a;
+                    a.Path = item.value("Path", std::string());
+                    a.Action = item.value("Action", std::string());
+                    a.SourceBytes = size(item, "SourceBytes");
+                    a.CookedBytes = size(item, "CookedBytes");
+                    if (item.contains("Size") && item["Size"].is_array() && item["Size"].size() == 2)
+                    {
+                        a.Width = item["Size"][0].get<uint32_t>();
+                        a.Height = item["Size"][1].get<uint32_t>();
+                    }
+                    if (item.contains("SourceSize") && item["SourceSize"].is_array() && item["SourceSize"].size() == 2)
+                    {
+                        a.SourceWidth = item["SourceSize"][0].get<uint32_t>();
+                        a.SourceHeight = item["SourceSize"][1].get<uint32_t>();
+                    }
+                    a.CacheHit = item.value("CacheHit", false);
+                    a.Note = item.value("Note", std::string());
+                    r.Cooked.push_back(std::move(a));
+                }
+        }
         for (auto [key, list] : { std::pair<const char*, std::vector<std::string>*>{ "Warnings", &r.Warnings }, { "Errors", &r.Errors } })
             if (auto it = j.find(key); it != j.end() && it->is_array())
                 for (const auto& item : *it)
@@ -388,6 +449,16 @@ namespace Zamin {
         text += std::format("\nExcluded assets: {} ({})\n", Excluded.size(), ExportAssets::FormatSize(ExcludedBytes));
         for (const ExcludedAsset& asset : Excluded)
             text += std::format("  {:>10}  {}  ({})\n", ExportAssets::FormatSize(asset.Size), asset.Path, asset.Reason);
+        if (!Cooked.empty())
+        {
+            text += std::format("\nCooked textures: {} of {} ({} -> {}), {} from the cook cache, {} atlas pages re-packed, {:.2f} s\n", CookedCount(),
+                                Cooked.size(), ExportAssets::FormatSize(CookedSourceBytes()), ExportAssets::FormatSize(CookedBytes()), CookCacheHits,
+                                CookedAtlases, CookSeconds);
+            for (const CookedAsset& a : Cooked)
+                text += std::format("  {:<7} {:>10} -> {:>10}  {}x{}{}  {}{}\n", a.Action, ExportAssets::FormatSize(a.SourceBytes), ExportAssets::FormatSize(a.CookedBytes),
+                                    a.Width, a.Height, a.Width != a.SourceWidth || a.Height != a.SourceHeight ? std::format(" (from {}x{})", a.SourceWidth, a.SourceHeight) : "",
+                                    a.Path, a.Note.empty() ? "" : "  (" + a.Note + ")");
+        }
         text += std::format("\nWarnings: {}\n", Warnings.size());
         for (const std::string& warning : Warnings)
             text += "  - " + warning + "\n";

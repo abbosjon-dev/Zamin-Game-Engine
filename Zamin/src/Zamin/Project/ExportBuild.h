@@ -112,6 +112,13 @@ namespace Zamin {
         // How the script module was made ("Release (-O2), 6.2 s" / "editor moduli nusxalandi" / "skriptsiz").
         std::string ScriptModule;
         uintmax_t StrippedBytes = 0;    // what strip took off the binaries
+        // The textures the cook looked at (TextureCook): cooked into ZTEX or kept, with their sizes.
+        std::vector<CookedAsset> Cooked;
+        size_t CookCacheHits = 0, CookedAtlases = 0;
+        double CookSeconds = 0.0;
+        uintmax_t CookedSourceBytes() const;  // of the cooked ones before
+        uintmax_t CookedBytes() const;        // ... and after
+        size_t CookedCount() const;
         std::vector<std::string> Warnings, Errors;
 
         static constexpr size_t DefaultLargestCount = 15;

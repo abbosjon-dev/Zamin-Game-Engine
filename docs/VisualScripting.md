@@ -27,8 +27,9 @@ The file is written atomically; on a write error the edits stay in the window.
 - Typed Function.Entry/Call/Return: parameters, several results, separate local variables for each call, nested/delayed/recursive calls (depth 32). Old Function/Call graphs still work.
 - Enums: graph-local enums and enums imported from reflected C++ enum fields; Enum pins, variables, parameters, results and locals; Switch, Equal, ToNumber/ToText, FromNumber/FromText and ReadField/WriteField.Enum.
 - Collapse to function: the selected nodes become a typed function with a call in their place.
-- Structs: graph-local structs of typed fields; Struct/ArrayStruct pins, variables, parameters, results and locals; Make, Break, GetField, SetField and the array nodes.
-- Bool/Number/String/Vec2/Vec3/Vec4/Entity arrays: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat and a snapshot ForEach.
+- Structs: graph-local structs of typed fields, structs inside structs; Struct/ArrayStruct pins, variables, parameters, results and locals; Make, Break, GetField, SetField and the array nodes.
+- Inline macros: graph-local subgraphs with execution and data pins, expanded in place of each use; they may hold Delay and loops.
+- Bool/Number/String/Vec2/Vec3/Vec4/Entity/Enum arrays: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat and a snapshot ForEach.
 - Event.Custom + EmitEvent: a named event inside a graph instance, with a Number/Text/Bool/Vector3/Other payload. SendMessage is used for a message to another entity.
 - Math, logic and vector operations, joining text, turning a number into text (`FormatNumber` — 0..6 decimal places, `FormatTime` — `mm:ss` / `h:mm:ss`).
 - Input axis/action, transform, finding/creating/destroying entities, the active state and tags.
@@ -85,7 +86,12 @@ entries as a combo and store the entry's integer value. Enum nodes name their en
 leave it empty: the variable's enum). `Enum.Switch` has one execution output per entry. `Enum.FromNumber`/`FromText` stop with an
 error for a number/name that is no entry; a value outside the enum is rejected on literals, variable defaults, overrides, arguments,
 returns and bridge results. `ReadField.Enum`/`WriteField.Enum` read and write a reflected C++ enum field; a written value must be one of
-the field's options. Two pins connect only when they name the same enum. Enum arrays are not available yet.
+the field's options. Two pins connect only when they name the same enum.
+
+An enum array (`ArrayEnum`) holds entry values of one enum. Variables, parameters, results, locals and struct fields can have
+this type; `Constant/Get/Set.ArrayEnum`, `Local.Get/Set.ArrayEnum`, `Array.*.Enum` and `ForEach.Enum` name the enum in their
+literal **Enum** input (variable and local Get/Set may leave it empty), and every element is checked against the enum like a
+single Enum value. The literal editor shows each element as a combo of the entries.
 
 An array literal has Add/Remove, pages of 16 elements and **Paste array JSON**. The index of `Array.Get/Set/Remove`
 starts at 0; a fractional/negative/out-of-range index is an execution error. Slice Start/Count must be integers within range.
@@ -98,12 +104,19 @@ EmitEvent is delivered in the VM's next execution pass after the current chain; 
 
 **Structs → Struct name → Create struct** adds a graph struct with one Number field. In its tree add, remove (a struct keeps at
 least one field), rename (Enter) and retype fields and set their defaults. A field can be any value type: Bool, Number, String,
-Vec2/3/4, Entity, an enum of the graph or an array; a struct cannot hold another struct yet. A graph holds up to 64 structs of
-1..32 fields; the field defaults of one struct are limited to 64 KiB. Renaming a field keeps the wires of the Make/Break pins named
+Vec2/3/4, Entity, an enum of the graph, an array, another struct of the graph (`Struct`) or an array of one (`ArrayStruct`). A
+struct cannot contain itself, directly or through other structs: such a field type is refused in the editor and is a compile
+error (`Struct contains itself: A -> B -> A`). A struct may nest to 7 levels. A graph holds up to 64 structs of 1..32 fields;
+the field defaults of one struct are limited to 64 KiB, nested values included. Renaming a field keeps the wires of the Make/Break pins named
 after it, moves the GetField/SetField field literals and renames the field in every stored value; renaming a struct retypes every
 node, variable and signature pin that uses it. When a field is added, removed or retyped, every stored value of the struct keeps
 its fitting fields and takes the field defaults for the others, and wires/literals that no longer fit are removed (Undo restores
 them). A struct in use is not deleted. Every struct edit is one Undo/Redo step.
+
+A nested field works like any other: Make takes the inner struct value on the field's pin, Break and GetField give it, SetField
+replaces it, and the inner value is read with another Break/GetField of the inner struct. A field rename or field edit of the
+inner struct reaches every stored outer value (variable defaults, field defaults, literals); renaming the inner struct retypes
+the outer struct's fields. The literal editor opens a nested value as a tree and edits it field by field.
 
 A graph variable, a function parameter/result and a local can have the Struct type (one value) or the ArrayStruct type (an array of
 one struct's values). Their literals are edited field by field. Struct nodes name their struct in the literal **Struct** input
@@ -121,6 +134,29 @@ Two pins connect only when they name the same struct. A struct value must have e
 type; this is checked on literals, variable defaults, instance overrides (an override of another shape is ignored), arguments,
 returns and every node result. A struct value is limited to 32 fields and 64 KiB, a struct array to 1024 elements and 64 KiB: a
 struct array that would grow past it stops the graph with an error at the node that builds it.
+
+## Inline macros
+
+**Macros → Macro name → Create macro** adds a graph-local macro with an `In` execution input and a `Then` execution output,
+passed straight through between its **Macro.Entry** and **Macro.Exit** nodes. In its tree add, remove, rename (Enter) and retype
+the **Inputs** and **Outputs**: a pin is either `Exec` or a data pin of any value type (with a default). **Open macro** (or a
+double-click on a use) shows the macro's body on the canvas; the header says **Macro: <name>** and **Whole graph** goes back. Nodes
+added or pasted there belong to the macro. The node library lists **Macros / <name>** for each macro; **Add macro node** puts
+one into the open view, and a use's **Name** is a combo of the graph's macros. **Rename macro** renames every use and the body;
+**Delete macro and its nodes** removes the body and the uses with their wires. Every macro edit is one Undo/Redo step. A macro's
+entry and exit cannot be deleted on their own.
+
+A macro is not a function call: each use (`Macro.Instance`) is replaced at compile time by its own copy of the body, with node
+IDs unique to that use. So, unlike a typed function, a macro may hold latent and execution flow (Delay, loops, Sequence) and its
+execution outputs continue the caller's chain. A data input without a wire passes the use's literal (or the pin default); a data
+output the body leaves unwired gives the exit's literal. A macro may use other macros, but not itself (`Macro M uses itself`),
+and holds no events or function entries. A macro without execution pins is a pure data node.
+
+The body is checked on its own (findings name the body node and start with `In macro M:`), and the graph is checked with
+every macro expanded: a finding in a copy, and a runtime error in one, names the use node, with the body node (in the
+diagnostics list in parentheses, in the error as `In macro M (node N)`). A graph holds up to 64 macros of 32 inputs and 32
+outputs; the expanded graph keeps the 4096-node limit. Pasting a use needs the same macro in the target graph; nodes inside a
+macro cannot be collapsed into a function.
 
 ## Execution rules and debugging
 
@@ -146,11 +182,13 @@ An error stops that graph instance and is printed to the console/debug panel.
 
 ## Saving, C++ and export
 
-`.zgraph` files are format version 3: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
+`.zgraph` files are format version 4: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
 version 3 added the `Structs` section (each struct's `Fields`: name, type, default and, for an enum field, `Enum`) and the `Struct` key
-of struct-typed pins, variables and locals. Version 1 and 2 files load unchanged, including legacy Function/Call nodes, typed functions
-and enums; the window header says `(format 2: saving writes format 3)` until the graph is saved. An enum type in a version 1 file, a
-struct type in a version 1 or 2 file, or a newer version is rejected.
+of struct-typed pins, variables and locals; version 4 added the `Macros` section (each macro's `Inputs`/`Outputs`, `Exec` pins
+included), the `Macro` key of a macro's body nodes, the `ArrayEnum` type and struct fields of struct type. Version 1-3 files load
+unchanged, including legacy Function/Call nodes, typed functions, enums and structs; the window header says `(format 3: saving writes
+format 4)` until the graph is saved. An enum type in a version 1 file, a struct type in a version 1 or 2 file, macros, enum arrays or
+nested struct fields in a version 1-3 file, or a newer version is rejected.
 
 A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
 That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
@@ -160,7 +198,7 @@ The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine
 EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
 (a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
 [combat state](GameplayCombat.md#editor-authoring) of the selected actor.
-Curve pins, structs inside structs, enum arrays, reusable inline macros, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums, graph structs (with struct arrays) and the array types above are part of this one.
+Curve pins, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays), inline macros and the array types above are part of this one.
 
 Graph assets are listed in the registry, open in the Content Browser, and the asset inspector shows their diagnostics.
 Asset paths inside a graph take part in the reference scan and in renames. Rather than hiding an asset path that overrides a graph variable
@@ -174,7 +212,7 @@ C++ hot reload keeps the graph variables, but, like other native timers, restart
 
 - `Visual2D`: WASD/arrow input → 2D velocity; touching a trigger changes the color for a while.
 - `Visual3D`: two cubes with one graph spin at opposite speeds through different Speed overrides.
-- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18. The Finished event then calls `RankOf(Total)`, which returns the `Rank` enum through one of three Returns into the `FinalRank` variable and prints `BLUEPRINT_RANK rank=Silver` (2D) / `rank=Gold` (3D). Both values then go into `Summary`, a variable of the graph struct `Result {Total, Rank}` made with Struct.Make, which Struct.Break and Struct.GetField read back: `BLUEPRINT_SUMMARY total=12 rank=Silver` (2D) / `total=18 rank=Gold` (3D).
+- `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18. The Finished event then calls `RankOf(Total)`, which returns the `Rank` enum through one of three Returns into the `FinalRank` variable and prints `BLUEPRINT_RANK rank=Silver` (2D) / `rank=Gold` (3D). Both values then go into `Summary`, a variable of the graph struct `Result {Total, Rank}` made with Struct.Make, which Struct.Break and Struct.GetField read back: `BLUEPRINT_SUMMARY total=12 rank=Silver` (2D) / `total=18 rank=Gold` (3D). Last, `Report`, a struct that nests that `Result` and keeps the rank history in an enum array (`Ranks`: Bronze, then the final rank), is read with nested GetFields and passed to two uses of the `Announce` macro (a Delay, then a Print): `BLUEPRINT_REPORT total=12` and `BLUEPRINT_REPORT ranks=2` (2D; `total=18` in 3D).
 
 `ZaminTests --filter VisualGraph` runs the VM, the type/format/cycle checks, continuing delays/loops/functions, the budget, debugging, isolation,
 the C++ field bridge, a real scene lifecycle and the null target protection.
@@ -182,7 +220,9 @@ the C++ field bridge, a real scene lifecycle and the null target protection.
 The real ImGui mouse regression (adding nodes, a typed wire, rejection, save/undo/redo; then a typed function created in the UI, a parameter
 added, called from the node library, wired, undone/redone, opened with a double-click, and the saved graph run in the Player; then a struct
 created in the UI with an added and a renamed field, Make/GetField from the node library, wired, the wired field renamed with the wires kept,
-undone/redone, and that graph run in the Player):
+undone/redone, and that graph run in the Player; then a struct field given a struct type with its nested default edited, an
+`ArrayEnum` variable, and a macro created with an added and renamed output (undo/redo), opened, its body edited from the node library,
+used from the node library and wired, renamed with its use, opened by a double-click and run in the Player):
 
 ```bash
 ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2 \
@@ -191,7 +231,7 @@ ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_
 
 The test needs `xdotool` and the ImageMagick `import` tool; it does not change the original sample. It clicks the properties column and
 the canvas through `ZAMIN_EDITOR_VISUAL_LAYOUT=<file.json>`: the editor writes the screen rectangles of the column's widgets and of the
-canvas node headers/pins there each frame, and the test fails if a widget in the column is clipped at its right edge.
+canvas node headers/pins, the header buttons (`header/...`) and an open type list (`popup/<type>`) there each frame, and the test fails if a widget in the column is clipped at its right edge.
 
 The 2026-11-10 check: 173 node definitions; 26 VisualGraph tests (including a reference to an entity in another loaded scene),
 682 unit tests overall, 12 render cases and 223 + 265 editor steps over two projects passed without errors.
@@ -203,6 +243,11 @@ The 2026-11-26 check (typed functions, enums, collapse): `ZaminTests --filter Bl
 arity diagnostics, format 2 round trips and the version 1 migration, enum Switch/conversions/type checks/parameters/locals/renames/paste,
 recursion with enum arguments, collapse equivalence and refusals; `VisualGraphReadsAndWritesReflectedCppEnums` imports and drives a real
 reflected C++ enum field.
+
+The 2026-11-27 check (nested structs, enum arrays, macros): `ZaminTests --filter Blueprint` covers nested Make/Break/GetField/
+SetField, cycle/depth/64 KiB checks, nested renames and conformed values, enum arrays through the array nodes, ForEach, Switch,
+parameters and locals, macro expansion with latent flow, nested/pure/pass-through macros, diagnostics and runtime errors on the
+use, macro and pin renames, paste, and the format 4 migration of version 1-3 files.
 
 The 2026-11-26 struct check: `ZaminTests --filter BlueprintStruct` (and the format test) covers Make/Break/GetField/SetField, struct
 parameters/results/locals, overrides, static and runtime type errors, the 64 KiB struct array limit, format 3 round trips with the

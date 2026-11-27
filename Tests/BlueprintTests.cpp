@@ -1,5 +1,7 @@
 #include "TestAssertions.h"
 #include <Zamin/Scripting/Visual/VisualGraph.h>
+#include <filesystem>
+#include <limits>
 using namespace Zamin::Visual;
 namespace {
     Graph FunctionGraph()
@@ -94,11 +96,12 @@ TEST(BlueprintArrayAppendAndCheckedIndex)
 }
 TEST(BlueprintArrayTypesAndBudgets)
 {
-    for (int t = int(Type::ArrayBool); t < int(Type::Count); ++t)
+    for (int t = int(Type::ArrayBool); t <= int(Type::ArrayStruct); ++t)
     {
         CHECK(Matches(Type(t), Value::array()));
         CHECK(IsArray(Type(t)));
     }
+    CHECK(!IsArray(Type::Curve) && !Matches(Type::Curve, Value::array()));
     CHECK(!Matches(Type::ArrayNumber, Value::array({ "wrong" })));
     CHECK(!Matches(Type::ArrayNumber, Value(std::vector<double>(1025, 1))));
     CHECK(!Matches(Type::ArrayString, Value::array({ std::string(40000, 'a'), std::string(40000, 'b') })));
@@ -547,11 +550,11 @@ TEST(BlueprintCallArityAndSignatureDiagnostics)
     g.Links.push_back({ 30, "Value", 2, "X" });
     CHECK(Mentions(g.Validate(), "Link pin types differ"));
 }
-TEST(BlueprintFormatVersion4AndOlderMigration)
+TEST(BlueprintFormatVersion5AndOlderMigration)
 {
     auto g = FunctionGraph();
     auto json = g.Serialize();
-    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 4 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
+    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 5 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
     // A version 1 file (no Enums/Structs/Macros section): typed functions, locals and legacy names read unchanged.
     auto v1 = json;
     v1["Version"] = 1;
@@ -570,7 +573,7 @@ TEST(BlueprintFormatVersion4AndOlderMigration)
     vm.Event("Start");
     CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
     const auto upgraded = migrated.Serialize();
-    CHECK(upgraded.at("Version") == 4 && Graph::Parse(upgraded).SourceVersion == 4 && Graph::Parse(upgraded).Serialize() == upgraded);
+    CHECK(upgraded.at("Version") == 5 && Graph::Parse(upgraded).SourceVersion == 5 && Graph::Parse(upgraded).Serialize() == upgraded);
     // A version 2 file (enums, no Structs section) loads unchanged and runs the same.
     auto enumV2 = EnumGraph().Serialize();
     enumV2["Version"] = 2;
@@ -603,7 +606,7 @@ TEST(BlueprintFormatVersion4AndOlderMigration)
     try { Graph::Parse(structVariableV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
     CHECK(threw);
     auto future = json;
-    future["Version"] = 5;
+    future["Version"] = 6;
     threw = false;
     try { Graph::Parse(future); } catch (const std::exception&) { threw = true; }
     CHECK(threw);
@@ -1443,4 +1446,356 @@ TEST(BlueprintMacroRenamesPasteAndCollapse)
     uint32_t call = 0;
     CHECK(!g.CollapseToFunction({ 11 }, "F", call, error) && error.find("inside a macro") != std::string::npos);
     CHECK(!inside.PasteNodes(g.CopyNodes({ 10 }), 0, 0, ids, error, "Bonus"));
+}
+namespace {
+    // Ramp: 0 -> 2 linear over [0, 1], cubic (flat tangents) to 4 at 3, held at 4 until 4, then 10.
+    Value RampCurve()
+    {
+        return MakeCurve({ { 0, 0, CurveMode::Linear }, { 1, 2, CurveMode::Cubic }, { 3, 4, CurveMode::Constant }, { 4, 10, CurveMode::Linear } });
+    }
+    Value Key(double time, double value, const char* mode = "Linear", double in = 0, double out = 0) { return { { "Time", time }, { "Value", value }, { "Mode", mode }, { "In", in }, { "Out", out } }; }
+}
+TEST(BlueprintCurveEvaluatesConstantLinearAndCubic)
+{
+    const auto ramp = RampCurve();
+    CHECK(IsCurve(ramp) && Matches(Type::Curve, ramp) && CurveKeys(ramp).size() == 4);
+    CHECK(EvaluateCurve(ramp, -1) == 0 && EvaluateCurve(ramp, .5) == 1 && EvaluateCurve(ramp, 1) == 2);
+    CHECK_NEAR(EvaluateCurve(ramp, 2), 3., 1e-12);
+    CHECK_NEAR(EvaluateCurve(ramp, 1.5), 2.3125, 1e-12);
+    CHECK(EvaluateCurve(ramp, 3.5) == 4 && EvaluateCurve(ramp, 4) == 10 && EvaluateCurve(ramp, 9) == 10);
+    // Tangents are slopes: Out 1 / In 1 between (0, 0) and (1, 1) is the straight line.
+    const auto straight = MakeCurve({ { 0, 0, CurveMode::Cubic, 0, 1 }, { 1, 1, CurveMode::Linear, 1, 0 } });
+    CHECK_NEAR(EvaluateCurve(straight, .5), .5, 1e-12);
+    CHECK(EvaluateCurve(DefaultValue(Type::Curve), 3) == 0 && IsCurve(DefaultValue(Type::Curve)));
+    // MakeCurve sorts its keys; the JSON shape is checked exactly.
+    CHECK(CurveKeys(MakeCurve({ { 2, 1 }, { 1, 5 } })).front().Value == 5);
+    CHECK(!IsCurve(Value{ { "Keys", Value::array({ Key(1, 0), Key(0, 1) }) } }));
+    CHECK(!IsCurve(Value{ { "Keys", Value::array({ Key(1, 0), Key(1, 1) }) } }));
+    CHECK(!IsCurve(Value{ { "Keys", Value::array({ Key(0, 0, "Smooth") }) } }));
+    auto missing = Key(0, 0);
+    missing.erase("Out");
+    CHECK(!IsCurve(Value{ { "Keys", Value::array({ missing }) } }));
+    CHECK(!IsCurve(Value{ { "Keys", Value::array() }, { "Loop", true } }));
+    CHECK(!IsCurve(Value{ { "Keys", Value::array({ Key(0, std::numeric_limits<double>::infinity()) }) } }));
+    Value many = Value::array();
+    for (int i = 0; i <= int(MaxCurveKeys); ++i) many.push_back(Key(i, 0));
+    CHECK(!IsCurve(Value{ { "Keys", many } }));
+}
+TEST(BlueprintCurveNodesRunAndCheckTheirValues)
+{
+    Graph g;
+    g.Variables["Ramp"] = { Type::Curve, RampCurve() };
+    g.Variables["Built"] = { Type::Curve, DefaultValue(Type::Curve) };
+    for (auto name : { "Out", "Count", "Length", "Start" }) g.Variables[name] = { Type::Number, 0. };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "Get.Curve", 0, 0, { { "Name", "Ramp" } } }, { 3, "Curve.Evaluate", 0, 0, { { "Time", 2. } } }, { 4, "Set.Number", 0, 0, { { "Name", "Out" } } },
+                { 5, "Curve.KeyCount" }, { 6, "Set.Number", 0, 0, { { "Name", "Count" } } }, { 7, "Curve.Length" }, { 8, "Set.Number", 0, 0, { { "Name", "Length" } } },
+                { 9, "Curve.AddKey", 0, 0, { { "Time", 5. }, { "Value", 7. }, { "Mode", 0. } } }, { 10, "Curve.AddKey", 0, 0, { { "Time", 5. }, { "Value", 8. }, { "Mode", 2. } } },
+                { 11, "Set.Curve", 0, 0, { { "Name", "Built" } } }, { 12, "Set.Number", 0, 0, { { "Name", "Start" } } } };
+    g.Links = { { 1, "Then", 4, "In" }, { 4, "Then", 6, "In" }, { 6, "Then", 8, "In" }, { 8, "Then", 11, "In" }, { 11, "Then", 12, "In" }, { 2, "Value", 3, "Curve" }, { 3, "Value", 4, "Value" },
+                { 2, "Value", 5, "Curve" }, { 5, "Value", 6, "Value" }, { 2, "Value", 7, "Curve" }, { 7, "Value", 8, "Value" }, { 9, "Value", 10, "Curve" }, { 10, "Value", 11, "Value" }, { 7, "End", 12, "Value" } };
+    CHECK(g.Validate().empty());
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty());
+    CHECK_NEAR(vm.Variables().at("Out").get<double>(), 3., 1e-12);
+    CHECK(vm.Variables().at("Count") == 4. && vm.Variables().at("Length") == 4. && vm.Variables().at("Start") == 4.);
+    // AddKey at an existing time replaces that key.
+    const auto built = CurveKeys(vm.Variables().at("Built"));
+    CHECK(built.size() == 1 && built[0].Value == 8 && built[0].Mode == CurveMode::Cubic);
+    // Literals, defaults and overrides of another shape are refused; a bad Mode stops the graph with an error.
+    auto bad = g;
+    bad.Variables["Ramp"].Default = Value{ { "Keys", Value::array({ Key(1, 0), Key(0, 1) }) } };
+    CHECK(Mentions(bad.Validate(), "Invalid variable: Ramp"));
+    bad = g;
+    bad.Nodes[2].Inputs["Curve"] = 5.;
+    CHECK(Mentions(bad.Validate(), "Invalid input: Curve"));
+    Machine overridden;
+    CHECK(overridden.Load(g, {}, Value::object({ { "Ramp", Value{ { "Keys", Value::array({ Key(0, 0, "Smooth") }) } } } })));
+    overridden.Event("Start");
+    CHECK_NEAR(overridden.Variables().at("Out").get<double>(), 3., 1e-12);
+    bad = g;
+    bad.Nodes[9].Inputs["Mode"] = 3.;
+    Machine failing;
+    CHECK(failing.Load(bad));
+    failing.Event("Start");
+    CHECK(failing.Error().find("Curve key Mode must be 0, 1 or 2") != std::string::npos);
+    // Round trip: the Curve type and its literal.
+    const auto json = g.Serialize();
+    CHECK(json.at("Variables").at("Ramp").at("Type") == "Curve" && Graph::Parse(json).Serialize() == json);
+}
+TEST(BlueprintCurvePinsInStructsFunctionsLocalsAndMacros)
+{
+    // Track{Speed: Curve, Scale: Number}; Sample(C: Curve, T) -> V keeps C in a Curve local; the pure macro Eval takes a
+    // curve input. Start: Out = Sample(Track.Speed, .5), Out2 = Eval(Ramp, 2).
+    Graph g;
+    g.Structs["Track"] = { { { "Speed", Type::Curve, MakeCurve({ { 0, 0 }, { 1, 10 } }) }, { "Scale", Type::Number, 1. } } };
+    g.Variables["Track"] = { Type::Struct, g.DefaultFor(Type::Struct, "Track"), "Track" };
+    g.Variables["Ramp"] = { Type::Curve, RampCurve() };
+    g.Variables["Out"] = { Type::Number, 0. };
+    g.Variables["Out2"] = { Type::Number, 0. };
+    g.Functions["Sample"] = { { { "C", Type::Curve, DefaultValue(Type::Curve) }, { "T", Type::Number, 0. } }, { { "V", Type::Number, 0. } }, { { "Copy", { Type::Curve, DefaultValue(Type::Curve) } } } };
+    g.Macros["Eval"] = { { { "C", Type::Curve, DefaultValue(Type::Curve) }, { "T", Type::Number, 0. } }, { { "V", Type::Number, 0. } } };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "Get.Struct", 0, 0, { { "Name", "Track" } } }, { 3, "Struct.GetField", 0, 0, { { "Struct", "Track" }, { "Field", "Speed" } } },
+                { 4, "Function.Call", 0, 0, { { "Name", "Sample" }, { "T", .5 } } }, { 5, "Set.Number", 0, 0, { { "Name", "Out" } } },
+                { 6, "Get.Curve", 0, 0, { { "Name", "Ramp" } } }, { 7, "Macro.Instance", 0, 0, { { "Name", "Eval" }, { "T", 2. } } }, { 8, "Set.Number", 0, 0, { { "Name", "Out2" } } },
+                { 10, "Function.Entry", 0, 0, { { "Name", "Sample" } } }, { 11, "Local.Set.Curve", 0, 0, { { "Name", "Copy" } } }, { 12, "Local.Get.Curve", 0, 0, { { "Name", "Copy" } } },
+                { 13, "Curve.Evaluate" }, { 14, "Function.Return", 0, 0, { { "Name", "Sample" } } },
+                { 20, "Macro.Entry" }, { 21, "Curve.Evaluate" }, { 22, "Macro.Exit" } };
+    for (auto& n : g.Nodes)
+        if (n.ID >= 20) n.Macro = "Eval";
+    g.Links = { { 1, "Then", 4, "In" }, { 4, "Then", 5, "In" }, { 5, "Then", 8, "In" }, { 2, "Value", 3, "Value" }, { 3, "Value", 4, "C" }, { 4, "V", 5, "Value" }, { 6, "Value", 7, "C" }, { 7, "V", 8, "Value" },
+                { 10, "Then", 11, "In" }, { 10, "C", 11, "Value" }, { 11, "Then", 14, "In" }, { 12, "Value", 13, "Curve" }, { 10, "T", 13, "Time" }, { 13, "Value", 14, "V" },
+                { 20, "C", 21, "Curve" }, { 20, "T", 21, "Time" }, { 21, "Value", 22, "V" } };
+    CHECK(g.Validate().empty());
+    CHECK(g.Describe(*g.Find(3)).Outputs.back().Kind == Type::Curve);
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty() && vm.Variables().at("Out") == 5.);
+    CHECK_NEAR(vm.Variables().at("Out2").get<double>(), 3., 1e-12);
+    // A curve pin connects only to a curve pin; an invalid curve default is reported where it is.
+    auto bad = g;
+    bad.Links.push_back({ 6, "Value", 13, "Time" });
+    CHECK(Mentions(bad.Validate(), "Link pin types differ"));
+    bad = g;
+    bad.Structs["Track"].Fields[0].Default = 1.;
+    CHECK(Mentions(bad.Validate(), "Struct Track field Speed has an invalid default"));
+    bad = g;
+    bad.Functions["Sample"].Locals["Copy"].Default = Value{ { "Keys", 1 } };
+    CHECK(Mentions(bad.Validate(), "Invalid local variable in Sample"));
+    const auto json = g.Serialize();
+    CHECK(Graph::Parse(json).Serialize() == json && Graph::Parse(json).Validate().empty());
+}
+TEST(BlueprintFormatVersion4FilesLoadUnchanged)
+{
+    // A version 4 file (macros, nested structs, no curves or parents) loads unchanged and is written back as 5.
+    auto v4 = MacroGraph().Serialize();
+    v4["Version"] = 4;
+    const auto fromV4 = Graph::Parse(v4);
+    CHECK(fromV4.SourceVersion == 4 && fromV4.Validate().empty() && fromV4.Serialize() == MacroGraph().Serialize());
+    auto refused = [](Value json) {
+        try { Graph::Parse(json); } catch (const std::exception& e) { return std::string(e.what()).find("version 5") != std::string::npos; }
+        return false;
+    };
+    auto curve = v4;
+    curve["Variables"]["Ramp"] = { { "Type", "Curve" }, { "Default", RampCurve() } };
+    CHECK(refused(curve));
+    auto parent = v4;
+    parent["Parent"] = "Scripts/Base.zgraph";
+    CHECK(refused(parent));
+    auto renames = v4;
+    renames["Renames"] = Value::array();
+    CHECK(refused(renames));
+    auto call = v4;
+    call["Nodes"][0]["Kind"] = "Parent.Event";
+    CHECK(refused(call));
+    auto field = StructGraph().Serialize();
+    field["Version"] = 4;
+    field["Structs"]["Hit"]["Fields"].push_back({ { "Name", "Ramp" }, { "Type", "Curve" }, { "Default", RampCurve() } });
+    CHECK(refused(field));
+}
+namespace {
+    // Base: Level 2, Gain (0 -> 8 over 0..4), Log, Hits; enum Tier, struct Pair, pure macro Twice (Y = X * 2);
+    // Bonus(X) -> Value = Gain(X). Start: Log = Bonus(Level). Custom "Hit": Hits += 1.
+    Graph BaseGraph()
+    {
+        Graph g;
+        g.Variables["Level"] = { Type::Number, 2. };
+        g.Variables["Gain"] = { Type::Curve, MakeCurve({ { 0, 0 }, { 4, 8 } }) };
+        g.Variables["Log"] = { Type::Number, 0. };
+        g.Variables["Hits"] = { Type::Number, 0. };
+        g.Enums["Tier"] = { { { "Low", 0 }, { "High", 1 } }, "" };
+        g.Structs["Pair"] = { { { "A", Type::Number, 0. } } };
+        g.Macros["Twice"] = { { { "X", Type::Number, 0. } }, { { "Y", Type::Number, 0. } } };
+        g.Functions["Bonus"] = { { { "X", Type::Number, 0. } }, { { "Value", Type::Number, 0. } }, {} };
+        g.Nodes = { { 1, "Event.Start" }, { 2, "Get.Number", 0, 0, { { "Name", "Level" } } }, { 3, "Function.Call", 0, 0, { { "Name", "Bonus" } } }, { 4, "Set.Number", 0, 0, { { "Name", "Log" } } },
+                    { 5, "Function.Entry", 0, 0, { { "Name", "Bonus" } } }, { 6, "Get.Curve", 0, 0, { { "Name", "Gain" } } }, { 7, "Curve.Evaluate" }, { 8, "Function.Return", 0, 0, { { "Name", "Bonus" } } },
+                    { 9, "Event.Custom", 0, 0, { { "Name", "Hit" } } }, { 10, "Get.Number", 0, 0, { { "Name", "Hits" } } }, { 11, "Add", 0, 0, { { "B", 1. } } }, { 12, "Set.Number", 0, 0, { { "Name", "Hits" } } },
+                    { 13, "Macro.Entry", 0, 0, {}, false, "Twice" }, { 14, "Multiply", 0, 0, { { "B", 2. } }, false, "Twice" }, { 15, "Macro.Exit", 0, 0, {}, false, "Twice" } };
+        g.Links = { { 1, "Then", 3, "In" }, { 3, "Then", 4, "In" }, { 2, "Value", 3, "X" }, { 3, "Value", 4, "Value" }, { 5, "Then", 8, "In" }, { 6, "Value", 7, "Curve" }, { 5, "X", 7, "Time" }, { 7, "Value", 8, "Value" },
+                    { 9, "Then", 12, "In" }, { 10, "Value", 11, "A" }, { 11, "Value", 12, "Value" }, { 13, "X", 14, "A" }, { 14, "Value", 15, "Y" } };
+        return g;
+    }
+    // Child of Base: overrides Bonus (10 x the parent's) and the Hit event (the parent's handler, then Hits += 100);
+    // its own Extra = Twice(Level) on Create. Its node IDs overlap the parent's on purpose.
+    Graph ChildGraph()
+    {
+        Graph g;
+        g.Parent = "Scripts/Base.zgraph";
+        g.Variables["Extra"] = { Type::Number, 0. };
+        g.Functions["Bonus"] = { { { "X", Type::Number, 0. } }, { { "Value", Type::Number, 0. } }, {} };
+        g.Nodes = { { 1, "Function.Entry", 0, 0, { { "Name", "Bonus" } } }, { 2, "Parent.Call", 0, 0, { { "Name", "Bonus" } } }, { 3, "Multiply", 0, 0, { { "B", 10. } } }, { 4, "Function.Return", 0, 0, { { "Name", "Bonus" } } },
+                    { 5, "Event.Custom", 0, 0, { { "Name", "Hit" } } }, { 6, "Parent.Event", 0, 0, { { "Name", "Custom.Hit" } } }, { 7, "Get.Number", 0, 0, { { "Name", "Hits" } } }, { 8, "Add", 0, 0, { { "B", 100. } } },
+                    { 9, "Set.Number", 0, 0, { { "Name", "Hits" } } }, { 10, "Event.Create" }, { 11, "Get.Number", 0, 0, { { "Name", "Level" } } }, { 12, "Macro.Instance", 0, 0, { { "Name", "Twice" } } },
+                    { 13, "Set.Number", 0, 0, { { "Name", "Extra" } } } };
+        g.Links = { { 1, "Then", 2, "In" }, { 1, "X", 2, "X" }, { 2, "Then", 4, "In" }, { 2, "Value", 3, "A" }, { 3, "Value", 4, "Value" }, { 5, "Then", 6, "In" }, { 6, "Then", 9, "In" }, { 7, "Value", 8, "A" },
+                    { 8, "Value", 9, "Value" }, { 10, "Then", 13, "In" }, { 11, "Value", 12, "X" }, { 12, "Y", 13, "Value" } };
+        return g;
+    }
+    std::map<std::string, Value> RunEvents(const Graph& g, std::initializer_list<const char*> events)
+    {
+        Machine vm;
+        CHECK(vm.Load(g));
+        for (auto e : events) vm.Event(e);
+        CHECK(vm.Error().empty());
+        return vm.Variables();
+    }
+    std::filesystem::path GraphFolder(const char* name)
+    {
+        auto root = std::filesystem::temp_directory_path() / name;
+        std::filesystem::remove_all(root);
+        std::filesystem::create_directories(root / "Assets/Scripts");
+        return root / "Assets";
+    }
+}
+TEST(BlueprintInheritanceInheritsMembersAndOverridesFunctionsAndEvents)
+{
+    const auto base = BaseGraph();
+    CHECK(base.Validate().empty() && RunEvents(base, { "Start" }).at("Log") == 4.);
+    auto child = ChildGraph();
+    child.InheritFrom(base, child.Parent);
+    CHECK(child.Validate().empty());
+    // The parent's members are the child's too, marked; Bonus and Custom.Hit are overrides.
+    CHECK(child.Inherited.Variables == std::set<std::string>({ "Gain", "Hits", "Level", "Log" }) && child.Inherited.Enums.contains("Tier") && child.Inherited.Structs.contains("Pair") && child.Inherited.Macros.contains("Twice"));
+    CHECK(child.Inherited.Functions.empty() && child.FunctionOverrides() == std::set<std::string>({ "Bonus" }) && child.EventOverrides() == std::set<std::string>({ "Custom.Hit" }));
+    CHECK(child.Inherited.Events == std::set<std::string>({ "Custom.Hit", "Start" }) && child.IsInherited("Variable", "Level") && !child.IsInherited("Variable", "Extra"));
+    // The parent's Start calls Bonus: the child's override runs, which runs the parent's through Parent.Call. The
+    // child's Hit runs the parent's handler first (Parent.Event); the inherited macro expands in the child.
+    const auto vars = RunEvents(child, { "Create", "Start", "Custom.Hit" });
+    CHECK(vars.at("Log") == 40. && vars.at("Hits") == 101. && vars.at("Extra") == 4.);
+    // The resolved graph: the parent's nodes take new IDs, the parent's Bonus moved to Base::Bonus.
+    const auto resolved = child.Resolved();
+    CHECK(resolved.Functions.contains("Base::Bonus") && resolved.Functions.contains("Bonus") && resolved.Nodes.size() == base.Nodes.size() + child.Nodes.size());
+    CHECK(resolved.Inherited.Origins.size() == base.Nodes.size() && resolved.Inherited.OverriddenEvents.size() == 1 && resolved.Inherited.ParentEvents.at(6).size() == 1);
+    // Only the child's own members are saved; parsing and inheriting again gives the same graph.
+    const auto json = child.Serialize();
+    CHECK(json.at("Version") == 5 && json.at("Parent") == "Scripts/Base.zgraph" && !json.at("Variables").contains("Level") && json.at("Variables").contains("Extra"));
+    CHECK(json.at("Functions").contains("Bonus") && json.at("Enums").empty() && json.at("Structs").empty() && json.at("Macros").empty() && json.at("Nodes").size() == child.Nodes.size());
+    auto again = Graph::Parse(json);
+    CHECK(again.Parent == child.Parent && again.Inherited.Variables.empty());
+    again.InheritFrom(base, again.Parent);
+    CHECK(again.Validate().empty() && again.Serialize() == json && RunEvents(again, { "Start" }).at("Log") == 40.);
+    // ClearInherited gives the graph as its file holds it; the inherited members cannot be renamed in the child.
+    CHECK(!child.RenameVariable("Level", "Rank") && !child.RenameMacro("Twice", "Double"));
+    again.ClearInherited();
+    CHECK(!again.Variables.contains("Level") && !again.Inherited.Base && again.Serialize() == json);
+}
+TEST(BlueprintInheritanceChainsParentCallsAcrossThreeLevels)
+{
+    // G: F() -> V = 1, Start: Out = F(). P overrides F: parent + 10; C overrides F: parent + 100.
+    Graph g;
+    g.Variables["Out"] = { Type::Number, 0. };
+    g.Functions["F"] = { {}, { { "V", Type::Number, 0. } }, {} };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "Function.Call", 0, 0, { { "Name", "F" } } }, { 3, "Set.Number", 0, 0, { { "Name", "Out" } } }, { 4, "Function.Entry", 0, 0, { { "Name", "F" } } }, { 5, "Function.Return", 0, 0, { { "Name", "F" }, { "V", 1. } } } };
+    g.Links = { { 1, "Then", 2, "In" }, { 2, "Then", 3, "In" }, { 2, "V", 3, "Value" }, { 4, "Then", 5, "In" } };
+    auto level = [](const char* parent, double add) {
+        Graph p;
+        p.Parent = parent;
+        p.Functions["F"] = { {}, { { "V", Type::Number, 0. } }, {} };
+        p.Nodes = { { 1, "Function.Entry", 0, 0, { { "Name", "F" } } }, { 2, "Parent.Call", 0, 0, { { "Name", "F" } } }, { 3, "Add", 0, 0, { { "B", add } } }, { 4, "Function.Return", 0, 0, { { "Name", "F" } } } };
+        p.Links = { { 1, "Then", 2, "In" }, { 2, "Then", 4, "In" }, { 2, "V", 3, "A" }, { 3, "Value", 4, "V" } };
+        return p;
+    };
+    auto p = level("Scripts/G.zgraph", 10);
+    p.InheritFrom(g, p.Parent);
+    auto c = level("Scripts/P.zgraph", 100);
+    c.InheritFrom(p, c.Parent);
+    CHECK(p.Validate().empty() && c.Validate().empty());
+    CHECK(c.Inherited.Chain == std::vector<std::string>({ "Scripts/P.zgraph", "Scripts/G.zgraph" }));
+    CHECK(RunEvents(g, { "Start" }).at("Out") == 1. && RunEvents(p, { "Start" }).at("Out") == 11. && RunEvents(c, { "Start" }).at("Out") == 111.);
+    const auto resolved = c.Resolved();
+    CHECK(resolved.Functions.contains("P::F") && resolved.Functions.contains("G::F") && resolved.Functions.contains("F"));
+    // An error in an inherited node names the parent file and the node's ID there.
+    auto broken = g;
+    broken.Nodes[4].Inputs.erase("V");
+    broken.Nodes.push_back({ 6, "Divide", 0, 0, { { "A", 1. }, { "B", 0. } } });
+    broken.Links.push_back({ 6, "Value", 5, "V" });
+    auto child = level("Scripts/G.zgraph", 1);
+    child.Functions.clear();
+    child.Nodes.clear();
+    child.Links.clear();
+    child.InheritFrom(broken, child.Parent);
+    Machine vm;
+    CHECK(vm.Load(child));
+    vm.Event("Start");
+    CHECK(vm.Error().find("In parent Scripts/G.zgraph (node 5): Division by zero") != std::string::npos);
+}
+TEST(BlueprintInheritanceDiagnostics)
+{
+    const auto base = BaseGraph();
+    auto expect = [&](Graph child, const std::string& text) {
+        child.InheritFrom(base, child.Parent);
+        const auto found = child.Validate();
+        Machine vm;
+        return Mentions(found, text) && !vm.Load(child);
+    };
+    auto conflict = ChildGraph();
+    conflict.Variables["Level"] = { Type::Number, 9. };
+    CHECK(expect(conflict, "Variable Level is already defined in parent Scripts/Base.zgraph"));
+    auto structs = ChildGraph();
+    structs.Structs["Pair"] = { { { "B", Type::Bool, false } } };
+    CHECK(expect(structs, "Struct Pair is already defined in parent"));
+    auto signature = ChildGraph();
+    signature.Functions["Bonus"].Inputs[0].Kind = Type::Bool;
+    signature.Functions["Bonus"].Inputs[0].Default = false;
+    CHECK(expect(signature, "Override of Bonus must keep the parent's signature"));
+    auto unknown = ChildGraph();
+    unknown.Nodes[1].Inputs["Name"] = "Nope";
+    CHECK(expect(unknown, "Parent.Call: Nope does not override a parent function"));
+    auto event = ChildGraph();
+    event.Nodes[5].Inputs["Name"] = "Update";
+    CHECK(expect(event, "Parent.Event: Update is not a parent event this graph handles"));
+    // A Parent node without a parent; an error inside the parent names the parent file.
+    auto orphan = ChildGraph();
+    orphan.Parent.clear();
+    CHECK(Mentions(orphan.Validate(), "Parent.Call needs a parent graph") && Mentions(orphan.Validate(), "Parent.Event needs a parent graph"));
+    auto broken = base;
+    broken.Nodes[3].Inputs["Name"] = "Missing";
+    auto child = ChildGraph();
+    child.InheritFrom(broken, child.Parent);
+    CHECK(Mentions(child.Validate(), "In parent Scripts/Base.zgraph (node 4): Unknown variable: Missing"));
+    // Files: a missing parent and a cycle are reported, and the child does not run.
+    const auto assets = GraphFolder("zamin-blueprint-inheritance-diagnostics");
+    Graph a, b, c;
+    a.Parent = "Scripts/B.zgraph";
+    b.Parent = "Scripts/A.zgraph";
+    c.Parent = "Scripts/Missing.zgraph";
+    CHECK(a.Save(assets / "Scripts/A.zgraph") && b.Save(assets / "Scripts/B.zgraph") && c.Save(assets / "Scripts/C.zgraph"));
+    const auto cyclic = Graph::Load(assets / "Scripts/A.zgraph");
+    CHECK(Mentions(cyclic.Validate(), "Graph inheritance cycle: Scripts/A.zgraph -> Scripts/B.zgraph -> Scripts/A.zgraph"));
+    CHECK(Mentions(Graph::Load(assets / "Scripts/C.zgraph").Validate(), "Parent graph not found: Scripts/Missing.zgraph"));
+    Machine vm;
+    CHECK(!vm.Load(cyclic) && vm.Error().find("cycle") != std::string::npos);
+    Graph self;
+    self.Parent = "Scripts/Self.zgraph";
+    CHECK(self.Save(assets / "Scripts/Self.zgraph") && Mentions(Graph::Load(assets / "Scripts/Self.zgraph").Validate(), "Graph inheritance cycle"));
+    Graph escape;
+    escape.Parent = "../../outside.zgraph";
+    CHECK(escape.Save(assets / "Scripts/Escape.zgraph") && Mentions(Graph::Load(assets / "Scripts/Escape.zgraph").Validate(), "Parent graph not found"));
+    std::filesystem::remove_all(assets.parent_path());
+}
+TEST(BlueprintInheritanceParentEditsAndRenamesPropagateOnLoad)
+{
+    const auto assets = GraphFolder("zamin-blueprint-inheritance-renames");
+    CHECK(BaseGraph().Save(assets / "Scripts/Base.zgraph") && ChildGraph().Save(assets / "Scripts/Child.zgraph"));
+    auto child = Graph::Load(assets / "Scripts/Child.zgraph");
+    CHECK(child.Validate().empty() && child.Inherited.Base && RunEvents(child, { "Start" }).at("Log") == 40.);
+    // The parent renames a variable, the curve variable, the function the child overrides and the macro it uses,
+    // and changes the curve: the child follows on its next load.
+    auto base = Graph::Load(assets / "Scripts/Base.zgraph");
+    CHECK(base.RenameVariable("Level", "Rank") && base.RenameVariable("Gain", "Ramp") && base.RenameFunction("Bonus", "Reward") && base.RenameMacro("Twice", "Double"));
+    CHECK(base.Renames.size() == 4 && base.Renames[2] == Graph::Rename({ "Function", "Bonus", "Reward" }));
+    base.Variables["Ramp"].Default = MakeCurve({ { 0, 0 }, { 4, 4 } });
+    CHECK(base.Save(assets / "Scripts/Base.zgraph"));
+    child = Graph::Load(assets / "Scripts/Child.zgraph");
+    CHECK(child.Validate().empty() && child.Functions.contains("Reward") && !child.Functions.contains("Bonus") && child.FunctionOverrides() == std::set<std::string>({ "Reward" }));
+    CHECK(child.Find(2)->Inputs.at("Name") == "Reward" && child.Find(11)->Inputs.at("Name") == "Rank" && child.Find(12)->Inputs.at("Name") == "Double");
+    CHECK(child.Renames.empty()); // following the parent is not a rename of the child's own
+    const auto vars = RunEvents(child, { "Create", "Start" });
+    CHECK(vars.at("Log") == 20. && vars.at("Extra") == 4.);
+    // Saved, the child names the new members and loads cleanly with the edited parent.
+    CHECK(child.Save(assets / "Scripts/Child.zgraph"));
+    CHECK(Graph::Load(assets / "Scripts/Child.zgraph").Validate().empty());
+    std::filesystem::remove_all(assets.parent_path());
 }

@@ -17,6 +17,7 @@ namespace Zamin::Visual {
                                                       Value(std::vector<double>(dims, 0)) }; }
         Pin En(const char* n) { return { n, Type::Enum, Value(0) }; }
         Pin St(const char* n) { return { n, Type::Struct, Value::object() }; }
+        Pin Cu(const char* n) { return { n, Type::Curve, DefaultValue(Type::Curve) }; }
         Pin EntityPin(const char* n = "Target") { return { n, Type::Entity, std::string(n) == "Target" ? UINT64_MAX : 0ull }; }
         const Pin* FindPin(const std::vector<Pin>& pins, const std::string& name)
         {
@@ -41,7 +42,7 @@ namespace Zamin::Visual {
     }
     const char* TypeName(Type t)
     {
-        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "Struct", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity", "ArrayEnum", "ArrayStruct" };
+        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "Struct", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity", "ArrayEnum", "ArrayStruct", "Curve" };
         return t >= Type::Exec && t < Type::Count ? names[int(t)] : "Invalid";
     }
     bool Matches(Type t, const Value& v)
@@ -56,6 +57,7 @@ namespace Zamin::Visual {
             case Type::String: return v.is_string() && v.get_ref<const std::string&>().size() <= 65536;
             case Type::Entity: return v.is_number_unsigned() || (v.is_number_integer() && v.get<int64_t>() >= 0);
             case Type::Struct: return v.is_object() && v.size() <= 32 && ValueBytes(v) <= 65536;
+            case Type::Curve:  return ValueBytes(v) <= 65536 && IsCurve(v);
             case Type::Enum:   return v.is_number_integer() && !v.is_number_unsigned() ? std::abs(v.get<int64_t>()) <= (int64_t(1) << 53) : v.is_number_unsigned() && v.get<uint64_t>() <= (uint64_t(1) << 53);
             default:
                 if (!v.is_array() || v.size() != size_t(int(t) - int(Type::Vec2) + 2)) return false;
@@ -74,6 +76,7 @@ namespace Zamin::Visual {
         static const std::vector<const char*> falloff{ "Kamaymaydi", "Chiziqli kamayish" };
         static const std::vector<const char*> hud{ "Sog'liq", "Qalqon", "Buyum", "Sumka", "O'limlar", "Effekt", "Zarba belgisi", "Energiya", "Qobiliyat", "Tajriba darajasi" };
         static const std::vector<const char*> slot{ "Qurol", "Qo'shimcha qo'l", "Badan", "Tumor" };
+        static const std::vector<const char*> curveMode{ "Konstant", "Chiziqli", "Kubik" };
         static const std::map<std::pair<std::string, std::string>, const std::vector<const char*>*> choices{
             { { "Gameplay.AbilityDefine", "Kind" }, &ability },
             { { "Gameplay.ProjectileDefine", "Kind" }, &payload },
@@ -85,6 +88,7 @@ namespace Zamin::Visual {
             { { "Gameplay.ItemDefine", "Slot" }, &slot },
             { { "Gameplay.EquipmentUnequip", "Slot" }, &slot },
             { { "Gameplay.EquipmentState", "Slot" }, &slot },
+            { { "Curve.AddKey", "Mode" }, &curveMode },
         };
         auto found = choices.find({ kind, pin });
         return found == choices.end() ? nullptr : found->second;
@@ -186,6 +190,19 @@ add("Struct.SetField", "Structs", { S("Struct"), S("Field"), St("Value") }, { St
 add("Macro.Instance", "Macros", { S("Name", "MyMacro") }, {});
 add("Macro.Entry", "Macros", {}, {});
 add("Macro.Exit", "Macros", {}, {});
+// Curves: a float curve value evaluated at a time; built from literals (Constant.Curve) or key by key (AddKey).
+add("Constant.Curve", "Curves", { Cu("Value") }, { Cu("Value") }, true);
+add("Get.Curve", "Variables", { S("Name") }, { Cu("Value") }, true);
+add("Set.Curve", "Variables", { E("In"), S("Name"), Cu("Value") }, { E("Then") });
+add("Curve.Evaluate", "Curves", { Cu("Curve"), N("Time") }, { N("Value") }, true);
+add("Curve.KeyCount", "Curves", { Cu("Curve") }, { N("Value") }, true);
+add("Curve.Length", "Curves", { Cu("Curve") }, { N("Value"), N("Start"), N("End") }, true);
+// Mode: 0 Constant, 1 Linear, 2 Cubic (PinChoices); a key at the same time is replaced.
+add("Curve.AddKey", "Curves", { Cu("Curve"), N("Time"), N("Value"), N("Mode", 1), N("InTangent"), N("OutTangent") }, { Cu("Value") }, true);
+// Inheritance: Parent.Call runs the parent's version of the overridden function Name (its pins: the signature);
+// Parent.Event runs the parent's handlers of the overridden event Name ("Start", "Custom.MyEvent" ...).
+add("Parent.Call", "Inheritance", { E("In"), S("Name", "MyFunction") }, { E("Then") });
+add("Parent.Event", "Inheritance", { E("In"), S("Name", "Start") }, { E("Then") });
 add("ReadField.Enum", "C++ bridge", { EntityPin(), S("Name"), S("Enum") }, { En("Value") }, true);
 add("WriteField.Enum", "C++ bridge", { E("In"), EntityPin(), S("Name"), S("Enum"), En("Value") }, { E("Then") });
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
@@ -504,6 +521,7 @@ return c; }();
                 return depths[named] = 1 + deepest;
             }
             if (kind == Type::ArrayVec2 || kind == Type::ArrayVec3 || kind == Type::ArrayVec4) return 2;
+            if (kind == Type::Curve) return 3; // {Keys: [{...}]}
             return IsArray(kind) || kind == Type::Vec2 || kind == Type::Vec3 || kind == Type::Vec4 ? 1 : 0;
         };
         for (const auto& [name, definition] : Structs)
@@ -599,7 +617,7 @@ return c; }();
             if (state[name] != 2 && recursive(name)) error(0, "Macro " + name + " uses itself");
         return d;
     }
-    std::vector<Diagnostic> Graph::Validate() const
+    std::vector<Diagnostic> Graph::ValidateGraph() const
     {
         auto d = ValidateTypes();
         if (!UsesMacros(*this))
@@ -697,7 +715,7 @@ return c; }();
                 continue;
             }
             if (!std::isfinite(n.X) || !std::isfinite(n.Y)) error(n.ID, "Invalid position");
-            const bool typed = n.Kind == "Function.Call" || n.Kind == "Function.Entry" || n.Kind == "Function.Return";
+            const bool typed = n.Kind == "Function.Call" || n.Kind == "Function.Entry" || n.Kind == "Function.Return" || n.Kind == "Parent.Call";
             for (auto& [key, value] : n.Inputs)
             {
                 auto* p = FindPin(definitions.at(n.ID).Inputs, key);
@@ -763,7 +781,7 @@ return c; }();
             }
             if (i->Kind != Type::Exec && !inputs.insert({ l.To, l.Input }).second) error(l.To, "Data input already linked");
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
-            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Macro.Instance" || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
+            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Macro.Instance" || b->Kind.starts_with("Parent.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
             if (l.Input == "Enum" && i->Kind == Type::String && b->Kind.find("Enum") != std::string::npos) error(l.To, "Enum type must be a literal");
             if ((l.Input == "Struct" || l.Input == "Field") && i->Kind == Type::String && b->Kind.find("Struct") != std::string::npos) error(l.To, "Struct type and field must be literals");
             if (i->Kind != Type::Exec) dependencies[l.To].push_back(l.From);
@@ -786,11 +804,20 @@ return c; }();
             j["Nodes"].push_back({ { "ID", n.ID }, { "Kind", n.Kind }, { "X", n.X }, { "Y", n.Y }, { "Inputs", n.Inputs }, { "Breakpoint", n.Breakpoint } });
             if (!n.Macro.empty()) j["Nodes"].back()["Macro"] = n.Macro;
         }
+        // Inheritance: the parent path and the rename log (only when there are; inherited members are not saved).
+        if (!Parent.empty()) j["Parent"] = Parent;
+        if (!Renames.empty())
+        {
+            j["Renames"] = Value::array();
+            for (const auto& r : Renames) j["Renames"].push_back({ { "Kind", r.Kind }, { "From", r.From }, { "To", r.To } });
+        }
         for (auto& l : Links) j["Links"].push_back({ { "From", l.From }, { "Output", l.Output }, { "To", l.To }, { "Input", l.Input } });
-        for (auto& [name, v] : Variables) j["Variables"][name] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
+        for (auto& [name, v] : Variables)
+            if (!Inherited.Variables.contains(name)) j["Variables"][name] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
         j["Enums"] = Value::object();
         for (const auto& [name, definition] : Enums)
         {
+            if (Inherited.Enums.contains(name)) continue;
             Value entries = Value::array();
             for (const auto& entry : definition.Entries) entries.push_back({ { "Name", entry.Name }, { "Value", entry.Value } });
             j["Enums"][name] = { { "Entries", std::move(entries) }, { "Source", definition.Source } };
@@ -798,6 +825,7 @@ return c; }();
         j["Structs"] = Value::object();
         for (const auto& [name, definition] : Structs)
         {
+            if (Inherited.Structs.contains(name)) continue;
             Value fields = Value::array();
             for (const auto& f : definition.Fields) fields.push_back(typed(f.Kind, f.Enum, { { "Name", f.Name }, { "Type", TypeName(f.Kind) }, { "Default", f.Default } }));
             j["Structs"][name] = { { "Fields", std::move(fields) } };
@@ -805,6 +833,7 @@ return c; }();
         j["Functions"] = Value::object();
         for (const auto& [name, signature] : Functions)
         {
+            if (Inherited.Functions.contains(name)) continue;
             Value function = { { "Inputs", Value::array() }, { "Outputs", Value::array() }, { "Locals", Value::object() } };
             for (const auto& p : signature.Inputs) function["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
             for (const auto& p : signature.Outputs) function["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
@@ -814,6 +843,7 @@ return c; }();
         j["Macros"] = Value::object();
         for (const auto& [name, macro] : Macros)
         {
+            if (Inherited.Macros.contains(name)) continue;
             Value entry = { { "Inputs", Value::array() }, { "Outputs", Value::array() } };
             for (const auto& p : macro.Inputs) entry["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
             for (const auto& p : macro.Outputs) entry["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
@@ -832,6 +862,7 @@ return c; }();
         // macros, enum arrays or nested structs, so their types, nodes, legacy Function/Call and typed functions read
         // unchanged; a newer type in an older file is rejected rather than guessed.
         auto enumName = [&](Type kind, const Value& entry) {
+            Require(version >= 5 || kind != Type::Curve, "Curve types need graph format version 5");
             if (kind == Type::ArrayEnum)
             {
                 Require(version >= 4, "Enum array types need graph format version 4");
@@ -857,6 +888,7 @@ return c; }();
         for (auto& n : ns)
         {
             g.Nodes.push_back({ readID(n.at("ID")), n.at("Kind").get<std::string>(), n.value("X", 0.f), n.value("Y", 0.f), n.value("Inputs", std::map<std::string, Value>{}), n.value("Breakpoint", false) });
+            Require(version >= 5 || !g.Nodes.back().Kind.starts_with("Parent."), "Parent nodes need graph format version 5");
             if (n.contains("Macro"))
             {
                 Require(version >= 4, "Macros need graph format version 4");
@@ -963,15 +995,45 @@ return c; }();
                 g.Macros[it.key()] = std::move(macro);
             }
         }
+        if (j.contains("Parent"))
+        {
+            Require(version >= 5, "Graph inheritance needs graph format version 5");
+            Require(j.at("Parent").is_string() && j.at("Parent").get_ref<const std::string&>().size() <= 512, "Parent must be a path");
+            g.Parent = j.at("Parent").get<std::string>();
+        }
+        if (j.contains("Renames"))
+        {
+            Require(version >= 5, "Renames need graph format version 5");
+            const auto& renames = j.at("Renames");
+            Require(renames.is_array() && renames.size() <= MaxRenames, "Rename limit/type");
+            for (const auto& r : renames)
+            {
+                Rename rename{ r.at("Kind").get<std::string>(), r.at("From").get<std::string>(), r.at("To").get<std::string>() };
+                Require(rename.Kind == "Variable" || rename.Kind == "Function" || rename.Kind == "Enum" || rename.Kind == "Struct" || rename.Kind == "Macro", "Unknown rename kind");
+                g.Renames.push_back(std::move(rename));
+            }
+        }
         return g;
     }
-    Graph Graph::Load(const std::filesystem::path& p)
+    Graph Graph::Load(const std::filesystem::path& p, const std::filesystem::path& assets)
     {
         Require(std::filesystem::file_size(p) <= 4 * 1024 * 1024, "Graph exceeds 4 MB");
         std::ifstream f(p);
         Require((bool)f, "Graph file could not be opened");
         Value j = Value::parse(f, [](int depth, Value::parse_event_t, Value&) {Require(depth<=64,"JSON nesting exceeds 64");return true; });
-        return Parse(j);
+        auto g = Parse(j);
+        if (!g.Parent.empty())
+        {
+            auto root = assets;
+            // Without an Assets folder: the nearest folder named Assets above the file, else the file's folder.
+            for (auto dir = p.parent_path(); root.empty() && !dir.empty(); dir = dir.parent_path())
+            {
+                if (dir.filename() == "Assets") root = dir;
+                if (dir == dir.parent_path()) break;
+            }
+            g.LoadParent(root.empty() ? p.parent_path() : root, p);
+        }
+        return g;
     }
     bool Graph::Save(const std::filesystem::path& p) const
     {
@@ -998,10 +1060,17 @@ return c; }();
         auto errors = m_Graph.Validate();
         m_Origins.clear();
         m_SourceMacros.clear();
+        m_Inherited.clear();
         if (!errors.empty())
         {
             m_Error = "Node " + std::to_string(errors[0].Node) + ": " + errors[0].Message;
             return false;
+        }
+        if (m_Graph.Inherited.Base)
+        {
+            // The VM runs the child with its parent chain: inherited nodes remember their file and ID for errors.
+            m_Graph = m_Graph.Resolved();
+            m_Inherited = m_Graph.Inherited.Origins;
         }
         if (!m_Graph.Macros.empty())
         {
@@ -1036,6 +1105,8 @@ return c; }();
             if (!descriptions.contains(descriptionKey)) descriptions[descriptionKey] = std::make_shared<Definition>(m_Graph.Describe(n));
             m_Definitions[n.ID] = descriptions.at(descriptionKey);
             if (n.Kind == "Function.Entry") m_TypedEntries[functionName] = n.ID;
+            // A parent handler of an event the child handles too runs only through the child's Parent.Event.
+            if (m_Graph.Inherited.OverriddenEvents.contains(n.ID)) continue;
             if (n.Kind == "Event.Custom") m_Events["Custom." + (n.Inputs.contains("Name") ? functionName : "MyEvent")].push_back(n.ID);
             else if (n.Kind.starts_with("Event.")) m_Events[n.Kind.substr(6)].push_back(n.ID);
             if (n.Kind == "Function") m_Functions[n.Inputs.contains("Name") ? n.Inputs.at("Name").get<std::string>() : "MyFunction"] = n.ID;
@@ -1210,6 +1281,28 @@ return c; }();
                     r = std::move(value);
                 }
                 else r = value.at(field);
+            }
+        }
+        else if (k.starts_with("Curve."))
+        {
+            auto keys = CurveKeys(in("Curve"));
+            if (k == "Curve.Evaluate") r = EvaluateCurve(keys, num("Time"));
+            else if (k == "Curve.KeyCount") r = double(keys.size());
+            else if (k == "Curve.Length")
+            {
+                const double start = keys.empty() ? 0 : keys.front().Time, end = keys.empty() ? 0 : keys.back().Time;
+                r = output == "Start" ? start : output == "End" ? end : end - start;
+            }
+            else
+            {
+                // AddKey: a key at the same time is replaced; a curve holds at most MaxCurveKeys keys.
+                const double mode = num("Mode");
+                Require(mode == 0 || mode == 1 || mode == 2, "Curve key Mode must be 0, 1 or 2");
+                CurveKey key{ num("Time"), num("Value"), CurveMode(int(mode)), num("InTangent"), num("OutTangent") };
+                std::erase_if(keys, [&](const CurveKey& existing) { return existing.Time == key.Time; });
+                Require(keys.size() < MaxCurveKeys, "Curve key limit");
+                keys.push_back(key);
+                r = MakeCurve(std::move(keys));
             }
         }
         else if (k.starts_with("Constant.")) r = in("Value");
@@ -1631,6 +1724,17 @@ return c; }();
                         Require(t.Stack.size() < 1024, "Function call stack limit");
                         t.Stack.push_back({ m_Functions.at(name.get<std::string>()) });
                     }
+                    else if (k == "Parent.Event")
+                    {
+                        // Then continues after the parent's handlers of the event, which run first, in order, with the
+                        // same event data (like the outputs of a Sequence).
+                        Push(t, n->ID, "Then");
+                        auto handlers = m_Graph.Inherited.ParentEvents.find(n->ID);
+                        Require(handlers != m_Graph.Inherited.ParentEvents.end(), "Parent.Event without a parent handler");
+                        Require(t.Stack.size() + handlers->second.size() < 1024, "Execution stack limit");
+                        for (auto it = handlers->second.rbegin(); it != handlers->second.rend(); ++it) t.Stack.push_back({ *it });
+                    }
+                    else if (k == "Parent.Call") Require(false, "Parent.Call without an overridden parent function");
                     else if (k == "Function" || k == "Function.Entry" || k.starts_with("Event.")) Push(t, n->ID, "Then");
                     else
                     {
@@ -1692,7 +1796,10 @@ return c; }();
             // A node copied from a macro reports its macro instance (and the macro's body node).
             uint32_t source = 0;
             const uint32_t node = Origin(CurrentNode, &source);
-            m_Error = "Node " + std::to_string(node) + ": " + (source ? "In macro " + m_SourceMacros[source] + " (node " + std::to_string(source) + "): " : std::string()) + e.what();
+            // An inherited node names its parent file and its ID there.
+            std::string parent;
+            if (auto inherited = m_Inherited.find(source ? source : node); inherited != m_Inherited.end()) parent = "In parent " + inherited->second.first + " (node " + std::to_string(inherited->second.second) + "): ";
+            m_Error = "Node " + std::to_string(node) + ": " + parent + (source ? "In macro " + m_SourceMacros[source] + " (node " + std::to_string(source) + "): " : std::string()) + e.what();
             m_Tasks.clear();
         }
         m_Running = false;

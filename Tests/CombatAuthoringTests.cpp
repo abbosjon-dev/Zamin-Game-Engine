@@ -341,11 +341,13 @@ TEST(VisualGraphPinChoicesAreTranslated)
                 CHECK(EditorText::HasTranslation(label));
                 if (!EditorText::HasTranslation(label)) std::printf("    no translation: %s\n", label);
             }
+            // Curve.AddKey's Mode (Constant/Linear/Cubic) is checked by the VM, not the gameplay dispatch.
+            if (!kind.starts_with("Gameplay.")) continue;
             const double last = double(choices->size() - 1);
             CHECK(!Throws([&] { CCall(r, f.Hero, kind, { { pin.Name, last } }); }));
             CHECK(Throws([&] { CCall(r, f.Hero, kind, { { pin.Name, last + 1 } }); }));
         }
-    CHECK(pins == 10);
+    CHECK(pins == 11);
     CHECK(!Visual::PinChoices("Gameplay.ProjectileDefine", "Pierce") && !Visual::PinChoices("Missing", "Kind"));
     EditorText::SetLanguage(EditorLanguage::English);
     CHECK(std::string(Tr(Visual::PinChoices("Gameplay.EffectDefine", "Stacking")->at(3))) == "Highest wins");

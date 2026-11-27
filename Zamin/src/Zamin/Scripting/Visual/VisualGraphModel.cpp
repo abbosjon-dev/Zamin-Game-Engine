@@ -19,6 +19,7 @@ namespace Zamin::Visual {
         if (type == Type::Entity) return 0ull;
         if (type == Type::Enum) return 0;
         if (type == Type::Struct) return Value::object();
+        if (type == Type::Curve) return { { "Keys", Value::array() } };
         return Value(std::vector<double>(type == Type::Vec2 ? 2 : type == Type::Vec3 ? 3
                                                                                      : 4,
                                          0));
@@ -45,7 +46,8 @@ namespace Zamin::Visual {
                                                                                                 : n.Kind == "Event.Custom"                                                        ? "MyEvent"
                                                                                                                                                                                   : "";
         }
-        bool Typed(const std::string& kind) { return kind == "Function.Entry" || kind == "Function.Call" || kind == "Function.Return"; }
+        // Parent.Call takes its pins from the signature of the function it names, like a call.
+        bool Typed(const std::string& kind) { return kind == "Function.Entry" || kind == "Function.Call" || kind == "Function.Return" || kind == "Parent.Call"; }
         // The named type (enum or struct) a node works with: its Enum/Struct literal; for a variable Get/Set without
         // one the variable's type, for a local Get/Set the type of the locals with that name (when they agree).
         std::string NamedOf(const Graph& g, const Node& n, const char* literal)
@@ -245,6 +247,9 @@ namespace Zamin::Visual {
     bool Graph::RenameStruct(const std::string& from, const std::string& to)
     {
         if (!Structs.contains(from) || to.empty() || to.size() > 64 || Structs.contains(to)) return false;
+        // An inherited member is renamed in its parent; a rename of this graph's own is logged for its children.
+        if (Inherited.Structs.contains(from)) return false;
+        Record("Struct", from, to);
         auto entry = Structs.extract(from);
         entry.key() = to;
         Structs.insert(std::move(entry));
@@ -320,6 +325,9 @@ namespace Zamin::Visual {
     bool Graph::RenameEnum(const std::string& from, const std::string& to)
     {
         if (!Enums.contains(from) || to.empty() || to.size() > 64 || Enums.contains(to)) return false;
+        // An inherited member is renamed in its parent; a rename of this graph's own is logged for its children.
+        if (Inherited.Enums.contains(from)) return false;
+        Record("Enum", from, to);
         auto entry = Enums.extract(from);
         entry.key() = to;
         Enums.insert(std::move(entry));
@@ -368,7 +376,7 @@ namespace Zamin::Visual {
         auto signature = Functions.find(Name(n));
         if (signature == Functions.end()) return result;
         if (n.Kind == "Function.Entry") result.Outputs.insert(result.Outputs.end(), signature->second.Inputs.begin(), signature->second.Inputs.end());
-        if (n.Kind == "Function.Call")
+        if (n.Kind == "Function.Call" || n.Kind == "Parent.Call")
         {
             result.Inputs.insert(result.Inputs.end(), signature->second.Inputs.begin(), signature->second.Inputs.end());
             result.Outputs.insert(result.Outputs.end(), signature->second.Outputs.begin(), signature->second.Outputs.end());
@@ -425,6 +433,9 @@ namespace Zamin::Visual {
     bool Graph::RenameMacro(const std::string& from, const std::string& to)
     {
         if (!Macros.contains(from) || to.empty() || to.size() > 64 || Macros.contains(to)) return false;
+        // An inherited member is renamed in its parent; a rename of this graph's own is logged for its children.
+        if (Inherited.Macros.contains(from)) return false;
+        Record("Macro", from, to);
         auto entry = Macros.extract(from);
         entry.key() = to;
         Macros.insert(std::move(entry));
@@ -463,6 +474,9 @@ namespace Zamin::Visual {
     bool Graph::RenameVariable(const std::string& from, const std::string& to)
     {
         if (!Variables.contains(from) || to.empty() || to.size() > 128 || Variables.contains(to)) return false;
+        // An inherited member is renamed in its parent; a rename of this graph's own is logged for its children.
+        if (Inherited.Variables.contains(from)) return false;
+        Record("Variable", from, to);
         auto entry = Variables.extract(from);
         entry.key() = to;
         Variables.insert(std::move(entry));
@@ -473,6 +487,9 @@ namespace Zamin::Visual {
     bool Graph::RenameFunction(const std::string& from, const std::string& to)
     {
         if (!Functions.contains(from) || to.empty() || to.size() > 128 || Functions.contains(to)) return false;
+        // An inherited member is renamed in its parent; a rename of this graph's own is logged for its children.
+        if (Inherited.Functions.contains(from)) return false;
+        Record("Function", from, to);
         auto entry = Functions.extract(from);
         entry.key() = to;
         Functions.insert(std::move(entry));

@@ -38,6 +38,8 @@ namespace Zamin::Visual {
         ArrayEnum,
         // An array of one struct's values (up to 1024 elements, 64 KiB).
         ArrayStruct,
+        // A float curve: keys of time, value, interpolation and tangents (see the Curve functions below).
+        Curve,
         Count
     };
     struct Pin
@@ -112,6 +114,34 @@ namespace Zamin::Visual {
         std::vector<Pin> Inputs, Outputs;
         bool operator==(const MacroDefinition&) const = default;
     };
+    // Curves (Type::Curve, format 5). A curve value is {"Keys": [{"Time", "Value", "Mode", "In", "Out"}, ...]}: 0..256
+    // keys of finite numbers in strictly increasing Time. Mode is the interpolation from that key to the next one:
+    // "Constant" holds the key's value, "Linear" goes straight to the next value, "Cubic" is a Hermite spline with
+    // the key's Out tangent and the next key's In tangent (value per time unit). Before the first and after the
+    // last key the curve holds the end key's value; an empty curve is 0 everywhere.
+    enum class CurveMode
+    {
+        Constant,
+        Linear,
+        Cubic
+    };
+    struct CurveKey
+    {
+        double Time = 0, Value = 0;
+        CurveMode Mode = CurveMode::Linear;
+        double In = 0, Out = 0;
+        bool operator==(const CurveKey&) const = default;
+    };
+    constexpr size_t MaxCurveKeys = 256;
+    const char* CurveModeName(CurveMode mode);
+    // A valid curve value (the shape above, every key complete, times increasing).
+    bool IsCurve(const Value& value);
+    // The keys of a valid curve (an invalid value gives none).
+    std::vector<CurveKey> CurveKeys(const Value& curve);
+    // The curve value of keys (sorted by time; the caller keeps the times distinct).
+    Value MakeCurve(std::vector<CurveKey> keys);
+    double EvaluateCurve(const std::vector<CurveKey>& keys, double time);
+    double EvaluateCurve(const Value& curve, double time);
     struct Diagnostic
     {
         uint32_t Node = 0;
@@ -142,11 +172,62 @@ namespace Zamin::Visual {
     };
     struct Graph
     {
+        // Graph inheritance (format 5): the parent's variables, functions, enums, structs, macros and event handlers
+        // are the child's too. A child overrides a parent function by defining one with the same signature (its
+        // Parent.Call node runs the parent's version) and a parent event by handling the same event (Parent.Event
+        // runs the parent's handlers); a call of an overridden function anywhere, the parent's own nodes included,
+        // runs the override. A member renamed in a parent (Renames) is renamed in its children when they load.
+        struct Rename
+        {
+            std::string Kind, From, To; // Kind: Variable, Function, Enum, Struct or Macro
+            bool operator==(const Rename&) const = default;
+        };
+        struct Inheritance
+        {
+            std::vector<std::string> Chain; // the parent paths, the nearest first
+            // The members that come from the parents (in this graph's maps for lookups, but not saved with it).
+            std::set<std::string> Variables, Functions, Enums, Structs, Macros;
+            // The event keys ("Start", "Custom.Name" ...) the parents handle.
+            std::set<std::string> Events;
+            std::vector<Diagnostic> Errors; // missing, unreadable or cyclic parents, conflicting members
+            // The whole parent chain as one resolved graph (its nodes keep the parent files' IDs).
+            std::shared_ptr<const Graph> Base;
+            // Resolved graphs only: node ID -> {parent path, the node's ID in that file}; event handlers replaced
+            // by an override; each Parent.Event node -> the parent handlers it runs.
+            std::map<uint32_t, std::pair<std::string, uint32_t>> Origins;
+            std::set<uint32_t> OverriddenEvents;
+            std::map<uint32_t, std::vector<uint32_t>> ParentEvents;
+        };
+        static constexpr size_t MaxRenames = 64, MaxInheritanceDepth = 8;
+        // The parent graph (an Assets-relative .zgraph path); empty: none.
+        std::string Parent;
+        // This graph's own member renames, the oldest first (at most MaxRenames), for its children.
+        std::vector<Rename> Renames;
+        Inheritance Inherited;
+        // Loads the parent chain from disk (Parent, relative to assets) and inherits from it; earlier inherited
+        // members are dropped first. Problems land in Inherited.Errors (Validate reports them). self: this graph's
+        // own file, for the cycle check.
+        void LoadParent(const std::filesystem::path& assets, const std::filesystem::path& self = {});
+        // Inherits from a parent graph already loaded (with its own parents): the editor and tests.
+        void InheritFrom(const Graph& parent, const std::string& parentPath);
+        // Drops the inherited members (the graph as its file holds it).
+        void ClearInherited();
+        // The graph the VM runs: the parent chain's nodes (new IDs above this graph's), overridden functions
+        // renamed to "<Parent>::<Name>", Parent.Call turned into calls of them. Without a parent: a copy.
+        Graph Resolved() const;
+        // The functions / event keys this graph overrides (its own definitions of what the parents have).
+        std::set<std::string> FunctionOverrides() const;
+        std::set<std::string> EventOverrides() const;
+        // The event key of an event node ("Start", "Custom.Name"); empty for other nodes.
+        static std::string EventKey(const Node& node);
+        bool IsInherited(const std::string& kind, const std::string& name) const;
         // Version 2 added enums (Type::Enum, "Enums", the "Enum" key of pins/variables); version 3 added structs
         // (Type::Struct/ArrayStruct, "Structs", the "Struct" key); version 4 added inline macros ("Macros", the
         // "Macro" key of body nodes), Type::ArrayEnum and struct fields of struct type. Version 1-3 files load
-        // unchanged (they cannot hold the newer data) and are written back as version 4.
-        static constexpr int FormatVersion = 4;
+        // unchanged (they cannot hold the newer data) and are written back as version 4. Version 5 added curves
+        // (Type::Curve) and inheritance ("Parent", "Renames", the Parent.Call/Parent.Event nodes); version 1-4 files
+        // load unchanged and are written back as version 5.
+        static constexpr int FormatVersion = 5;
         int SourceVersion = FormatVersion; // the version the graph was parsed from
         std::vector<Node> Nodes;
         std::vector<Link> Links;
@@ -231,8 +312,15 @@ namespace Zamin::Visual {
         std::vector<Diagnostic> ValidateNodes(bool functions) const;
         std::vector<Diagnostic> ValidateTypes() const;
         std::vector<Diagnostic> ValidateMacros() const;
+        // Validate without the inheritance checks (a graph without a parent, or a resolved one).
+        std::vector<Diagnostic> ValidateGraph() const;
+        std::vector<Diagnostic> ValidateInheritance() const;
+        void LoadParentChain(const std::filesystem::path& assets, std::vector<std::filesystem::path> chain);
+        void Record(const char* kind, const std::string& from, const std::string& to);
     public:
-        static Graph Load(const std::filesystem::path& path);
+        // Loads a graph file and its parent chain (assets: the Assets folder the Parent path is relative to; empty:
+        // the nearest folder named Assets above the file, else the file's folder).
+        static Graph Load(const std::filesystem::path& path, const std::filesystem::path& assets = {});
         bool Save(const std::filesystem::path& path) const;
         static Graph Example(bool threeD = true);
     };
@@ -295,6 +383,7 @@ namespace Zamin::Visual {
         std::map<std::pair<uint32_t, std::string>, Link> m_InputLinks, m_OutputLinks;
         std::map<std::string, uint32_t> m_Functions;
         std::map<std::string, std::vector<uint32_t>> m_Events;
+        std::map<uint32_t, std::pair<std::string, uint32_t>> m_Inherited; // resolved node -> parent file, node
         const Node* Find(uint32_t id) const;
         Bridge m_Bridge;
         std::map<std::string, Value> m_Variables;

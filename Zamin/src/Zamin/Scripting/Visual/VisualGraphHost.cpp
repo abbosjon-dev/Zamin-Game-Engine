@@ -61,7 +61,7 @@ namespace Zamin {
             auto path = FileSystem::SafeJoin(root, Graph);
             if (Graph.empty() || path.empty() || !FileSystem::IsSubPathOnDisk(path, root)) throw std::runtime_error("Graph must be inside Assets");
             auto overrides = Overrides.empty() ? Visual::Value::object() : Visual::Value::parse(Overrides);
-            if (VM.Load(Visual::Graph::Load(path), [this](const auto& k, const auto& args) { return Bridge(k, args); }, overrides)) Emit("Create");
+            if (VM.Load(Visual::Graph::Load(path, root), [this](const auto& k, const auto& args) { return Bridge(k, args); }, overrides)) Emit("Create");
             else Emit("Invalid");
         }
         catch (const std::exception& e)

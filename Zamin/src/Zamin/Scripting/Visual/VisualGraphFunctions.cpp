@@ -316,6 +316,14 @@ namespace Zamin::Visual {
     std::vector<Diagnostic> Graph::Warnings() const
     {
         std::vector<Diagnostic> warnings;
+        if (Inherited.Base)
+        {
+            // With the parent chain (as the VM runs it); only this graph's own nodes are reported.
+            const auto resolved = Resolved();
+            for (auto& w : resolved.Warnings())
+                if (!resolved.Inherited.Origins.contains(w.Node)) warnings.push_back(std::move(w));
+            return warnings;
+        }
         if (!Macros.empty())
         {
             // Return paths are followed through the expanded macros; a finding in a copy names the instance.

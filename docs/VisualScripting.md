@@ -2,7 +2,7 @@
 
 Zamin Visual Script is the engine's built-in `.zgraph` node editor and a bounded execution system.
 It works the same for 2D and 3D projects. A graph-based project needs neither a C++ compiler nor a game `.so` module.
-The gameplay graph authoring and execution part works with typed functions, collections, enums, structs, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
+The gameplay graph authoring and execution part works with typed functions, collections, enums, structs, macros, curves, graph inheritance, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
 
 ## Getting started
 
@@ -29,6 +29,8 @@ The file is written atomically; on a write error the edits stay in the window.
 - Collapse to function: the selected nodes become a typed function with a call in their place.
 - Structs: graph-local structs of typed fields, structs inside structs; Struct/ArrayStruct pins, variables, parameters, results and locals; Make, Break, GetField, SetField and the array nodes.
 - Inline macros: graph-local subgraphs with execution and data pins, expanded in place of each use; they may hold Delay and loops.
+- Curves: float curves of keys (time, value, constant/linear/cubic interpolation, tangents) for variables, parameters, locals, struct fields and literals; Curve.Evaluate, KeyCount, Length and AddKey; an inline curve editor.
+- Graph inheritance: a graph names a parent `.zgraph` and inherits its variables, functions, enums, structs, macros and event handlers; it overrides functions and events (Parent.Call / Parent.Event run the parent's).
 - Bool/Number/String/Vec2/Vec3/Vec4/Entity/Enum arrays: Empty, Append, Set, Remove, Get, Length, Contains, Find, Slice, Concat and a snapshot ForEach.
 - Event.Custom + EmitEvent: a named event inside a graph instance, with a Number/Text/Bool/Vector3/Other payload. SendMessage is used for a message to another entity.
 - Math, logic and vector operations, joining text, turning a number into text (`FormatNumber` — 0..6 decimal places, `FormatTime` — `mm:ss` / `h:mm:ss`).
@@ -158,6 +160,65 @@ diagnostics list in parentheses, in the error as `In macro M (node N)`). A graph
 outputs; the expanded graph keeps the 4096-node limit. Pasting a use needs the same macro in the target graph; nodes inside a
 macro cannot be collapsed into a function.
 
+## Curves
+
+A `Curve` value is a float curve: up to 256 keys, each with a **Time**, a **Value**, an interpolation **Mode** to the next key and
+two tangents. `Constant` holds the key's value until the next key, `Linear` goes straight to it, `Cubic` is a Hermite spline that
+leaves the key with its **Out** tangent and reaches the next key with that key's **In** tangent (tangents are slopes: value per time
+unit). Before the first key and after the last the curve holds the end key's value; an empty curve is 0. Times are finite and
+strictly increasing; a value of another shape (unsorted or equal times, an unknown mode, a missing or extra key field) is rejected on
+literals, defaults, instance overrides, arguments and results.
+
+Graph variables, function parameters/results, locals, macro pins and struct fields can have the `Curve` type; a curve pin connects
+only to a curve pin. The nodes:
+
+- `Constant.Curve`, `Get.Curve`/`Set.Curve` and `Local.Get/Set.Curve`.
+- `Curve.Evaluate` (Curve, Time → Value), `Curve.KeyCount` (→ the number of keys) and `Curve.Length` (→ `Value` = End − Start,
+  `Start`, `End`: the first and last key times; 0 for an empty curve).
+- `Curve.AddKey` (Curve, Time, Value, Mode, InTangent, OutTangent → a new curve): a key at the same time is replaced; Mode is a
+  combo (0 Constant, 1 Linear, 2 Cubic; any other number stops the graph with an error).
+
+**The curve editor.** Wherever a curve value is edited (a variable default, a parameter/local/field default, a node literal) the
+properties column draws a small graph preview of the curve with its keys as dots; drag a key to move it (between its neighbours'
+times; one undo step when the button is released). Under **Keys** each key has its **Time** (committed with Enter; a time another key
+has is refused), **Value**, **Interpolation** (Constant/Linear/Cubic) and, around a cubic segment, its **In tangent** / **Out
+tangent**, and **Delete key**; **Add key** appends a key one time unit after the last one. Every edit is one Undo/Redo step.
+
+## Graph inheritance
+
+**Inheritance → Parent path → Set parent** makes the open graph a child of another graph (an Assets-relative `.zgraph` path, saved
+as the child's `Parent`; **Clear parent** removes it; both are one Undo/Redo step). The child then has the parent's variables, typed
+functions, enums, structs, macros and event handlers as well as its own: they are listed in their sections marked
+**[inherited]** and are read-only there (edit them in the parent); instance overrides, calls, Get/Set, Make/Break and macro uses
+work with them as with the child's own. The window header shows the parent chain. A parent may itself have a parent (up to 8 levels).
+
+- **Override a function.** Open the inherited function in **Typed functions** and press **Override function**: the function
+  becomes the child's own with the parent's signature (read-only: an override keeps it) and a body of Function.Entry →
+  **Parent.Call** → Function.Return with every parameter and result wired through, which runs the parent's version unchanged.
+  Edit the body like any function (**Add call parent node** adds another Parent.Call). Every call of the function runs the
+  override, the parent's own calls included (the parent's Start calling `Bonus` runs the child's `Bonus`). **Remove override**
+  deletes the child's version and its Parent.Call nodes, and the parent's applies again. Locals of an override are its own.
+- **Override an event.** **Inheritance → Parent events** lists the events the parent handles; **Override event** adds the
+  child's own handler with a **Parent.Event** node that runs the parent's handlers of that event (with the same event data) and
+  then continues. A child that handles an event the parent handles replaces the parent's handlers: without a Parent.Event they
+  do not run. Event keys are the event names (`Start`, `Update` ...) and `Custom.<Name>` for Event.Custom.
+- **Add members.** The child's own variables, functions, enums, structs, macros and events are added as usual; a name the
+  parent already uses (other than a function override) is a compile error (`Variable X is already defined in parent P`).
+
+The VM runs the child with the parent chain resolved into one graph: the parent's nodes take node IDs above the child's, and an
+overridden function's parent version is called `<Parent>::<Name>` (e.g. `BlueprintBase::Bonus`) in the call stack. Diagnostics
+and runtime errors in a parent's node name the parent file and the node's ID there (`In parent Scripts/Base.zgraph (node 4): ...`).
+A missing or unreadable parent (`Parent graph not found: ...`), an inheritance cycle (`Graph inheritance cycle: A -> B -> A`, a graph
+that is its own parent included), an override whose signature differs from the parent's, a Parent.Call that names no override, a
+Parent.Event of an event the child does not override (or inside a macro) and a Parent node in a graph without a parent are compile
+errors: such a child does not run.
+
+A child is loaded with its parent chain every time (opening it in the editor, Undo/Redo, Play and the Player), so edits saved in a
+parent reach its children. When a parent's variable, function, enum, struct or macro is renamed, the parent's file keeps the rename
+(`Renames`, the last 64): its children follow it when they load (their nodes, types and overrides take the new name). Renames of
+fields, pins and entries are not followed. The parent path is an asset reference: the export takes a child's parent with it and
+asset renames update it.
+
 ## Execution rules and debugging
 
 Data pins are evaluated when they are needed: a Get inside a loop sees the updated variable.
@@ -182,13 +243,15 @@ An error stops that graph instance and is printed to the console/debug panel.
 
 ## Saving, C++ and export
 
-`.zgraph` files are format version 4: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
+`.zgraph` files are format version 5: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
 version 3 added the `Structs` section (each struct's `Fields`: name, type, default and, for an enum field, `Enum`) and the `Struct` key
 of struct-typed pins, variables and locals; version 4 added the `Macros` section (each macro's `Inputs`/`Outputs`, `Exec` pins
-included), the `Macro` key of a macro's body nodes, the `ArrayEnum` type and struct fields of struct type. Version 1-3 files load
-unchanged, including legacy Function/Call nodes, typed functions, enums and structs; the window header says `(format 3: saving writes
-format 4)` until the graph is saved. An enum type in a version 1 file, a struct type in a version 1 or 2 file, macros, enum arrays or
-nested struct fields in a version 1-3 file, or a newer version is rejected.
+included), the `Macro` key of a macro's body nodes, the `ArrayEnum` type and struct fields of struct type; version 5 added the `Curve`
+type (its literals: `{"Keys": [{"Time", "Value", "Mode", "In", "Out"}, ...]}`), the `Parent` path, the `Renames` log and the
+Parent.Call/Parent.Event nodes. A child's file holds only its own members. Version 1-4 files load unchanged, including legacy
+Function/Call nodes, typed functions, enums, structs and macros; the window header says `(format 4: saving writes format 5)` until the
+graph is saved. An enum type in a version 1 file, a struct type in a version 1 or 2 file, macros, enum arrays or nested struct fields
+in a version 1-3 file, curves, a parent, renames or Parent nodes in a version 1-4 file, or a newer version is rejected.
 
 A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
 That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
@@ -198,7 +261,7 @@ The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine
 EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
 (a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
 [combat state](GameplayCombat.md#editor-authoring) of the selected actor.
-Curve pins, graph inheritance, network RPC and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays), inline macros and the array types above are part of this one.
+Network RPC/replication, full native method reflection and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays), inline macros, curves, graph inheritance and the array types above are part of this one.
 
 Graph assets are listed in the registry, open in the Content Browser, and the asset inspector shows their diagnostics.
 Asset paths inside a graph take part in the reference scan and in renames. Rather than hiding an asset path that overrides a graph variable
@@ -213,6 +276,10 @@ C++ hot reload keeps the graph variables, but, like other native timers, restart
 - `Visual2D`: WASD/arrow input → 2D velocity; touching a trigger changes the color for a while.
 - `Visual3D`: two cubes with one graph spin at opposite speeds through different Speed overrides.
 - `BlueprintGameplay.zgraph` in both scenes: an array → ForEach → a typed Award(Amount, Factor) → local/Delay/Return → Total → the Finished event → Print. Because of the Multiplier override the 2D total is 12 and the 3D total 18. The Finished event then calls `RankOf(Total)`, which returns the `Rank` enum through one of three Returns into the `FinalRank` variable and prints `BLUEPRINT_RANK rank=Silver` (2D) / `rank=Gold` (3D). Both values then go into `Summary`, a variable of the graph struct `Result {Total, Rank}` made with Struct.Make, which Struct.Break and Struct.GetField read back: `BLUEPRINT_SUMMARY total=12 rank=Silver` (2D) / `total=18 rank=Gold` (3D). Last, `Report`, a struct that nests that `Result` and keeps the rank history in an enum array (`Ranks`: Bronze, then the final rank), is read with nested GetFields and passed to two uses of the `Announce` macro (a Delay, then a Print): `BLUEPRINT_REPORT total=12` and `BLUEPRINT_REPORT ranks=2` (2D; `total=18` in 3D).
+- `BlueprintChild.zgraph` (the `Blueprint inheritance controller` in both scenes) is a child of `BlueprintBase.zgraph`. The parent's
+  Start evaluates its `Falloff` curve (cubic from 0 to 4 over 0..2, then linear to 6 at 3) at the `Level` variable and calls `Bonus`
+  (the parent's: Score + 1); the child overrides `Bonus` with a Parent.Call times 10. With the Level overrides 1 (2D) and 1.5 (3D)
+  it prints `BLUEPRINT_INHERIT curve=2.000 bonus=30.00 keys=3` (2D) / `curve=3.375 bonus=43.75 keys=3` (3D).
 
 `ZaminTests --filter VisualGraph` runs the VM, the type/format/cycle checks, continuing delays/loops/functions, the budget, debugging, isolation,
 the C++ field bridge, a real scene lifecycle and the null target protection.
@@ -222,7 +289,11 @@ added, called from the node library, wired, undone/redone, opened with a double-
 created in the UI with an added and a renamed field, Make/GetField from the node library, wired, the wired field renamed with the wires kept,
 undone/redone, and that graph run in the Player; then a struct field given a struct type with its nested default edited, an
 `ArrayEnum` variable, and a macro created with an added and renamed output (undo/redo), opened, its body edited from the node library,
-used from the node library and wired, renamed with its use, opened by a double-click and run in the Player):
+used from the node library and wired, renamed with its use, opened by a double-click and run in the Player; then a parent set on
+a graph (undo/redo) with its inherited variable listed and not saved, a `Curve` variable whose keys are added, moved by their Time
+field and by dragging in the preview, made cubic and deleted (undo/redo), an inherited function overridden (undo/redo) and its body
+extended with Get.Curve/Curve.Evaluate/Add from the node library, an inherited Start event overridden with Parent.Event, and the child
+run in the Player through its parent):
 
 ```bash
 ZAMIN_BUILD_DIR=build-review LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2 \
@@ -248,6 +319,13 @@ The 2026-11-27 check (nested structs, enum arrays, macros): `ZaminTests --filter
 SetField, cycle/depth/64 KiB checks, nested renames and conformed values, enum arrays through the array nodes, ForEach, Switch,
 parameters and locals, macro expansion with latent flow, nested/pure/pass-through macros, diagnostics and runtime errors on the
 use, macro and pin renames, paste, and the format 4 migration of version 1-3 files.
+
+The 2026-11-27 check (curves, inheritance): `ZaminTests --filter Blueprint` covers curve evaluation (constant/linear/cubic, tangents,
+ends, empty), shape checks, the curve nodes, curve variables/parameters/locals/struct fields/macro pins, the format 5 migration of
+version 4 files, inherited members, function and event overrides with Parent.Call/Parent.Event (three levels too), saving only the
+child's own members, diagnostics (conflicts, signatures, missing parent, cycles, path escape, errors in a parent's node) and a parent's
+renames and edits followed on load; `BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes` runs the sample's child graph in both
+scenes and checks that the export takes the parent.
 
 The 2026-11-26 struct check: `ZaminTests --filter BlueprintStruct` (and the format test) covers Make/Break/GetField/SetField, struct
 parameters/results/locals, overrides, static and runtime type errors, the 64 KiB struct array limit, format 3 round trips with the

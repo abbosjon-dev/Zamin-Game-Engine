@@ -110,6 +110,12 @@ paths are compared bit for bit with the single-threaded result.
 5. **Temporary memory.** In the players there is a temporary growth of ~80 MB during the first frame (it comes back
    on the second frame); its source was not found.
 6. **ECS.** A case that creates / destroys 500 entities every frame still makes 1 518 allocations (`ZaminBench --ecs`).
+7. **Dense foliage.** ~1M packed foliage instances (`ZaminBench --foliage`, llvmpipe, Release): without HLOD 8.71M
+   triangles and ~2.9 s per frame; HLOD (far cells as merged clump proxies) brings it to 454K triangles and ~0.48-0.54 s.
+   Culling all 16 components takes 25 ms on the CPU path and 17 ms in the GPU compute pass (timestamp queries; llvmpipe
+   runs it on the same CPU cores). What remains: rasterising the near/far instances, the GPU path's indirect draws for
+   empty sets, the per-frame source comparison in `FoliageTools::Prepare` for very large components, and a physical GPU
+   measurement ([Benchmarks.md](Benchmarks.md#dense-packed-foliage-zaminbench---foliage)).
 
 ## 6. Measuring it yourself
 
@@ -120,4 +126,5 @@ ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py               # the
 ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --resolution 284x160   # without rasterization (CPU)
 ZAMIN_BUILD_DIR=build-release python3 Tests/startup_bench.py               # startup time
 ZAMIN_STARTUP_PROFILE=1 ZAMIN_MAX_FRAMES=2 build-release/bin/ZaminPlayer Projects/Showcase3D   # the startup profile
+ZAMIN_BUILD_DIR=build-release Tests/foliage_bench.sh --compare         # ~1M foliage instances, CPU / GPU culling, HLOD
 ```

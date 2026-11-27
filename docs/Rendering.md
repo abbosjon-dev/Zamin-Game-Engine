@@ -474,6 +474,17 @@ void OnMessage(const ScriptMessage& m) override
   volume in that cascade's range (with a margin for the filter and the normal offset) — the image does not change.
   Statistics: drawn / culled per cascade and the "invisible shadow" count (`CascadeShadowCasters`,
   `CulledShadowByViewCount`); `Renderer3D::SetShadowReceiverCulling(false)` — for comparison.
+- **Packed foliage culling, LOD and HLOD** (`FoliageComponent`, `FoliageBatch`) — up to 65 536 static instances per
+  component culled per instance (frustum + distance) with a per-instance near/far LOD: on OpenGL 4.3 by a compute shader
+  that writes compacted instance buffers and the indirect draw commands (`glDrawElementsIndirect`), on GL 4.1 (or the
+  inspector's CPU choice) by the same rules on the CPU. The same pass builds the shadow set (instances inside a shadow
+  cascade's volume), which the cascades draw instead of every instance. Far cells (`HLODDistance`, `HLODCellSize`)
+  collapse into a baked, cached clump proxy each, crossfaded with a 16-step screen-door dither over `HLODFade` metres
+  (`u_LODFade` / the per-instance fade attribute in the mesh shader). Statistics: `FoliageNear`, `FoliageFar`,
+  `FoliageShadowInstances`, `FoliageHLODCells`, `FoliageHLODInstances`, `FoliageCullCPUMilliseconds`,
+  `FoliageCullGPUMilliseconds` (timestamp queries); `Renderer3D::SetFoliageLODDebugView(true)` colours the LODs and
+  proxies. Details: [Terrain.md](Terrain.md#packed-foliage-and-two-model-lod); measurement (~1M instances, llvmpipe):
+  [Benchmarks.md](Benchmarks.md#dense-packed-foliage-zaminbench---foliage).
 - **Render scale** — on a slow GPU even 0.75 gives a noticeable speed-up.
 - **Quality levels** (*Project settings > Quality*, `Quality`): limit the shadows, SSAO, bloom, FXAA, auto exposure,
   render scale and texture size a scene asks for (Low / Medium / High / Ultra or your own). From an in-game menu:
@@ -496,8 +507,8 @@ Turning them off for comparison: `ZAMIN_EDITOR_NO_CULLING=1`, `ZAMIN_EDITOR_NO_I
   skeletons, normals, the particle shape; the **selection outline** (shader based, around meshes / sprites / text /
   tilemaps).
 - **Statistics** (*Window > Statistics* and the statistics overlay in the viewport): FPS, frame time, draw calls,
-  triangles, drawn / culled / instanced meshes, shadow draws, 2D objects, tile chunks, particles
-  (`Renderer::GetStats()` — `RenderStatistics`). `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` log the last frame's
+  triangles, drawn / culled / instanced meshes, shadow draws, packed foliage (instances per LOD, the shadow set, HLOD
+  cells, the culling's CPU / GPU time), 2D objects, tile chunks, particles (`Renderer::GetStats()` — `RenderStatistics`). `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` log the last frame's
   statistics on exit.
 - **Profiler** (*Window > Profiler*): the CPU sections `Render`, `3D`, `2D and UI`, post-processing, and the
   asynchronous GPU timeline time. The GPU row shows the last value, the average/min/max of 120 results, and the pending
@@ -551,6 +562,8 @@ More about the editor: [Editor.md](Editor.md#5-viewport).
 - **Rendering regression test** (`ZaminRenderTests`, `Tests/render_tests.sh`): reference scenes are drawn offscreen
   and compared with `Tests/Reference/*.png` — [Testing.md](Testing.md#2-rendering-regression-test---zaminrendertests).
 - **Render benchmark**: `ZaminBench --render` (10 000 sprites, 1 000 meshes; `Tests/render_bench.sh`) — [Benchmarks.md](Benchmarks.md).
+- **Dense foliage benchmark**: `ZaminBench --foliage` (~1M packed instances, CPU against GPU culling, with and without
+  HLOD; `Tests/foliage_bench.sh`, smoke `ctest -R BenchFoliageSmoke`); the GL oracle `ctest -R FoliageGPUCulling`.
 - **Unit tests** (the part without a GPU: sorting, culling math, materials JSON, particle simulation, shadow
   settings ...):
 

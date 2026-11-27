@@ -2316,7 +2316,7 @@ _In the inspector: **Terrain**; add with: **+ Component → Rendering → Terrai
 
 ### FoliageComponent
 
-Packed static foliage: up to 65536 transforms inside one entity, a near / far mesh or model, tint, LOD / cull distance, hysteresis and a GPU / CPU backend. Opaque / cutout static submeshes are supported. One component is one picking ID; no per-instance collision or gameplay entities are created. The model asset references, the instance transforms and the settings are saved in the scene; the runtime cache is not shared between copies.
+Packed static foliage: up to 65536 transforms inside one entity, a near / far mesh or model, tint, LOD / cull distance, hysteresis, a GPU / CPU culling backend and HLOD (`Settings.HLODDistance`, `HLODFade`, `HLODCellSize`: far cells drawn as one baked clump proxy each, crossfaded with a dither; the shadow cascades draw the set culled by their volumes). Opaque / cutout static submeshes are supported. One component is one picking ID; no per-instance collision or gameplay entities are created. The model asset references, the instance transforms and the settings are saved in the scene; the runtime cache is not shared between copies.
 
 <!-- gen:FoliageComponent -->
 _In the inspector: **Packed foliage**; add with: **+ Component → Rendering → Packed foliage**; in the scene file: `"Foliage"`._

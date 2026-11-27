@@ -49,6 +49,54 @@ How to read it:
 - The result depends on the machine: on another computer first take this table there again, then compare the change.
   Small differences (±5-10%) are noise; p95 and max fluctuate especially under xvfb.
 
+## Dense packed foliage (`ZaminBench --foliage`)
+
+`Tests/FoliageBench.cpp`, run with `Tests/foliage_bench.sh` (smoke: `ctest -R BenchFoliageSmoke`, 262 144 instances,
+5 frames). Like `--render` it needs a GL context and always uses Mesa llvmpipe under a fixed xvfb screen, so **every
+number here is a software rasteriser's, not a physical GPU's**. The scene: 1 048 576 instances in 16 packed foliage
+components of 65 536 (256 x 256 m tiles, one tree per square metre: a cone near LOD, a cube far LOD), LOD 40 m, view
+distance 1000 m, a shadow-casting sun; a perspective camera (60°, far 1200 m) 9 m above the forest's edge moving 0.35 m
+per frame into it, the same path for every case. The cases: `cpu` / `gpu` (CPU culling, the GL 4.1 fallback, against
+the GL 4.3 compute pass with indirect draws) with HLOD at 160 m (20 m crossfade, 32 m cells), and `cpu-nohlod` /
+`gpu-nohlod` without HLOD (every far instance up to 1000 m drawn). 10 warm-up frames, then the measured ones. **Cull
+CPU** is the CPU time of all 16 culling passes (on the GPU path: issuing them - but llvmpipe runs a compute dispatch
+on the CPU before `glDispatchCompute` returns, so there it includes the compute work); **cull GPU** is the compute
+passes' time from timestamp queries. At the end the CPU and GPU cases' exact counts (a blocking readback) are compared:
+a difference fails the run. `--json` writes `foliage-bench.json` in the `Results` format of `Tests/bench_compare.py`
+(`--compare` uses `Tests/Baselines/foliage-release.json`), `--shots DIR` the last frames, `--lod-colors` the LOD/HLOD
+debug colours.
+
+### Baseline (2026-11-27)
+
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, Mesa 25.2.8 llvmpipe (LLVM 20.1.2, 256 bit, GL 4.5), xvfb 1600x900x24, a
+1280x720 window, GCC 13.3, a **Release** build, 60 frames (`Tests/Baselines/foliage-release.json`).
+
+| Case | Frame ms (average / median / p95 / max) | CPU ms (average) | Cull CPU ms (average / p95) | Cull GPU ms | Draw calls | Triangles | Drawn near / far | Shadow set | HLOD |
+|---|---|---:|---|---:|---:|---:|---|---:|---|
+| `cpu` | 543.5 / 534.0 / 592.4 / 661.5 | 536.6 | 25.1 / 31.0 | - | 41 | 454K | 924 / 24 729 | 13 433 | 717 cells for 987 136 instances |
+| `gpu` | 476.8 / 470.4 / 522.1 / 563.4 | 470.1 | 21.6 / 25.3 | 16.9 | 67 | 454K | 923 / 24 809 | 13 402 | 717 cells for 987 136 instances |
+| `cpu-nohlod` | 2 911.3 / 2 902.9 / 3 200.0 / 3 397.2 | 2 903.9 | 80.4 / 94.5 | - | 35 | 8.71M | 924 / 716 230 | 13 433 | - |
+| `gpu-nohlod` | 2 870.1 / 2 852.2 / 3 191.1 / 3 467.0 | 2 862.5 | 54.3 / 60.0 | 49.6 | 48 | 8.71M | 923 / 716 469 | 13 402 | - |
+
+The last frame's exact counts were the same on both paths (with HLOD: near 924, far 24 729, shadow set 13 433; without:
+near 924, far 716 230, shadow set 13 433). The GPU path's per-frame table numbers are its last completed asynchronous
+readback (a frame behind), hence the small differences in the table. Memory (the estimate of the batches): the GPU path
+387 MiB of buffers (instance input, history, two compacted sets of 108-byte instances per component, commands) and 349
+MiB on the CPU; the CPU path 13 MiB of streamed buffers (sized to what is visible) and 354 MiB on the CPU.
+
+How to read it:
+
+- **HLOD** is what makes the dense scene affordable here: 987 136 of the 1 048 576 instances are replaced by 717 cell
+  proxies, the drawn triangles fall from 8.71M to 454K and the frame from ~2.9 s to ~0.5 s - llvmpipe's time goes to
+  rasterising, which is also why the CPU (submission) time tracks the frame time.
+- **GPU culling** is faster than the CPU loop on the same CPU cores (16.9 against 25.1 ms with HLOD, 49.6 against 80.4
+  ms without) and does not copy the visible instances through the CPU; on a physical GPU the compute pass would run
+  asynchronously and the CPU would only issue it. Neither number is a physical GPU measurement.
+- The GPU path takes **more draw calls** (67 against 41): it issues an indirect draw for every LOD part and shadow
+  cascade without knowing on the CPU that a set is empty; the CPU path skips empty sets.
+- The **shadow set** (instances inside a cascade's volume) is ~13 400 instances here instead of every near-LOD instance;
+  the HLOD proxies cast no shadow.
+
 ## ECS: creating, iterating, deleting (`ZaminBench --ecs`)
 
 `Tests/EcsBench.cpp`, run with `ZaminBench --ecs [--entities N] [--frames N] [--json file]` or
@@ -574,6 +622,7 @@ working (and `--serialize` its own check); the numbers are not compared there.
 | `ZaminBench --serialize --prefabs` | linked prefab instances (save, load, sync, Apply; `Tests/Baselines/prefabs-release.json`) |
 | `ZaminBench --nav` | navigation (bake, path finding, Nav Agents) |
 | `ZaminBench --fonts` | the font atlas: rasterizing and the disk cache, glyph lookup, text layout with kerning |
+| `ZaminBench --foliage` | ~1M packed foliage instances: CPU against GPU compute culling, with and without HLOD (above, `Tests/foliage_bench.sh`) |
 | `ZaminBench --combat` | gameplay projectiles (2D rays / 3D sphere casts) and effect books, `TickCombat` ms / frame and allocations (above) |
 | `ZaminBench --physics` / `--animation` / `--slice-stress` | the vertical slice stress gates: Box2D/Jolt + motors/Character Controllers, crowds of human and sprite animators, game code with the slice levels packed full (above) |
 | `Tests/startup_bench.py` | editor and player startup time: up to the first frame (engine / layers / frame 1) and the process time, comparing two builds (`--bin`, `--module-dir`) |

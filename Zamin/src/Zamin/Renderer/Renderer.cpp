@@ -117,7 +117,13 @@ namespace Zamin {
                            ShadowCasterCount, CulledShadowCasterCount, CulledShadowByViewCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
                            CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount, ParticleCount,
                            InstancedParticleCount, InstancedParticleDrawCount, Flush2DTextures, Flush2DKind, Flush2DState, Reordered2DCount,
-                           UniformBufferUploads, UniformBufferBytes);
+                           UniformBufferUploads, UniformBufferBytes) +
+               (FoliageBatches ? std::format(" | foliage: {} batches ({} GPU), {} instances, near {}, far {}, shadow {}, HLOD {} instances in {} cells ({} fading), "
+                                             "cull {:.2f} ms CPU / {:.2f} ms GPU",
+                                             FoliageBatches, FoliageGPUBatches, FoliageInstances, FoliageNear, FoliageFar, FoliageShadowInstances,
+                                             FoliageHLODInstances, FoliageHLODCells, FoliageHLODFadingCells, FoliageCullCPUMilliseconds,
+                                             FoliageCullGPUMilliseconds)
+                               : std::string());
     }
 
     std::filesystem::path Renderer::GetResourcesDirectory()

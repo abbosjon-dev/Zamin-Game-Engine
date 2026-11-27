@@ -45,6 +45,15 @@ namespace Zamin {
         uint32_t Reordered2DCount = 0;  ///< 2D draws BatchOrder moved next to their batch (they overlap nothing they passed)
         uint32_t UniformBufferUploads = 0; ///< per-frame uniform blocks uploaded (Renderer3D's ZaminFrame: one per 3D scene)
         uint32_t UniformBufferBytes = 0;   ///< the bytes they took
+        /// Packed foliage (FoliageBatch; the GPU path's counts are its last completed asynchronous readback):
+        uint32_t FoliageBatches = 0, FoliageGPUBatches = 0; ///< batches culled / of them on the GPU (compute)
+        uint32_t FoliageInstances = 0;        ///< their instances in all
+        uint32_t FoliageNear = 0, FoliageFar = 0; ///< drawn per LOD (camera set)
+        uint32_t FoliageShadowInstances = 0;  ///< in the shadow set (culled by the cascades' volumes; drawn into each cascade)
+        uint32_t FoliageHLODInstances = 0;    ///< replaced by their HLOD cell's proxy
+        uint32_t FoliageHLODCells = 0, FoliageHLODFadingCells = 0; ///< proxy cells drawn / of them in the crossfade
+        float FoliageCullCPUMilliseconds = 0; ///< CPU time of the culling passes (the CPU path's loop, or issuing the GPU pass)
+        float FoliageCullGPUMilliseconds = 0; ///< GPU time of the compute passes (timestamp queries, a few frames late)
 
         /// One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
         /// and instanced.

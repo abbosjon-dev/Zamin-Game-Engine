@@ -35,15 +35,21 @@ uniform mat4 u_Joints[MAX_JOINTS];
 layout(location = 3) in mat4 a_InstanceModel;
 layout(location = 7) in mat3 a_InstanceNormalMatrix;
 layout(location = 10) in int a_InstanceEntityID;
+// Packed foliage: the instance's HLOD crossfade (0 none; the regular instance buffer leaves it at 0).
+layout(location = 11) in float a_InstanceFade;
 flat out int v_EntityID;
 #define MODEL a_InstanceModel
 #define NORMAL_MATRIX a_InstanceNormalMatrix
+#define LOD_FADE a_InstanceFade
 #else
 uniform mat4 u_Model;
 uniform mat3 u_NormalMatrix;
+uniform float u_LODFade; // foliage HLOD proxies: -1 - t of the crossfade (0 otherwise)
 #define MODEL u_Model
 #define NORMAL_MATRIX u_NormalMatrix
+#define LOD_FADE u_LODFade
 #endif
+flat out float v_LODFade;
 
 // u_ViewProjection, u_View: the ZaminFrame uniform block (FrameBlockGLSL).
 
@@ -67,6 +73,7 @@ void main()
     v_Normal = normalize(NORMAL_MATRIX * localNormal);
     v_TexCoord = a_TexCoord;
     v_ViewDepth = -(u_View * world).z;
+    v_LODFade = LOD_FADE;
 #ifdef INSTANCED
     v_EntityID = a_InstanceEntityID;
 #endif
@@ -82,6 +89,7 @@ in vec3 v_WorldPos;
 in vec3 v_Normal;
 in vec2 v_TexCoord;
 in float v_ViewDepth;
+flat in float v_LODFade;
 #ifdef INSTANCED
 flat in int v_EntityID;
 #define ENTITY_ID v_EntityID
@@ -325,8 +333,19 @@ void FinishDebug(vec3 color, float alpha)
     o_EntityID = ENTITY_ID;
 }
 
+// The foliage HLOD crossfade as a screen-door dither: an instance at +t drops the 4x4 Bayer cells below t, its
+// cell's proxy at -1 - t keeps exactly those - together every pixel is drawn once.
+const float k_Bayer[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+
 void main()
 {
+    if (v_LODFade != 0.0)
+    {
+        ivec2 q = ivec2(gl_FragCoord.xy) & 3;
+        float threshold = (k_Bayer[q.y * 4 + q.x] + 0.5) / 16.0;
+        if (v_LODFade > 0.0 ? threshold < v_LODFade : threshold >= -v_LODFade - 1.0)
+            discard;
+    }
     vec2 uv = v_TexCoord * u_Tiling + u_Offset;
 #ifdef TERRAIN
     vec4 weights = max(texture(u_TerrainWeights, v_TexCoord * u_WeightUV.x + u_WeightUV.y), vec4(0.0));
@@ -1028,15 +1047,32 @@ void main()
         s_Data->Queue.back().Surface = surface;
     }
 
+    static bool s_FoliageLODDebug = false;
+    void Renderer3D::SetFoliageLODDebugView(bool enabled) { s_FoliageLODDebug = enabled; }
+    bool Renderer3D::IsFoliageLODDebugView() { return s_FoliageLODDebug; }
+
     void Renderer3D::SubmitFoliage(const Ref<FoliageBatch>& batch)
     {
         if(!batch||!batch->GetStats().Instances)return;
+        auto debug=[](Material m,glm::vec3 color){
+            if(!s_FoliageLODDebug)return m;
+            Material flat;flat.Albedo=glm::vec4(color,1);flat.Roughness=.85f;flat.BlendMode=m.BlendMode;flat.AlphaCutoff=m.AlphaCutoff;
+            if(m.BlendMode==MaterialBlendMode::Cutout){flat.AlbedoMap=m.AlbedoMap;flat.Tiling=m.Tiling;flat.Offset=m.Offset;}
+            return flat;
+        };
+        static const glm::vec3 lodColors[3]{{.2f,.85f,.25f},{.95f,.8f,.1f},{.85f,.2f,.75f}};
         for(uint32_t lod=0;lod<2;++lod)for(const auto& part:batch->Parts[lod])
         {
             if(!part.Geometry||part.Geometry->IsSkinned())continue;
-            DrawItem item{part.Geometry,glm::mat4(1),part.Mat,batch->EntityID,batch->CastShadows&&lod==0,{},{}};
+            DrawItem item{part.Geometry,glm::mat4(1),debug(part.Mat,lodColors[lod]),batch->EntityID,batch->CastShadows,{},{}};
             if(batch->Mirrored)item.Transform[0][0]=-1;
             item.WorldBounds=batch->Bounds;item.Foliage=batch;item.FoliageLOD=lod;s_Data->Queue.push_back(std::move(item));
+        }
+        // The HLOD proxies (world-space clumps, one multi-draw per crossfade step); they cast no shadow.
+        if(const auto& proxy=batch->GetHLODMesh())
+        {
+            DrawItem item{proxy,glm::mat4(1),debug(batch->GetHLODMaterial(),lodColors[2]),batch->EntityID,false,{},{}};
+            item.WorldBounds=batch->Bounds;item.Foliage=batch;item.FoliageLOD=2;s_Data->Queue.push_back(std::move(item));
         }
     }
 
@@ -1517,13 +1553,33 @@ void main()
         if (skinned) shader->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
         ApplyMaterial(*shader, item.Mat, mirrored);
         if (item.Surface) ApplyTerrain(*shader, *item.Surface);
+        if(item.Foliage&&item.FoliageLOD==2)
+        {
+            // HLOD proxies: world-space geometry through the non-instanced shader.
+            auto& proxyShader=s_Data->MeshShader;
+            proxyShader->Bind();
+            ApplyMaterial(*proxyShader,item.Mat,false);
+            proxyShader->SetMat4("u_Model",glm::mat4(1));
+            proxyShader->SetMat3("u_NormalMatrix",glm::mat3(1));
+            proxyShader->SetInt("u_EntityID",item.EntityID);
+            const uint32_t draws=item.Foliage->DrawHLOD(*proxyShader);
+            stats.DrawCalls+=draws;
+            if(countMesh&&draws)
+            {
+                const auto& counts=item.Foliage->GetStats();
+                stats.MeshCount+=counts.HLODCellsDrawn;stats.TriangleCount+=counts.HLODTriangles;
+            }
+            return;
+        }
         if(item.Foliage)
         {
             if(!item.Foliage->Draw(item.MeshRef,item.FoliageLOD))return;
             stats.DrawCalls++;stats.InstancedDrawCount++;
-            if(countMesh&&!item.Foliage->GetStats().GPU)
+            // The GPU path's counts are the last completed asynchronous readback (a frame or two late).
+            const auto& counts=item.Foliage->GetStats();
+            if(countMesh&&counts.CountsAvailable)
             {
-                const auto& counts=item.Foliage->GetStats();auto count=item.FoliageLOD?counts.Far:counts.Near;
+                auto count=item.FoliageLOD?counts.Far:counts.Near;
                 stats.MeshCount+=count;stats.InstancedMeshCount+=count;stats.TriangleCount+=count*item.MeshRef->GetTriangleCount();
             }
             return;
@@ -1676,6 +1732,36 @@ void main()
                 }
         }
 
+        // Packed foliage culling (each batch once per scene): CPU or GPU compute, per LOD, minus the HLOD cells.
+        bool foliageCulled = false;
+        auto CullFoliage = [&](std::span<const Frustum> shadowVolumes) {
+            foliageCulled = true;
+            ZM_PROFILE_SCOPE("Foliage culling");
+            const Frustum cameraFrustum = Frustum::FromViewProjection(viewProj);
+            static std::unordered_set<FoliageBatch*> prepared;
+            prepared.clear();
+            for (const auto& item : s_Data->Queue)
+            {
+                if (!item.Foliage || !prepared.insert(item.Foliage.get()).second) continue;
+                item.Foliage->Cull(cameraFrustum, s_Data->CameraPosition, culling, shadowVolumes);
+                const auto& f = item.Foliage->GetStats();
+                stats.FoliageBatches++;
+                stats.FoliageGPUBatches += f.GPU ? 1 : 0;
+                stats.FoliageInstances += f.Instances;
+                if (f.CountsAvailable)
+                {
+                    stats.FoliageNear += f.Near;
+                    stats.FoliageFar += f.Far;
+                    stats.FoliageShadowInstances += f.ShadowNear + f.ShadowFar;
+                }
+                stats.FoliageHLODInstances += f.HLODInstances;
+                stats.FoliageHLODCells += f.HLODCellsDrawn;
+                stats.FoliageHLODFadingCells += f.HLODCellsFading;
+                stats.FoliageCullCPUMilliseconds += float(f.CullCPUMilliseconds);
+                if (f.GPU && f.GPUTimeAvailable) stats.FoliageCullGPUMilliseconds += float(f.CullGPUMilliseconds);
+            }
+        };
+
         // ---------------- shadow pass (cascades rendered into tiles of the atlas)
         if (shadows)
         {
@@ -1688,6 +1774,13 @@ void main()
                 s_Data->ShadowMap->Resize(s_Data->ShadowMapSize, s_Data->ShadowMapSize);
             }
             cascades = ComputeCascades(env, s_Data->CameraPosition, s_Data->View, s_Data->Projection);
+            {
+                // Packed foliage: the camera and shadow sets in one pass, before the cascades draw the shadow set.
+                Frustum volumes[ShadowSettings::MaxCascades];
+                for (int c = 0; c < cascades.Count; c++)
+                    volumes[c] = Frustum::FromViewProjection(cascades.LightSpace[c]);
+                CullFoliage(std::span<const Frustum>(volumes, size_t(cascades.Count)));
+            }
             s_Data->ShadowMap->Bind();
             RenderCommand::SetDepthWrite(true);
             RenderCommand::Clear();
@@ -1781,9 +1874,12 @@ void main()
                     {
                         if(item.Foliage)
                         {
-                            item.Foliage->Draw(item.MeshRef,0,true);
-                            auto count=item.Foliage->GetStats().Instances;
-                            stats.ShadowCasterCount+=count-1;stats.InstancedShadowDrawCount++;stats.InstancedShadowCasterCount+=count;stats.DrawCalls++;
+                            // The batch's shadow set (culled against the cascades' volumes) for this LOD.
+                            stats.ShadowCasterCount--;
+                            if(!item.Foliage->Draw(item.MeshRef,item.FoliageLOD,true))continue;
+                            const auto& counts=item.Foliage->GetStats();
+                            auto count=counts.CountsAvailable?(item.FoliageLOD?counts.ShadowFar:counts.ShadowNear):0u;
+                            stats.ShadowCasterCount+=count;stats.InstancedShadowDrawCount++;stats.InstancedShadowCasterCount+=count;stats.DrawCalls++;
                             continue;
                         }
                         UploadInstances(batch, &casters);
@@ -1800,10 +1896,7 @@ void main()
             RenderCommand::RestoreRenderTarget();
         }
 
-        // Packed foliage compacts camera-visible instances once, after conservative shadow draws.
-        std::unordered_set<FoliageBatch*> preparedFoliage;
-        for(const auto& item:s_Data->Queue)if(item.Foliage&&preparedFoliage.insert(item.Foliage.get()).second)
-            item.Foliage->Cull(Frustum::FromViewProjection(viewProj),s_Data->CameraPosition,culling);
+        if(!foliageCulled)CullFoliage({});
 
         // ---------------- main pass
         if (!s_Data->Queue.empty())

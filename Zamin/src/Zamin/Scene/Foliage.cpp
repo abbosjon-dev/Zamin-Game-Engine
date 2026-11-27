@@ -19,6 +19,7 @@ namespace Zamin {
         std::vector<glm::mat4> Transforms;
         glm::mat4 World{ 1 };
         bool Valid = false;
+        uint64_t Generation = 0; // bumped whenever Transforms change (the batch skips comparing the source then)
         AABB Prototype{ { -.5f, -.5f, -.5f }, { .5f, .5f, .5f } };
     };
     FoliageComponent::FoliageComponent(const FoliageComponent& o) { *this = o; }
@@ -136,9 +137,10 @@ namespace Zamin {
                 cache.Transforms.clear();
                 cache.Transforms.reserve(c.Instances.size());
                 for (const auto& instance : c.Instances) cache.Transforms.push_back(world * glm::translate(glm::mat4(1), instance.Position) * glm::toMat4(glm::quat(instance.Rotation)) * glm::scale(glm::mat4(1), glm::vec3(instance.Scale)));
+                ++cache.Generation;
             }
             cache.Prototype = bounds;
-            if (!batch->Upload(cache.Transforms, bounds, id)) return nullptr;
+            if (!batch->Upload(cache.Transforms, bounds, id, cache.Generation)) return nullptr;
             return batch;
         }
         void GenerateGrid(FoliageComponent& c, uint32_t count, glm::vec2 size, uint32_t seed)

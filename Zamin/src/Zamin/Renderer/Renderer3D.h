@@ -322,7 +322,13 @@ namespace Zamin {
         /// An opaque terrain mesh with shared control/albedo/normal/ORM inputs.
         static void SubmitTerrain(const Ref<Mesh>& mesh, const glm::mat4& transform, const Ref<TerrainSurface>& surface,
                                   int entityID = -1, bool castShadows = true);
+        /// Packed foliage: each LOD part as an instanced (CPU) or indirect (GPU-culled) draw of its camera set, the
+        /// shadow set into the cascades, and the batch's visible HLOD cell proxies.
         static void SubmitFoliage(const Ref<FoliageBatch>& batch);
+        /// Debug view of packed foliage: near LOD green, far LOD yellow, HLOD proxies magenta (the crossfade shows as
+        /// the dither between them).
+        static void SetFoliageLODDebugView(bool enabled);
+        static bool IsFoliageLODDebugView();
         /// The editor grid, drawn by EndScene after the opaque surfaces and the sky and before the
         /// transparent ones (so it shows through glass instead of being drawn over it).
         static void SubmitGrid(int plane = 0, const GridSettings& settings = {});

@@ -15,6 +15,7 @@
 // <out>/report.json (each case's numbers, the GL renderer) and <out>/summary.md (a Markdown table: CI
 // shows it on the run's page). Exit code 0: every case matched.
 #include <Zamin/Zamin.h>
+#include <Zamin/Scene/Foliage.h>
 
 #include <glm/gtc/constants.hpp>
 
@@ -52,6 +53,7 @@ namespace {
         std::string Reference;                 // another case's reference it must match (empty: its own)
         SceneRenderOptions Options;
         bool NoCullingOrInstancing = false;    // drawn without frustum culling and GPU instancing
+        bool FoliageLODDebug = false;          // Renderer3D's foliage LOD/HLOD debug colours
         // The editor's selection outline over the picture: these entities (by name, with their
         // children; the last one is the primary selection) and the one under the mouse.
         std::vector<std::string> Outline;
@@ -141,6 +143,29 @@ namespace {
         AddPointLight(scene, { -1.0f, 1.2f, 2.4f }, { 1.0f, 0.55f, 0.2f }, 12.0f, 6.0f);
         AddSpotLight(scene, { 3.5f, 4.5f, 1.5f }, { -1.2f, 0.4f, 0.0f }, { 0.3f, 0.8f, 1.0f }, 60.0f, 12.0f, 12.0f, 22.0f);
         return scene;
+    }
+
+    // Packed foliage: 4096 instances in one component, near / far LOD, HLOD clump proxies with the dithered crossfade
+    // in view, the shadow set culled by the cascades. `backend`: CPU or GPU culling (the pictures must match).
+    std::function<Ref<Scene>()> BuildFoliageScene(FoliageBackend backend)
+    {
+        return [backend] {
+            auto scene = CreateRef<Scene>();
+            scene->SetName("Foliage");
+            AddMesh(scene, "Ground", PrimitiveMesh::Plane, { 48, 0, 48 }, { 120, 1, 120 }, { 0.42f, 0.4f, 0.33f, 1 }, 0.0f, 0.95f);
+            AddSun(scene, "Sun", { -0.75f, 0.9f, 0.0f }, { 1.0f, 0.95f, 0.85f }, 3.0f, true);
+            Entity forest = scene->CreateEntity("Packed Forest");
+            auto& c = forest.AddComponent<FoliageComponent>();
+            FoliageTools::GenerateGrid(c, 4096, { 96, 96 }, 11);
+            for (auto& i : c.Instances) i.Position.y = 0.5f * i.Scale;
+            c.Settings.LODDistance = 30;
+            c.Settings.CullDistance = 150;
+            c.Settings.HLODDistance = 50;
+            c.Settings.HLODFade = 14;
+            c.Settings.HLODCellSize = 12;
+            c.Settings.Backend = backend;
+            return scene;
+        };
     }
 
     // Transparent, emissive, unlit and double-sided surfaces, a row of instanced cubes, fog, bloom.
@@ -419,6 +444,20 @@ namespace {
             c.NoCullingOrInstancing = true;
             cases.push_back(c);
         }
+        cases.push_back({ "Foliage", "Packed foliage: 4096 instances, GPU compute culling (CPU without GL 4.3), near/far LOD, HLOD "
+                          "clump proxies with the dithered crossfade, the culled shadow set", BuildFoliageScene(FoliageBackend::Auto),
+                          LookAt({ 44, 0, 44 }, 40.0f, 22.0f, 205.0f) });
+        {
+            RenderCase c{ "Foliage_CPU", "Foliage: the CPU culling path - must come out the same", BuildFoliageScene(FoliageBackend::CPU),
+                          LookAt({ 44, 0, 44 }, 40.0f, 22.0f, 205.0f), "Foliage" };
+            cases.push_back(c);
+        }
+        {
+            RenderCase c{ "FoliageLODDebug", "Foliage: the LOD/HLOD debug colours (near green, far yellow, HLOD magenta)",
+                          BuildFoliageScene(FoliageBackend::Auto), LookAt({ 44, 0, 44 }, 40.0f, 22.0f, 205.0f) };
+            c.FoliageLODDebug = true;
+            cases.push_back(c);
+        }
         cases.push_back({ "Showcase3D", "The Showcase3D sample: models, textures, HDRI, a skinned mesh",
                           ProjectScene("Showcase3D", "Scenes/Showcase.zscene"), LookAt({ 0, 1.5f, 0 }, 22.0f, 22.0f, 20.0f) });
         cases.push_back({ "Platformer2D", "The Platformer2D sample: tilemap, sprites, text",
@@ -482,6 +521,7 @@ namespace {
 
         Renderer3D::SetFrustumCulling(!c.NoCullingOrInstancing);
         Renderer3D::SetInstancing(!c.NoCullingOrInstancing);
+        Renderer3D::SetFoliageLODDebugView(c.FoliageLODDebug);
         Renderer::ResetStats();
         hdr->Bind();
         glm::vec4 clear = scene->GetClearColor();
@@ -505,6 +545,7 @@ namespace {
         PostProcessor::Apply(input, post, output);
         Renderer3D::SetFrustumCulling(true);
         Renderer3D::SetInstancing(true);
+        Renderer3D::SetFoliageLODDebugView(false);
         if (!outline.empty())
         {
             SelectionOutlineInput selection;

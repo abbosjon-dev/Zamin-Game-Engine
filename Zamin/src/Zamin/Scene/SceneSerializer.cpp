@@ -1202,7 +1202,8 @@ namespace Zamin {
         {
             c->Sanitize();auto& j=e["Foliage"];
             j={{"NearType",PrimitiveMeshToString(c->NearType)},{"FarType",PrimitiveMeshToString(c->FarType)},{"NearModel",c->NearModel},{"FarModel",c->FarModel},{"Tint",ToJson(c->Tint)},
-               {"LODDistance",c->Settings.LODDistance},{"CullDistance",c->Settings.CullDistance},{"Hysteresis",c->Settings.Hysteresis},{"Backend",int(c->Settings.Backend)},{"CastShadows",c->CastShadows}};
+               {"LODDistance",c->Settings.LODDistance},{"CullDistance",c->Settings.CullDistance},{"Hysteresis",c->Settings.Hysteresis},{"Backend",int(c->Settings.Backend)},{"CastShadows",c->CastShadows},
+               {"HLODDistance",c->Settings.HLODDistance},{"HLODFade",c->Settings.HLODFade},{"HLODCellSize",c->Settings.HLODCellSize}};
             WriteAssetHandle(j,"NearModel",c->NearModel);WriteAssetHandle(j,"FarModel",c->FarModel);j["Instances"]=json::array();
             for(const auto& instance:c->Instances)j["Instances"].push_back({{"Position",ToJson(instance.Position)},{"Rotation",ToJson(instance.Rotation)},{"Scale",instance.Scale}});
         }
@@ -2142,6 +2143,7 @@ namespace Zamin {
             if(!instances.is_array()||instances.size()>FoliageBatch::MaxInstances)throw std::runtime_error("Foliage instance limit exceeded");
             auto& c=entity.AddComponent<FoliageComponent>();c.NearType=PrimitiveMeshFromString(j.value("NearType",std::string("Cone")));c.FarType=PrimitiveMeshFromString(j.value("FarType",std::string("Cube")));
             c.NearModel=ReadAssetPath(j,"NearModel");c.FarModel=ReadAssetPath(j,"FarModel");c.Tint=Vec(j,"Tint",c.Tint);c.Settings.LODDistance=j.value("LODDistance",40.f);c.Settings.CullDistance=j.value("CullDistance",180.f);c.Settings.Hysteresis=j.value("Hysteresis",.1f);c.Settings.Backend=FoliageBackend(j.value("Backend",0));c.CastShadows=j.value("CastShadows",true);
+            c.Settings.HLODDistance=j.value("HLODDistance",0.f);c.Settings.HLODFade=j.value("HLODFade",8.f);c.Settings.HLODCellSize=j.value("HLODCellSize",32.f);
             for(const auto& item:instances)c.Instances.push_back({Vec(item,"Position",glm::vec3(0)),Vec(item,"Rotation",glm::vec3(0)),item.value("Scale",1.f)});
             c.Sanitize();
         }

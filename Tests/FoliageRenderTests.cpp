@@ -131,6 +131,101 @@ int main(int argc, char** argv)
         invalid->Parts[1] = cpu->Parts[1];
         transforms[0] = glm::scale(transforms[0], glm::vec3(-1, 1, 1));
         Check(!invalid->Upload(transforms, box, 1), "mixed winding rejected");
+        // ---- HLOD + the culled shadow set: CPU and GPU agree per LOD, per shadow LOD and per HLOD cell.
+        auto hcpu = CreateRef<FoliageBatch>(), hgpu = CreateRef<FoliageBatch>();
+        for (auto batch : { hcpu, hgpu })
+        {
+            batch->Parts[0].push_back({ MeshLibrary::GetPrimitive(PrimitiveMesh::Cone), mat });
+            batch->Parts[1].push_back({ MeshLibrary::GetPrimitive(PrimitiveMesh::Cube), mat });
+            batch->Settings.LODDistance = 12;
+            batch->Settings.CullDistance = 90;
+            batch->Settings.HLODDistance = 22;
+            batch->Settings.HLODFade = 8;
+            batch->Settings.HLODCellSize = 8;
+        }
+        hcpu->Settings.Backend = FoliageBackend::CPU;
+        hgpu->Settings.Backend = FoliageBackend::GPU;
+        transforms[0] = glm::translate(glm::mat4(1), { -32, 0, -32 });
+        Check(hcpu->Upload(transforms, box, 7) && hgpu->Upload(transforms, box, 7), "upload HLOD batches");
+        Check(hcpu->GetHLODMesh() && hgpu->GetHLODMesh(), "HLOD proxy mesh baked");
+        Check(hcpu->GetStats().HLODHash == hgpu->GetStats().HLODHash && hcpu->GetStats().HLODCells == 64, "HLOD bake is the same on both backends");
+        auto drawH = [&](const Ref<FoliageBatch>& batch, glm::vec3 eye, bool sun) {
+            target->Bind();
+            RenderCommand::SetClearColor({ 0, 0, 0, 1 });
+            RenderCommand::Clear();
+            target->ClearAttachment(1, -1);
+            SceneEnvironment env;
+            env.DrawSky = false;
+            env.DebugView = RenderDebugView::Albedo;
+            env.HasSun = sun;
+            env.Shadows.AtlasSize = 1024;
+            Renderer::ResetStats();
+            Renderer3D::BeginScene(glm::lookAt(eye, glm::vec3(0), glm::vec3(0, 1, 0)), glm::perspective(glm::radians(55.f), 1.f, .1f, 300.f), eye, env);
+            Renderer3D::SubmitFoliage(batch);
+            Renderer3D::EndScene();
+            auto pixels = target->ReadColorPixels();
+            target->Unbind();
+            Check(glGetError() == GL_NO_ERROR, "GL state/error (HLOD)");
+            return pixels;
+        };
+        uint32_t fadingSeen = 0, replacedSeen = 0, shadowCulledSeen = 0;
+        for (glm::vec3 eye : { glm::vec3(0, 10, 40), glm::vec3(-30, 14, 45), glm::vec3(0, 30, 0.01f), glm::vec3(35, 6, -10), glm::vec3(0, 60, 120) })
+        {
+            auto reference = drawH(hcpu, eye, true), actual = drawH(hgpu, eye, true);
+            const auto cc = hcpu->DebugVisibleCounts(), gc = hgpu->DebugVisibleCounts();
+            const auto cs = hcpu->DebugShadowCounts(), gs = hgpu->DebugShadowCounts();
+            const auto& a = hcpu->GetStats();
+            const auto& b = hgpu->GetStats();
+            Check(cc == gc, "HLOD: GPU and CPU camera counts per LOD match");
+            Check(cs == gs, "HLOD: GPU and CPU shadow counts per LOD match");
+            Check(a.HLODInstances == b.HLODInstances && a.HLODCellsDrawn == b.HLODCellsDrawn && a.HLODCellsFading == b.HLODCellsFading, "HLOD cells match");
+            Check(cc[0] + cc[1] + a.HLODInstances <= 4096, "a replaced instance is not drawn");
+            size_t different = 0;
+            for (size_t p = 0; p < actual.size(); p += 4)
+            {
+                bool differs = false;
+                for (int c = 0; c < 3; ++c) differs |= std::abs(int(actual[p + c]) - int(reference[p + c])) > 8;
+                different += differs;
+            }
+            Check(different * 200 <= actual.size() / 4, "HLOD: GPU/CPU rendered images match within 0.5 percent");
+            fadingSeen += a.HLODCellsFading;
+            replacedSeen += a.HLODInstances;
+            shadowCulledSeen += 4096 - std::min<uint32_t>(4096, cs[0] + cs[1]);
+            std::printf("hlod view %.0f,%.0f,%.0f: near=%u far=%u hlod-instances=%u cells=%u fading=%u shadow=%u/%u GPU=%d pixel-diff=%zu\n", eye.x, eye.y, eye.z, gc[0], gc[1],
+                        b.HLODInstances, b.HLODCellsDrawn, b.HLODCellsFading, gs[0], gs[1], int(b.GPU), different);
+        }
+        Check(fadingSeen > 0 && replacedSeen > 0, "the views cover the HLOD crossfade and replaced cells");
+        Check(shadowCulledSeen > 0, "the shadow set is culled by the cascades' volumes");
+        drawH(hgpu, { 0, 10, 40 }, true);
+        hgpu->DebugResolveTimings();
+        Check(!hgpu->GetStats().GPU || hgpu->GetStats().GPUTimeAvailable, "GPU cull timestamp result");
+        std::printf("GPU cull %.3f ms, CPU cull %.3f ms (CPU path), CPU issue %.3f ms (GPU path)\n", hgpu->GetStats().CullGPUMilliseconds, hcpu->GetStats().CullCPUMilliseconds,
+                    hgpu->GetStats().CullCPUMilliseconds);
+        // The LOD/HLOD debug view shows all three kinds.
+        Renderer3D::SetFoliageLODDebugView(true);
+        auto debugPixels = drawH(hgpu, { 0, 6, 36 }, false);
+        Renderer3D::SetFoliageLODDebugView(false);
+        uint32_t green = 0, yellow = 0, magenta = 0;
+        for (size_t p = 0; p < debugPixels.size(); p += 4)
+        {
+            const int r = debugPixels[p], g = debugPixels[p + 1], bl = debugPixels[p + 2];
+            green += g > 150 && r < 120 && bl < 120;
+            yellow += r > 180 && g > 150 && bl < 80;
+            magenta += r > 150 && g < 100 && bl > 130;
+        }
+        std::printf("debug view: green=%u yellow=%u magenta=%u\n", green, yellow, magenta);
+        Check(green > 20 && yellow > 20 && magenta > 20, "debug view colours near/far/HLOD");
+        // A paint edit in one corner rebakes only the touched cells.
+        const uint64_t hashBefore = hgpu->GetStats().HLODHash;
+        for (auto& m : transforms)
+            if (m[3].x < -26 && m[3].z < -26) m[3].y += 1;
+        Check(hgpu->Upload(transforms, box, 7), "edited upload");
+        drawH(hgpu, { 0, 10, 40 }, false);
+        Check(hgpu->GetStats().HLODHash != hashBefore && hgpu->GetStats().HLODRebakedCells == 1 && hgpu->GetStats().HLODReusedCells == 63, "edit rebakes one cell");
+        // Turning HLOD off frees the proxies; every instance comes back to the LOD sets.
+        hgpu->Settings.HLODDistance = 0;
+        drawH(hgpu, { 0, 30, 0.01f }, false);
+        Check(!hgpu->GetHLODMesh() && hgpu->GetStats().HLODInstances == 0, "HLOD off");
         std::printf("PASS packed foliage: 4096 instances, full near triangles=%llu first-view selected triangles=%llu, no per-frame source upload\n", (unsigned long long)baselineTriangles, (unsigned long long)selectedTriangles);
     }
     catch (const std::exception& e)

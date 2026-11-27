@@ -572,10 +572,25 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
                 CHECK(host->VM.Pending() == 0);
             }
         }
+        // BlueprintChild inherits BlueprintBase: the parent's Start evaluates the Falloff curve (cubic, then linear)
+        // at the Level override and calls Bonus, which the child overrides: (curve + 1) x 10.
+        auto child = scene->FindEntityByName("Blueprint inheritance controller");
+        CHECK(child);
+        if (child)
+        {
+            auto* host = dynamic_cast<VisualGraphHost*>(child.GetComponent<NativeScriptComponent>().Instance);
+            CHECK(host && host->VM.Error().empty());
+            if (host) CHECK(host->VM.Variables().at("Score") == (name == "Visual2D" ? 30. : 43.75) && host->VM.Variables().at("Level") == (name == "Visual2D" ? 1. : 1.5));
+        }
         scene->OnRuntimeStop();
     }
+    // The child graph is graph-format 5 and resolves its parent from disk.
+    const auto childGraph = Graph::Load(root / "Assets/Scripts/BlueprintChild.zgraph");
+    CHECK(childGraph.Validate().empty() && childGraph.Parent == "Scripts/BlueprintBase.zgraph" && childGraph.FunctionOverrides() == std::set<std::string>({ "Bonus" }));
     AssetReferenceIndex index;
     auto plan = ExportAssets::PlanForActiveProject(nullptr, nullptr, &index);
     CHECK(std::find(plan.Included.begin(), plan.Included.end(), "Scripts/BlueprintGameplay.zgraph") != plan.Included.end());
+    // A parent graph is exported with its child (the child's Parent path is an asset reference).
+    CHECK(std::find(plan.Included.begin(), plan.Included.end(), "Scripts/BlueprintBase.zgraph") != plan.Included.end());
     Project::SetActive(prior);
 }

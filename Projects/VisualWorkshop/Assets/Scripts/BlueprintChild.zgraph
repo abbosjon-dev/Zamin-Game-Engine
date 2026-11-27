@@ -1,0 +1,102 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 5,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Function.Entry",
+      "X": 30,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Bonus"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 2,
+      "Kind": "Parent.Call",
+      "X": 300,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Bonus"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 3,
+      "Kind": "Multiply",
+      "X": 560,
+      "Y": 200,
+      "Inputs": {
+        "B": 10
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 4,
+      "Kind": "Function.Return",
+      "X": 820,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Bonus"
+      },
+      "Breakpoint": false
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 2,
+      "Input": "In"
+    },
+    {
+      "From": 1,
+      "Output": "Score",
+      "To": 2,
+      "Input": "Score"
+    },
+    {
+      "From": 2,
+      "Output": "Then",
+      "To": 4,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 3,
+      "Input": "A"
+    },
+    {
+      "From": 3,
+      "Output": "Value",
+      "To": 4,
+      "Input": "Value"
+    }
+  ],
+  "Variables": {},
+  "Enums": {},
+  "Structs": {},
+  "Functions": {
+    "Bonus": {
+      "Inputs": [
+        {
+          "Name": "Score",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Value",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Locals": {}
+    }
+  },
+  "Macros": {},
+  "Parent": "Scripts/BlueprintBase.zgraph"
+}

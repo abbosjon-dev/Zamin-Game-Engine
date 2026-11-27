@@ -232,6 +232,41 @@
       }
     },
     {
+      "Entity": 901,
+      "Tag": "Blueprint inheritance controller",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Enabled": true,
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/BlueprintChild.zgraph"
+          },
+          "Overrides": {
+            "Type": "String",
+            "Value": "{\"Level\": 1.5}"
+          }
+        }
+      }
+    },
+    {
       "Entity": 910,
       "Tag": "Animator gameplay actor",
       "Transform": {

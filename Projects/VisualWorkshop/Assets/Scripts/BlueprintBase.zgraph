@@ -1,0 +1,378 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 5,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 30,
+      "Y": 30,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 2,
+      "Kind": "Get.Curve",
+      "X": 30,
+      "Y": 200,
+      "Inputs": {
+        "Name": "Falloff"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 3,
+      "Kind": "Get.Number",
+      "X": 30,
+      "Y": 330,
+      "Inputs": {
+        "Name": "Level"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 4,
+      "Kind": "Curve.Evaluate",
+      "X": 300,
+      "Y": 230,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 5,
+      "Kind": "Function.Call",
+      "X": 560,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Bonus"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 6,
+      "Kind": "FormatNumber",
+      "X": 560,
+      "Y": 260,
+      "Inputs": {
+        "Decimals": 3
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 7,
+      "Kind": "FormatNumber",
+      "X": 820,
+      "Y": 330,
+      "Inputs": {
+        "Decimals": 2
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 8,
+      "Kind": "Curve.KeyCount",
+      "X": 300,
+      "Y": 420,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 9,
+      "Kind": "FormatNumber",
+      "X": 560,
+      "Y": 470,
+      "Inputs": {
+        "Decimals": 0
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 10,
+      "Kind": "Concat",
+      "X": 820,
+      "Y": 170,
+      "Inputs": {
+        "A": "BLUEPRINT_INHERIT curve="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 11,
+      "Kind": "Concat",
+      "X": 1080,
+      "Y": 170,
+      "Inputs": {
+        "B": " bonus="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 12,
+      "Kind": "Concat",
+      "X": 1340,
+      "Y": 170,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 13,
+      "Kind": "Concat",
+      "X": 1340,
+      "Y": 330,
+      "Inputs": {
+        "B": " keys="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 14,
+      "Kind": "Concat",
+      "X": 1600,
+      "Y": 330,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 15,
+      "Kind": "Print",
+      "X": 1340,
+      "Y": 30,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 20,
+      "Kind": "Function.Entry",
+      "X": 30,
+      "Y": 650,
+      "Inputs": {
+        "Name": "Bonus"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 21,
+      "Kind": "Add",
+      "X": 300,
+      "Y": 720,
+      "Inputs": {
+        "B": 1
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 22,
+      "Kind": "Function.Return",
+      "X": 560,
+      "Y": 650,
+      "Inputs": {
+        "Name": "Bonus"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 16,
+      "Kind": "Set.Number",
+      "X": 1080,
+      "Y": 30,
+      "Inputs": {
+        "Name": "Score"
+      },
+      "Breakpoint": false
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 5,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 4,
+      "Input": "Curve"
+    },
+    {
+      "From": 3,
+      "Output": "Value",
+      "To": 4,
+      "Input": "Time"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 5,
+      "Input": "Score"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 6,
+      "Input": "Number"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 7,
+      "Input": "Number"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 8,
+      "Input": "Curve"
+    },
+    {
+      "From": 8,
+      "Output": "Value",
+      "To": 9,
+      "Input": "Number"
+    },
+    {
+      "From": 6,
+      "Output": "Value",
+      "To": 10,
+      "Input": "B"
+    },
+    {
+      "From": 10,
+      "Output": "Value",
+      "To": 11,
+      "Input": "A"
+    },
+    {
+      "From": 11,
+      "Output": "Value",
+      "To": 12,
+      "Input": "A"
+    },
+    {
+      "From": 7,
+      "Output": "Value",
+      "To": 12,
+      "Input": "B"
+    },
+    {
+      "From": 12,
+      "Output": "Value",
+      "To": 13,
+      "Input": "A"
+    },
+    {
+      "From": 13,
+      "Output": "Value",
+      "To": 14,
+      "Input": "A"
+    },
+    {
+      "From": 9,
+      "Output": "Value",
+      "To": 14,
+      "Input": "B"
+    },
+    {
+      "From": 14,
+      "Output": "Value",
+      "To": 15,
+      "Input": "Text"
+    },
+    {
+      "From": 20,
+      "Output": "Then",
+      "To": 22,
+      "Input": "In"
+    },
+    {
+      "From": 20,
+      "Output": "Score",
+      "To": 21,
+      "Input": "A"
+    },
+    {
+      "From": 21,
+      "Output": "Value",
+      "To": 22,
+      "Input": "Value"
+    },
+    {
+      "From": 5,
+      "Output": "Then",
+      "To": 16,
+      "Input": "In"
+    },
+    {
+      "From": 16,
+      "Output": "Then",
+      "To": 15,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 16,
+      "Input": "Value"
+    }
+  ],
+  "Variables": {
+    "Level": {
+      "Type": "Number",
+      "Default": 1
+    },
+    "Falloff": {
+      "Type": "Curve",
+      "Default": {
+        "Keys": [
+          {
+            "Time": 0,
+            "Value": 0,
+            "Mode": "Cubic",
+            "In": 0,
+            "Out": 0
+          },
+          {
+            "Time": 2,
+            "Value": 4,
+            "Mode": "Linear",
+            "In": 0,
+            "Out": 0
+          },
+          {
+            "Time": 3,
+            "Value": 6,
+            "Mode": "Linear",
+            "In": 0,
+            "Out": 0
+          }
+        ]
+      }
+    },
+    "Score": {
+      "Type": "Number",
+      "Default": 0
+    }
+  },
+  "Enums": {},
+  "Structs": {},
+  "Functions": {
+    "Bonus": {
+      "Inputs": [
+        {
+          "Name": "Score",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Value",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Locals": {}
+    }
+  },
+  "Macros": {}
+}

@@ -25,7 +25,7 @@ def main():
     runner = [] if os.environ.get('DISPLAY') else ['xvfb-run', '-a', '-s', '-screen 0 1600x1000x24 -nolisten tcp']
     results = []
     with tempfile.TemporaryDirectory(prefix='zamin-blueprint-') as scratch:
-        for scene, score, rank in (('Visual2D', 12, 'Silver'), ('Visual3D', 18, 'Gold')):
+        for scene, score, rank, inherit in (('Visual2D', 12, 'Silver', 'curve=2.000 bonus=30.00'), ('Visual3D', 18, 'Gold', 'curve=3.375 bonus=43.75')):
             project = Path(scratch) / scene
             shutil.copytree(ROOT / 'Projects/VisualWorkshop', project, ignore=shutil.ignore_patterns('.zamin', 'Build'))
             manifest = project / 'VisualWorkshop.zproject'
@@ -60,11 +60,15 @@ def main():
                 # Report{Result (nested struct), Ranks (enum array)} -> the Announce macro (Delay + Print) twice.
                 if f'BLUEPRINT_REPORT total={score}' not in text or 'BLUEPRINT_REPORT ranks=2' not in text:
                     raise RuntimeError(f'{scene}/{mode}: missing macro report; {log}')
+                # BlueprintChild inherits BlueprintBase (format 5): the parent's Start evaluates the Falloff curve at the
+                # Level override and calls Bonus, which the child overrides (Parent.Call, then x10).
+                if f'BLUEPRINT_INHERIT {inherit} keys=3' not in text:
+                    raise RuntimeError(f'{scene}/{mode}: missing curve/inheritance line; {log}')
                 if any(marker in text for marker in ('GL_INVALID_', 'Assertion failed', "Visual graph '", 'Visual graph error', 'Visual graph:')):
                     raise RuntimeError(f'{scene}/{mode}: runtime diagnostic; {log}')
                 subprocess.run(['python3', str(ROOT / 'Tests/png_check.py'), str(png)], check=True)
-                results.append({'Scene': scene, 'Mode': mode, 'Frames': 120, 'Total': score, 'Rank': rank, 'NativeGameModule': False})
-                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary + nested struct/enum array macro report, total={score} rank={rank}', flush=True)
+                results.append({'Scene': scene, 'Mode': mode, 'Frames': 120, 'Total': score, 'Rank': rank, 'Inherit': inherit, 'NativeGameModule': False})
+                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary + nested struct/enum array macro report + curve-driven child graph override, total={score} rank={rank} {inherit}', flush=True)
             if args.exports:
                 export_out = out / (scene+'-export')
                 export_env = dict(env, ZAMIN_BUILD_DIR=str(build))

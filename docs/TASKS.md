@@ -859,9 +859,32 @@ Visual Script evidence (2026-11-26): `ZaminTests --filter Blueprint` and `Visual
 - [x] Serializer asset handles, legacy defaults and editor controls.
 - [x] 696/696 CPU, 12/12 render, GL 4.1 pixel/cache tests, editor and MapWorkshop export/relocation checks.
 - [x] Packed foliage instancing/culling and two model LODs v1 (the package above).
-- [ ] Atlas/cook, terrain tile streaming and 2D content workflow work.
+- [x] Atlas/cook, terrain tile streaming and 2D content workflow work (v1, 2026-11-27).
 
 P2 evidence: the 12 source PBR textures went into the package through export reachability; the exported Player passed 12 measurement frames, a screenshot and a move to another folder. The editor showed 67600 bytes of control, 1 upload, 0 missing maps. The GL test confirmed the LOD UV match, normal/ORM/AO, picking/wire, the native mesh binding, reimport, safe paths and no upload over 120 validation frames. Losing the render target on a shadow atlas resize and a paint float oscillation were fixed. A GPU test step was added to CI; in this session the tests ran locally on a VPS/Mesa llvmpipe. A physical GPU, Windows/macOS and full professional parity are not confirmed yet.
+
+Atlas/cook, tile streaming and 2D content evidence (2026-11-27): a deterministic MaxRects atlas packer with clamp/wrap
+bleed and mip-safe alignment (`Asset/TextureAtlas.h`); `.zatlas` sprite atlas assets made from a content browser folder,
+rebuilt by the editor when a source changes on disk with the page's UUID, frame names, pivots and borders kept; alpha
+slicing and re-slicing that keeps references in the Sprite editor; atlas frames used by Sprite Renderers, a Sprite
+Animation, `.zsanim` clips made from a sequence and grid pages as Tilemap tilesets. The export cooks textures into ZTEX
+(lossless, halved to a size limit or by the mips every quality level skips, written at the source's path when smaller or
+resized) with a content-hash cook cache, re-packs stale atlas pages, writes `cook-manifest.json` with the atlas UV table
+and lists every texture in the report; the Player reads cooked data, the editor the sources. `TiledTerrainComponent`
+streams a `.zterrain` tile set (heights, control, foliage and 4 decimated LOD levels per tile file) around the camera on a
+background reader within a hard memory budget (farthest tiles coarsened, then dropped), stitches borders between tiles
+of different LOD with the existing patch stitching (`EdgeLOD`, no cracks, no skirts), makes colliders for near
+full-detail tiles in play, sculpts and paints across tile borders with shared samples reconciled and saved, and migrates
+a single terrain (exactly or resampled). Stats in the inspector, the Statistics panel and a profiler scope. Checks: 1417/1417
+quick unit tests (15 new: packer, bleed/mips, slicing, atlas reimport, ZTEX, cook cache, export cook, tile files, budget/LOD,
+async reads, seams, sculpt, migration), `ctest -LE gui` 17/17, docs 2/2, `Tests/atlas_terrain_editor_test.py` (alpha
+slicing + pivot, atlas from a folder + automatic rebuild, LOD colours, a stroke across tiles saved with equal shared edges
+on disk), `Tests/cook_export_test.sh` (StreamingWorkshop: 3/3 textures cooked, 512 -> 256 px terrain textures 420 KB ->
+109 KB each, the exported Player ran 60 frames, a screenshot and a move; the second export 3/3 from the cache), and
+`ZaminBench --terrain-tiles` (Release, llvmpipe: streaming update 0.86 ms async vs 1.31 ms sync per frame, 12 MB budget
+never exceeded, 0 cracks; `Tests/Baselines/terrain-tiles-release.json`). Not done in v1: GPU block compression, multi-page
+atlases, normals shared across tile borders, tile edits in the scene Undo history, impostors beyond the load radius; frame
+times are Mesa llvmpipe, not a physical GPU.
 
 ### Criteria for reaching Unity / Unreal / Godot quality
 
@@ -869,8 +892,8 @@ Parity with these engines is not decided by a single feature or by the amount of
 
 | Area | State in Zamin | The next evidence for acceptance |
 |---|---|---|
-| 2D | Tilemaps, sprites, animation, Box2D, UI and large-map visibility exist | A finished 2D game; atlas/residency, input/UI and a stress profile |
-| 3D maps | Heightfield authoring, collision, patch LOD; GPU PBR layers passed the GL/editor/export tests | A map with real assets, foliage/streaming and a physical GPU frame-time budget |
+| 2D | Tilemaps, sprites, animation, Box2D, UI, large-map visibility, sprite atlases and alpha slicing exist | A finished 2D game; texture residency, input/UI and a stress profile |
+| 3D maps | Heightfield authoring, collision, patch LOD, GPU PBR layers, tiled terrain streaming with stitched LOD borders | A map with real assets and a physical GPU frame-time budget |
 | Gameplay authoring | A C++ editor and a typed visual graph with functions, arrays, enums and structs exist | Curve types, macros, LSP, a large graph/debug workflow |
 | World | Render chunks and a bounded world-cell manifest exist; disk streaming is planned | Async load/unload/cancel with bounded RAM/VRAM and a large world test |
 | Team networking | Multiplayer production acceptance not done yet | Authoritative replication, latency/loss/reconnect tests, security and monitoring |

@@ -127,4 +127,5 @@ ZAMIN_BUILD_DIR=build-release python3 Tests/samples_bench.py --resolution 284x16
 ZAMIN_BUILD_DIR=build-release python3 Tests/startup_bench.py               # startup time
 ZAMIN_STARTUP_PROFILE=1 ZAMIN_MAX_FRAMES=2 build-release/bin/ZaminPlayer Projects/Showcase3D   # the startup profile
 ZAMIN_BUILD_DIR=build-release Tests/foliage_bench.sh --compare         # ~1M foliage instances, CPU / GPU culling, HLOD
+ZAMIN_BUILD_DIR=build-release Tests/terrain_tiles_bench.sh --compare   # a 16 x 16 tiled terrain streamed around a camera
 ```

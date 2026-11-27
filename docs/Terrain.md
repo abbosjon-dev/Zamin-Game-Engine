@@ -94,8 +94,8 @@ Sculpting rebuilds the chunks affected by the changed height points and their no
 the GPU control map. One active GPU mesh is cached per chunk; LOD variants do not pile up without limit. Collision,
 the heightmap and the brush raycast work from the full height field. LOD does not simplify the physics.
 
-For now this is distance-based LOD; screen-space error, geomorphing, disk streaming and automatically joining
-neighbouring terrain tiles come in later stages. GPU splat/PBR layers exist.
+For now this is distance-based LOD; screen-space error and geomorphing come in later stages. Disk streaming of tiles
+with stitched borders is the [Tiled terrain](#tiled-terrain-streaming-a-large-map) component. GPU splat/PBR layers exist.
 
 CPU regressions: `TerrainLODTests.cpp`. For a real GL cache/rebuild test `ZAMIN_EDITOR_TERRAIN=lod-test` creates a
 257×257-point, 256×256-meter map and runs the far/near/orthographic/sculpt/paint cache checks. The optional
@@ -161,6 +161,67 @@ The oracle checks 4096 instances, five camera states and CPU/GPU pixel/count agr
 
 V1 check: 711/711 unit tests, 12/12 reference renders, the GL 4.3/4.1 foliage oracle, SDK compatibility and the runtime without UI passed. `FoliageWorkshop` was reopened, exported and started from another folder. In the control view with 4096 instances 54756 triangles were drawn instead of 491520; camera input did not increase the uploads. This is a geometry and correctness measurement; physical GPU frame-time acceptance is still separate. The evidence is in `build-review/PackedFoliage/`.
 
+
+## Tiled terrain: streaming a large map
+
+A **Tiled terrain** component (`TiledTerrainComponent`, *+ Component → Rendering → Tiled terrain (streamed)*) draws a
+map that does not fit one terrain: a `.zterrain` file (the grid, the four material layers, the foliage look, the
+per-tile foliage counts) and its tile folder `<name>.tiles/<x>_<z>.ztile`. Every tile file holds its heights, control
+weights (RGBA8) and foliage instances, and the tile at every LOD level: level *k* keeps every 2^k-th sample, so two
+neighbours keep exactly the same samples on their shared edge at every level. A read takes only the bytes of the level
+it needs (and the foliage only when the tile is near enough to show it).
+
+**Streaming** (`TerrainStreaming::Update`, once a frame from the scene's 3D pass, around the camera that draws it):
+
+1. Tiles whose rectangle is within `LoadRadius` are wanted; a resident tile stays until it is beyond `UnloadRadius`.
+2. Each wanted tile's LOD comes from its distance: full detail nearer than `LODDistance`, one level coarser for every
+   doubling of the distance, at most `MaxLOD` (a 10% dead band keeps a tile at its level while the camera hovers at a
+   threshold).
+3. **The memory budget** (`MemoryBudgetMB`: the resident tiles' CPU heights/weights plus their estimated GPU control
+   texture and mesh, plus foliage): the plan takes the tiles nearest first; over the budget the farthest are made
+   coarser first and dropped last. The budget is a hard limit - when the resident and in-flight bytes are over it (the
+   budget was lowered, the camera jumped) tiles are evicted, farthest first.
+4. **Async IO**: reads run on one background reader thread, at most `MaxLoadsPerFrame` started and made resident a
+   frame; a tile keeps drawing its old level until the new one is in, a cancelled read is dropped when it finishes.
+   With `AsyncLoader` off (headless captures, `ZAMIN_MAX_FRAMES`) the reads are synchronous and frame-exact.
+5. **No seams between tiles of different LOD**: every resident tile is an ordinary terrain (GPU layers, its own patch
+   LOD with full-detail borders, picking) and gets the LOD difference of each neighbour (`TerrainComponent::EdgeLOD`,
+   runtime only). The finer tile's outer chain then follows only the coarse neighbour's samples and the ring is
+   re-triangulated - the same stitching the patches of one terrain use - so the two meshes meet on exactly the same
+   polyline: no cracks and no skirts. Shading normals stay local to each tile.
+6. While the game runs, full-detail tiles within `CollisionRadius` get static Jolt mesh colliders (made and removed as
+   the tiles stream); before the first physics step the tiles around the primary camera are read at once, so a
+   character does not fall through the first frames.
+
+**Editing**: select the entity and open **Window → Map authoring**. The brush (raise, lower, flatten, smooth, paint)
+works across tile borders: every tile the stamp reaches is read at full detail at once, edited with its tile-local
+centre, then the copies of every shared edge and corner sample are made equal again; the foliage on the edited ground
+follows the new height. Edited tiles stay resident at full detail until **Ctrl+S** (or **Save tiles** in the inspector)
+writes them with all their levels and the `.zterrain`. **Undo stroke / Redo** in the inspector restore the tiles of a
+stroke (the tiles are not part of the scene's own Undo history). **Convert to tiles** splits the active single terrain
+(and the packed foliage standing on it) into a tile set - the **migration from the single-terrain format**: when the
+cell count is a multiple of the tile's, the samples are copied exactly, otherwise they are resampled onto the nearest
+whole number of tiles. **New tiled terrain** makes a generated tile set (`TerrainTileTools::Create`).
+
+**Statistics**: the inspector shows resident / all tiles, those loading, the memory against the budget and the LOD
+counts; the Statistics panel has tiled terrain lines (resident, loading, LOD counts, memory and its peak, loads and
+unloads this frame, the most in one frame, bytes read, the update time, colliders, over-budget drops); the profiler has
+a "Tiled terrain streaming" scope. **Tile LOD colours** paints the tiles by LOD (0 green, 1 yellow, 2 orange, 3 red).
+
+![The tiled terrain of StreamingWorkshop with its tile LOD colours](images/tiled-terrain-lod.jpg)
+
+*Projects/StreamingWorkshop: 8 x 8 tiles of 33 samples streamed around the editor camera, coloured by LOD.*
+
+Tests: `TerrainStreamingTests.cpp` (tile files and levels, damaged files, shared samples, the budget with coarsening,
+drops and evictions, loads per frame, the unload radius, background reads and cancellation, watertight borders between
+LODs and the failure without the stitch, sculpting across a corner of four tiles with Undo/Redo and save/reload,
+migration exact and resampled, the scene file); `Tests/atlas_terrain_editor_test.py` (the editor: stats, LOD colours, a
+stroke across tile borders saved with Ctrl+S, shared edges equal on disk); `ZaminBench --terrain-tiles`
+([Benchmarks.md](Benchmarks.md#terrain-tile-streaming-zaminbench---terrain-tiles)). V1 limits: a tile set is a flat grid
+with one height range (no floating origin beyond the world streaming's limits); normals are not shared across tile
+borders (a faint shading seam can show at a steep border); per-stroke Undo is separate from the scene history; collider
+rebuilds after a sculpt happen when the game starts, not in Edit mode; GPU-side memory is an estimate, not a VRAM
+measurement; the foliage's own packed LOD/HLOD applies per tile.
 
 ## World-cell manifest — the metadata base for streaming
 

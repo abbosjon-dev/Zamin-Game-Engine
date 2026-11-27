@@ -97,6 +97,47 @@ How to read it:
 - The **shadow set** (instances inside a cascade's volume) is ~13 400 instances here instead of every near-LOD instance;
   the HLOD proxies cast no shadow.
 
+## Terrain tile streaming (`ZaminBench --terrain-tiles`)
+
+`Tests/TerrainTilesBench.cpp`, run with `Tests/terrain_tiles_bench.sh` (smoke: `ctest -R BenchTerrainTilesSmoke`, 6 x 6
+tiles of 65 samples, 20 frames). A GL context and Mesa llvmpipe under a fixed xvfb screen, like `--foliage`: **the
+frame times are a software rasteriser's, not a physical GPU's**; the streaming numbers (main-thread update, reads,
+memory) are CPU work and do not depend on the rasteriser. The scene: a 16 x 16 tiled terrain (129 samples, 64 m per
+tile, 1024 m across, 4 LOD levels, 400 foliage instances per tile; 46 MiB on disk, made into a temporary folder by the
+world generator), a shadow-casting sun, a perspective camera 70 m up circling the map's centre at 38% of its size and
+looking at it - tiles stream in ahead and out behind. The component: load radius 400 m, unload 460 m, full detail
+within 80 m, at most LOD 3, 4 loads per frame, foliage within 160 m. The cases: `async` (the background reader, the
+runtime default, 96 MB budget), `sync` (the same reads on the main thread), `tight` (async with a 12 MB budget). 5
+warm-up frames, then the measured ones. The run fails when resident memory ever exceeded the budget or two resident
+neighbours disagree on a shared sample. `--json` writes `terrain-tiles-bench.json` (`--compare` uses
+`Tests/Baselines/terrain-tiles-release.json`), `--shots DIR` the last frames.
+
+### Baseline (2026-11-27)
+
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, Mesa 25.2.8 llvmpipe (LLVM 20.1.2, 256 bit, GL 4.5), xvfb 1600x900x24, a
+1280x720 window, GCC 13.3, a **Release** build, 120 frames (`Tests/Baselines/terrain-tiles-release.json`).
+
+| Case | Frame ms (average / p95 / max) | Streaming update ms (average / max) | Reads (total ms on the reader / main thread) | Loads / unloads (peak per frame) | Resident peak | LOD 0/1/2/3 (last frame) | Coarsened / dropped (plan steps) | Draws / triangles |
+|---|---|---|---:|---|---|---|---|---|
+| `async` | 193.9 / 250.9 / 262.9 | 0.86 / 2.20 | 58.7 (reader), 36.0 MiB | 572 / 204 (4) | 104 tiles, 37.7 MiB of 96 | 12 / 44 / 3 / 8 | 0 / 0 | 157 / 243K |
+| `sync` | 198.6 / 242.3 / 279.0 | 1.31 / 2.58 | 68.3 (main thread), 36.4 MiB | 576 / 204 (4) | 104 tiles, 38.2 MiB of 96 | 12 / 44 / 3 / 8 | 0 / 0 | 169 / 258K |
+| `tight` | 107.0 / 158.9 / 197.6 | 0.33 / 1.17 | 31.2 (reader), 18.7 MiB | 218 / 171 (4) | 9 tiles, 12.0 MiB of 12 | 7 / 0 / 0 / 1 | 11 558 / 11 817 | 32 / 35.6K |
+
+How to read it:
+
+- **The streaming itself is cheap**: planning, budget, integration and stitching take 0.3-1.3 ms of the main thread a
+  frame on average; the frame time is llvmpipe rasterising the terrain and the shadow pass.
+- **Async against sync**: with the background reader the main thread's streaming update is 0.86 ms against 1.31 ms
+  (the reads, ~0.1 ms per tile here from the page cache, move off the main thread). The tiles here are small files on
+  a warm disk; on a cold or slow disk the difference grows with the read time, which the sync case pays inside the
+  frame. The two cases read slightly different numbers of tiles because a finished read is made resident a frame later
+  on the async path.
+- **The budget is a hard limit**: with 12 MB only 9 tiles fit (full-detail tiles near the camera are ~1.5 MB each with
+  their foliage); the planner coarsens and drops the farthest tiles first, so the tiles at the camera keep full detail
+  and the frame is cheaper because less is drawn. The coarsened / dropped counters count plan steps, summed over the
+  frames. No case went over its budget or showed a crack between tiles (0 shared-sample difference at the end).
+- The far edge beyond the load radius is empty (no impostor or horizon mesh beyond the streamed tiles in this version).
+
 ## ECS: creating, iterating, deleting (`ZaminBench --ecs`)
 
 `Tests/EcsBench.cpp`, run with `ZaminBench --ecs [--entities N] [--frames N] [--json file]` or
@@ -623,6 +664,7 @@ working (and `--serialize` its own check); the numbers are not compared there.
 | `ZaminBench --nav` | navigation (bake, path finding, Nav Agents) |
 | `ZaminBench --fonts` | the font atlas: rasterizing and the disk cache, glyph lookup, text layout with kerning |
 | `ZaminBench --foliage` | ~1M packed foliage instances: CPU against GPU compute culling, with and without HLOD (above, `Tests/foliage_bench.sh`) |
+| `ZaminBench --terrain-tiles` | a 16 x 16 tiled terrain streamed around a circling camera: background vs main-thread reads, a tight budget (above, `Tests/terrain_tiles_bench.sh`) |
 | `ZaminBench --combat` | gameplay projectiles (2D rays / 3D sphere casts) and effect books, `TickCombat` ms / frame and allocations (above) |
 | `ZaminBench --physics` / `--animation` / `--slice-stress` | the vertical slice stress gates: Box2D/Jolt + motors/Character Controllers, crowds of human and sprite animators, game code with the slice levels packed full (above) |
 | `Tests/startup_bench.py` | editor and player startup time: up to the first frame (engine / layers / frame 1) and the process time, comparing two builds (`--bin`, `--module-dir`) |

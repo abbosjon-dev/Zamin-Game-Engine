@@ -2306,12 +2306,36 @@ _In the inspector: **Terrain**; add with: **+ Component → Rendering → Terrai
 | `LODEnabled` | `bool` | `true` |
 | `LockBorderLOD` | `bool` | `false` |
 | `LODDistanceScale` | `float` | `2.0f` |
+| `EdgeLOD` _(runtime only)_ | `std::array<uint8_t, 4>` | `{}` |
 | `Heights` | `std::vector<float>` | — |
 | `Weights` | `std::vector<glm::vec4>` | — |
 | `Layers` | `std::array<TerrainLayer, 4>` | `{ { { { 0.25f, 0.46f, 0.17f }, "", 0.25f }, { { 0.40f, 0.27f, 0.15f }, "", 0.25f }, { { 0.46f, 0.47f, 0.49f }, "", 0.25f }, { { 0.78f, 0.68f, 0.43f }, "", 0.25f } } }` |
-| `GeometryRevision` | `uint64_t` | `1` |
-| `PaintRevision` | `uint64_t` | `1` |
+| `GeometryRevision` _(runtime only)_ | `uint64_t` | `1` |
+| `PaintRevision` _(runtime only)_ | `uint64_t` | `1` |
 <!-- /gen:TerrainComponent -->
+
+
+### TiledTerrainComponent
+
+A large terrain streamed from disk: `Path` names a `.zterrain` tile set whose tiles (heights, control weights, foliage, every LOD level) are read on a background thread around the camera within `LoadRadius` / `UnloadRadius`, far tiles at a coarser LOD (`LODDistance`, `MaxLOD`), all within `MemoryBudgetMB`; borders between tiles of different LOD are stitched without cracks, full-detail tiles near the camera get static colliders while the game runs, `ShowTileLOD` colours the tiles by LOD. The brush edits across tile borders; edited tiles are saved with the scene. Only the settings are in the scene; the tiles are their own files ([Terrain.md](Terrain.md#tiled-terrain-streaming-a-large-map)).
+
+<!-- gen:TiledTerrainComponent -->
+_In the inspector: **Tiled terrain**; add with: **+ Component → Rendering → Tiled terrain (streamed)**; in the scene file: `"TiledTerrain"`._
+
+| Field | Type | Default |
+|---|---|---|
+| `Path` | `std::string` | — |
+| `LoadRadius` | `float` | `320.0f` |
+| `UnloadRadius` | `float` | `400.0f` |
+| `LODDistance` | `float` | `96.0f` |
+| `MaxLOD` | `uint32_t` | `3` |
+| `MemoryBudgetMB` | `uint32_t` | `96` |
+| `MaxLoadsPerFrame` | `uint32_t` | `4` |
+| `Collision` | `bool` | `true` |
+| `CollisionRadius` | `float` | `128.0f` |
+| `FoliageDistance` | `float` | `200.0f` |
+| `ShowTileLOD` | `bool` | `false` |
+<!-- /gen:TiledTerrainComponent -->
 
 
 ### FoliageComponent

@@ -316,6 +316,42 @@ Export: icon in 6 sizes (16 ... 256 px, icons/hicolor)
 Export report: 122 files, 45.0 MB (0 warnings, 0 errors) - .../export-report.txt
 ```
 
+### Texture cook
+
+After the assets are copied the export **cooks** the textures the game takes (`ExportCook`, `Project/ExportCook.h`;
+the `.zproject` `"Export"` → `"Cook"` section, defaults shown):
+
+```json
+"Cook": { "Enabled": true, "Compress": true, "MaxTextureSize": 0, "MatchQuality": true, "Always": false }
+```
+
+1. **Sprite atlases** (`.zatlas`) whose sources changed since the page was built are packed again into the export's
+   copy of the page (the project is not touched); `cook-manifest.json` gets every atlas page with its sprites'
+   rectangles and UVs (the UV remap table).
+2. Every 8-bit image (`.png .jpg .jpeg .tga .bmp`; HDR stays as it is) is decoded and written as **ZTEX**
+   (`Asset/TextureCook.h`): rows already in OpenGL order, per-row prediction (none / left / up / average) and deflate.
+   Textures sampled by UV alone (mip-mapped, linear, without sprite frames - frames and 9-slice borders are pixel
+   rectangles) are halved down to `MaxTextureSize`, and with `MatchQuality` by the mip levels **every** quality level
+   skips (Project settings > Quality, texture quality): those levels are never shown, so they are baked out and the
+   cooked file says how many; the runtime then skips that many fewer, and the game looks the same.
+3. The cooked file **replaces the source at its asset path** when it is smaller, when it was resized, or always with
+   `"Always": true`; otherwise the source stays (`"kept"`). Every reference, the asset registry and every file check of
+   the game stay valid; the texture loader, `Image::Load` and the streaming stager recognise the `ZTEX` header and read
+   the cooked pixels. The editor never sees cooked files - it works from the sources.
+4. **The cook cache** (`<project>/Build/CookCache/<key>.ztex`): the key is the source's content hash (FNV-1a 64 of its
+   bytes) with the settings that change the output and the format version. An unchanged texture is not cooked again on
+   the next export (`"CacheHit"`); a changed source, a changed setting or a damaged cache entry is cooked again.
+5. The **Export report** lists every texture (cooked / kept / failed, the sizes before and after, the pixel size and
+   where it came from, cache hits) and the time; `export-report.txt` has the same table, `Game/cook-manifest.json`
+   the cook settings, the textures and the atlas table.
+
+`Tests/cook_export_test.sh` exports `Projects/StreamingWorkshop` (which sets `MaxTextureSize` 256 and `Always`), runs
+the exported Player through `Tests/export_test.sh` (benchmark frames, a screenshot, a move to another folder) and checks
+the cook: the 512 px terrain textures halved, the atlas page cooked, ZTEX files at their paths, the atlas's source
+sprites left out, the tiles exported, a second export served entirely from the cook cache, and the report window.
+V1 limits: lossless only (no GPU block compression such as BC/ASTC yet), one page per atlas, the cooked format is read
+by this engine version only (a format change cooks again).
+
 ## 9. The export folder
 
 ```
@@ -327,6 +363,7 @@ Platformer2D/
 │   ├── Platformer2D.zproject    the project file
 │   ├── Assets/                  the assets the game uses (+ .zmeta, the .zsceneb cache of the scenes)
 │   ├── AssetRegistry.zreg       the asset registry (only the exported ones)
+│   ├── cook-manifest.json       the texture cook: settings, every texture, the atlas UV table
 │   └── Binaries/libPlatformer2D.so   the script module
 ├── Platformer2D.desktop         a relocatable menu entry
 ├── Platformer2D.png, icons/hicolor/<size>/apps/...   the icon

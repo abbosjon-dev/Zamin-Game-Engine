@@ -121,6 +121,30 @@ drawing a new frame with the mouse, each frame's name, rectangle, pivot and 9-sl
 the image's `.zmeta` file (`"Sprites"`) — the image itself becomes the atlas. From a script: `SetSprite("idle")`,
 `PlaySpriteSequence("run")` (`run_0`, `run_1` ...), `GetSpriteSheet()`.
 
+**Slicing by alpha** — the Sprite editor's **Auto (by alpha)** method makes one frame per island of visible pixels
+(8-connected, alpha above the threshold), joins islands nearer than the merge distance (a sword and its hilt), skips
+dust below the smallest size and orders the frames row by row, left to right (`SpriteSheet::SliceAlpha`). Slicing again
+with **Replace** keeps references: a new frame that covers mostly the same pixels as an old one (intersection over
+union at least 0.5) takes its name, pivot and 9-slice borders, so Sprite Renderers, tilemaps and clips that name it keep
+working (`SpriteSheet::KeepReferences`).
+
+**Sprite atlas assets (`.zatlas`)** — right-click a folder in the content browser → **Create sprite atlas**: every image
+of the folder (or the frames of a sliced sheet in it) is packed into one page, `<folder>.atlas.png`, with a frame per
+sprite named after its file. The page is an ordinary texture whose `.zmeta` holds the frames, so it is used like any
+sprite sheet: a Sprite Renderer's texture is the page and its sprite the frame name; a Sprite Animation / `.zsanim` clip
+plays frame names (the atlas inspector's **Create clip** makes one from a numbered sequence such as `gem_0`, `gem_1`
+...); with **Grid (tileset)** the sprites (all one size) go in name order, `Columns` per row, without padding, and the
+page is a Tilemap tileset whose tile *i* is frame *i* (the Tilemap inspector's **Use the atlas grid** sets its columns
+and rows). The packer (`AtlasPacker`, `Asset/TextureAtlas.h`) is MaxRects with the best-short-side rule, deterministic
+(sorted by size and name, never by file order), with per-image padding filled by **bleed** (the edge pixels repeated -
+or, for tiling terrain layers, the opposite edge) and **mip-safe** levels: placements aligned to 2^n px so that the
+2x2 box mips down to level n never mix two sprites. A source saved again on disk (a paint program, a reimport) makes the
+editor pack the page again: the page keeps its UUID and frames of the same name keep the pivots and borders edited in
+the Sprite editor. The atlas's source folder is not referenced by the game, so an export leaves it out; the export's
+cook re-packs a page whose sources changed since it was built ([BuildAndExport.md](BuildAndExport.md#texture-cook)).
+V1 limits: one page per atlas (a folder that does not fit a page of the chosen size is refused), no rotation or
+polygon trimming of sprites.
+
 **Circle Renderer** — a circle or a ring (`Thickness`, `Fade`). **Text** — text in the world (without a UI Transform;
 UTF-8, alignment, wrapping — [UI.md](UI.md#6-text)). Both take a sorting layer and order.
 

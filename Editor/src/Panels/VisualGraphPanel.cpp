@@ -25,6 +25,8 @@ namespace Zamin {
                 case Visual::Type::Entity: return IM_COL32(86, 177, 249, 255);
                 case Visual::Type::Struct:
                 case Visual::Type::ArrayStruct: return IM_COL32(64, 205, 225, 255);
+                case Visual::Type::Enum:
+                case Visual::Type::ArrayEnum: return IM_COL32(245, 150, 60, 255);
                 default:                   return IM_COL32(255, 194, 85, 255);
             }
         }
@@ -85,9 +87,9 @@ namespace Zamin {
             ImGui::PushID(label);
             GraphLayout::InlineLabel(label);
             bool changed = false;
-            const auto* enumeration = type == Type::Enum && graph && graph->Enums.contains(named) ? &graph->Enums.at(named) : nullptr;
+            const auto* enumeration = (type == Type::Enum || type == Type::ArrayEnum) && graph && graph->Enums.contains(named) ? &graph->Enums.at(named) : nullptr;
             const auto* structure = (type == Type::Struct || type == Type::ArrayStruct) && graph && graph->Structs.contains(named) ? &graph->Structs.at(named) : nullptr;
-            if (!Matches(type, v) || (structure && !graph->Fits(type, named, v)))
+            if (!Matches(type, v) || ((structure || enumeration) && !graph->Fits(type, named, v)))
             {
                 ImGui::TextDisabled("%s (%s)", Tr("Yaroqsiz qiymat"), TypeName(type));
                 if (GraphLayout::Button(Tr("Qiymatni tiklash###Reset literal")))
@@ -104,6 +106,8 @@ namespace Zamin {
                 if (!structure) ImGui::TextDisabled("%s: %s", Tr("Noma'lum struktura"), named.c_str());
                 else if (GraphLayout::TreeNode("##struct", named + " {" + std::to_string(structure->Fields.size()) + "}", std::string(label) + "/fields"))
                 {
+                    // A nested struct field opens its own tree; its fields are recorded under "<label>/<field>".
+                    GraphLayout::PushScope(label);
                     for (const auto& field : structure->Fields)
                     {
                         auto member = v.at(field.Name);
@@ -113,6 +117,7 @@ namespace Zamin {
                             changed = true;
                         }
                     }
+                    GraphLayout::PopScope();
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
@@ -380,6 +385,16 @@ namespace Zamin {
             ImGui::SameLine();
             ImGui::TextDisabled(Tr("(format %d: saqlash %d formatida yozadi)"), m_Graph.SourceVersion, Visual::Graph::FormatVersion);
         }
+        if (!m_Macro.empty() && !m_Graph.Macros.contains(m_Macro)) OpenMacro(""); // e.g. undone
+        if (!m_Macro.empty())
+        {
+            // An opened macro: the canvas shows its body only.
+            ImGui::SameLine();
+            ImGui::TextColored({ 1, .78f, .45f, 1 }, "%s: %s", Tr("Makro"), m_Macro.c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton(Tr("Butun graf###Whole graph"))) OpenMacro("");
+            GraphLayout::RecordRect("header/Whole graph", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        }
         if (!m_FocusFunction.empty())
         {
             // An opened typed function: its body is framed, the rest of the graph dimmed.
@@ -517,7 +532,16 @@ namespace Zamin {
             if (ImGui::TreeNode("Diagnostics"))
             {
                 for (auto& d : diagnostics)
-                    if (ImGui::Selectable((std::string(Tr("Tugun")) + " " + std::to_string(d.Node) + ": " + d.Message).c_str())) m_Selected = d.Node;
+                {
+                    // A finding in a macro names the instance; the macro's body node is in parentheses.
+                    const auto text = std::string(Tr("Tugun")) + " " + std::to_string(d.Node) + (d.Source ? " (" + std::to_string(d.Source) + ")" : "") + ": " + d.Message;
+                    if (ImGui::Selectable(text.c_str()))
+                        if (const auto* node = m_Graph.Find(d.Node))
+                        {
+                            if (node->Macro != m_Macro) OpenMacro(node->Macro);
+                            m_Selected = d.Node;
+                        }
+                }
                 ImGui::TreePop();
             }
         }
@@ -544,7 +568,7 @@ namespace Zamin {
             }
             Snapshot();
             const auto id = uint32_t(nextID);
-            m_Graph.Nodes.push_back({ id, kind, (100 - m_Pan.x) / m_Zoom, (100 - m_Pan.y) / m_Zoom, std::move(inputs) });
+            m_Graph.Nodes.push_back({ id, kind, (100 - m_Pan.x) / m_Zoom, (100 - m_Pan.y) / m_Zoom, std::move(inputs), false, m_Macro });
             m_Selected = id;
             m_Selection = { id };
         };
@@ -557,16 +581,24 @@ namespace Zamin {
             for (const char* kind : { "Make", "Break" })
                 if (matches(std::string("struct.") + kind + " " + name) && ImGui::Selectable((std::string(Tr("Strukturalar")) + " / " + kind + " " + name).c_str()))
                     addNode(std::string("Struct.") + kind, { { "Struct", name } });
+        // Then the graph's macros (not the open macro itself: a macro cannot use itself).
+        for (const auto& [name, macro] : m_Graph.Macros)
+            if (name != m_Macro && matches("macro.instance " + name) && ImGui::Selectable((std::string(Tr("Makroslar")) + " / " + name).c_str()))
+                addNode("Macro.Instance", { { "Name", name } });
         for (auto& [key, def] : Visual::Catalog())
         {
             if (!matches(key)) continue;
+            // A macro's entry/exit come with the macro; a macro body holds no events or function entries.
+            if (key == "Macro.Entry" || key == "Macro.Exit") continue;
+            if (!m_Macro.empty() && (key.starts_with("Event.") || key == "Function.Entry" || key == "Function")) continue;
             if (ImGui::Selectable((def.Category + " / " + key).c_str()))
             {
                 std::map<std::string, Visual::Value> inputs;
                 if (key.starts_with("Function.")) inputs["Name"] = m_Graph.Functions.empty() ? "MyFunction" : m_Graph.Functions.begin()->first;
-                // An enum node starts with the graph's first enum (Get/Set.Enum take their variable's enum instead).
+                if (key == "Macro.Instance" && !m_Graph.Macros.empty()) inputs["Name"] = m_Graph.Macros.begin()->first;
+                // An enum node starts with the graph's first enum (variable/local Get/Set take their own instead).
                 const bool enumInput = std::any_of(def.Inputs.begin(), def.Inputs.end(), [](const Visual::Pin& p) { return p.Name == "Enum"; });
-                if (enumInput && !m_Graph.Enums.empty() && key != "Get.Enum" && key != "Set.Enum") inputs["Enum"] = m_Graph.Enums.begin()->first;
+                if (enumInput && !m_Graph.Enums.empty() && !key.starts_with("Get.") && !key.starts_with("Set.") && !key.starts_with("Local.")) inputs["Enum"] = m_Graph.Enums.begin()->first;
                 // A struct node starts with the graph's first struct (variable/local Get/Set take their own) and field.
                 const bool structInput = std::any_of(def.Inputs.begin(), def.Inputs.end(), [](const Visual::Pin& p) { return p.Name == "Struct"; });
                 if (structInput && !m_Graph.Structs.empty() && !key.starts_with("Get.") && !key.starts_with("Set.") && !key.starts_with("Local."))
@@ -600,7 +632,7 @@ namespace Zamin {
             float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
             for (auto& n : m_Graph.Nodes)
             {
-                if (!m_FocusNodes.empty() && !m_FocusNodes.contains(n.ID)) continue;
+                if (!Visible(n) || (!m_FocusNodes.empty() && !m_FocusNodes.contains(n.ID))) continue;
                 auto it = Visual::Catalog().find(n.Kind);
                 const auto& definition = Describe(n);
                 size_t rows = it == Visual::Catalog().end() ? 1 : std::max(definition.Inputs.size(), definition.Outputs.size());
@@ -642,7 +674,7 @@ namespace Zamin {
         {
             auto* a = nodeMap.contains(l.From) ? nodeMap.at(l.From) : nullptr;
             auto* b = nodeMap.contains(l.To) ? nodeMap.at(l.To) : nullptr;
-            if (!a || !b || !Catalog().contains(a->Kind) || !Catalog().contains(b->Kind)) continue;
+            if (!a || !b || !Visible(*a) || !Visible(*b) || !Catalog().contains(a->Kind) || !Catalog().contains(b->Kind)) continue;
             const auto& def = Describe(*a);
             auto from = pin(*a, def.Outputs, l.Output, true), to = pin(*b, Describe(*b).Inputs, l.Input, false);
             float bend = std::max(50.f, std::abs(to.x - from.x) * .45f);
@@ -664,14 +696,20 @@ namespace Zamin {
             auto e = m_Scene->GetEntityByUUID(m_Entity);
             auto* c = e ? e.TryGetComponent<NativeScriptComponent>() : nullptr;
             if (c && c->Instance && c->ClassName == "Zamin.VisualGraph")
-                if (auto* h = dynamic_cast<VisualGraphHost*>(c->Instance)) runningNode = h->VM.CurrentNode;
+                if (auto* h = dynamic_cast<VisualGraphHost*>(c->Instance))
+                {
+                    // A node copied from a macro shows on its instance (graph view) or on its body node (macro view).
+                    uint32_t source = 0;
+                    runningNode = h->VM.Origin(h->VM.CurrentNode, &source);
+                    if (!m_Macro.empty() && source) runningNode = source;
+                }
         }
         bool clickedPin = false;
-        std::string openFunction;
+        std::string openFunction, openMacro;
         for (auto& n : m_Graph.Nodes)
         {
             auto it = Catalog().find(n.Kind);
-            if (it == Catalog().end()) continue;
+            if (it == Catalog().end() || !Visible(n)) continue;
             const auto& d = Describe(n);
             auto a = screen(n.X, n.Y), b = screen(n.X + 220, n.Y + 65 + 24 * (float)std::max(d.Inputs.size(), d.Outputs.size()));
             draw->AddRectFilled({ a.x + 4, a.y + 5 }, { b.x + 4, b.y + 5 }, IM_COL32(0, 0, 0, 70), 8);
@@ -679,7 +717,9 @@ namespace Zamin {
             draw->AddRectFilled(a, { b.x, a.y + 30 * m_Zoom }, n.Kind.starts_with("Event.") ? IM_COL32(125, 47, 76, 255) : d.Pure ? IM_COL32(42, 98, 83, 255)
                                                                                                                                   : IM_COL32(83, 57, 137, 255),
                                 7);
-            draw->AddText(nullptr, ImGui::GetFontSize() * m_Zoom, { a.x + 10 * m_Zoom, a.y + 6 * m_Zoom }, IM_COL32(245, 246, 255, 255), n.Kind.c_str());
+            // A macro instance shows the macro's name in its header.
+            const std::string header = n.Kind == "Macro.Instance" && n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Kind + ": " + n.Inputs.at("Name").get<std::string>() : n.Kind;
+            draw->AddText(nullptr, ImGui::GetFontSize() * m_Zoom, { a.x + 10 * m_Zoom, a.y + 6 * m_Zoom }, IM_COL32(245, 246, 255, 255), header.c_str());
             if (m_Selection.contains(n.ID) || n.ID == m_Selected) draw->AddRect(a, b, IM_COL32(191, 152, 255, 255), 7, 0, 2);
             if (n.ID == runningNode) draw->AddRect(a, b, IM_COL32(255, 205, 80, 255), 7, 0, 3);
             if (n.Breakpoint) draw->AddCircleFilled({ b.x - 10, a.y + 12 }, 5, IM_COL32(255, 70, 80, 255));
@@ -737,6 +777,9 @@ namespace Zamin {
             // Double-clicking a typed function node opens that function (Graph::FunctionNodes).
             if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseDoubleClicked(0) && n.Kind.starts_with("Function.") && n.Inputs.contains("Name") && n.Inputs.at("Name").is_string())
                 openFunction = n.Inputs.at("Name").get<std::string>();
+            // Double-clicking a macro instance opens the macro's body.
+            if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseDoubleClicked(0) && n.Kind == "Macro.Instance" && n.Inputs.contains("Name") && n.Inputs.at("Name").is_string())
+                openMacro = n.Inputs.at("Name").get<std::string>();
             if (hover && !clickedPin && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y && ImGui::IsMouseClicked(0))
             {
                 m_Selected = n.ID;
@@ -770,7 +813,8 @@ namespace Zamin {
             if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A, false))
             {
                 m_Selection.clear();
-                for (const auto& node : m_Graph.Nodes) m_Selection.insert(node.ID);
+                for (const auto& node : m_Graph.Nodes)
+                    if (Visible(node)) m_Selection.insert(node.ID);
             }
             if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false)) CopySelection();
             if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteSelection();
@@ -784,6 +828,7 @@ namespace Zamin {
         }
         if (hover && ImGui::IsMouseClicked(1) && !clickedPin) m_From = 0;
         if (!openFunction.empty()) FocusFunction(openFunction);
+        if (!openMacro.empty()) OpenMacro(openMacro);
         draw->AddText({ origin.x + 12, origin.y + size.y - 24 }, IM_COL32(150, 155, 176, 255), Tr("O'rta tugma: surish  |  G'ildirak: masshtab  |  Chiqish > kirish: bog'lash"));
     }
     void VisualGraphPanel::Properties()
@@ -852,7 +897,7 @@ namespace Zamin {
                     const auto current = v.get<std::string>();
                     if (ImGui::BeginCombo("##enum", current.empty() ? Tr("(o'zgaruvchining enumi)") : current.c_str()))
                     {
-                        if ((n.Kind == "Get.Enum" || n.Kind == "Set.Enum") && ImGui::Selectable(Tr("(o'zgaruvchining enumi)"), current.empty()) && !current.empty())
+                        if ((n.Kind.starts_with("Get.") || n.Kind.starts_with("Set.") || n.Kind.starts_with("Local.")) && ImGui::Selectable(Tr("(o'zgaruvchining enumi)"), current.empty()) && !current.empty())
                         {
                             Snapshot();
                             n.Inputs.erase("Enum");
@@ -865,6 +910,27 @@ namespace Zamin {
                             }
                         ImGui::EndCombo();
                     }
+                    ImGui::PopID();
+                    continue;
+                }
+                // The Name literal of a macro instance: a combo of the graph's macros (not the open macro itself).
+                if (p.Name == "Name" && n.Kind == "Macro.Instance" && v.is_string())
+                {
+                    ImGui::PushID("macroName");
+                    GraphLayout::InlineLabel(p.Name.c_str());
+                    const auto current = v.get<std::string>();
+                    if (ImGui::BeginCombo("##macro", current.c_str()))
+                    {
+                        for (const auto& [name, macro] : m_Graph.Macros)
+                            if (name != m_Macro && ImGui::Selectable(name.c_str(), name == current) && name != current)
+                            {
+                                Snapshot();
+                                n.Inputs["Name"] = name;
+                                m_Graph.PruneInvalidPins(); // wires/literals of pins the other macro lacks
+                            }
+                        ImGui::EndCombo();
+                    }
+                    GraphLayout::RecordKey(p.Name);
                     ImGui::PopID();
                     continue;
                 }
@@ -923,16 +989,7 @@ namespace Zamin {
                     n.Inputs[p.Name] = v;
                 }
             }
-            if (GraphLayout::Button(Tr("Tugunni o'chirish###Delete node")))
-            {
-                Snapshot();
-                auto selected = m_Selection;
-                if (selected.empty()) selected.insert(m_Selected);
-                std::erase_if(m_Graph.Links, [&](const auto& link) { return selected.contains(link.From) || selected.contains(link.To); });
-                std::erase_if(m_Graph.Nodes, [&](const auto& node) { return selected.contains(node.ID); });
-                m_Selected = 0;
-                m_Selection.clear();
-            }
+            if (GraphLayout::Button(Tr("Tugunni o'chirish###Delete node"))) DeleteSelection();
         }
         GraphLayout::PopScope();
         const bool variablesOpen = ImGui::CollapsingHeader(Tr("Graf o'zgaruvchilari###Graph variables"), ImGuiTreeNodeFlags_DefaultOpen);
@@ -943,6 +1000,7 @@ namespace Zamin {
         Functions();
         Enums();
         Structs();
+        Macros();
         ImGui::EndDisabled();
         ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
         SceneInstance();
@@ -1081,7 +1139,7 @@ namespace Zamin {
                     for (auto& [name, value] : vm.Variables()) ImGui::TextWrapped("%s = %s", name.c_str(), value.dump().c_str());
                     if (ImGui::TreeNode("Execution trace"))
                     {
-                        for (auto id : vm.Trace()) ImGui::Text("#%u", id);
+                        for (auto id : vm.Trace()) ImGui::Text("#%u", vm.Origin(id));
                         ImGui::TreePop();
                     }
                 }

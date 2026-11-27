@@ -29,16 +29,21 @@ namespace Zamin {
         std::vector<Visual::Diagnostic> m_Diagnostics;
         std::map<uint32_t, Visual::Definition> m_Descriptions;
         const Visual::Definition& Describe(const Visual::Node& node);
-        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" }, m_EnumName[65]{ "Mode" }, m_StructName[65]{ "Stats" };
+        char m_FunctionName[128]{ "Calculate" }, m_MemberName[128]{ "Value" }, m_EnumName[65]{ "Mode" }, m_StructName[65]{ "Stats" }, m_MacroName[65]{ "Step" };
         // A literal editor; an Enum value shows its enum's entries as a combo, a Struct value one editor per field
         // (named: the enum/struct name).
         bool EditLiteral(const char* label, Visual::Type type, Visual::Value& value, const std::string& named = {});
-        // A pin/variable type picker: the value types, and for Enum/Struct/ArrayStruct a second combo of the graph's
-        // enums/structs (structs: false for struct fields, which cannot hold structs).
-        bool TypeCombo(const char* label, Visual::Type& type, std::string& enumName, bool structs = true);
+        // A pin/variable type picker: the value types (exec: Exec too, for macro pins), and for Enum/ArrayEnum/Struct/
+        // ArrayStruct a second combo of the graph's enums/structs.
+        bool TypeCombo(const char* label, Visual::Type& type, std::string& enumName, bool exec = false);
         void Functions();
         void Enums();
         void Structs();
+        void Macros();
+        // The canvas shows the graph itself (empty) or one macro's body; new and pasted nodes go there.
+        std::string m_Macro;
+        void OpenMacro(const std::string& name);
+        bool Visible(const Visual::Node& node) const { return node.Macro == m_Macro; }
         // Collapse the selection into a typed function (Graph::CollapseToFunction), undoable.
         void CollapseSelection();
         // "Opens" a typed function: frames its body (Graph::FunctionNodes), selects its entry, dims other nodes.

@@ -12,27 +12,31 @@ namespace Zamin {
         if (!m_Descriptions.contains(node.ID)) m_Descriptions[node.ID] = m_Graph.Describe(node);
         return m_Descriptions.at(node.ID);
     }
-    bool VisualGraphPanel::TypeCombo(const char* label, Visual::Type& type, std::string& enumName, bool structs)
+    bool VisualGraphPanel::TypeCombo(const char* label, Visual::Type& type, std::string& enumName, bool exec)
     {
         using namespace Visual;
         bool changed = false;
-        const bool open = ImGui::BeginCombo(GraphLayout::Field(label).c_str(), TypeName(type));
+        // The whole type list at once (no scrolling inside the list).
+        const bool open = ImGui::BeginCombo(GraphLayout::Field(label).c_str(), TypeName(type), ImGuiComboFlags_HeightLargest);
         GraphLayout::Record(label);
         if (open)
         {
-            for (int i = 1; i < int(Type::Count); ++i)
+            for (int i = exec ? 0 : 1; i < int(Type::Count); ++i)
             {
                 const bool structured = Type(i) == Type::Struct || Type(i) == Type::ArrayStruct;
-                if (structured && !structs) continue; // a struct field cannot hold a struct
+                const bool enumerated = Type(i) == Type::Enum || Type(i) == Type::ArrayEnum;
                 ImGui::PushID(i);
-                if (ImGui::Selectable(TypeName(Type(i)), Type(i) == type) && Type(i) != type)
+                const bool picked = ImGui::Selectable(TypeName(Type(i)), Type(i) == type);
+                // Automation: the open list's entries as "popup/<type>" (drawn over the column, never scrolled to).
+                GraphLayout::RecordRect(std::string("popup/") + TypeName(Type(i)), ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+                if (picked && Type(i) != type)
                 {
-                    if (Type(i) == Type::Enum && m_Graph.Enums.empty()) m_Error = Tr("Avval enum yarating");
+                    if (enumerated && m_Graph.Enums.empty()) m_Error = Tr("Avval enum yarating");
                     else if (structured && m_Graph.Structs.empty()) m_Error = Tr("Avval struktura yarating");
                     else
                     {
                         type = Type(i);
-                        enumName = type == Type::Enum ? m_Graph.Enums.begin()->first : structured ? m_Graph.Structs.begin()->first : "";
+                        enumName = enumerated ? m_Graph.Enums.begin()->first : structured ? m_Graph.Structs.begin()->first : "";
                         changed = true;
                     }
                 }
@@ -48,16 +52,20 @@ namespace Zamin {
             if (pickOpen)
             {
                 for (const auto& [name, definition] : definitions)
-                    if (ImGui::Selectable(name.c_str(), name == enumName) && name != enumName)
+                {
+                    const bool picked = ImGui::Selectable(name.c_str(), name == enumName);
+                    GraphLayout::RecordRect("popup/" + name, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+                    if (picked && name != enumName)
                     {
                         enumName = name;
                         changed = true;
                     }
+                }
                 ImGui::EndCombo();
             }
             ImGui::PopID();
         };
-        if (type == Type::Enum) pick(Tr("Enum turi###Enum type"), m_Graph.Enums);
+        if (type == Type::Enum || type == Type::ArrayEnum) pick(Tr("Enum turi###Enum type"), m_Graph.Enums);
         if (type == Type::Struct || type == Type::ArrayStruct) pick(Tr("Struktura turi###Struct type"), m_Graph.Structs);
         return changed;
     }
@@ -73,7 +81,7 @@ namespace Zamin {
         auto candidate = m_Graph;
         std::set<uint32_t> ids;
         std::string error;
-        if (candidate.PasteNodes(m_Clipboard, offset, offset, ids, error))
+        if (candidate.PasteNodes(m_Clipboard, offset, offset, ids, error, m_Macro))
         {
             Snapshot();
             m_Graph = std::move(candidate);
@@ -87,6 +95,11 @@ namespace Zamin {
     {
         auto selected = m_Selection;
         if (selected.empty() && m_Selected) selected.insert(m_Selected);
+        // A macro's entry and exit stay: they are its pins (deleting the macro removes them).
+        std::erase_if(selected, [&](uint32_t id) {
+            const auto* node = m_Graph.Find(id);
+            return !node || node->Kind == "Macro.Entry" || node->Kind == "Macro.Exit";
+        });
         if (selected.empty()) return;
         Snapshot();
         std::erase_if(m_Graph.Links, [&](const auto& link) { return selected.contains(link.From) || selected.contains(link.To); });
@@ -115,6 +128,7 @@ namespace Zamin {
     }
     void VisualGraphPanel::FocusFunction(const std::string& name)
     {
+        m_Macro.clear(); // functions live in the graph itself
         m_FocusNodes = m_Graph.FunctionNodes(name);
         if (m_FocusNodes.empty())
         {
@@ -545,7 +559,7 @@ namespace Zamin {
                     if (renamedField && field.Name != key) fieldRename = { field.Name, key };
                     auto type = field.Kind;
                     auto named = field.Enum;
-                    if (TypeCombo(Tr("Maydon turi###Field type"), type, named, false))
+                    if (TypeCombo(Tr("Maydon turi###Field type"), type, named))
                     {
                         field.Kind = type;
                         field.Enum = IsNamed(type) ? named : "";
@@ -574,7 +588,17 @@ namespace Zamin {
                     draft.Fields.push_back({ fieldName, Type::Number, 0. });
                     changed = true;
                 }
-                if (changed || !fieldRename.first.empty())
+                // A field of struct type may not make the struct contain itself.
+                std::string cycle;
+                if (changed)
+                {
+                    Graph probe;
+                    probe.Structs = m_Graph.Structs;
+                    probe.Structs[name] = draft;
+                    cycle = probe.StructCycle();
+                }
+                if (!cycle.empty()) m_Error = std::string(Tr("Struktura o'zini o'z ichiga ololmaydi")) + ": " + cycle;
+                else if (changed || !fieldRename.first.empty())
                 {
                     // One undo step: the definition, the renamed field's wires, the conformed values and the pruned pins.
                     Snapshot();
@@ -609,5 +633,183 @@ namespace Zamin {
                 m_Graph.Structs.erase(erase);
             }
         }
+    }
+}
+namespace Zamin {
+    void VisualGraphPanel::OpenMacro(const std::string& name)
+    {
+        if (!name.empty() && !m_Graph.Macros.contains(name)) return;
+        m_Macro = name;
+        m_FocusFunction.clear();
+        m_FocusNodes.clear();
+        m_Selection.clear();
+        m_Selected = m_From = 0;
+        for (const auto& node : m_Graph.Nodes)
+            if (!name.empty() && node.Macro == name && node.Kind == "Macro.Entry") m_Selected = node.ID;
+        m_Fit = true;
+    }
+    void VisualGraphPanel::Macros()
+    {
+        using namespace Visual;
+        const bool sectionOpen = ImGui::CollapsingHeader(Tr("Makroslar###Macros"));
+        GraphLayout::Record(Tr("Makroslar###Macros"));
+        if (!sectionOpen) return;
+        GraphLayout::PushScope("macros");
+        struct ScopeGuard
+        {
+            ~ScopeGuard() { GraphLayout::PopScope(); }
+        } scopeGuard;
+        ImGui::InputText(GraphLayout::Field(Tr("Makro nomi###Macro name")).c_str(), m_MacroName, sizeof(m_MacroName));
+        GraphLayout::Record(Tr("Makro nomi###Macro name"));
+        if (GraphLayout::Button(Tr("Makro yaratish###Create macro")))
+        {
+            uint32_t id = 0;
+            for (const auto& node : m_Graph.Nodes) id = std::max(id, node.ID);
+            if (!m_MacroName[0] || m_Graph.Macros.contains(m_MacroName) || m_Graph.Macros.size() >= 64) m_Error = Tr("Makro nomi band yoki bo'sh");
+            else if (id > UINT32_MAX - 2 || m_Graph.Nodes.size() + 2 > 4096) m_Error = Tr("Tugunlar soni chegarasiga yetildi");
+            else
+            {
+                // A new macro passes its execution straight through: In -> Then, between its entry and exit.
+                Snapshot();
+                const std::string name = m_MacroName;
+                m_Graph.Macros[name] = { { { "In", Type::Exec, nullptr } }, { { "Then", Type::Exec, nullptr } } };
+                m_Graph.Nodes.push_back({ id + 1, "Macro.Entry", 40, 60, {}, false, name });
+                m_Graph.Nodes.push_back({ id + 2, "Macro.Exit", 520, 60, {}, false, name });
+                m_Graph.Links.push_back({ id + 1, "In", id + 2, "Then" });
+                m_Error.clear();
+            }
+        }
+        std::string erase, renameFrom, renameTo, open;
+        for (auto& [name, macro] : m_Graph.Macros)
+        {
+            ImGui::PushID(name.c_str());
+            const bool treeOpen = GraphLayout::TreeNode("macro", name + " (" + std::to_string(macro.Inputs.size()) + " -> " + std::to_string(macro.Outputs.size()) + ")", name);
+            GraphLayout::PushScope(name);
+            if (treeOpen)
+            {
+                char renamed[65]{};
+                std::snprintf(renamed, sizeof(renamed), "%s", name.c_str());
+                if (ImGui::InputText(GraphLayout::Field(Tr("Makroni qayta nomlash###Rename macro")).c_str(), renamed, sizeof(renamed), ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    renameFrom = name;
+                    renameTo = renamed;
+                }
+                GraphLayout::Record(Tr("Makroni qayta nomlash###Rename macro"));
+                // An instance goes to the open view (not into the macro's own body: a macro cannot use itself).
+                if (m_Macro != name && GraphLayout::Button(Tr("Makro tugunini qo'shish###Add macro node")))
+                {
+                    uint32_t id = 0;
+                    for (const auto& node : m_Graph.Nodes) id = std::max(id, node.ID);
+                    if (id < UINT32_MAX && m_Graph.Nodes.size() < 4096)
+                    {
+                        Snapshot();
+                        m_Graph.Nodes.push_back({ id + 1, "Macro.Instance", (100 - m_Pan.x) / m_Zoom, (100 - m_Pan.y) / m_Zoom, { { "Name", name } }, false, m_Macro });
+                        m_Selected = id + 1;
+                        m_Selection = { id + 1 };
+                    }
+                }
+                GraphLayout::SameLineIfFits(GraphLayout::ButtonWidth(Tr("Makroni ochish###Open macro")));
+                if (GraphLayout::Button(Tr("Makroni ochish###Open macro"))) open = name;
+                auto draft = macro;
+                bool changed = false;
+                std::vector<std::pair<std::string, std::string>> pinRenames[2];
+                auto pins = [&](const char* title, std::vector<Pin>& list, int side) {
+                    const bool listOpen = ImGui::TreeNode(title);
+                    GraphLayout::Record(title);
+                    if (!listOpen) return;
+                    GraphLayout::PushScope(side == 0 ? "Inputs" : "Outputs");
+                    size_t remove = SIZE_MAX;
+                    for (size_t i = 0; i < list.size(); ++i)
+                    {
+                        ImGui::PushID(int(i));
+                        GraphLayout::PushScope(std::to_string(i));
+                        if (i) ImGui::Separator();
+                        char key[65]{};
+                        std::snprintf(key, sizeof(key), "%s", list[i].Name.c_str());
+                        // Enter renames; the wires and literals of the entry/exit and the instances follow (Graph::RenameMacroPin).
+                        const bool renamedPin = ImGui::InputText(GraphLayout::Field(Tr("Pin nomi###Pin name")).c_str(), key, sizeof(key), ImGuiInputTextFlags_EnterReturnsTrue);
+                        GraphLayout::Record(Tr("Pin nomi###Pin name"));
+                        if (renamedPin && list[i].Name != key) pinRenames[side].push_back({ list[i].Name, key });
+                        auto type = list[i].Kind;
+                        auto named = list[i].Enum;
+                        // A macro pin may be an execution pin (Exec) or a data pin of any value type.
+                        if (TypeCombo(Tr("Pin turi###Pin type"), type, named, true))
+                        {
+                            list[i].Kind = type;
+                            list[i].Enum = IsNamed(type) ? named : "";
+                            list[i].Default = type == Type::Exec ? Value() : m_Graph.DefaultFor(type, list[i].Enum);
+                            changed = true;
+                        }
+                        auto value = list[i].Default;
+                        if (list[i].Kind != Type::Exec && EditLiteral(Tr("Boshlang'ich qiymat"), list[i].Kind, value, list[i].Enum))
+                        {
+                            list[i].Default = std::move(value);
+                            changed = true;
+                        }
+                        if (GraphLayout::SmallButton(Tr("Pinni olib tashlash###Remove pin"))) remove = i;
+                        GraphLayout::PopScope();
+                        ImGui::PopID();
+                    }
+                    if (remove != SIZE_MAX)
+                    {
+                        list.erase(list.begin() + remove);
+                        changed = true;
+                    }
+                    if (list.size() < 32 && GraphLayout::Button(Tr("Pin qo'shish###Add pin")))
+                    {
+                        std::string pinName = "Value" + std::to_string(list.size() + 1);
+                        while (std::any_of(list.begin(), list.end(), [&](const Pin& p) { return p.Name == pinName; })) pinName += "_";
+                        list.push_back({ pinName, Type::Number, 0. });
+                        changed = true;
+                    }
+                    GraphLayout::PopScope();
+                    ImGui::TreePop();
+                };
+                pins(Tr("Kirishlar###Inputs"), draft.Inputs, 0);
+                pins(Tr("Chiqishlar###Outputs"), draft.Outputs, 1);
+                if (changed || !pinRenames[0].empty() || !pinRenames[1].empty())
+                {
+                    // One undo step: the pins, the renamed pins' wires and the wires/literals that no longer fit.
+                    Snapshot();
+                    if (changed) macro = std::move(draft);
+                    bool rejected = false;
+                    for (int side = 0; side < 2; ++side)
+                        for (const auto& [from, to] : pinRenames[side]) rejected |= !m_Graph.RenameMacroPin(name, side == 1, from, to);
+                    if (rejected) m_Error = Tr("Pin nomi band, bo'sh yoki zaxiralangan");
+                    const auto removed = m_Graph.PruneInvalidPins();
+                    if (removed) m_Error = std::to_string(removed) + " " + Tr("mos kelmaydigan pin/bog'lanish olib tashlandi; Undo ularni qaytaradi");
+                }
+                if (GraphLayout::Button(Tr("Makro va uning tugunlarini o'chirish###Delete macro and its nodes"))) erase = name;
+                ImGui::TreePop();
+            }
+            GraphLayout::PopScope();
+            ImGui::PopID();
+        }
+        if (!renameFrom.empty())
+        {
+            auto candidate = m_Graph;
+            if (candidate.RenameMacro(renameFrom, renameTo))
+            {
+                Snapshot();
+                m_Graph = std::move(candidate);
+                if (m_Macro == renameFrom) m_Macro = renameTo;
+            }
+            else m_Error = Tr("Makro nomi band yoki bo'sh");
+        }
+        if (!erase.empty())
+        {
+            // The macro's body and every instance of it go, with their wires (Undo restores them).
+            Snapshot();
+            std::set<uint32_t> nodes;
+            for (const auto& node : m_Graph.Nodes)
+                if (node.Macro == erase || (node.Kind == "Macro.Instance" && node.Inputs.contains("Name") && node.Inputs.at("Name") == erase)) nodes.insert(node.ID);
+            std::erase_if(m_Graph.Nodes, [&](const auto& node) { return nodes.contains(node.ID); });
+            std::erase_if(m_Graph.Links, [&](const auto& link) { return nodes.contains(link.From) || nodes.contains(link.To); });
+            m_Graph.Macros.erase(erase);
+            if (m_Macro == erase) OpenMacro("");
+            m_Selection.clear();
+            m_Selected = m_From = 0;
+        }
+        if (!open.empty()) OpenMacro(open);
     }
 }

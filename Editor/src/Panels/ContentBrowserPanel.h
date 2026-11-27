@@ -148,6 +148,9 @@ namespace Zamin {
         };
         const GridTiming& GetGridTiming() const { return m_GridTiming; }
 
+        // Packs every image of `folder` into a sprite atlas (.zatlas + its page) and selects it.
+        void CreateSpriteAtlas(const std::filesystem::path& folder);
+
     private:
         Ref<Texture2D> GetThumbnail(const AssetEntry& entry);
         // The thumbnail fitted into a box (the aspect kept), drawn into the window's draw list.

@@ -866,7 +866,7 @@ namespace Zamin {
         Properties();
         ImGui::EndChild();
         ImGui::End();
-        GraphLayout::Flush();
+        // (GraphLayout::Flush: once a frame by the editor, after every panel recorded its rectangles)
     }
     void VisualGraphPanel::Canvas()
     {

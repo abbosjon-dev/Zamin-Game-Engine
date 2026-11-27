@@ -1,5 +1,7 @@
 #include <Zamin/Renderer/GPUProfiler.h>
 #include "EditorLayer.h"
+#include "Panels/VisualGraphLayout.h"
+#include <Zamin/Scene/TerrainStreaming.h>
 #include "EditorSmokeTest.h"
 #include "Panels/WorldStreamingPanel.h"
 #include "UI.h"
@@ -311,7 +313,7 @@ namespace Zamin {
             OpenScene(file);
         };
         m_SceneHierarchyPanel.OnSpriteEditorRequested = [this](const std::string& texture) { OpenSpriteEditor(texture); };
-        m_SceneHierarchyPanel.OnTerrainWindowRequested = [this]() {m_ShowTerrain=true;Set2DMode(false); };
+        m_SceneHierarchyPanel.OnTerrainWindowRequested = [this]() { m_ShowTerrain = true; if (m_2DMode) Set2DMode(false); }; // (a 3D view keeps its camera)
         m_SceneHierarchyPanel.OnTilePaletteWindowRequested = [this]() {
             m_ShowTilePalette = true;
             ImGui::SetWindowFocus("###TilePalette");
@@ -449,6 +451,7 @@ namespace Zamin {
     void EditorLayer::OnUpdate(Timestep ts)
     {
         ApplyTerrainAutomation();
+        RebuildStaleAtlases();
         // The UI's look (accent, font size, the play-mode tint) between two frames.
         UpdateEditorTheme();
         // A saved window layout chosen last frame (ImGui takes window settings between frames).
@@ -1136,7 +1139,7 @@ namespace Zamin {
             // the tool there once.
             if (const char* tiles = std::getenv("ZAMIN_EDITOR_TILEMAP"))
                 ApplyTilemapAutomation(tiles);
-            // ZAMIN_EDITOR_SPRITE_EDITOR="<texture>[|cell=16x16|count=4x3|offset=1,1|padding=2,2|prefix=run|skip|slice|select=3|zoom=4]":
+            // ZAMIN_EDITOR_SPRITE_EDITOR="<texture>[|cell=16x16|count=4x3|alpha|offset=1,1|padding=2,2|prefix=run|skip|slice|select=3|zoom=4]":
             // the Sprite Editor opens on that texture (path relative to Assets); "slice" cuts it with
             // the given settings (not saved), "save" writes the frames to its .zmeta.
             if (const char* sprite = std::getenv("ZAMIN_EDITOR_SPRITE_EDITOR"))
@@ -1165,6 +1168,7 @@ namespace Zamin {
                     else if (key == "padding") pair(value, ',', slice.Padding);
                     else if (key == "prefix") slice.NamePrefix = std::string(value);
                     else if (key == "skip") slice.SkipEmpty = true;
+                    else if (key == "alpha") slice.Mode = SpriteSliceSettings::SliceMode::Alpha; // islands of visible pixels
                     else if (key == "slice") doSlice = true;
                     else if (key == "save") doSave = true;
                     else if (key == "select") select = std::atoi(std::string(value).c_str());
@@ -4954,6 +4958,7 @@ namespace Zamin {
             return;
         }
         CommitUndo(); // the history's current state is what the file gets
+        SaveTiledTerrains(); // their tiles live in their own files
         if (!SerializeScene(m_EditorScene, m_EditorScenePath)) return;
         m_UndoHistory.MarkSaved();
         // The file has everything now: its safety copy (this session's or an older one) goes.
@@ -6414,6 +6419,14 @@ namespace Zamin {
             UpdateWindowTitle();
         }
         UpdateIdleThrottle(); // after the UI: what is being dragged / typed into is known
+        if (GraphLayout::Recording()) // the viewport and the dock tabs of a few windows (a GUI test brings a window to the front)
+        {
+            GraphLayout::RecordRect("viewport", ImVec2(m_ViewportBounds[0].x, m_ViewportBounds[0].y), ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y));
+            for (const char* name : { "ContentBrowser", "SpriteEditor", "Console" })
+                if (ImGuiWindow* window = ImGui::FindWindowByName(std::format("###{}", name).c_str()); window && window->DockIsActive)
+                    GraphLayout::RecordRect(std::string("tab/") + name, window->DockTabItemRect.Min, window->DockTabItemRect.Max);
+        }
+        GraphLayout::Flush(); // ZAMIN_EDITOR_VISUAL_LAYOUT: the rectangles every panel recorded this frame
         if (s_TextLog && *s_TextLog)
             ImGui::LogFinish();
     }
@@ -10557,6 +10570,32 @@ namespace Zamin {
                 UI::PropertyLabel("Soya instanced", "Kaskadlarga bir xil mesh (cutout bo'lsa, bir xil tekstura va chegara) bilan "
                                                     "instanced chizilgan soya tashlovchilar / chaqiruvlar");
                 instanced(stats.InstancedShadowCasterCount, stats.InstancedShadowDrawCount);
+                if (m_ActiveScene && !m_ActiveScene->GetAllEntitiesWith<TiledTerrainComponent>().empty())
+                {
+                    const TerrainStreamingStats tiles = m_ActiveScene->GetTerrainStreamingStats();
+                    UI::PropertyLabel("Plitkali yer", "Yuklangan / jami plitkalar, yuklanayotganlari va LOD bo'yicha soni (0 / 1 / 2 / 3+)");
+                    ImGui::Text("%u / %u", tiles.Resident, tiles.Tiles);
+                    GraphLayout::RecordKey("stats/tiles");
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled(Tr("(%u yuklanmoqda | LOD %u/%u/%u/%u)"), tiles.Loading, tiles.LODCounts[0], tiles.LODCounts[1], tiles.LODCounts[2],
+                                        tiles.LODCounts[3] + tiles.LODCounts[4] + tiles.LODCounts[5]);
+                    UI::PropertyLabel("Plitka xotirasi", "Yuklangan plitkalarning CPU + taxminiy GPU baytlari va byudjet (eng ko'pi qavsda)");
+                    ImGui::Text("%.1f / %.0f MB", double(tiles.ResidentBytes) / 1048576.0, double(tiles.BudgetBytes) / 1048576.0);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled(Tr("(eng ko'pi %.1f MB)"), double(tiles.PeakResidentBytes) / 1048576.0);
+                    UI::PropertyLabel("Plitka yuklashlari", "Shu kadrda yuklangan / tushirilgan plitkalar, kadrdagi eng ko'pi, jami o'qilgan baytlar");
+                    ImGui::Text(Tr("%u / %u kadrda"), tiles.LoadsThisFrame, tiles.UnloadsThisFrame);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled(Tr("(eng ko'pi %u, jami %llu, %.1f MB o'qildi, %.2f ms)"), tiles.PeakLoadsPerFrame, (unsigned long long)tiles.TotalLoads,
+                                        double(tiles.BytesRead) / 1048576.0, tiles.UpdateMilliseconds);
+                    if (tiles.Colliders || tiles.OverBudgetDrops)
+                    {
+                        UI::PropertyLabel("Plitka collider'lari");
+                        ImGui::Text("%u", tiles.Colliders);
+                        ImGui::SameLine(0.0f, 6.0f);
+                        ImGui::TextDisabled(Tr("(byudjetdan tashqari: %llu)"), (unsigned long long)tiles.OverBudgetDrops);
+                    }
+                }
                 if (stats.FoliageBatches > 0)
                 {
                     UI::PropertyLabel("Foliage LOD", "Packed foliage: chizilgan instance'lar yaqin / uzoq LOD bo'yicha (GPU yo'lida oxirgi tugagan "

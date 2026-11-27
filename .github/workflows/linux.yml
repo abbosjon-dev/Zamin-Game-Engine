@@ -186,6 +186,16 @@ jobs:
           ZAMIN_BUILD_DIR: build
         run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/foliage_editor_test.py --out world-streaming/foliage
 
+      - name: Sprite atlas, alpha slicing and tiled terrain editor (stats, LOD colours, sculpt across tiles)
+        env:
+          ZAMIN_BUILD_DIR: build
+        run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/atlas_terrain_editor_test.py --out world-streaming/atlas-terrain
+
+      - name: Cooked export (textures, atlas page, tiled terrain in the exported Player)
+        env:
+          ZAMIN_BUILD_DIR: build
+        run: Tests/cook_export_test.sh --out world-streaming/cook-export
+
       - name: Gameplay Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build

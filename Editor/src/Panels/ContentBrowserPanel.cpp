@@ -1,5 +1,7 @@
 #include "Zamin/Scripting/Visual/VisualGraph.h"
 #include "ContentBrowserPanel.h"
+#include "VisualGraphLayout.h"
+#include <Zamin/Asset/SpriteAtlas.h>
 #include "../AssetUsageCache.h"
 #include "../UI.h"
 
@@ -799,6 +801,7 @@ namespace Zamin {
         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !io.KeyCtrl && !io.KeyShift)
             Open(entry);
 
+        GraphLayout::RecordKey("browser/" + entry.Name);
         if (ImGui::BeginPopupContextItem("##item"))
         {
             DrawItemMenu(entry);
@@ -827,6 +830,15 @@ namespace Zamin {
         size_t count = std::max<size_t>(1, m_Selection.size());
         if (entry.IsDirectory && ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Ochish")))
             Open(entry);
+        if (entry.IsDirectory)
+        {
+            // Every image of the folder packed into one page with named frames (a .zatlas next to the folder).
+            if (ImGui::MenuItem(Tr(ICON_FA_TABLE_CELLS "  Sprite atlas yaratish"), nullptr, false, Project::GetActive() != nullptr))
+                CreateSpriteAtlas(path);
+            GraphLayout::RecordKey("menu/create-atlas");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Papkadagi hamma rasmlar bitta sahifaga joylanadi; kadrlar fayl nomlari bilan ataladi. Manba o'zgarsa atlas qayta yig'iladi");
+        }
         if (entry.Type == AssetType::Scene && ImGui::MenuItem(Tr(ICON_FA_EARTH_ASIA "  Sahnani ochish")) && OnOpenScene)
             OnOpenScene(path);
         if (entry.Type == AssetType::Prefab && ImGui::MenuItem(Tr(ICON_FA_PEN_TO_SQUARE "  Prefab rejimida ochish")) && OnOpenPrefab)
@@ -1856,6 +1868,23 @@ namespace Zamin {
             m_PendingMove = {};
             MoveItems(move.Paths, move.Destination);
         }
+    }
+
+    void ContentBrowserPanel::CreateSpriteAtlas(const fs::path& folder)
+    {
+        const fs::path assets = Project::GetAssetDirectory();
+        std::string error;
+        const std::string atlas = SpriteAtlas::CreateFromFolder(assets, FileSystem::RelativePath(folder, assets), error, Project::GetAssetRegistry());
+        if (atlas.empty())
+        {
+            ShowNotice(TrFormat("Atlas yaratilmadi: {}", error), true);
+            return;
+        }
+        m_ListDirty = true;
+        if (OnFilesChanged) OnFilesChanged();
+        Reveal({ assets / atlas });
+        if (OnAssetSelected) OnAssetSelected(assets / atlas);
+        ShowNotice(TrFormat("Atlas yaratildi: {}", atlas), false);
     }
 
 }

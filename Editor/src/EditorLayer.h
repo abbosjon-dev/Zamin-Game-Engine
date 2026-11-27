@@ -807,6 +807,24 @@ namespace Zamin {
         Entity TerrainEntity();
         Entity CreateTerrainMap();
         bool TerrainMouseHit(Entity entity, TerrainHit& hit);
+        // Tiled (streamed) terrain: the selected entity with one, sculpting/painting through the streamer, the
+        // section of the map window that makes / converts one (EditorTiledTerrain.cpp).
+        Entity TiledTerrainEntity();
+        bool TiledTerrainMouseHit(Entity entity, TerrainHit& hit);
+        bool UpdateTiledTerrainPainting(Timestep ts, bool down);
+        bool DrawTiledTerrainPreview();
+        void UI_TiledTerrain(Entity single);
+        Entity CreateTiledTerrain();
+        bool ConvertToTiledTerrain(Entity entity, uint32_t tileResolution);
+        // Ctrl+S: the edited tiles of every tiled terrain are written with the scene.
+        void SaveTiledTerrains();
+        // A source of a sprite atlas changed on disk: its page is packed again (frame names, pivots and UUIDs kept).
+        void RebuildStaleAtlases();
+        int m_TiledTiles = 8, m_TiledResolution = 129;
+        float m_TiledTileSize = 64.0f;
+        bool m_TiledStroke = false;
+        uint64_t m_AtlasRegistryRevision = 0;
+        double m_AtlasCheckTime = 0.0;
         void ScatterTerrainObjects(Entity entity, glm::vec2 center, bool erase);
         bool m_ShowTerrain = false, m_TerrainPainting = false, m_TerrainStroke = false, m_TerrainAlign = false;
         UUID m_TerrainID = 0;

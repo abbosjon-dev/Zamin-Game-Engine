@@ -529,6 +529,16 @@ namespace Zamin {
             case AssetType::Animation:   DrawAnimationClip(); break;
             case AssetType::SpriteAnimation: DrawSpriteClip(); break;
             default:
+                if (FileSystem::HasExtension(m_Path, SpriteAtlasDefinition::Extension))
+                {
+                    DrawSpriteAtlas();
+                    break;
+                }
+                if (FileSystem::HasExtension(m_Path, ".zterrain"))
+                {
+                    DrawTerrainTileSet();
+                    break;
+                }
                 ImGui::Spacing();
                 ImGui::TextDisabled("%s", Tr(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q"));
                 break;

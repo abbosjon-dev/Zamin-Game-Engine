@@ -183,6 +183,47 @@ namespace Zamin {
             ImGui::EndTable();
         }
 
+        // ---- the textures the cook looked at
+        if (!r.Cooked.empty())
+        {
+            const std::string cookedTitle = std::format("{} ({} / {}, {} -> {})###cooked", Tr("Pishirilgan teksturalar"), r.CookedCount(), r.Cooked.size(),
+                                                        ExportAssets::FormatSize(r.CookedSourceBytes()), ExportAssets::FormatSize(r.CookedBytes()));
+            if (ImGui::CollapsingHeader(cookedTitle.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::TextDisabled(Tr("Kesh: %zu ta qayta ishlatildi | atlas sahifalari qayta joylandi: %zu | %.2f s"), r.CookCacheHits, r.CookedAtlases, r.CookSeconds);
+                if (ImGui::BeginTable("##cooked", 5, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV,
+                                      ImVec2(0.0f, std::min(8.0f, (float)r.Cooked.size() + 1.0f) * ImGui::GetFrameHeight() + 4.0f)))
+                {
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableSetupColumn(Tr("Natija"), ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    ImGui::TableSetupColumn(Tr("Manba"), ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    ImGui::TableSetupColumn(Tr("Pishirilgan"), ImGuiTableColumnFlags_WidthFixed, 90.0f);
+                    ImGui::TableSetupColumn(Tr("O'lcham"), ImGuiTableColumnFlags_WidthFixed, 90.0f);
+                    ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableHeadersRow();
+                    for (const CookedAsset& a : r.Cooked)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        const bool cooked = a.Action == "cooked";
+                        ImGui::TextColored(cooked ? green : a.Action == "failed" ? red : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), "%s%s",
+                                           cooked ? Tr("pishirildi") : a.Action == "failed" ? Tr("xato") : Tr("manba"), a.CacheHit ? " *" : "");
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(ExportAssets::FormatSize(a.SourceBytes).c_str());
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(ExportAssets::FormatSize(a.CookedBytes).c_str());
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%ux%u", a.Width, a.Height);
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(a.Path.c_str());
+                        if (!a.Note.empty() && ImGui::IsItemHovered())
+                            ImGui::SetTooltip("%s", a.Note.c_str());
+                    }
+                    ImGui::EndTable();
+                }
+            }
+        }
+
         // ---- the assets left out
         const std::string excludedTitle = std::format("{} ({} {}, {})###excluded", Tr("Chiqarib tashlangan assetlar"), r.Excluded.size(), Tr("ta"),
                                                       ExportAssets::FormatSize(r.ExcludedBytes));

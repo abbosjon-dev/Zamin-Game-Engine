@@ -1,4 +1,5 @@
 #include "SpriteEditorPanel.h"
+#include "VisualGraphLayout.h"
 #include "../UI.h"
 
 #include <imgui_stdlib.h>
@@ -27,7 +28,7 @@ namespace Zamin {
         AssetRegistry* GetRegistry() { return Project::GetActive() ? Project::GetAssetRegistry() : nullptr; }
 
         // A pivot as a preset combo plus the exact values; true when it changed.
-        bool PivotField(const char* label, glm::vec2& pivot)
+        bool PivotField(const char* label, glm::vec2& pivot, const char* key)
         {
             bool changed = false;
             UI::PropertyLabel(label, "Kadr ichidagi nuqta: obyektning pozitsiyasi shu yerda bo'ladi (0,0 - chap-past, 1,1 - o'ng-yuqori).");
@@ -54,6 +55,7 @@ namespace Zamin {
                 pivot = glm::clamp(pivot, glm::vec2(0.0f), glm::vec2(1.0f));
                 changed = true;
             }
+            GraphLayout::RecordKey(std::string("sprite/pivot-") + key);
             ImGui::PopID();
             return changed;
         }
@@ -210,11 +212,17 @@ namespace Zamin {
     {
         if (m_Width == 0 || m_Height == 0)
             return 0;
-        const ImageData* pixels = m_Slice.SkipEmpty ? GetPixels() : nullptr;
+        const bool alpha = m_Slice.Mode == SpriteSliceSettings::SliceMode::Alpha;
+        const ImageData* pixels = m_Slice.SkipEmpty || alpha ? GetPixels() : nullptr;
         std::vector<SpriteFrame> frames = SpriteSheet::SliceGrid(m_Slice, m_Width, m_Height,
                                                                  pixels && pixels->Width == m_Width && pixels->Height == m_Height ? pixels->Pixels.data() : nullptr);
         if (replace)
+        {
+            // Frames that cover the same pixels as before keep their names, pivots and borders: the sprites,
+            // tilemaps and clips that name them still find them.
+            SpriteSheet::KeepReferences(m_Edit, frames);
             m_Edit.Frames.clear();
+        }
         const int first = (int)m_Edit.Frames.size();
         for (SpriteFrame& f : frames)
         {
@@ -289,7 +297,10 @@ namespace Zamin {
         ImGui::Separator();
         const float sidebar = std::min(340.0f, ImGui::GetContentRegionAvail().x * 0.4f);
         if (ImGui::BeginChild("##sidebar", ImVec2(sidebar, 0), ImGuiChildFlags_Borders))
+        {
+            GraphLayout::RecordRegion("sprite-sidebar");
             DrawSidebar();
+        }
         ImGui::EndChild();
         ImGui::SameLine();
         if (ImGui::BeginChild("##canvasArea", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
@@ -359,6 +370,7 @@ namespace Zamin {
         ImGui::BeginDisabled(!dirty);
         if (ImGui::Button(Tr(ICON_FA_FLOPPY_DISK "  Saqlash")))
             Save();
+        GraphLayout::RecordKey("sprite/save");
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip("Kadrlarni rasmning .zmeta fayliga yozish (Ctrl+S)");
         ImGui::SameLine();
@@ -454,18 +466,33 @@ namespace Zamin {
             return;
         if (!UI::BeginPropertyGrid("##slice"))
             return;
-        const char* modes[] = { Tr("Katak o'lchami"), Tr("Ustun / qator soni") };
+        const char* modes[] = { Tr("Katak o'lchami"), Tr("Ustun / qator soni"), Tr("Avto (alfa bo'yicha)") };
         int mode = (int)m_Slice.Mode;
-        UI::PropertyLabel("Usul", "Katak o'lchami: har bir kadr shuncha piksel. Ustun / qator soni: rasm teng bo'linadi.");
-        if (UI::TrCombo("##mode", &mode, modes, 2))
+        UI::PropertyLabel("Usul", "Katak o'lchami: har bir kadr shuncha piksel. Ustun / qator soni: rasm teng bo'linadi. Avto: ko'rinadigan "
+                                  "piksellarning har bir oroli bitta kadr.");
+        if (UI::TrCombo("##mode", &mode, modes, 3))
             m_Slice.Mode = (SpriteSliceSettings::SliceMode)mode;
+        GraphLayout::RecordKey("sprite/mode");
+        const bool alpha = m_Slice.Mode == SpriteSliceSettings::SliceMode::Alpha;
         if (m_Slice.Mode == SpriteSliceSettings::SliceMode::CellSize)
             IntPair(Tr("Katak (px)"), m_Slice.CellSize, 1, 8192);
-        else
+        else if (!alpha)
             IntPair(Tr("Ustun, qator"), m_Slice.CellCount, 1, 1024);
-        IntPair(Tr("Siljish (px)"), m_Slice.Offset, 0, 8192, Tr("Chap-yuqori burchakdan birinchi katakkacha"));
-        IntPair(Tr("Oraliq (px)"), m_Slice.Padding, 0, 8192, Tr("Qo'shni kataklar orasidagi bo'sh joy"));
-        PivotField("Pivot", m_Slice.Pivot);
+        if (alpha)
+        {
+            UI::PropertyLabel("Alfa chegarasi", "Shundan katta alfali piksel ko'rinadigan hisoblanadi (0: har qanday noshaffof)");
+            ImGui::SliderInt("##alphaThreshold", &m_Slice.AlphaThreshold, 0, 254);
+            UI::PropertyLabel("Eng kichik (px)", "Bundan kichik orollar (chang) kadr bo'lmaydi");
+            ImGui::DragInt("##minSize", &m_Slice.MinSize, 0.2f, 1, 512);
+            UI::PropertyLabel("Birlashtirish (px)", "Shuncha yaqin orollar bitta kadr bo'ladi (qilich va uning dastasi)");
+            ImGui::DragInt("##merge", &m_Slice.MergeDistance, 0.2f, 0, 64);
+        }
+        else
+        {
+            IntPair(Tr("Siljish (px)"), m_Slice.Offset, 0, 8192, Tr("Chap-yuqori burchakdan birinchi katakkacha"));
+            IntPair(Tr("Oraliq (px)"), m_Slice.Padding, 0, 8192, Tr("Qo'shni kataklar orasidagi bo'sh joy"));
+        }
+        PivotField("Pivot", m_Slice.Pivot, "slice");
         UI::PropertyLabel("Nom prefiksi", "Kadrlar <prefiks>_0, <prefiks>_1, ... deb nomlanadi (Sprite Animation ketma-ketlik sifatida topadi)");
         ImGui::InputText("##prefix", &m_Slice.NamePrefix);
         UI::PropertyLabel("Bo'shlarini tashlash", "Hamma piksellari shaffof kataklar kadr bo'lmaydi");
@@ -473,15 +500,19 @@ namespace Zamin {
         UI::PropertyLabel("Almashtirish", "Bor kadrlar o'chirilib, yangilari qo'yiladi (o'chirilmasa - qo'shiladi)");
         ImGui::Checkbox("##replace", &m_SliceReplace);
 
-        glm::ivec2 cell = SpriteSheet::GetCellSize(m_Slice, m_Width, m_Height);
-        SpriteSliceSettings all = m_Slice;
-        all.SkipEmpty = false;
-        size_t cells = SpriteSheet::SliceGrid(all, m_Width, m_Height).size();
-        UI::PropertyLabel("Natija");
-        ImGui::TextDisabled(Tr("%d x %d px, %zu katak"), cell.x, cell.y, cells);
+        if (!alpha)
+        {
+            glm::ivec2 cell = SpriteSheet::GetCellSize(m_Slice, m_Width, m_Height);
+            SpriteSliceSettings all = m_Slice;
+            all.SkipEmpty = false;
+            size_t cells = SpriteSheet::SliceGrid(all, m_Width, m_Height).size();
+            UI::PropertyLabel("Natija");
+            ImGui::TextDisabled(Tr("%d x %d px, %zu katak"), cell.x, cell.y, cells);
+        }
         UI::PropertyLabel("");
         if (ImGui::Button(Tr(ICON_FA_SCISSORS "  Kesish"), ImVec2(-FLT_MIN, 0)))
             Slice(m_SliceReplace);
+        GraphLayout::RecordKey("sprite/slice");
         UI::EndPropertyGrid();
     }
 
@@ -566,7 +597,7 @@ namespace Zamin {
         }
         IntPair(Tr("Pozitsiya (px)"), f.Position, 0, (int)std::max(m_Width, m_Height));
         IntPair(Tr("O'lcham (px)"), f.Size, 1, (int)std::max(m_Width, m_Height));
-        PivotField("Pivot", f.Pivot);
+        PivotField("Pivot", f.Pivot, "frame");
         UI::PropertyLabel("9-slice (px)", "Chap, o'ng, yuqori, past chegaralar: Sliced / Tiled rejimdagi Sprite Renderer'da burchaklar "
                                           "cho'zilmaydi. 0 - chegara yo'q.");
         if (ImGui::DragFloat4("##border", &f.Border.x, 0.25f, 0.0f, (float)std::max(f.Size.x, f.Size.y), "%.0f"))

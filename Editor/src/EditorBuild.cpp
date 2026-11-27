@@ -1,3 +1,4 @@
+#include <Zamin/Project/ExportCook.h>
 #include <Zamin/Scene/WorldStreaming.h>
 #include "EditorLayer.h"
 #include "UI.h"
@@ -344,6 +345,9 @@ namespace Zamin {
             bakedFiles = std::move(prefabCheck.Baked);
         }
         const bool binaryScenes = m_BuildGameBinaryScenes;
+        // The texture cook (TextureCook): the quality levels decide which mip levels every level skips.
+        TextureCookSettings cookSettings = exportSettings.Cook;
+        cookSettings.QualitySkips = cookSettings.MatchQuality ? ExportCook::QualitySkips(project->GetConfig().Quality) : 0;
         // The exported game reads its asset registry from one file (made here, on this thread) - without the
         // assets left out.
         std::string registryText;
@@ -434,6 +438,27 @@ namespace Zamin {
                 if (written)
                     ZM_INFO("Export: {} scenes written to the binary cache ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
                             (double)binaryBytes / 1024.0);
+            }
+            if (cookSettings.Enabled)
+            {
+                // Sprite atlas pages re-packed when their sources changed, textures cooked in place (ZTEX) where that
+                // is smaller or resized; the cook cache keeps unchanged textures from being cooked again.
+                ExportCookInputs cook;
+                cook.SourceAssets = projectDir / assetRel;
+                cook.ExportAssets = outputDirectory / "Game" / assetRel;
+                cook.Files = assetPlan.Included;
+                cook.Settings = cookSettings;
+                cook.CacheDirectory = TextureCook::DefaultCacheDirectory(projectDir);
+                ExportCookResult cooked = ExportCook::Run(cook);
+                for (std::string& warning : cooked.Warnings)
+                    warn(std::move(warning));
+                report->Cooked = std::move(cooked.Assets);
+                report->CookCacheHits = cooked.CacheHits;
+                report->CookedAtlases = cooked.Atlases;
+                report->CookSeconds = cooked.Seconds;
+                ZM_INFO("Export: cooked {} of {} textures ({} -> {}), {} from the cook cache, {} atlas pages re-packed, {:.2f} s", report->CookedCount(),
+                        report->Cooked.size(), ExportAssets::FormatSize(report->CookedSourceBytes()), ExportAssets::FormatSize(report->CookedBytes()),
+                        report->CookCacheHits, report->CookedAtlases, report->CookSeconds);
             }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
             {

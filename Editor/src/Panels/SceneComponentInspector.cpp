@@ -1,4 +1,6 @@
 #include "SceneHierarchyPanel.h"
+#include "VisualGraphLayout.h"
+#include <Zamin/Scene/TerrainStreaming.h>
 #include "Zamin/Utils/StringUtils.h"
 #include "AssetInspectorPanel.h"
 #include "AnimatorEditing.h"
@@ -1155,6 +1157,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<TextComponent>("Text", ICON_FA_FONT);
                 DisplayAddComponentEntry<TerrainComponent>("Terrain / map", ICON_FA_MOUNTAIN_SUN);
+                DisplayAddComponentEntry<TiledTerrainComponent>("Tiled terrain (streamed)", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<FoliageComponent>("Packed foliage", ICON_FA_TREE);
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
                 DisplayAddComponentEntry<AnimatorComponent>("Animator (skeletal)", ICON_FA_PERSON_RUNNING);
@@ -1487,6 +1490,62 @@ namespace Zamin {
             bool changed = ImGui::Checkbox("Collision", &c.Collision);
             if (ImGui::Button(Tr("Map tayyorlash oynasi")) && OnTerrainWindowRequested)
                 OnTerrainWindowRequested();
+            return changed;
+        }, true, modified);
+
+        AddSection<TiledTerrainComponent>(ICON_FA_TABLE_CELLS, "Tiled terrain", entity, [&](TiledTerrainComponent& c) {
+            bool changed = UI::PropertyAssetPath("Plitkalar (.zterrain)", c.Path, ".zterrain", ICON_FA_TABLE_CELLS);
+            GraphLayout::RecordKey("tiled/path");
+            changed |= ImGui::DragFloat(Tr("Yuklash radiusi"), &c.LoadRadius, 1, 1, 100000, "%.0f m");
+            GraphLayout::RecordKey("tiled/load-radius");
+            changed |= ImGui::DragFloat(Tr("Tushirish radiusi"), &c.UnloadRadius, 1, c.LoadRadius, 100000, "%.0f m");
+            changed |= ImGui::DragFloat(Tr("LOD masofasi"), &c.LODDistance, 1, 1, 100000, "%.0f m");
+            GraphLayout::RecordKey("tiled/lod-distance");
+            if (ImGui::IsItemHovered()) UI::Tooltip(Tr("Bundan yaqin plitkalar to'liq; masofa har ikki baravar oshganda bitta LOD darajasi qo'polroq"));
+            int maxLOD = int(c.MaxLOD), budget = int(c.MemoryBudgetMB), loads = int(c.MaxLoadsPerFrame);
+            if (ImGui::SliderInt(Tr("Eng qo'pol LOD"), &maxLOD, 0, 7)) { c.MaxLOD = uint32_t(maxLOD); changed = true; }
+            if (ImGui::DragInt(Tr("Xotira byudjeti (MB)"), &budget, 1, 1, 65536)) { c.MemoryBudgetMB = uint32_t(std::max(1, budget)); changed = true; }
+            GraphLayout::RecordKey("tiled/budget");
+            if (ImGui::IsItemHovered()) UI::Tooltip(Tr("Yuklangan plitkalarning CPU va taxminiy GPU baytlari: oshsa uzoq plitkalar avval qo'pollashadi, keyin tushiriladi"));
+            if (ImGui::DragInt(Tr("Kadrdagi yuklashlar"), &loads, 0.2f, 1, 64)) { c.MaxLoadsPerFrame = uint32_t(std::max(1, loads)); changed = true; }
+            changed |= ImGui::Checkbox("Collision", &c.Collision);
+            if (c.Collision) changed |= ImGui::DragFloat(Tr("Collision radiusi"), &c.CollisionRadius, 1, 0, 100000, "%.0f m");
+            changed |= ImGui::DragFloat(Tr("O'simlik masofasi"), &c.FoliageDistance, 1, 0, 100000, "%.0f m");
+            changed |= ImGui::Checkbox(Tr("Plitka LOD ranglari"), &c.ShowTileLOD);
+            GraphLayout::RecordKey("tiled/lod-colors");
+            if (ImGui::IsItemHovered()) UI::Tooltip(Tr("Plitkalar LOD bo'yicha bo'yaladi: 0 yashil, 1 sariq, 2 to'q sariq, 3 qizil"));
+            if (c.Streamer)
+            {
+                const auto& stats = c.Streamer->Stats;
+                if (!stats.Error.empty()) ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "%s", stats.Error.c_str());
+                ImGui::TextWrapped(Tr("%u / %u plitka yuklangan, %u yuklanmoqda | %.1f / %.0f MB"), stats.Resident, stats.Tiles, stats.Loading,
+                                   double(stats.ResidentBytes) / 1048576.0, double(stats.BudgetBytes) / 1048576.0);
+                GraphLayout::RecordKey("tiled/stats");
+                ImGui::TextDisabled("LOD 0-3: %u / %u / %u / %u", stats.LODCounts[0], stats.LODCounts[1], stats.LODCounts[2], stats.LODCounts[3]);
+                const size_t dirty = TerrainStreaming::DirtyCount(c);
+                ImGui::BeginDisabled(dirty == 0);
+                if (ImGui::Button(TrFormat("Plitkalarni saqlash ({})###saveTiles", dirty).c_str()))
+                {
+                    std::string error;
+                    const size_t written = TerrainStreaming::SaveDirty(c, &error);
+                    if (!error.empty()) ZM_ERROR("Tiled terrain: {}", error);
+                    else ZM_INFO("Tiled terrain: {} tiles saved", written);
+                }
+                ImGui::EndDisabled();
+                GraphLayout::RecordKey("tiled/save");
+                ImGui::SameLine();
+                ImGui::BeginDisabled(c.Streamer->UndoStack.empty());
+                if (ImGui::Button(Tr("Cho'tkani qaytarish"))) TerrainStreaming::Undo(c);
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                ImGui::BeginDisabled(c.Streamer->RedoStack.empty());
+                if (ImGui::Button(Tr("Qayta qilish"))) TerrainStreaming::Redo(c);
+                ImGui::EndDisabled();
+            }
+            if (ImGui::Button(Tr("Map tayyorlash oynasi")) && OnTerrainWindowRequested)
+                OnTerrainWindowRequested();
+            GraphLayout::RecordKey("tiled/terrain-window");
+            if (changed) c.Sanitize();
             return changed;
         }, true, modified);
 

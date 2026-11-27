@@ -1,3 +1,4 @@
+#include <Zamin/Asset/SpriteAtlas.h>
 #include "SceneHierarchyPanel.h"
 #include "Zamin/Utils/StringUtils.h"
 #include "AssetInspectorPanel.h"
@@ -2841,6 +2842,25 @@ namespace Zamin {
         changed |= UI::PropertyInt("Tileset ustunlari", c.TilesetColumns);
         changed |= UI::PropertyInt("Tileset qatorlari", c.TilesetRows);
         c.TilesetColumns = std::max(1, c.TilesetColumns); c.TilesetRows = std::max(1, c.TilesetRows);
+        // A grid sprite atlas page (.zatlas, Grid): its columns and rows come from the atlas.
+        if (const AssetMetadata* meta = !c.TilesetPath.empty() && Project::GetAssetRegistry() ? Project::GetAssetRegistry()->Find(std::filesystem::path(c.TilesetPath)) : nullptr)
+            if (const std::string atlasPath = meta->Import.GetString("Atlas"); !atlasPath.empty())
+            {
+                SpriteAtlasDefinition atlas;
+                if (SpriteAtlasDefinition::Load(Project::GetAssetFileSystemPath(atlasPath), atlas) && atlas.Grid && atlas.SpriteCount > 0)
+                {
+                    const int columns = int(std::min(atlas.Columns, atlas.SpriteCount)), rows = int((atlas.SpriteCount + uint32_t(columns) - 1) / uint32_t(columns));
+                    UI::PropertyLabel("Atlas grid", "Tileset grid rejimidagi sprite atlas sahifasi: plitka i - atlasning i-kadri");
+                    ImGui::BeginDisabled(c.TilesetColumns == columns && c.TilesetRows == rows);
+                    if (ImGui::Button(TrFormat("Atlas gridini olish ({} x {})###atlasGrid", columns, rows).c_str()))
+                    {
+                        c.TilesetColumns = columns;
+                        c.TilesetRows = rows;
+                        changed = true;
+                    }
+                    ImGui::EndDisabled();
+                }
+            }
         int w = c.Width, h = c.Height;
         bool resized = UI::PropertyInt("Kenglik (plitka)", w);
         resized |= UI::PropertyInt("Balandlik (plitka)", h);

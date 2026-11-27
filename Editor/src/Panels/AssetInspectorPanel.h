@@ -1,4 +1,5 @@
 #pragma once
+#include <Zamin/Asset/SpriteAtlas.h>
 
 #include <Zamin/Zamin.h>
 
@@ -171,6 +172,10 @@ namespace Zamin {
         // A sprite animation clip (.zsanim): a playing preview, its frames, rate and events, edited
         // live and saved to the file once an edit is finished.
         void DrawSpriteClip();
+        // A .zatlas: its packing settings, the page with its frames, Rebuild, clips from frame sequences.
+        void DrawSpriteAtlas();
+        // A .zterrain: the tile grid, its levels and memory.
+        void DrawTerrainTileSet();
         void DrawMaterialPreview();
         // The material's fields (into m_MaterialEdit); true when one changed.
         bool DrawMaterialFields();
@@ -190,6 +195,13 @@ namespace Zamin {
 
     private:
         std::filesystem::path m_Path;
+        // The .zatlas being shown (DrawSpriteAtlas): the edited definition, when it was read, the last build's message.
+        std::filesystem::path m_AtlasPath;
+        SpriteAtlasDefinition m_AtlasEdit;
+        std::string m_AtlasStatus;
+        bool m_AtlasStatusError = false, m_AtlasStale = false;
+        double m_AtlasCheckTime = -100.0;
+        int m_AtlasClipPrefix = 0;
         AssetType m_Type = AssetType::Other;
         AssetHandle m_Handle;
         bool m_IsFolder = false;

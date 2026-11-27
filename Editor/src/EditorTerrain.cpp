@@ -158,6 +158,8 @@ namespace Zamin {
             return;
         }
         bool down = Input::IsMouseButtonPressed(MouseButton::Left);
+        if (UpdateTiledTerrainPainting(ts, down))
+            return;
         if (!down)
         {
             if (m_TerrainStroke)
@@ -225,6 +227,7 @@ namespace Zamin {
     void EditorLayer::DrawTerrainPreview()
     {
         if (!m_ShowTerrain || !m_TerrainPainting || m_SceneState != SceneState::Edit || !m_ViewportHovered) return;
+        if (DrawTiledTerrainPreview()) return;
         auto entity = TerrainEntity();
         TerrainHit hit;
         if (!entity || !TerrainMouseHit(entity, hit)) return;
@@ -551,6 +554,7 @@ namespace Zamin {
             }
         }
         else ImGui::TextWrapped("%s", Tr("Terrain yarating yoki sahnadagi Terrain obyektini tanlang."));
+        UI_TiledTerrain(entity);
         if (!m_TerrainMessage.empty()) ImGui::TextWrapped("%s", m_TerrainMessage.c_str());
         ImGui::EndDisabled();
         ImGui::End();

@@ -1,0 +1,294 @@
+{
+    "Scene": "Valley",
+    "Version": 5,
+    "RootOrder": [
+        101,
+        102,
+        103,
+        200,
+        201,
+        202,
+        203,
+        204,
+        205
+    ],
+    "Settings": {
+        "Ambient": 0.6,
+        "DrawSky": true,
+        "ShadowDistance": 80.0
+    },
+    "Entities": [
+        {
+            "Entity": 101,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    40.0,
+                    28.0,
+                    40.0
+                ],
+                "Rotation": [
+                    -0.42,
+                    -2.356,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "Primary": true,
+                "ProjectionType": 0,
+                "PerspectiveFOV": 0.9,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 600.0,
+                "ClearColor": [
+                    0.45,
+                    0.6,
+                    0.8,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 102,
+            "Tag": "Sun",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    -0.7,
+                    0.6,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "CastShadows": true,
+                "Color": [
+                    1.0,
+                    0.96,
+                    0.9
+                ],
+                "Intensity": 3.0
+            }
+        },
+        {
+            "Entity": 103,
+            "Tag": "Valley",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "TiledTerrain": {
+                "Path": "Maps/Valley.zterrain",
+                "PathUUID": "06dd075142ad5983",
+                "LoadRadius": 150.0,
+                "UnloadRadius": 180.0,
+                "LODDistance": 40.0,
+                "MaxLOD": 3,
+                "MemoryBudgetMB": 32,
+                "MaxLoadsPerFrame": 4,
+                "Collision": true,
+                "CollisionRadius": 80.0,
+                "FoliageDistance": 140.0,
+                "ShowTileLOD": false
+            }
+        },
+        {
+            "Entity": 200,
+            "Tag": "Gem 0",
+            "Transform": {
+                "Translation": [
+                    52.0,
+                    6.682301425109738,
+                    48.0
+                ],
+                "Rotation": [
+                    0,
+                    -2.356,
+                    0
+                ],
+                "Scale": [
+                    2.5,
+                    2.5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Texture": "Sprites/Gems.atlas.png",
+                "TextureUUID": "eb9f84029bdf9ec0",
+                "Sprite": "gem_0",
+                "PixelArt": true
+            },
+            "SpriteAnimation": {
+                "Frames": [
+                    "gem_0",
+                    "gem_1",
+                    "gem_2",
+                    "gem_3"
+                ],
+                "FPS": 6.0,
+                "Loop": true,
+                "Playing": true
+            }
+        },
+        {
+            "Entity": 201,
+            "Tag": "Gem 1",
+            "Transform": {
+                "Translation": [
+                    57.0,
+                    8.264787225724977,
+                    54.0
+                ],
+                "Rotation": [
+                    0,
+                    -2.356,
+                    0
+                ],
+                "Scale": [
+                    2.5,
+                    2.5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Texture": "Sprites/Gems.atlas.png",
+                "TextureUUID": "eb9f84029bdf9ec0",
+                "Sprite": "gem_1",
+                "PixelArt": true
+            }
+        },
+        {
+            "Entity": 202,
+            "Tag": "Gem 2",
+            "Transform": {
+                "Translation": [
+                    62.0,
+                    11.575038219720591,
+                    60.0
+                ],
+                "Rotation": [
+                    0,
+                    -2.356,
+                    0
+                ],
+                "Scale": [
+                    2.5,
+                    2.5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Texture": "Sprites/Gems.atlas.png",
+                "TextureUUID": "eb9f84029bdf9ec0",
+                "Sprite": "gem_2",
+                "PixelArt": true
+            }
+        },
+        {
+            "Entity": 203,
+            "Tag": "Gem 3",
+            "Transform": {
+                "Translation": [
+                    67.0,
+                    10.508362330153714,
+                    48.0
+                ],
+                "Rotation": [
+                    0,
+                    -2.356,
+                    0
+                ],
+                "Scale": [
+                    2.5,
+                    2.5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Texture": "Sprites/Gems.atlas.png",
+                "TextureUUID": "eb9f84029bdf9ec0",
+                "Sprite": "gem_3",
+                "PixelArt": true
+            }
+        },
+        {
+            "Entity": 204,
+            "Tag": "Gem 4",
+            "Transform": {
+                "Translation": [
+                    72.0,
+                    13.512749401277254,
+                    54.0
+                ],
+                "Rotation": [
+                    0,
+                    -2.356,
+                    0
+                ],
+                "Scale": [
+                    2.5,
+                    2.5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Texture": "Sprites/Gems.atlas.png",
+                "TextureUUID": "eb9f84029bdf9ec0",
+                "Sprite": "gem_0",
+                "PixelArt": true
+            }
+        },
+        {
+            "Entity": 205,
+            "Tag": "Gem 5",
+            "Transform": {
+                "Translation": [
+                    77.0,
+                    13.907166208737088,
+                    60.0
+                ],
+                "Rotation": [
+                    0,
+                    -2.356,
+                    0
+                ],
+                "Scale": [
+                    2.5,
+                    2.5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Texture": "Sprites/Gems.atlas.png",
+                "TextureUUID": "eb9f84029bdf9ec0",
+                "Sprite": "gem_1",
+                "PixelArt": true
+            }
+        }
+    ]
+}

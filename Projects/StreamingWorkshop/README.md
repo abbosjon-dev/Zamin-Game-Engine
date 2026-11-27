@@ -1,0 +1,3 @@
+# Streaming Workshop
+
+Open `StreamingWorkshop.zproject` with ZaminEditor. `Assets/Scenes/Valley.zscene` has a **Valley** entity with a Tiled terrain component: `Assets/Maps/Valley.zterrain` and its 64 tiles (8 x 8 of 33 samples, 24 m each, 4 LOD levels, foliage in the tiles) stream around the camera within a 32 MB budget. Select it and turn on **Tile LOD colours** to see the levels. The gems are frames of the sprite atlas `Assets/Sprites/Gems.zatlas` (packed from `Assets/Sprites/Gems/`); one of them plays the frames as a Sprite Animation. The export cooks every texture (the 512 px terrain textures are halved to the 256 px limit) and leaves the unused source sprites out. Deterministic source: `Tools/samples/gen_streaming_workshop.py`.

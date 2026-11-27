@@ -1,0 +1,20 @@
+{
+    "Version": 1,
+    "Sources": "Sprites/Gems",
+    "Output": "Sprites/Gems.atlas.png",
+    "Recursive": false,
+    "PixelArt": true,
+    "Pivot": [
+        0.5,
+        0.5
+    ],
+    "MaxPageSize": 2048,
+    "Padding": 2,
+    "MipLevels": 0,
+    "SourceHash": "1a0cd2932ce366da",
+    "Sprites": 4,
+    "Page": [
+        64,
+        64
+    ]
+}

@@ -1,0 +1,32 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "StreamingWorkshop",
+        "StartScene": "Scenes/Valley.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "",
+        "EngineVersion": "0.1.0",
+        "Description": "A tiled terrain streamed around the camera, terrain textures cooked smaller and gem sprites from a sprite atlas.",
+        "Thumbnail": "Thumbnail.png"
+    },
+    "Player": {
+        "Product": "Zamin Streaming Workshop",
+        "Width": 1280,
+        "Height": 720,
+        "VSync": true
+    },
+    "Export": {
+        "ExcludeUnusedAssets": true,
+        "AlwaysInclude": [],
+        "ReleaseScriptModule": true,
+        "StripBinaries": true,
+        "Cook": {
+            "Enabled": true,
+            "Compress": true,
+            "MaxTextureSize": 256,
+            "MatchQuality": true,
+            "Always": true
+        }
+    }
+}

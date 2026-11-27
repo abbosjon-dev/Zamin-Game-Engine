@@ -1,4 +1,4 @@
-add_executable(ZaminTests SliceUILayoutTests.cpp LoadoutModelTests.cpp LoadoutWorldTests.cpp ProjectileModelTests.cpp EffectModelTests.cpp CombatWorldTests.cpp CombatEffectTests.cpp CombatSaveTests.cpp CombatAuthoringTests.cpp CombatWorkshopTests.cpp LanternKeeperTests.cpp BeaconPassTests.cpp QuestModelTests.cpp QuestWorldTests.cpp GameplayUIModelTests.cpp GameplayUITests.cpp SaveModelTests.cpp SaveWorldTests.cpp TransferTests.cpp SliceEngineTests.cpp BrainModelTests.cpp GameplayAITests.cpp RulesModelTests.cpp GameplayRulesTests.cpp GameplayMathTests.cpp GameplayRuntimeTests.cpp AnimatorControllerTests.cpp AnimatorRuntimeTests.cpp BlueprintTests.cpp NavRecoveryTests.cpp NavCrowdTests.cpp NavQueryQueueTests.cpp NavAtlasTests.cpp ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldAssetStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
+add_executable(ZaminTests SliceUILayoutTests.cpp LoadoutModelTests.cpp LoadoutWorldTests.cpp ProjectileModelTests.cpp EffectModelTests.cpp CombatWorldTests.cpp CombatEffectTests.cpp CombatSaveTests.cpp CombatAuthoringTests.cpp CombatWorkshopTests.cpp LanternKeeperTests.cpp BeaconPassTests.cpp QuestModelTests.cpp QuestWorldTests.cpp GameplayUIModelTests.cpp GameplayUITests.cpp SaveModelTests.cpp SaveWorldTests.cpp TransferTests.cpp SliceEngineTests.cpp BrainModelTests.cpp GameplayAITests.cpp RulesModelTests.cpp GameplayRulesTests.cpp GameplayMathTests.cpp GameplayRuntimeTests.cpp AnimatorControllerTests.cpp AnimatorRuntimeTests.cpp BlueprintTests.cpp NavRecoveryTests.cpp NavCrowdTests.cpp NavQueryQueueTests.cpp NavAtlasTests.cpp ZaminTests.cpp WorldCheckpointTests.cpp ResidencyTerrainNavTests.cpp WorldStreamingTests.cpp WorldAssetStreamingTests.cpp WorldCellLoaderTests.cpp WorldManifestTests.cpp PackedFoliageTests.cpp ModuleABITests.cpp TerrainFoliageTests.cpp CodeDocumentTests.cpp VisualGraphTests.cpp TerrainTests.cpp TerrainLODTests.cpp TerrainStreamingTests.cpp AtlasCookTests.cpp TilemapVisibilityTests.cpp SafetyTests.cpp EditorServicesTests.cpp TestFramework.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin ZaminEditorSupport)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -90,7 +90,7 @@ add_custom_target(update_render_references
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
 add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp CombatBench.cpp
-    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp FoliageBench.cpp)
+    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp FoliageBench.cpp TerrainTilesBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -225,7 +225,10 @@ if(TARGET ZaminEditor AND TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES)
     add_test(NAME EditorSmoke COMMAND ${PROJECT_SOURCE_DIR}/Tests/editor_smoke.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
     add_test(NAME ScriptHotReload COMMAND ${PROJECT_SOURCE_DIR}/Tests/hot_reload_test.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
     add_test(NAME ExportTest COMMAND ${PROJECT_SOURCE_DIR}/Tests/export_test.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-    set_tests_properties(EditorSmoke ScriptHotReload ExportTest PROPERTIES
+    # The cooked export: StreamingWorkshop exported, its Player run on cooked textures, an atlas page and streamed tiles,
+    # the cook report and cache checked (Tests/cook_export_test.sh).
+    add_test(NAME ExportCookedTest COMMAND ${PROJECT_SOURCE_DIR}/Tests/cook_export_test.sh WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(EditorSmoke ScriptHotReload ExportTest ExportCookedTest PROPERTIES
         LABELS "gui;slow"
         ENVIRONMENT "ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}"
         TIMEOUT 1800
@@ -350,6 +353,11 @@ if(ZAMIN_FOLIAGE_XVFB_RUN)
     add_test(NAME BenchFoliageSmoke COMMAND ${CMAKE_COMMAND} -E env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
         ${ZAMIN_FOLIAGE_XVFB_RUN} -a -s "-screen 0 1600x900x24 -nolisten tcp" $<TARGET_FILE:ZaminBench> --foliage --instances 262144 --frames 5 --size 640x360)
     set_tests_properties(BenchFoliageSmoke PROPERTIES LABELS "gui;bench" TIMEOUT 600)
+    # The terrain tile streaming benchmark at a small size (6 x 6 tiles of 65 samples, 20 frames): every case runs,
+    # resident memory stays within the budget and resident neighbours share every edge sample (no cracks).
+    add_test(NAME BenchTerrainTilesSmoke COMMAND ${CMAKE_COMMAND} -E env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+        ${ZAMIN_FOLIAGE_XVFB_RUN} -a -s "-screen 0 1600x900x24 -nolisten tcp" $<TARGET_FILE:ZaminBench> --terrain-tiles --tiles 6 --resolution 65 --frames 20 --size 640x360)
+    set_tests_properties(BenchTerrainTilesSmoke PROPERTIES LABELS "gui;bench" TIMEOUT 600)
 endif()
 
 

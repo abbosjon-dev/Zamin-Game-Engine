@@ -1,0 +1,65 @@
+{
+    "UUID": "eb9f84029bdf9ec0",
+    "Type": "Texture",
+    "Import": {
+        "Atlas": "Sprites/Gems.zatlas",
+        "Filter": "Nearest",
+        "Mipmaps": false,
+        "Sprites": [
+            {
+                "Name": "gem_0",
+                "Rect": [
+                    2,
+                    2,
+                    16,
+                    16
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ]
+            },
+            {
+                "Name": "gem_1",
+                "Rect": [
+                    22,
+                    2,
+                    16,
+                    16
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ]
+            },
+            {
+                "Name": "gem_2",
+                "Rect": [
+                    42,
+                    2,
+                    16,
+                    16
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ]
+            },
+            {
+                "Name": "gem_3",
+                "Rect": [
+                    2,
+                    22,
+                    16,
+                    16
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ]
+            }
+        ],
+        "Wrap": "Clamp",
+        "sRGB": true
+    }
+}

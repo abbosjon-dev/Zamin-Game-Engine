@@ -1,0 +1,30 @@
+{
+  "Build": "Release",
+  "Renderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "Size": [1280, 720],
+  "Frames": 120,
+  "Tiles": 16,
+  "Resolution": 129,
+  "Results": {
+    "async.FrameMs": { "Ms": 193.941, "PerFrame": true },
+    "async.FrameP95": { "Ms": 250.847, "PerFrame": true },
+    "async.StreamingMs": { "Ms": 0.859, "PerFrame": true },
+    "async.StreamingMaxMs": { "Ms": 2.196, "PerFrame": true },
+    "async.PeakResidentMiB": { "Value": 37.68, "Unit": "MiB" },
+    "sync.FrameMs": { "Ms": 198.611, "PerFrame": true },
+    "sync.FrameP95": { "Ms": 242.258, "PerFrame": true },
+    "sync.StreamingMs": { "Ms": 1.313, "PerFrame": true },
+    "sync.StreamingMaxMs": { "Ms": 2.578, "PerFrame": true },
+    "sync.PeakResidentMiB": { "Value": 38.22, "Unit": "MiB" },
+    "tight.FrameMs": { "Ms": 106.986, "PerFrame": true },
+    "tight.FrameP95": { "Ms": 158.878, "PerFrame": true },
+    "tight.StreamingMs": { "Ms": 0.325, "PerFrame": true },
+    "tight.StreamingMaxMs": { "Ms": 1.168, "PerFrame": true },
+    "tight.PeakResidentMiB": { "Value": 11.99, "Unit": "MiB" }
+  },
+  "Cases": [
+    { "Name": "async", "FrameMs": { "Average": 193.941, "P95": 250.847, "Max": 262.916 }, "StreamingMs": { "Average": 0.859, "Max": 2.196 }, "IOMs": 58.7, "Loads": 572, "PeakLoadsPerFrame": 4, "Unloads": 204, "PeakResidentTiles": 104, "PeakResidentBytes": 39512712, "BudgetBytes": 100663296, "LOD": [12, 44, 3, 8], "Coarsened": 0, "Dropped": 0, "DrawCalls": 157, "Triangles": 242848, "BytesRead": 37788992, "SeamError": 0 },
+    { "Name": "sync", "FrameMs": { "Average": 198.611, "P95": 242.258, "Max": 279.020 }, "StreamingMs": { "Average": 1.313, "Max": 2.578 }, "IOMs": 68.3, "Loads": 576, "PeakLoadsPerFrame": 4, "Unloads": 204, "PeakResidentTiles": 104, "PeakResidentBytes": 40075200, "BudgetBytes": 100663296, "LOD": [12, 44, 3, 8], "Coarsened": 0, "Dropped": 0, "DrawCalls": 169, "Triangles": 257504, "BytesRead": 38168064, "SeamError": 0 },
+    { "Name": "tight", "FrameMs": { "Average": 106.986, "P95": 158.878, "Max": 197.610 }, "StreamingMs": { "Average": 0.325, "Max": 1.168 }, "IOMs": 31.2, "Loads": 218, "PeakLoadsPerFrame": 4, "Unloads": 171, "PeakResidentTiles": 9, "PeakResidentBytes": 12568764, "BudgetBytes": 12582912, "LOD": [7, 0, 0, 1], "Coarsened": 11558, "Dropped": 11817, "DrawCalls": 32, "Triangles": 35556, "BytesRead": 19556832, "SeamError": 0 }
+  ]
+}

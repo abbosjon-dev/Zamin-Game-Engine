@@ -1,0 +1,10 @@
+{
+    "UUID": "7432597740f8cb84",
+    "Type": "Texture",
+    "Import": {
+        "Filter": "Nearest",
+        "Wrap": "Clamp",
+        "Mipmaps": false,
+        "sRGB": true
+    }
+}

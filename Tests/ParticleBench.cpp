@@ -38,6 +38,12 @@
 // humanoid and sprite Animator crowds; the slices' own levels crowded (32 brains, crates, projectiles) - invariants,
 // determinism and ms / frame.
 //
+// ZaminBench --build-atlas <asset folder> <folder>: packs a folder of sprites into a sprite atlas (sample generators).
+//
+// ZaminBench --terrain-tiles [--tiles N] [--resolution R] [--frames N] [--json <file>]: a large tiled terrain streamed
+// around a flying camera instead (TerrainTilesBench.cpp, a GL context: Tests/terrain_tiles_bench.sh) - background vs
+// main-thread tile reads and a tight memory budget: frame time, streaming time, loads per frame, resident memory.
+//
 // ZaminBench --foliage [--instances N] [--frames N] [--json <file>]: a dense packed foliage scene instead
 // (FoliageBench.cpp, a GL context: Tests/foliage_bench.sh) - ~1M instances, CPU against GPU compute culling, with and
 // without HLOD: frame time, culling time (CPU and GPU), draw calls, instances per LOD, HLOD cells.
@@ -46,6 +52,7 @@
 // (RenderBench.cpp, a GL context: xvfb-run without a display; Tests/render_bench.sh) - 10 000 sprites, 1 000
 // meshes (instanced and not) and both in one scene, ms / frame on the CPU and with the GPU.
 #include <Zamin/Zamin.h>
+#include <Zamin/Asset/SpriteAtlas.h>
 
 #include <algorithm>
 #include <chrono>
@@ -73,6 +80,7 @@ int RunPhysicsBench(int argc, char** argv);                 // PhysicsBench.cpp
 int RunAnimationBench(int argc, char** argv);               // AnimationBench.cpp
 int RunSliceStressBench(int argc, char** argv);             // SliceStressBench.cpp
 int RunFoliageBench(int argc, char** argv);                 // FoliageBench.cpp
+int RunTerrainTilesBench(int argc, char** argv);            // TerrainTilesBench.cpp
 
 namespace {
 
@@ -494,6 +502,16 @@ int main(int argc, char** argv)
             return RunSliceStressBench(argc, argv);
         else if (!std::strcmp(argv[i], "--foliage"))
             return RunFoliageBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--terrain-tiles"))
+            return RunTerrainTilesBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--build-atlas") && i + 2 < argc)
+        {
+            // A tool for the sample generators: a sprite atlas from a folder of an asset directory, with the engine's packer.
+            std::string error;
+            const std::string atlas = SpriteAtlas::CreateFromFolder(argv[i + 1], argv[i + 2], error);
+            std::printf("%s\n", atlas.empty() ? error.c_str() : atlas.c_str());
+            return atlas.empty() ? 1 : 0;
+        }
         else if (!std::strcmp(argv[i], "--animation") || !std::strcmp(argv[i], "--model") || !std::strcmp(argv[i], "--sprite-clips"))
             return RunAnimationBench(argc, argv);
     for (int i = 1; i < argc; i++)

@@ -1,0 +1,37 @@
+{
+  "Build": "Release",
+  "Renderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "Size": [1280, 720],
+  "Frames": 60,
+  "Instances": 1048576,
+  "Results": {
+    "cpu.FrameMs": { "Ms": 543.464, "PerFrame": true },
+    "cpu.FrameP95": { "Ms": 592.382, "PerFrame": true },
+    "cpu.CpuMs": { "Ms": 536.624, "PerFrame": true },
+    "cpu.CullCpuMs": { "Ms": 25.116, "PerFrame": true },
+    "cpu.DrawCalls": { "Value": 41, "Unit": "draws" },
+    "gpu.FrameMs": { "Ms": 476.839, "PerFrame": true },
+    "gpu.FrameP95": { "Ms": 522.059, "PerFrame": true },
+    "gpu.CpuMs": { "Ms": 470.073, "PerFrame": true },
+    "gpu.CullCpuMs": { "Ms": 21.639, "PerFrame": true },
+    "gpu.CullGpuMs": { "Ms": 16.872, "PerFrame": true },
+    "gpu.DrawCalls": { "Value": 67, "Unit": "draws" },
+    "cpu-nohlod.FrameMs": { "Ms": 2911.329, "PerFrame": true },
+    "cpu-nohlod.FrameP95": { "Ms": 3200.020, "PerFrame": true },
+    "cpu-nohlod.CpuMs": { "Ms": 2903.923, "PerFrame": true },
+    "cpu-nohlod.CullCpuMs": { "Ms": 80.371, "PerFrame": true },
+    "cpu-nohlod.DrawCalls": { "Value": 35, "Unit": "draws" },
+    "gpu-nohlod.FrameMs": { "Ms": 2870.093, "PerFrame": true },
+    "gpu-nohlod.FrameP95": { "Ms": 3191.093, "PerFrame": true },
+    "gpu-nohlod.CpuMs": { "Ms": 2862.491, "PerFrame": true },
+    "gpu-nohlod.CullCpuMs": { "Ms": 54.321, "PerFrame": true },
+    "gpu-nohlod.CullGpuMs": { "Ms": 49.558, "PerFrame": true },
+    "gpu-nohlod.DrawCalls": { "Value": 48, "Unit": "draws" }
+  },
+  "Cases": [
+    { "Name": "cpu", "GPU": false, "HLOD": true, "CpuMs": { "Average": 536.624, "P95": 585.284 }, "FrameMs": { "Average": 543.464, "Median": 534.038, "P95": 592.382, "Max": 661.502 }, "CullMs": { "CPU": 25.116, "CPUP95": 30.963, "GPU": 0.000 }, "DrawCalls": 41, "Triangles": 453518, "Near": 924, "Far": 24729, "Shadow": 13433, "HLODCells": 717, "HLODInstances": 987136, "Batches": 16, "Final": { "Near": 924, "Far": 24729, "Shadow": 13433 }, "GPUBytes": 13492656, "CPUBytes": 371507200 },
+    { "Name": "gpu", "GPU": true, "HLOD": true, "CpuMs": { "Average": 470.073, "P95": 515.296 }, "FrameMs": { "Average": 476.839, "Median": 470.382, "P95": 522.059, "Max": 563.398 }, "CullMs": { "CPU": 21.639, "CPUP95": 25.348, "GPU": 16.872 }, "DrawCalls": 67, "Triangles": 454358, "Near": 923, "Far": 24809, "Shadow": 13402, "HLODCells": 717, "HLODInstances": 987136, "Batches": 16, "Final": { "Near": 924, "Far": 24729, "Shadow": 13433 }, "GPUBytes": 405708544, "CPUBytes": 365756416 },
+    { "Name": "cpu-nohlod", "GPU": false, "HLOD": false, "CpuMs": { "Average": 2903.923, "P95": 3193.114 }, "FrameMs": { "Average": 2911.329, "Median": 2902.878, "P95": 3200.020, "Max": 3397.182 }, "CullMs": { "CPU": 80.371, "CPUP95": 94.488, "GPU": 0.000 }, "DrawCalls": 35, "Triangles": 8705642, "Near": 924, "Far": 716230, "Shadow": 13433, "HLODCells": 0, "HLODInstances": 0, "Batches": 16, "Final": { "Near": 924, "Far": 716230, "Shadow": 13433 }, "GPUBytes": 93380580, "CPUBytes": 446601324 },
+    { "Name": "gpu-nohlod", "GPU": true, "HLOD": false, "CpuMs": { "Average": 2862.491, "P95": 3181.348 }, "FrameMs": { "Average": 2870.093, "Median": 2852.148, "P95": 3191.093, "Max": 3466.946 }, "CullMs": { "CPU": 54.321, "CPUP95": 59.981, "GPU": 49.558 }, "DrawCalls": 48, "Triangles": 8708390, "Near": 923, "Far": 716469, "Shadow": 13402, "HLODCells": 0, "HLODInstances": 0, "Batches": 16, "Final": { "Near": 924, "Far": 716230, "Shadow": 13433 }, "GPUBytes": 398626624, "CPUBytes": 352321536 }
+  ]
+}

@@ -90,7 +90,7 @@ add_custom_target(update_render_references
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
 add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp CombatBench.cpp
-    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp)
+    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp FoliageBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -338,6 +338,19 @@ add_executable(ZaminFoliageRenderTests FoliageRenderTests.cpp)
 target_link_libraries(ZaminFoliageRenderTests PRIVATE Zamin)
 target_include_directories(ZaminFoliageRenderTests PRIVATE ${PROJECT_SOURCE_DIR}/vendor/glad/include)
 zamin_target_settings(ZaminFoliageRenderTests)
+# Packed foliage on Mesa llvmpipe (GL 4.5: the GPU compute path, and the GL 4.1 CPU path as the oracle): per-LOD,
+# shadow-set and HLOD counts and pictures must match, the HLOD bake/invalidation and the GPU timestamps work.
+find_program(ZAMIN_FOLIAGE_XVFB_RUN xvfb-run)
+if(ZAMIN_FOLIAGE_XVFB_RUN)
+    add_test(NAME FoliageGPUCulling COMMAND ${CMAKE_COMMAND} -E env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+        ${ZAMIN_FOLIAGE_XVFB_RUN} -a -s "-screen 0 1600x900x24 -nolisten tcp" $<TARGET_FILE:ZaminFoliageRenderTests> --require-gpu)
+    set_tests_properties(FoliageGPUCulling PROPERTIES LABELS "gui;render" TIMEOUT 300)
+    # The dense foliage benchmark at a small size (4 components, 5 frames): every case runs and the CPU and GPU paths end
+    # with the same per-LOD and shadow counts (the numbers themselves: Tests/foliage_bench.sh, docs/Benchmarks.md).
+    add_test(NAME BenchFoliageSmoke COMMAND ${CMAKE_COMMAND} -E env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+        ${ZAMIN_FOLIAGE_XVFB_RUN} -a -s "-screen 0 1600x900x24 -nolisten tcp" $<TARGET_FILE:ZaminBench> --foliage --instances 262144 --frames 5 --size 640x360)
+    set_tests_properties(BenchFoliageSmoke PROPERTIES LABELS "gui;bench" TIMEOUT 600)
+endif()
 
 
 if(Python3_Interpreter_FOUND AND TARGET WorldWorkshop3D AND TARGET ZaminEditor AND TARGET ZaminPlayer)

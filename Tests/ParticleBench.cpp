@@ -38,6 +38,10 @@
 // humanoid and sprite Animator crowds; the slices' own levels crowded (32 brains, crates, projectiles) - invariants,
 // determinism and ms / frame.
 //
+// ZaminBench --foliage [--instances N] [--frames N] [--json <file>]: a dense packed foliage scene instead
+// (FoliageBench.cpp, a GL context: Tests/foliage_bench.sh) - ~1M instances, CPU against GPU compute culling, with and
+// without HLOD: frame time, culling time (CPU and GPU), draw calls, instances per LOD, HLOD cells.
+//
 // ZaminBench --render [--sprites N] [--meshes N] [--frames N] [--case ...] [--json <file>]: drawing instead
 // (RenderBench.cpp, a GL context: xvfb-run without a display; Tests/render_bench.sh) - 10 000 sprites, 1 000
 // meshes (instanced and not) and both in one scene, ms / frame on the CPU and with the GPU.
@@ -68,6 +72,7 @@ int RunCombatBench(int argc, char** argv);                  // CombatBench.cpp
 int RunPhysicsBench(int argc, char** argv);                 // PhysicsBench.cpp
 int RunAnimationBench(int argc, char** argv);               // AnimationBench.cpp
 int RunSliceStressBench(int argc, char** argv);             // SliceStressBench.cpp
+int RunFoliageBench(int argc, char** argv);                 // FoliageBench.cpp
 
 namespace {
 
@@ -487,6 +492,8 @@ int main(int argc, char** argv)
             return RunPhysicsBench(argc, argv);
         else if (!std::strcmp(argv[i], "--slice-stress"))
             return RunSliceStressBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--foliage"))
+            return RunFoliageBench(argc, argv);
         else if (!std::strcmp(argv[i], "--animation") || !std::strcmp(argv[i], "--model") || !std::strcmp(argv[i], "--sprite-clips"))
             return RunAnimationBench(argc, argv);
     for (int i = 1; i < argc; i++)

@@ -427,3 +427,9 @@ bytes) are edited; the changes are applied with Save + runtime reload.
 In play mode the Visual Script panel shows the **Live variables** values of the matching scene instance at the top
 (up to 16, long strings are shortened in the preview). This is separate from the authoring default/override
 values; the full variables/trace section of the runtime debugger is kept too.
+While playing, the **Heat** overlay (its checkbox next to **Fit graph**) colours every node of the open graph by its
+share of the VM time, and **Window → Visual Script profiler** (or the **Profiler** button) lists the nodes, typed
+functions and the hot path of all running instances of the graph; a row selects its node. The node library's **C++**
+section adds calls of the game module's reflected methods; a method that a hot reload removed or changed marks its
+nodes red until **Refresh from C++**. The canvas draws only the visible nodes and wires, so graphs of thousands of nodes
+stay responsive. [Details](VisualScripting.md#profiling-large-graphs).

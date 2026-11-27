@@ -19,6 +19,7 @@ Contents:
 2. [The first script](#2-the-first-script)
 3. [The structure of a script file](#3-the-structure-of-a-script-file)
 4. [Inspector fields (ZM_FIELD)](#4-inspector-fields-zm_field)
+   - [Methods for Visual Script (ZM_METHOD)](#4b-methods-for-visual-script-zm_method)
 5. [The life cycle](#5-the-life-cycle)
 6. [Event callbacks](#6-event-callbacks)
 7. [Objects, components, hierarchy](#7-objects-components-hierarchy)
@@ -187,6 +188,80 @@ if (!target)
 **While playing**, changing a field in the inspector is written into the running instance at once (for
 experimenting), but it is not saved to the scene — after **Stop** the previous value comes back. The class cannot be
 switched while playing.
+
+## 4b. Methods for Visual Script (ZM_METHOD)
+
+Visual Script graphs can call a script class's methods and free functions — registered in the same
+`ZM_REGISTER_SCRIPT` list as the fields (`Zamin/Scripting/ScriptMethod.h`). The node library's **C++** section shows
+them; the [Visual Script guide](VisualScripting.md#native-c-methods) has how graphs use them, how a changed method is
+reported after a hot reload and how the export cooks them.
+
+```cpp
+#include <Zamin/Zamin.h>
+#include <cmath>
+using namespace Zamin;
+
+enum class ScoreMedal { Bronze, Silver, Gold };
+ZM_SCRIPT_ENUM(ScoreMedal, "Bronze", "Silver", "Gold")
+
+struct ScoreCard
+{
+    float Total = 0;
+    ScoreMedal Medal = ScoreMedal::Bronze;
+};
+ZM_SCRIPT_STRUCT(ScoreCard, ZM_STRUCT_FIELD(ScoreCard, Total), ZM_STRUCT_FIELD(ScoreCard, Medal))
+
+class Scoreboard : public ScriptableEntity
+{
+public:
+    float Bonus = 1.5f;
+    int Awards = 0;
+
+    // An execution node (In/Then): changes the instance, returns a value.
+    int Award(const std::string& reason)
+    {
+        ZM_INFO("Award: {}", reason);
+        return ++Awards;
+    }
+    // Pure data nodes: called whenever a graph reads the result.
+    ScoreCard Grade(const std::vector<float>& points) const
+    {
+        ScoreCard card;
+        for (float p : points) card.Total += p * Bonus;
+        card.Medal = card.Total >= 50 ? ScoreMedal::Gold : card.Total >= 30 ? ScoreMedal::Silver : ScoreMedal::Bronze;
+        return card;
+    }
+    static float Clamp01(float value) { return std::clamp(value, 0.0f, 1.0f); }
+};
+
+ZM_REGISTER_SCRIPT(Scoreboard,
+    ZM_FIELD(Scoreboard, Bonus),
+    ZM_METHOD(Scoreboard, Award, "Reason").Returns("Awards").Tooltip("Counts an award"),
+    ZM_PURE_METHOD(Scoreboard, Grade, "Points"),
+    ZM_PURE_METHOD(Scoreboard, Clamp01, "Value"))
+
+static float Hypotenuse(float x, float y) { return std::sqrt(x * x + y * y); }
+ZM_REGISTER_FUNCTIONS(ScoreMath, ZM_PURE_FUNCTION(Hypotenuse, "X", "Y"))
+```
+
+| Macro | For graphs |
+|---|---|
+| `ZM_METHOD(Class, Method, "Param"...)` | A method (or a static member) of the class: a `Native.Call` execution node. Without names the parameters are `Arg1`, `Arg2` ... |
+| `ZM_PURE_METHOD(Class, Method, "Param"...)` | A pure data node (`Native.Pure`); the method must return a value (a compile error otherwise) |
+| `ZM_FUNCTION(Function, "Param"...)` / `ZM_PURE_FUNCTION` | A free function, inside `ZM_REGISTER_FUNCTIONS(Library, ...)`: the graph calls `Library.Function` without a Target |
+| `ZM_SCRIPT_ENUM(Enum, "A", "B", {"C", 10})` | A C++ enum graphs use as an Enum (options as in `ZM_FIELD_ENUM`) |
+| `ZM_SCRIPT_STRUCT(Struct, ZM_STRUCT_FIELD(Struct, Member)...)` | A default-constructible C++ struct graphs use as a Struct of the same fields |
+
+The attributes chain: `.Pure()`, `.Tooltip("...")`, `.Returns("Name")` (the result pin, `Value` by default),
+`.Params({"A", "B"})`. Parameter and result types: `float`, `double`, `int`, `int64_t` (Number; an integer parameter
+takes whole numbers within its range only), `bool`, `std::string`, `glm::vec2/3/4`, `EntityRef` (Entity), a
+`ZM_SCRIPT_ENUM` enum, a `ZM_SCRIPT_STRUCT` struct and `std::vector` of any of these, by value or `const&`; any other
+type, a non-const reference or a method overload is a compile error. The names `In`, `Then`, `Method` and `Target` are
+reserved. `ZM_SCRIPT_ENUM` / `ZM_SCRIPT_STRUCT` go at namespace scope in the type's own namespace (a header is fine:
+they register once). An instance method runs on the live instance of its class on the graph node's **Target** entity
+(play mode); a static member or a free function needs none. A `std::runtime_error` (any exception) a method throws
+stops the calling graph with its message. Like classes, the methods come and go with the module: after a hot reload a
+graph re-binds them and marks the ones that changed.
 
 ## 5. The life cycle
 

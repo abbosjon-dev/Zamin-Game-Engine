@@ -1,8 +1,9 @@
 # Visual Script: gameplay without code
 
 Zamin Visual Script is the engine's built-in `.zgraph` node editor and a bounded execution system.
-It works the same for 2D and 3D projects. A graph-based project needs neither a C++ compiler nor a game `.so` module.
-The gameplay graph authoring and execution part works with typed functions, collections, enums, structs, macros, curves, graph inheritance, debugging and a compiler-free export. Full parity with Unreal Blueprints is not claimed.
+It works the same for 2D and 3D projects. A graph-based project needs neither a C++ compiler nor a game `.so` module; when a
+project has one, graphs can call its reflected C++ methods ([Native C++ methods](#native-c-methods)).
+The gameplay graph authoring and execution part works with typed functions, collections, enums, structs, macros, curves, graph inheritance, native method calls, debugging, a per-node profiler and an export that cooks graphs to bytecode. Full parity with Unreal Blueprints is not claimed.
 
 ## Getting started
 
@@ -42,6 +43,7 @@ The file is written atomically; on a write error the edits stay in the window.
 - Vector/angle helpers: `SubtractVec2/3/4`, `DotVec*`, `DistanceVec*`, `LengthVec*`, `NormalizeVec*` (a zero vector stays zero), `Atan2`, `LerpAngle` (the short way, radians).
 - 2D/3D velocity, force, impulse, 3D torque; prefabs, audio, animation, sprite color, UI text, messages.
 - `ReadField.<Type>` / `WriteField.<Type>` work with another entity's registered C++ fields. Number is adapted to Float/Int; Int rejects fractions and overflow; the field's Range limit is kept.
+- Native C++ methods: `Native.Call` (execution) and `Native.Pure` (data) call the methods and free functions a game module registers with `ZM_METHOD` / `ZM_FUNCTION` — typed parameters and results, C++ enums and structs included ([Native C++ methods](#native-c-methods)).
 
 `Update.Delta` is the time in seconds; rotation values are in radians. `Translate` and `SetPosition` are synchronized with physics bodies too.
 SetScale changes the render transform; it does not rebuild the runtime collider geometry.
@@ -232,6 +234,9 @@ While playing, the graph window of the selected entity has **Enable breakpoints*
 A breakpoint stops the graph instance; the other entities and the game simulation go on. The game's general Pause control is separate.
 In the Player breakpoints are off automatically; the editor's debug marker adds no forced stop to a build.
 
+The **Visual Script profiler** measures the VM per node and per typed function while the game plays in the editor
+([Profiling large graphs](#profiling-large-graphs)).
+
 Execution is limited to 10000 instructions; instead of an endless loop, an error with the node number comes out.
 The data depth is limited to 128, the execution stack to 1024, the simultaneous tasks to 128 and the depth of cross-graph calls to 32.
 A graph holds up to 4096 nodes / 8192 wires / 256 variables / 64 functions / a 4 MB file; a text value up to 64 KB.
@@ -243,25 +248,31 @@ An error stops that graph instance and is printed to the console/debug panel.
 
 ## Saving, C++ and export
 
-`.zgraph` files are format version 5: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
+`.zgraph` files are format version 6: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
 version 3 added the `Structs` section (each struct's `Fields`: name, type, default and, for an enum field, `Enum`) and the `Struct` key
 of struct-typed pins, variables and locals; version 4 added the `Macros` section (each macro's `Inputs`/`Outputs`, `Exec` pins
 included), the `Macro` key of a macro's body nodes, the `ArrayEnum` type and struct fields of struct type; version 5 added the `Curve`
 type (its literals: `{"Keys": [{"Time", "Value", "Mode", "In", "Out"}, ...]}`), the `Parent` path, the `Renames` log and the
-Parent.Call/Parent.Event nodes. A child's file holds only its own members. Version 1-4 files load unchanged, including legacy
-Function/Call nodes, typed functions, enums, structs and macros; the window header says `(format 4: saving writes format 5)` until the
-graph is saved. An enum type in a version 1 file, a struct type in a version 1 or 2 file, macros, enum arrays or nested struct fields
-in a version 1-3 file, curves, a parent, renames or Parent nodes in a version 1-4 file, or a newer version is rejected.
+Parent.Call/Parent.Event nodes; version 6 added the `Natives` section (the signatures of the C++ methods the graph's
+`Native.Call`/`Native.Pure` nodes call: `Static`, `Pure`, `Inputs`, `Outputs`, `Tooltip`; only the ones in use are saved). A child's
+file holds only its own members. Version 1-5 files load unchanged, including legacy Function/Call nodes, typed functions, enums,
+structs, macros, curves and parents; the window header says `(format 5: saving writes format 6)` until the graph is saved. An enum
+type in a version 1 file, a struct type in a version 1 or 2 file, macros, enum arrays or nested struct fields in a version 1-3 file,
+curves, a parent, renames or Parent nodes in a version 1-4 file, native method calls in a version 1-5 file, or a newer version is
+rejected.
 
 A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
 That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
-To combine the two, use separate controller entities, messages and reflected fields.
-C++ methods do not become nodes automatically: only the API in the catalogue and registered fields are available.
+To combine the two, use separate controller entities, messages, reflected fields and reflected methods (`ZM_METHOD`: a graph calls
+them on another entity's C++ script).
 The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine/AreaDefine Kind,
 EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
 (a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
 [combat state](GameplayCombat.md#editor-authoring) of the selected actor.
-Network RPC/replication, full native method reflection and bytecode/native code generation are separate development stages. Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays), inline macros, curves, graph inheritance and the array types above are part of this one.
+Network RPC/replication nodes (the engine has no networking layer yet) and native code generation from graphs are separate
+development stages. Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays),
+inline macros, curves, graph inheritance, native method calls, the bytecode cook, the VM profiler and the array types above are part
+of this one.
 
 Graph assets are listed in the registry, open in the Content Browser, and the asset inspector shows their diagnostics.
 Asset paths inside a graph take part in the reference scan and in renames. Rather than hiding an asset path that overrides a graph variable
@@ -269,9 +280,83 @@ inside nested JSON text, keeping it in a graph node's Path value is recommended:
 After leaving Play, graph editing opens again. A saved graph is loaded on the next Play; there is no live replacement of the file during Play.
 C++ hot reload keeps the graph variables, but, like other native timers, restarts the pending executions.
 
+## Native C++ methods
+
+A game module registers methods of its script classes with `ZM_METHOD` and free functions with `ZM_FUNCTION` (the field macros'
+companions, [Scripting.md](Scripting.md#4b-methods-for-visual-script-zm_method)); the node library's **C++** section lists every one
+of the loaded module (search "c++", the class or the method). A method that returns a value and changes nothing can be registered
+pure (`ZM_PURE_METHOD`, `.Pure()`): a **Native.Pure** data node, evaluated whenever its result is read. Otherwise it is a
+**Native.Call** execution node (In/Then). An instance method has a **Target** entity input: the method runs on that entity's live
+instance of the class (as for `ReadField`, an empty Target is Self, which has the graph's own script, so a method needs a wired or
+set Target); a static member or a free function has none.
+
+The parameters and the result take the pin types: `float`/`double`/`int`/`int64_t` → Number (an integer parameter refuses a fraction
+or a value outside its range), `bool`, `std::string`, `glm::vec2/3/4`, `EntityRef` → Entity, a C++ enum registered with
+`ZM_SCRIPT_ENUM` → Enum, a struct registered with `ZM_SCRIPT_STRUCT` → Struct, `std::vector` of any of these → the array types. When a
+node is added, the C++ enums and structs it uses become graph enums/structs of the same names (an enum keeps its C++ names and values,
+`Source: C++ enum <Name>`); a graph type of that name that differs is refused. A C++ exception from a method stops the graph instance
+with `Native method <Class.Method>: <what>`, like any other node error.
+
+The graph keeps the signature it was built with (the `Natives` section), so it loads, validates, keeps its wires and runs its other
+nodes without the module. The host binds every call to the live method of the current registry generation: after a module load,
+unload or hot reload the binding is looked up again. When a method is not registered (no module, or removed) or its C++ signature
+(kind, parameter names and types, result) or one of its enums/structs no longer matches, its nodes are drawn red with the reason in
+a tooltip and on the status line (`n C++ methods not bound`), the Player and the editor log
+`Visual graph '<file>': native method <key> cannot run: <reason>` once at load, and the node stops the graph only when it runs. **Refresh
+from C++** in the node's properties takes the live signature (one undo step): new pins appear, the literals and wires that still fit
+stay, the others go. The signature and its binding state are in the node's properties. The cooked export keeps the signatures; a
+method that would not bind with the module the editor has loaded is a warning in the export report.
+
+VisualWorkshop's `Source/WorkshopNative.cpp` registers `WorkshopStats.Award` (an execution method that counts and returns the number
+of awards), `WorkshopStats.Score` and `WorkshopStats.MedalFor` (pure; `Medal` is a `ZM_SCRIPT_ENUM`) and the free function
+`WorkshopMath.Hypot`; `Scripts/NativeMethods.zgraph` calls them on the `Workshop stats` entity and prints
+`BLUEPRINT_NATIVE score=36 medal=Silver hypot=5.00 awards=1` (2D; `score=54 medal=Gold` in 3D through the `Base` override).
+
+## Cooked graphs (bytecode)
+
+The export compiles every `.zgraph` of the game (Export settings `CookGraphs`, on by default) to a compact binary program and writes
+it over the exported `.zgraph` (`ExportCook::CookGraphs`, `Scripting/Visual/VisualGraphBytecode.h`). The program is the graph as the
+VM runs it: validated with exactly the runtime's checks (`Machine::Prepare` — a graph the Player would reject is not cooked: it stays
+JSON, the export report lists it as `rejected` with the first error, and its parents stay JSON too), the parent chain resolved, macros
+expanded, one pin description per distinct node shape, the node literals, the wires as indices, the native method signatures and the
+macro/parent origins that error messages name. Positions and breakpoints are dropped.
+
+The format: `ZGBC`, a format version, the hash of the engine's node catalogue (a program of another engine version is refused: export
+again), an FNV-1a hash of the payload and its size, then a string table and the sections (tagged values: null, bool, integers,
+doubles, strings, arrays, objects). Reading checks every count, index and wire (a damaged or truncated file is refused with a reason);
+the Player's host loads a cooked file without parsing JSON, validating, resolving or expanding, and the editor keeps reading the JSON
+sources. The cook cache (`<project>/Build/CookCache/<hash>.zgbc`) is keyed by the content hash of the graph, its parent chain and the
+catalogue: an unchanged graph is not compiled again. `export-report.txt/json` and the editor's Export report window list every graph
+(cooked / rejected / kept, source and cooked bytes, the program's nodes, cache hits). Native code generation from graphs is not done.
+
+VisualWorkshop's eight graphs: 47 KB of JSON → 10 KB of bytecode (4.6x smaller). The large generated graphs of `ZaminBench --graphs`
+(Release, about 4000 nodes): 0.7-1.0 MB → 59-74 KB (10-17x smaller), and loading the VM from the cooked file takes 1.9-2.9 ms against
+26-76 ms from the JSON source ([Benchmarks](Benchmarks.md#large-visual-script-graphs-zaminbench---graphs)).
+
+## Profiling large graphs
+
+The VM profiler (`Machine::Profiling`, or `Machine::ProfileAll` for every machine) counts, per node of the loaded graph, the calls,
+the inclusive time (with the data nodes it evaluated) and the exclusive time (its own), per typed function the calls and the time of
+the steps that ran inside it (exclusive: its own steps; inclusive: also the functions it called; a recursive function counts its
+inner calls again), and how often execution went from one node to the next. A node copied from a macro counts on its instance. The
+times are the VM's CPU time: a Delay's wait does not count. Reading the stored result of an execution node, an event value or a
+parameter is no node run.
+
+In the editor, while the game plays: **Window → Visual Script profiler** (or **Profiler** in the Visual Script window) shows the open
+graph's profile merged over all its running instances — the instances, runs and VM time; the nodes sortable by calls, self and total
+time with their share; the typed functions; and the **hot path**, the most taken execution path from the entry with the most time
+after it. A row selects its node in the graph. The **Heat** overlay (on by default) colours each node of the canvas from blue (cold)
+through yellow to red (the hottest node's exclusive time) with its time and calls. The profiler runs only while the profiler panel
+records or the overlay is shown; the last profile stays after Play stops. The Player and the editor also have a `Visual Script`
+scope in the CPU profiler (every event and the delayed work of the graph hosts).
+
+The canvas draws only the nodes and wires that are visible: a 4000-node graph at the fit zoom drew 4001 nodes / 4000 wires (562 772
+vertices, 149 ms of canvas CPU time a frame in a Debug build) before, and 80 nodes / 99 wires (17 932 vertices, 19 ms) after.
+
 ## Samples and checks
 
-[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) has two scenes without a C++ module:
+[VisualWorkshop](../Projects/VisualWorkshop/VisualWorkshop.zproject) has two scenes; every graph but `NativeMethods.zgraph` runs without
+its small C++ module (`Source/WorkshopNative.cpp`):
 
 - `Visual2D`: WASD/arrow input → 2D velocity; touching a trigger changes the color for a while.
 - `Visual3D`: two cubes with one graph spin at opposite speeds through different Speed overrides.
@@ -280,6 +365,10 @@ C++ hot reload keeps the graph variables, but, like other native timers, restart
   Start evaluates its `Falloff` curve (cubic from 0 to 4 over 0..2, then linear to 6 at 3) at the `Level` variable and calls `Bonus`
   (the parent's: Score + 1); the child overrides `Bonus` with a Parent.Call times 10. With the Level overrides 1 (2D) and 1.5 (3D)
   it prints `BLUEPRINT_INHERIT curve=2.000 bonus=30.00 keys=3` (2D) / `curve=3.375 bonus=43.75 keys=3` (3D).
+
+- `NativeMethods.zgraph` (the `Native methods controller` in both scenes) calls the module's methods on the `Workshop stats` entity:
+  `BLUEPRINT_NATIVE score=36 medal=Silver hypot=5.00 awards=1` (2D) / `score=54 medal=Gold` (3D). Without the module the other graphs
+  run unchanged and this one reports the unbound methods.
 
 `ZaminTests --filter VisualGraph` runs the VM, the type/format/cycle checks, continuing delays/loops/functions, the budget, debugging, isolation,
 the C++ field bridge, a real scene lifecycle and the null target protection.
@@ -326,6 +415,21 @@ version 4 files, inherited members, function and event overrides with Parent.Cal
 child's own members, diagnostics (conflicts, signatures, missing parent, cycles, path escape, errors in a parent's node) and a parent's
 renames and edits followed on load; `BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes` runs the sample's child graph in both
 scenes and checks that the export takes the parent.
+
+The 2026-11-27 check (native methods, bytecode, profiler): `ZaminTests --filter Blueprint` (`BlueprintNative*`,
+`BlueprintBytecode*`, `BlueprintProfiler*`, `BlueprintGraphCook*`, `BlueprintFormatVersion6AndOlderMigration`) covers the reflected
+signatures (instance/static/free, pure/exec, int/float/string/vector/entity/enum/struct/array conversions), running them in a scene,
+the error messages (fractions into int, C++ exceptions, a missing live script), a module unloaded and reloaded with a changed
+signature (the graph still loads and keeps its wires; the binding problems; refresh; rebinding), the format 6 round trip and checks,
+paste, the bytecode round trip of every kind of graph (functions, enums, structs, macros, a child with its parents) against the source,
+refused damaged/foreign/outdated bytes, the profiler's counts, times, functions, hot path and merge, and the export's graph cook
+(cooked, rejected, kept parents, the cache, native warnings, the host running a cooked file). Phase 6 of
+`Tests/visual_graph_editor_test.py` adds a C++ method node from the node library (undo/redo), rebuilds the module with a changed
+signature while the editor runs (the hot reload marks the nodes, Refresh from C++ takes the new signature and keeps the wires,
+undo/redo) and runs it in the Player; then plays a 3000-node graph: the canvas draws a fraction of it, the heat overlay marks the
+loop as the hottest, the profiler lists the nodes and the hot path and a row selects its node. `ctest -R ExportCookedTest` exports
+VisualWorkshop: all graphs cooked, the exported Player prints the `BLUEPRINT_*` lines from the cooked graphs (the native methods
+through the Release module) and a second export takes them from the cache. `ctest -R BenchGraphsSmoke` runs `ZaminBench --graphs`.
 
 The 2026-11-26 struct check: `ZaminTests --filter BlueprintStruct` (and the format test) covers Make/Break/GetField/SetField, struct
 parameters/results/locals, overrides, static and runtime type errors, the 64 KiB struct array limit, format 3 round trips with the

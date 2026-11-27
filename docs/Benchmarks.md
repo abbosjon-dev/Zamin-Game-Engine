@@ -138,6 +138,56 @@ How to read it:
   frames. No case went over its budget or showed a crack between tiles (0 shared-sample difference at the end).
 - The far edge beyond the load radius is empty (no impostor or horizon mesh beyond the streamed tiles in this version).
 
+## Large Visual Script graphs (`ZaminBench --graphs`)
+
+`Tests/GraphBench.cpp`, headless (no GL); `Tests/bench.sh --only graphs` saves and compares it
+(`Tests/Baselines/graphs-release.json`), `ctest -R BenchGraphsSmoke` runs it at about 600 nodes. Four generated graphs
+of about 4000 nodes each (a graph file holds at most 4096), saved as `.zgraph` and measured: loading the file
+(`Graph::Load`: the JSON parse and `Graph::Parse`), `Validate`, the bytecode cook (`Bytecode::Compile`: validate,
+resolve, expand, encode), loading the VM from the source file (what the editor's Play does) and from the cooked file
+(the exported Player), running the `Start` event, and running it with the VM profiler on. The cases: `wide` (one event,
+an execution chain of 1000 Set nodes, each fed by Get/Multiply/Add), `deep` (31 typed functions calling each other -
+the VM's depth limit is 32 - run 100 times from a For loop), `loops` (nested 100 x 100 For loops adding to an
+accumulator), `macros` (500 instances of an inline macro, expanded to 3994 program nodes). Filler expressions make each
+graph up to its size. The cooked program must give the same variables as the source and the profiler must count the
+run (exit code 3 otherwise). Times: the median of 9 repeats (`--repeat`); `--write DIR` saves the graphs (the editor's
+large graph checks).
+
+### Baseline (2026-11-27)
+
+Environment: 4 vCPU Intel Xeon @ 2.10 GHz, GCC 13.3, a **Release** build (`Tests/Baselines/graphs-release.json`).
+
+| Case | Nodes (program) | Node runs | Source / cooked bytes | Load file | Validate | Cook | VM load: source / cooked | Run | Run, profiled |
+|---|---|---:|---|---:|---:|---:|---|---:|---:|
+| `wide` | 4001 | 4001 | 1 037 026 / 59 158 | 17.8 ms | 12.1 ms | 13.8 ms | 30.6 / 2.5 ms | 1.09 ms | 1.81 ms |
+| `deep` | 3999 | 12 802 | 928 868 / 70 646 | 15.3 ms | 13.5 ms | 20.6 ms | 28.5 / 2.1 ms | 10.0 ms | 12.9 ms |
+| `loops` | 4000 | 50 202 | 912 727 / 66 773 | 15.3 ms | 10.3 ms | 11.5 ms | 26.2 / 1.9 ms | 16.7 ms | 25.7 ms |
+| `macros` | 2999 (3994) | 1501 | 716 875 / 73 540 | 12.5 ms | 35.3 ms | 83.2 ms | 76.0 / 2.9 ms | 0.46 ms | 0.77 ms |
+
+How to read it:
+
+- **The cooked file** is 10-17x smaller than the JSON source and loads the VM 12-26x faster: it is parsed with bounds
+  checks only, without validating, resolving or expanding again (VisualWorkshop's eight graphs: 47 KB → 10 KB).
+- **Execution**: about 0.25-0.8 µs per node run (a typed call 31 deep, `deep`, costs the most per node: the call
+  frames and their arguments). The profiler costs 1.2-1.7x while it runs (two clock reads per node run).
+- **Macros** are expanded at load and cook time (`Graph::Expand`, then validated as expanded): the most expensive load
+  from source, and the case where the cooked file saves the most.
+
+The large graph problems found and fixed with this benchmark (the same machine and build, 4000 nodes, `wide` / `deep` /
+`loops`; the `macros` case was added afterwards):
+
+| | Before | After | What changed |
+|---|---|---|---|
+| Load file | 108 / 81 / 84 ms | 18 / 15 / 15 ms | the JSON was parsed from a stream with a callback per value (the nesting limit); now read whole and the nesting checked on the text |
+| Validate (`deep`) | 43.6 ms | 13.5 ms | the return-path check described every wire's target once per typed function; now one index per graph |
+| VM load from source | 122 / 128 / 96 ms | 31 / 28 / 26 ms | (the two above) |
+| Run | 2.82 / 13.4 / 23.1 ms | 1.09 / 10.0 / 16.7 ms | a check message was built as a `std::string` on every step; the data-cycle guard allocated a set node per evaluation; inputs, wires and pin descriptions were found in `std::map`s keyed by (node, name) - now per-node vectors and an index; a variable write no longer walks every variable to account the retained bytes |
+| Run, profiled (`deep`) | 31.7 ms | 12.9 ms | the profiler copied the call stack's function names every step; now one time sum per call |
+
+The editor: a 4000-node graph opened at the fit zoom drew every node and wire every frame — 4001 nodes / 4000 wires,
+562 772 vertices and 149 ms of canvas CPU time a frame (a **Debug** build, Mesa llvmpipe, `ZAMIN_EDITOR_VISUAL_LAYOUT`
+statistics); the canvas now culls what is off screen: 80 nodes / 99 wires, 17 932 vertices, 19 ms.
+
 ## ECS: creating, iterating, deleting (`ZaminBench --ecs`)
 
 `Tests/EcsBench.cpp`, run with `ZaminBench --ecs [--entities N] [--frames N] [--json file]` or

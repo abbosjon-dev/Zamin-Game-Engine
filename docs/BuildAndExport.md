@@ -352,6 +352,21 @@ sprites left out, the tiles exported, a second export served entirely from the c
 V1 limits: lossless only (no GPU block compression such as BC/ASTC yet), one page per atlas, the cooked format is read
 by this engine version only (a format change cooks again).
 
+### Graph cook (Visual Script bytecode)
+
+The export also compiles every Visual Script graph (`.zgraph`) the game takes to validated bytecode
+(`ExportCook::CookGraphs`, `Scripting/Visual/VisualGraphBytecode.h`; `"Export"` → `"CookGraphs": false` turns it off):
+the parent chain resolved, macros expanded, the pin descriptions and wires precomputed, written over the exported
+`.zgraph` (a `ZGBC` header with the format version and the engine's node catalogue hash). The Player runs it without
+parsing JSON or validating again; the editor works from the sources. A graph that does not validate (the Player would
+reject it) is not cooked: it stays JSON, its parents too, and the report lists it as `rejected` with the error, plus a
+warning. A native C++ method that does not bind with the module the editor has loaded is a warning. The cook cache
+(`<project>/Build/CookCache/<key>.zgbc`, keyed by the graph's, its parents' and the catalogue's hash) keeps unchanged
+graphs from being compiled again. The **Export report** and `export-report.txt` list every graph (cooked / rejected /
+kept, the bytes before and after, the program's nodes, cache hits). `Tests/cook_export_test.sh` also exports
+VisualWorkshop and runs its cooked graphs in the exported Player. The format is described in
+[the Visual Script guide](VisualScripting.md#cooked-graphs-bytecode).
+
 ## 9. The export folder
 
 ```

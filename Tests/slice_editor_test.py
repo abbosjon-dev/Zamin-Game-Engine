@@ -26,7 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD = Path(os.environ.get("ZAMIN_BUILD_DIR", str(ROOT / "build"))).resolve()
 SLICE_GRAPHS = {"LanternKeeper": ("Game", "Enemy", "Menu", "Hero"), "BeaconPass": ("Camera3D", "Game", "Enemy", "Menu", "Hero")}
 # Screen positions of the editor's Blueprint window at 1600x1000 (as the other *_editor_test.py): the node library's search
-# box and first result, the toolbar's Save / Undo / Redo, the selected-node panel's rows.
+# box and first result, the toolbar's Save / Undo / Redo. The selected-node panel's widgets are found through the layout file
+# the editor writes (ZAMIN_EDITOR_VISUAL_LAYOUT), as in visual_graph_editor_test.py.
 SEARCH, FIRST_RESULT, SAVE, UNDO, REDO = (150, 233), (155, 283), (473, 140), (531, 140), (587, 140)
 
 
@@ -64,7 +65,8 @@ def authoring(out):
     shutil.copytree(ROOT / "Projects/VisualWorkshop", project, ignore=shutil.ignore_patterns(".zamin", "Build"))
     (work / "home").mkdir()
     graph_file = project / "Assets/Scripts/Move2D.zgraph"
-    env = dict(os.environ, HOME=str(work / "home"), ZAMIN_EDITOR_VISUAL_GRAPH="Scripts/Move2D.zgraph", ZAMIN_EDITOR_SELECT="Player", ZAMIN_MAX_FRAMES="20000")
+    layout = work / "layout.json"
+    env = dict(os.environ, HOME=str(work / "home"), ZAMIN_EDITOR_VISUAL_LAYOUT=str(layout), ZAMIN_EDITOR_VISUAL_GRAPH="Scripts/Move2D.zgraph", ZAMIN_EDITOR_SELECT="Player", ZAMIN_MAX_FRAMES="20000")
     log_path = work / "editor.log"
     log = log_path.open("w")
     app = subprocess.Popen([str(BUILD / "bin/ZaminEditor"), str(project / "VisualWorkshop.zproject")], env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -81,6 +83,36 @@ def authoring(out):
                 return
             time.sleep(1)
         raise AssertionError(f"{what}: {read()['Nodes'][-1]}")
+
+    def items():
+        for _ in range(20):
+            try:
+                return json.loads(layout.read_text())
+            except (OSError, ValueError):
+                time.sleep(.3)
+        raise RuntimeError("No layout file")
+
+    def find(name):
+        # The centre of the selected node's input widget for pin `name`, scrolled into the properties column first.
+        for _ in range(40):
+            data = items()
+            region = data["Regions"].get("properties")
+            match = [v["Rect"] for k, v in data["Items"].items() if k.startswith("node/") and k.split("/")[-1].split("##")[0] == name]
+            if match and region:
+                r = match[0]
+                cx, cy = int((region[0] + region[2]) / 2), int((region[1] + region[3]) / 2)
+                if r[3] > region[3] - 4:
+                    wheel(cx, cy, 1)
+                    continue
+                if r[1] < region[1] + 4:
+                    x("mousemove", cx, cy)
+                    time.sleep(.3)
+                    x("click", "4")
+                    time.sleep(.8)
+                    continue
+                return int((r[0] + r[2]) / 2), int((r[1] + r[3]) / 2)
+            time.sleep(.4)
+        raise RuntimeError(f"Node input not found in the properties column: {name} (keys: {[k for k in items()['Items'] if k.startswith('node/')]})")
 
     def last(graph):
         return graph["Nodes"][-1]
@@ -112,8 +144,8 @@ def authoring(out):
         saved(f"{kind}.{name} undone again", lambda g: len(g["Nodes"]) == 12 and last(g)["Inputs"].get(name, default) == default)
 
     def fade_out():
-        # LoadScene's FadeOut field (the selected-node panel's second row): typed through the real text input.
-        click(1390, 319)
+        # LoadScene's FadeOut field: typed through the real text input.
+        click(*find("FadeOut"))
         time.sleep(1)
         x("keydown", "ctrl")
         time.sleep(.4)
@@ -127,16 +159,17 @@ def authoring(out):
         time.sleep(2)
 
     def hud_kind_ability():
-        # UIBindHUD's Kind combo: its popup shows 8 of the 10 kinds; scrolled to the end, Kind 8 is the second last row.
-        click(1385, 395)
+        # UIBindHUD's Kind combo: its popup opens below it and shows 8 of the 10 kinds; scrolled to the end, Kind 8 is the
+        # second last row (163 px below the combo's centre at the default font).
+        cx, cy = find("Kind")
+        click(cx, cy)
         time.sleep(1)
-        wheel(1332, 520, 2)
-        click(1332, 558)
+        wheel(cx - 53, cy + 125, 2)
+        click(cx - 53, cy + 163)
 
     def ai_strike_off():
-        # AIConfigure's Strike checkbox, below the panel's first page: three wheel notches bring it to y 625.
-        wheel(1330, 600, 3)
-        click(1307, 625)
+        # AIConfigure's Strike checkbox, scrolled into view.
+        click(*find("Strike"))
 
     passed = []
     try:

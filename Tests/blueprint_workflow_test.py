@@ -57,11 +57,14 @@ def main():
                 # Make Result{Total, Rank} -> Set Summary -> Break (Total) + GetField (Rank) -> Print.
                 if f'BLUEPRINT_SUMMARY total={score} rank={rank}' not in text:
                     raise RuntimeError(f'{scene}/{mode}: missing struct summary; {log}')
+                # Report{Result (nested struct), Ranks (enum array)} -> the Announce macro (Delay + Print) twice.
+                if f'BLUEPRINT_REPORT total={score}' not in text or 'BLUEPRINT_REPORT ranks=2' not in text:
+                    raise RuntimeError(f'{scene}/{mode}: missing macro report; {log}')
                 if any(marker in text for marker in ('GL_INVALID_', 'Assertion failed', "Visual graph '", 'Visual graph error', 'Visual graph:')):
                     raise RuntimeError(f'{scene}/{mode}: runtime diagnostic; {log}')
                 subprocess.run(['python3', str(ROOT / 'Tests/png_check.py'), str(png)], check=True)
                 results.append({'Scene': scene, 'Mode': mode, 'Frames': 120, 'Total': score, 'Rank': rank, 'NativeGameModule': False})
-                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary, total={score} rank={rank}', flush=True)
+                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary + nested struct/enum array macro report, total={score} rank={rank}', flush=True)
             if args.exports:
                 export_out = out / (scene+'-export')
                 export_env = dict(env, ZAMIN_BUILD_DIR=str(build))

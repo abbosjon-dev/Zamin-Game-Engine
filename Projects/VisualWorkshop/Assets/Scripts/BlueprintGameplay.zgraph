@@ -1,6 +1,6 @@
 {
   "Format": "Zamin.VisualGraph",
-  "Version": 3,
+  "Version": 4,
   "Nodes": [
     {
       "ID": 1,
@@ -397,6 +397,165 @@
       "X": 1860,
       "Y": 1000,
       "Inputs": {}
+    },
+    {
+      "ID": 80,
+      "Kind": "Constant.ArrayEnum",
+      "X": 1340,
+      "Y": 2200,
+      "Inputs": {
+        "Enum": "Rank",
+        "Value": [
+          0
+        ]
+      }
+    },
+    {
+      "ID": 81,
+      "Kind": "Array.Append.Enum",
+      "X": 1600,
+      "Y": 2200,
+      "Inputs": {
+        "Enum": "Rank"
+      }
+    },
+    {
+      "ID": 82,
+      "Kind": "Struct.Make",
+      "X": 1860,
+      "Y": 2100,
+      "Inputs": {
+        "Struct": "Report"
+      }
+    },
+    {
+      "ID": 83,
+      "Kind": "Set.Struct",
+      "X": 2120,
+      "Y": 1000,
+      "Inputs": {
+        "Name": "Report"
+      }
+    },
+    {
+      "ID": 84,
+      "Kind": "Get.Struct",
+      "X": 2120,
+      "Y": 2100,
+      "Inputs": {
+        "Name": "Report"
+      }
+    },
+    {
+      "ID": 85,
+      "Kind": "Struct.GetField",
+      "X": 2380,
+      "Y": 2100,
+      "Inputs": {
+        "Struct": "Report",
+        "Field": "Result"
+      }
+    },
+    {
+      "ID": 86,
+      "Kind": "Struct.GetField",
+      "X": 2640,
+      "Y": 2100,
+      "Inputs": {
+        "Struct": "Result",
+        "Field": "Total"
+      }
+    },
+    {
+      "ID": 87,
+      "Kind": "Struct.GetField",
+      "X": 2380,
+      "Y": 2300,
+      "Inputs": {
+        "Struct": "Report",
+        "Field": "Ranks"
+      }
+    },
+    {
+      "ID": 88,
+      "Kind": "Array.Length.Enum",
+      "X": 2640,
+      "Y": 2300,
+      "Inputs": {
+        "Enum": "Rank"
+      }
+    },
+    {
+      "ID": 89,
+      "Kind": "Macro.Instance",
+      "X": 2380,
+      "Y": 1000,
+      "Inputs": {
+        "Name": "Announce",
+        "Label": "BLUEPRINT_REPORT total="
+      }
+    },
+    {
+      "ID": 90,
+      "Kind": "Macro.Instance",
+      "X": 2640,
+      "Y": 1000,
+      "Inputs": {
+        "Name": "Announce",
+        "Label": "BLUEPRINT_REPORT ranks="
+      }
+    },
+    {
+      "ID": 100,
+      "Kind": "Macro.Entry",
+      "X": 30,
+      "Y": 2600,
+      "Inputs": {},
+      "Macro": "Announce"
+    },
+    {
+      "ID": 101,
+      "Kind": "Delay",
+      "X": 300,
+      "Y": 2600,
+      "Inputs": {
+        "Seconds": 0.01
+      },
+      "Macro": "Announce"
+    },
+    {
+      "ID": 102,
+      "Kind": "FormatNumber",
+      "X": 300,
+      "Y": 2780,
+      "Inputs": {
+        "Decimals": 0
+      },
+      "Macro": "Announce"
+    },
+    {
+      "ID": 103,
+      "Kind": "Concat",
+      "X": 560,
+      "Y": 2740,
+      "Inputs": {},
+      "Macro": "Announce"
+    },
+    {
+      "ID": 104,
+      "Kind": "Print",
+      "X": 820,
+      "Y": 2600,
+      "Inputs": {},
+      "Macro": "Announce"
+    },
+    {
+      "ID": 105,
+      "Kind": "Macro.Exit",
+      "X": 1080,
+      "Y": 2600,
+      "Inputs": {},
+      "Macro": "Announce"
     }
   ],
   "Links": [
@@ -735,6 +894,132 @@
       "Output": "Value",
       "To": 70,
       "Input": "Text"
+    },
+    {
+      "From": 80,
+      "Output": "Value",
+      "To": 81,
+      "Input": "Array"
+    },
+    {
+      "From": 30,
+      "Output": "Rank",
+      "To": 81,
+      "Input": "Value"
+    },
+    {
+      "From": 60,
+      "Output": "Value",
+      "To": 82,
+      "Input": "Result"
+    },
+    {
+      "From": 81,
+      "Output": "Value",
+      "To": 82,
+      "Input": "Ranks"
+    },
+    {
+      "From": 70,
+      "Output": "Then",
+      "To": 83,
+      "Input": "In"
+    },
+    {
+      "From": 82,
+      "Output": "Value",
+      "To": 83,
+      "Input": "Value"
+    },
+    {
+      "From": 84,
+      "Output": "Value",
+      "To": 85,
+      "Input": "Value"
+    },
+    {
+      "From": 85,
+      "Output": "Value",
+      "To": 86,
+      "Input": "Value"
+    },
+    {
+      "From": 84,
+      "Output": "Value",
+      "To": 87,
+      "Input": "Value"
+    },
+    {
+      "From": 87,
+      "Output": "Value",
+      "To": 88,
+      "Input": "Array"
+    },
+    {
+      "From": 83,
+      "Output": "Then",
+      "To": 89,
+      "Input": "In"
+    },
+    {
+      "From": 86,
+      "Output": "Value",
+      "To": 89,
+      "Input": "Value"
+    },
+    {
+      "From": 89,
+      "Output": "Then",
+      "To": 90,
+      "Input": "In"
+    },
+    {
+      "From": 88,
+      "Output": "Value",
+      "To": 90,
+      "Input": "Value"
+    },
+    {
+      "From": 100,
+      "Output": "In",
+      "To": 101,
+      "Input": "In"
+    },
+    {
+      "From": 100,
+      "Output": "Value",
+      "To": 102,
+      "Input": "Number"
+    },
+    {
+      "From": 100,
+      "Output": "Label",
+      "To": 103,
+      "Input": "A"
+    },
+    {
+      "From": 102,
+      "Output": "Value",
+      "To": 103,
+      "Input": "B"
+    },
+    {
+      "From": 101,
+      "Output": "Then",
+      "To": 104,
+      "Input": "In"
+    },
+    {
+      "From": 103,
+      "Output": "Value",
+      "To": 104,
+      "Input": "Text"
+    },
+    {
+      "From": 104,
+      "Output": "Then",
+      "To": 105,
+      "Input": "Then"
     }
   ],
   "Variables": {
@@ -766,6 +1051,17 @@
         "Rank": 0
       },
       "Struct": "Result"
+    },
+    "Report": {
+      "Type": "Struct",
+      "Default": {
+        "Result": {
+          "Total": 0,
+          "Rank": 0
+        },
+        "Ranks": []
+      },
+      "Struct": "Report"
     }
   },
   "Functions": {
@@ -847,6 +1143,53 @@
           "Type": "Enum",
           "Default": 0,
           "Enum": "Rank"
+        }
+      ]
+    },
+    "Report": {
+      "Fields": [
+        {
+          "Name": "Result",
+          "Type": "Struct",
+          "Default": {
+            "Total": 0,
+            "Rank": 0
+          },
+          "Struct": "Result"
+        },
+        {
+          "Name": "Ranks",
+          "Type": "ArrayEnum",
+          "Default": [],
+          "Enum": "Rank"
+        }
+      ]
+    }
+  },
+  "Macros": {
+    "Announce": {
+      "Inputs": [
+        {
+          "Name": "In",
+          "Type": "Exec",
+          "Default": null
+        },
+        {
+          "Name": "Label",
+          "Type": "String",
+          "Default": ""
+        },
+        {
+          "Name": "Value",
+          "Type": "Number",
+          "Default": 0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Then",
+          "Type": "Exec",
+          "Default": null
         }
       ]
     }

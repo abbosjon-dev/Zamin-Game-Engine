@@ -552,7 +552,7 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
         auto scene = CreateRef<Scene>();
         CHECK(SceneSerializer(scene).Deserialize(root / "Assets/Scenes" / (name + ".zscene")));
         scene->OnRuntimeStart();
-        for (int i = 0; i < 20; ++i) scene->UpdateRuntime(.02f);
+        for (int i = 0; i < 30; ++i) scene->UpdateRuntime(.02f);
         auto entity = scene->FindEntityByName("Blueprint gameplay controller");
         CHECK(entity);
         if (entity)
@@ -566,6 +566,9 @@ TEST(BlueprintWorkshopRunsTypedDelayedCollectionsInRealScenes)
                 CHECK(host->VM.Variables().at("FinalRank") == rank);
                 // The Result struct made from Total and the rank, stored in Summary and read back by Break/GetField.
                 CHECK(host->VM.Variables().at("Summary") == Value({ { "Total", expected }, { "Rank", rank } }));
+                // Report nests that Result and keeps the rank history (Bronze, then the final rank) in an enum array;
+                // the Announce macro (with a Delay inside) prints its total and the history's length.
+                CHECK(host->VM.Variables().at("Report") == Value({ { "Result", { { "Total", expected }, { "Rank", rank } } }, { "Ranks", Value::array({ 0, rank }) } }));
                 CHECK(host->VM.Pending() == 0);
             }
         }

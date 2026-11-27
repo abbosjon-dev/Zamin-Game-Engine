@@ -1,5 +1,7 @@
 #include "TestAssertions.h"
 #include <Zamin/Scripting/Visual/VisualGraph.h>
+#include <Zamin/Scripting/Visual/VisualGraphBytecode.h>
+#include <cstring>
 #include <filesystem>
 #include <limits>
 using namespace Zamin::Visual;
@@ -550,11 +552,11 @@ TEST(BlueprintCallArityAndSignatureDiagnostics)
     g.Links.push_back({ 30, "Value", 2, "X" });
     CHECK(Mentions(g.Validate(), "Link pin types differ"));
 }
-TEST(BlueprintFormatVersion5AndOlderMigration)
+TEST(BlueprintFormatVersion6AndOlderMigration)
 {
     auto g = FunctionGraph();
     auto json = g.Serialize();
-    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 5 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
+    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 6 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
     // A version 1 file (no Enums/Structs/Macros section): typed functions, locals and legacy names read unchanged.
     auto v1 = json;
     v1["Version"] = 1;
@@ -573,7 +575,7 @@ TEST(BlueprintFormatVersion5AndOlderMigration)
     vm.Event("Start");
     CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
     const auto upgraded = migrated.Serialize();
-    CHECK(upgraded.at("Version") == 5 && Graph::Parse(upgraded).SourceVersion == 5 && Graph::Parse(upgraded).Serialize() == upgraded);
+    CHECK(upgraded.at("Version") == 6 && Graph::Parse(upgraded).SourceVersion == 6 && Graph::Parse(upgraded).Serialize() == upgraded);
     // A version 2 file (enums, no Structs section) loads unchanged and runs the same.
     auto enumV2 = EnumGraph().Serialize();
     enumV2["Version"] = 2;
@@ -606,7 +608,7 @@ TEST(BlueprintFormatVersion5AndOlderMigration)
     try { Graph::Parse(structVariableV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
     CHECK(threw);
     auto future = json;
-    future["Version"] = 6;
+    future["Version"] = 7;
     threw = false;
     try { Graph::Parse(future); } catch (const std::exception&) { threw = true; }
     CHECK(threw);
@@ -1670,7 +1672,7 @@ TEST(BlueprintInheritanceInheritsMembersAndOverridesFunctionsAndEvents)
     CHECK(resolved.Inherited.Origins.size() == base.Nodes.size() && resolved.Inherited.OverriddenEvents.size() == 1 && resolved.Inherited.ParentEvents.at(6).size() == 1);
     // Only the child's own members are saved; parsing and inheriting again gives the same graph.
     const auto json = child.Serialize();
-    CHECK(json.at("Version") == 5 && json.at("Parent") == "Scripts/Base.zgraph" && !json.at("Variables").contains("Level") && json.at("Variables").contains("Extra"));
+    CHECK(json.at("Version") == 6 && json.at("Parent") == "Scripts/Base.zgraph" && !json.at("Variables").contains("Level") && json.at("Variables").contains("Extra"));
     CHECK(json.at("Functions").contains("Bonus") && json.at("Enums").empty() && json.at("Structs").empty() && json.at("Macros").empty() && json.at("Nodes").size() == child.Nodes.size());
     auto again = Graph::Parse(json);
     CHECK(again.Parent == child.Parent && again.Inherited.Variables.empty());
@@ -1798,4 +1800,138 @@ TEST(BlueprintInheritanceParentEditsAndRenamesPropagateOnLoad)
     CHECK(child.Save(assets / "Scripts/Child.zgraph"));
     CHECK(Graph::Load(assets / "Scripts/Child.zgraph").Validate().empty());
     std::filesystem::remove_all(assets.parent_path());
+}
+
+// ---------- Bytecode cook and the VM profiler
+namespace {
+    // A graph run from its source and from its cooked bytes gives the same variables and errors.
+    void SameAsCooked(const Graph& g, std::initializer_list<const char*> events, double tick = 0)
+    {
+        const auto cooked = Bytecode::Compile(g);
+        CHECK(cooked.Ok && cooked.Errors.empty() && Bytecode::IsCooked(cooked.Bytes.data(), cooked.Bytes.size()));
+        Program program;
+        std::string error;
+        CHECK(Bytecode::Read(cooked.Bytes.data(), cooked.Bytes.size(), program, error));
+        CHECK(error.empty() && program.Runnable.Nodes.size() == cooked.Nodes && program.Definitions.size() == cooked.Nodes);
+        Machine source, binary;
+        CHECK(source.Load(g) && binary.Load(std::move(program)));
+        for (auto e : events)
+        {
+            source.Event(e);
+            binary.Event(e);
+        }
+        if (tick > 0)
+        {
+            source.Tick(tick);
+            binary.Tick(tick);
+        }
+        CHECK(source.Error().empty() && source.Error() == binary.Error());
+        CHECK(source.Variables() == binary.Variables());
+        // The cooked form is smaller than the JSON source.
+        CHECK(cooked.Bytes.size() < g.Serialize().dump().size());
+    }
+}
+TEST(BlueprintBytecodeRunsLikeTheSource)
+{
+    SameAsCooked(FunctionGraph(), { "Start" });
+    SameAsCooked(EnumGraph(), { "Start" });
+    SameAsCooked(StructGraph(), { "Start" });
+    SameAsCooked(NestedGraph(), { "Start" });
+    SameAsCooked(EnumArrayGraph(), { "Start" });
+    SameAsCooked(MacroGraph(), { "Start" }, 2.0);
+    // A child graph: the cooked program holds the resolved parent chain (overrides, Parent.Call/Parent.Event).
+    auto child = ChildGraph();
+    child.InheritFrom(BaseGraph(), child.Parent);
+    SameAsCooked(child, { "Create", "Start", "Custom.Hit" });
+    // The same bytes every time (no addresses or iteration order of pointers).
+    CHECK(Bytecode::Compile(child).Bytes == Bytecode::Compile(child).Bytes);
+}
+TEST(BlueprintBytecodeRejectsWhatTheRuntimeRejects)
+{
+    // An invalid graph is not cooked; the error is the one Machine::Load gives.
+    auto g = FunctionGraph();
+    g.Links.push_back({ 1, "Then", 99, "In" });
+    const auto compiled = Bytecode::Compile(g);
+    Machine vm;
+    CHECK(!vm.Load(g) && !compiled.Ok && compiled.Bytes.empty() && !compiled.Errors.empty() && compiled.Error == vm.Error());
+    // Damaged, foreign or outdated bytes are refused with a reason.
+    auto bytes = Bytecode::Compile(FunctionGraph()).Bytes;
+    Program program;
+    std::string error;
+    auto refused = [&](std::vector<uint8_t> b, const char* reason) {
+        error.clear();
+        const bool read = Bytecode::Read(b.data(), b.size(), program, error);
+        return !read && error.find(reason) != std::string::npos && program.Runnable.Nodes.empty();
+    };
+    CHECK(refused({ bytes.begin(), bytes.begin() + 10 }, "Not a cooked graph"));
+    auto flipped = bytes;
+    flipped.back() ^= 0x5a;
+    CHECK(refused(flipped, "checksum"));
+    auto version = bytes;
+    version[4] = 99;
+    CHECK(refused(version, "format 99"));
+    auto engine = bytes;
+    engine[9] ^= 1;
+    CHECK(refused(engine, "another engine version"));
+    auto truncated = bytes;
+    truncated.resize(truncated.size() - 3);
+    CHECK(refused(truncated, "size"));
+    // A payload whose checksum fits but whose content is cut: the reader's bounds checks refuse it.
+    auto cut = bytes;
+    cut.resize(Bytecode::HeaderSize + 6);
+    const uint32_t payload = 6;
+    std::memcpy(cut.data() + 24, &payload, 4);
+    uint64_t hash = 0xcbf29ce484222325ull;
+    for (size_t i = Bytecode::HeaderSize; i < cut.size(); ++i) hash = (hash ^ cut[i]) * 0x100000001b3ull;
+    std::memcpy(cut.data() + 16, &hash, 8);
+    CHECK(refused(cut, "damaged"));
+    CHECK(Bytecode::Read(bytes.data(), bytes.size(), program, error) && program.Runnable.Functions.contains("Double"));
+}
+TEST(BlueprintProfilerCountsNodesFunctionsAndHotPaths)
+{
+    // Start -> For 10 -> (Body) Double(Index) -> Set Answer; Completed -> Print.
+    auto g = FunctionGraph();
+    g.Nodes.push_back({ 20, "For", 0, 0, { { "Count", 10. } } });
+    g.Nodes.push_back({ 21, "Print", 0, 0, { { "Text", "done" } } });
+    g.Links[0] = { 1, "Then", 20, "In" };
+    g.Links.push_back({ 20, "Body", 2, "In" });
+    g.Links.push_back({ 20, "Index", 2, "X" });
+    g.Links.push_back({ 20, "Completed", 21, "In" });
+    std::erase_if(g.Nodes[1].Inputs, [](const auto& input) { return input.first == "X"; });
+    CHECK(g.Validate().empty());
+    Machine vm;
+    CHECK(vm.Load(g, [](const auto&, const auto&) -> Value { return nullptr; }));
+    vm.Event("Start");
+    CHECK(vm.GetProfile().Nodes.empty()); // off by default
+    vm.Profiling = true;
+    vm.Event("Start");
+    CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 18.);
+    const auto& p = vm.GetProfile();
+    // The For node runs once per iteration and once to finish; its body once per iteration.
+    CHECK(p.Nodes.at(1).Calls == 1 && p.Nodes.at(20).Calls == 11 && p.Nodes.at(2).Calls == 10 && p.Nodes.at(3).Calls == 10 && p.Nodes.at(21).Calls == 1);
+    // The data node inside the function (Multiply) is evaluated once per call; its time is inside Set's inclusive.
+    CHECK(p.Nodes.at(11).Calls == 10 && p.Nodes.at(12).Inclusive >= p.Nodes.at(12).Exclusive);
+    for (const auto& [id, n] : p.Nodes) CHECK(n.Inclusive >= n.Exclusive && n.Exclusive >= 0);
+    CHECK(p.Functions.at("Double").Calls == 10 && p.Functions.at("Double").Inclusive >= p.Functions.at("Double").Exclusive * (1 - 1e-9) && p.Functions.at("Double").Exclusive > 0);
+    CHECK(p.Edges.at({ 20, 2 }) == 10 && p.Edges.at({ 1, 20 }) == 1 && p.Runs == 1 && p.Seconds > 0);
+    // The hot path starts at the event and follows the loop into the function call.
+    const auto path = p.HotPath();
+    CHECK(path.size() >= 3 && path[0] == 1 && path[1] == 20 && path[2] == 2);
+    CHECK(p.Hottest(3).size() == 3);
+    // Profiles of several instances merge; a reset forgets them.
+    Machine::Profile total;
+    total.Merge(p);
+    total.Merge(p);
+    CHECK(total.Nodes.at(20).Calls == 22 && total.Functions.at("Double").Calls == 20 && total.Edges.at({ 20, 2 }) == 20);
+    vm.ResetProfile();
+    CHECK(vm.GetProfile().Nodes.empty());
+    // ProfileAll turns it on for every machine; a macro copy counts on its instance.
+    Machine::ProfileAll = true;
+    Machine macro;
+    CHECK(macro.Load(MacroGraph()));
+    macro.Event("Start");
+    macro.Tick(2.0);
+    Machine::ProfileAll = false;
+    CHECK(macro.GetProfile().Nodes.contains(2) && macro.GetProfile().Nodes.contains(4));
+    for (const auto& [id, n] : macro.GetProfile().Nodes) CHECK(MacroGraph().Find(id) != nullptr);
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "Zamin/Project/ExportCook.h"
 
 #include "Zamin/Project/ExportAssets.h"
 
@@ -119,6 +120,11 @@ namespace Zamin {
         uintmax_t CookedSourceBytes() const;  // of the cooked ones before
         uintmax_t CookedBytes() const;        // ... and after
         size_t CookedCount() const;
+        // The Visual Script graphs the graph cook looked at (ExportCook::CookGraphs): cooked to bytecode or kept.
+        std::vector<CookedGraph> CookedGraphs;
+        size_t GraphCacheHits = 0;
+        double GraphCookSeconds = 0.0;
+        size_t CookedGraphCount() const;
         std::vector<std::string> Warnings, Errors;
 
         static constexpr size_t DefaultLargestCount = 15;

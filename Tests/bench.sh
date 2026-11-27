@@ -4,12 +4,12 @@
 # prefab instances (--serialize --prefabs, Tests/PrefabBench.cpp), the gameplay combat world (--combat,
 # Tests/CombatBench.cpp) and the vertical slices' stress gates: physics (--physics, Tests/PhysicsBench.cpp) and animation
 # (--animation, Tests/AnimationBench.cpp) and the slices' crowded levels (--slice-stress, Tests/SliceStressBench.cpp) -
-# their invariants fail a run too. No display or GPU is needed (the rendering
+# their invariants fail a run too - and large Visual Script graphs (--graphs, Tests/GraphBench.cpp). No display or GPU is needed (the rendering
 # benchmark is Tests/render_bench.sh). The numbers that matter come from a Release build:
 #   cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build-release --target ZaminBench
 #   ZAMIN_BUILD_DIR=build-release Tests/bench.sh                 every benchmark, results in <build>/Bench
 #   Tests/bench.sh --only ecs,serialize                          some of them (ecs, serialize, prefabs, combat, physics,
-#                                                                animation, slicestress)
+#                                                                animation, slicestress, graphs)
 #   Tests/bench.sh --compare [--tolerance 25] [--repeat 3]       also against Tests/Baselines/<name>-<build>.json:
 #                                                                a number slower by more than 25 % fails the run -
 #                                                                in every run: a benchmark that looks slower is run
@@ -26,7 +26,7 @@ build="${ZAMIN_BUILD_DIR:-$root/build}"
 [[ "$build" != /* ]] && build="$root/$build"
 bench="$build/bin/ZaminBench"
 out="$build/Bench"
-only="ecs,serialize,prefabs,combat,physics,animation,slicestress"
+only="ecs,serialize,prefabs,combat,physics,animation,slicestress,graphs"
 compare=0
 update=0
 tolerance=25
@@ -125,7 +125,8 @@ for name in "${names[@]}"; do
         physics) run physics --physics ;;
         animation) run animation --animation ;;
         slicestress) run slicestress --slice-stress ;;
-        *) echo "unknown benchmark: $name (ecs, serialize, prefabs, combat, physics, animation, slicestress)" >&2; exit 2 ;;
+        graphs) run graphs --graphs ;;
+        *) echo "unknown benchmark: $name (ecs, serialize, prefabs, combat, physics, animation, slicestress, graphs)" >&2; exit 2 ;;
     esac
 done
 echo "Results: $out"

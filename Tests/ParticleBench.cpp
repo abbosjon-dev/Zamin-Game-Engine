@@ -44,6 +44,10 @@
 // around a flying camera instead (TerrainTilesBench.cpp, a GL context: Tests/terrain_tiles_bench.sh) - background vs
 // main-thread tile reads and a tight memory budget: frame time, streaming time, loads per frame, resident memory.
 //
+// ZaminBench --graphs [--nodes N] [--repeat R] [--json <file>]: large Visual Script graphs instead (GraphBench.cpp,
+// headless) - thousands of nodes, deep typed call chains, nested loops and macros: load, validate, bytecode cook, VM
+// load from the source and from the cooked file, execution with and without the VM profiler, source and cooked sizes.
+//
 // ZaminBench --foliage [--instances N] [--frames N] [--json <file>]: a dense packed foliage scene instead
 // (FoliageBench.cpp, a GL context: Tests/foliage_bench.sh) - ~1M instances, CPU against GPU compute culling, with and
 // without HLOD: frame time, culling time (CPU and GPU), draw calls, instances per LOD, HLOD cells.
@@ -81,6 +85,7 @@ int RunAnimationBench(int argc, char** argv);               // AnimationBench.cp
 int RunSliceStressBench(int argc, char** argv);             // SliceStressBench.cpp
 int RunFoliageBench(int argc, char** argv);                 // FoliageBench.cpp
 int RunTerrainTilesBench(int argc, char** argv);            // TerrainTilesBench.cpp
+int RunGraphBench(int argc, char** argv);                   // GraphBench.cpp
 
 namespace {
 
@@ -504,6 +509,8 @@ int main(int argc, char** argv)
             return RunFoliageBench(argc, argv);
         else if (!std::strcmp(argv[i], "--terrain-tiles"))
             return RunTerrainTilesBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--graphs"))
+            return RunGraphBench(argc, argv);
         else if (!std::strcmp(argv[i], "--build-atlas") && i + 2 < argc)
         {
             // A tool for the sample generators: a sprite atlas from a folder of an asset directory, with the engine's packer.

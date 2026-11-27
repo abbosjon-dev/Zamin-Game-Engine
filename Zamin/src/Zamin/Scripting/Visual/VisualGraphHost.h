@@ -59,6 +59,16 @@ namespace Zamin {
         void OnJointBreak3D(const JointBreak3D& e) override { Emit("JointBreak3D", { { "Number", e.Force } }); }
     private:
         Visual::Value Bridge(const std::string&, const std::map<std::string, Visual::Value>&);
+        Visual::Value CallNative(Entity target, const std::map<std::string, Visual::Value>& args);
+        // A native method bound to the live registry generation it was looked up in (re-bound after a module
+        // load/unload/hot reload); Problem: why it cannot run.
+        struct NativeBinding
+        {
+            uint64_t Generation = 0;
+            const ScriptMethodInfo* Method = nullptr;
+            std::string Owner, Problem;
+        };
+        std::map<std::string, NativeBinding> m_Natives;
         Gameplay::Runtime m_Gameplay;
         bool m_Reported = false;
         uint64_t m_TraversalLink = 0, m_TraversalRevision = 0;
@@ -68,4 +78,20 @@ namespace Zamin {
     // the C++ names and values, Source is "Class.Field". False with a reason when the class or field is missing,
     // the field is not an Enum, or its options cannot be graph entries.
     bool ReflectedEnum(const std::string& className, const std::string& field, Visual::EnumDefinition& out, std::string& error);
+
+    // Native methods for graphs (ScriptMethod.h: ZM_METHOD, ZM_FUNCTION). The graph keys ("Class.Method",
+    // "Library.Function") of every registered method and free function, sorted.
+    std::vector<std::string> NativeMethodKeys();
+    // The live signature of a registered method as a graph signature (named types: the C++ enum/struct names);
+    // false with a reason when it is not registered or cannot be a graph signature.
+    bool NativeSignatureOf(const std::string& key, Visual::NativeSignature& out, std::string& error);
+    // Why a graph's signature of a native method cannot run now (empty: it binds): the method is not registered
+    // (no module, or removed), its C++ signature changed, or a C++ enum/struct it uses differs from the graph's.
+    std::string NativeBindingProblem(const Visual::Graph& graph, const std::string& key, const Visual::NativeSignature& signature);
+    // Every native method of the graph that cannot run now, with the reason.
+    std::map<std::string, std::string> NativeBindingProblems(const Visual::Graph& graph);
+    // Adds the C++ enums/structs a signature uses (and the ones inside them) to the graph as graph enums/structs of
+    // the same names. One the graph has already is kept when it equals the C++ one; refresh also replaces an
+    // earlier import that changed (struct values conform to the new fields). False with a reason otherwise.
+    bool ImportNativeTypes(Visual::Graph& graph, const Visual::NativeSignature& signature, std::string& error, bool refresh = false);
 }

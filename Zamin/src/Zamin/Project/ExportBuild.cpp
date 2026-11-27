@@ -162,7 +162,13 @@ namespace Zamin {
                std::abs(Seconds - o.Seconds) < 1e-3 && Succeeded == o.Succeeded && TotalBytes == o.TotalBytes && FileCount == o.FileCount &&
                Categories == o.Categories && Largest == o.Largest && excludedEqual(Excluded, o.Excluded) && ExcludedBytes == o.ExcludedBytes &&
                ScriptModule == o.ScriptModule && StrippedBytes == o.StrippedBytes && Warnings == o.Warnings && Errors == o.Errors &&
-               Cooked == o.Cooked && CookCacheHits == o.CookCacheHits && CookedAtlases == o.CookedAtlases;
+               Cooked == o.Cooked && CookCacheHits == o.CookCacheHits && CookedAtlases == o.CookedAtlases && CookedGraphs == o.CookedGraphs &&
+               GraphCacheHits == o.GraphCacheHits;
+    }
+
+    size_t ExportReport::CookedGraphCount() const
+    {
+        return (size_t)std::count_if(CookedGraphs.begin(), CookedGraphs.end(), [](const CookedGraph& g) { return g.Action == "cooked"; });
     }
 
     uintmax_t ExportReport::CookedSourceBytes() const
@@ -317,6 +323,14 @@ namespace Zamin {
             j["Cook"] = { { "Textures", cooked }, { "CacheHits", CookCacheHits }, { "Atlases", CookedAtlases },
                           { "Seconds", std::round(CookSeconds * 1000.0) / 1000.0 } };
         }
+        if (!CookedGraphs.empty())
+        {
+            ordered_json graphs = ordered_json::array();
+            for (const CookedGraph& g : CookedGraphs)
+                graphs.push_back({ { "Path", g.Path }, { "Action", g.Action }, { "SourceBytes", g.SourceBytes }, { "CookedBytes", g.CookedBytes },
+                                   { "Nodes", g.Nodes }, { "CacheHit", g.CacheHit }, { "Note", g.Note } });
+            j["GraphCook"] = { { "Graphs", graphs }, { "CacheHits", GraphCacheHits }, { "Seconds", std::round(GraphCookSeconds * 1000.0) / 1000.0 } };
+        }
         j["Warnings"] = Warnings;
         j["Errors"] = Errors;
         return j.dump(4);
@@ -409,6 +423,25 @@ namespace Zamin {
                     r.Cooked.push_back(std::move(a));
                 }
         }
+        if (auto it = j.find("GraphCook"); it != j.end() && it->is_object())
+        {
+            r.GraphCacheHits = (size_t)size(*it, "CacheHits");
+            if (auto s = it->find("Seconds"); s != it->end() && s->is_number()) r.GraphCookSeconds = s->get<double>();
+            if (auto list = it->find("Graphs"); list != it->end() && list->is_array())
+                for (const auto& item : *list)
+                {
+                    if (!item.is_object()) continue;
+                    CookedGraph g;
+                    g.Path = item.value("Path", std::string());
+                    g.Action = item.value("Action", std::string());
+                    g.SourceBytes = size(item, "SourceBytes");
+                    g.CookedBytes = size(item, "CookedBytes");
+                    g.Nodes = (uint32_t)size(item, "Nodes");
+                    g.CacheHit = item.value("CacheHit", false);
+                    g.Note = item.value("Note", std::string());
+                    r.CookedGraphs.push_back(std::move(g));
+                }
+        }
         for (auto [key, list] : { std::pair<const char*, std::vector<std::string>*>{ "Warnings", &r.Warnings }, { "Errors", &r.Errors } })
             if (auto it = j.find(key); it != j.end() && it->is_array())
                 for (const auto& item : *it)
@@ -458,6 +491,17 @@ namespace Zamin {
                 text += std::format("  {:<7} {:>10} -> {:>10}  {}x{}{}  {}{}\n", a.Action, ExportAssets::FormatSize(a.SourceBytes), ExportAssets::FormatSize(a.CookedBytes),
                                     a.Width, a.Height, a.Width != a.SourceWidth || a.Height != a.SourceHeight ? std::format(" (from {}x{})", a.SourceWidth, a.SourceHeight) : "",
                                     a.Path, a.Note.empty() ? "" : "  (" + a.Note + ")");
+        }
+        if (!CookedGraphs.empty())
+        {
+            uintmax_t source = 0, cooked = 0;
+            for (const CookedGraph& g : CookedGraphs)
+                if (g.Action == "cooked") source += g.SourceBytes, cooked += g.CookedBytes;
+            text += std::format("\nCooked graphs: {} of {} ({} -> {}), {} from the cook cache, {:.2f} s\n", CookedGraphCount(), CookedGraphs.size(),
+                                ExportAssets::FormatSize(source), ExportAssets::FormatSize(cooked), GraphCacheHits, GraphCookSeconds);
+            for (const CookedGraph& g : CookedGraphs)
+                text += std::format("  {:<8} {:>10} -> {:>10}  {:>5} nodes  {}{}\n", g.Action, ExportAssets::FormatSize(g.SourceBytes), ExportAssets::FormatSize(g.CookedBytes),
+                                    g.Nodes, g.Path, g.Note.empty() ? "" : "  (" + g.Note + ")");
         }
         text += std::format("\nWarnings: {}\n", Warnings.size());
         for (const std::string& warning : Warnings)

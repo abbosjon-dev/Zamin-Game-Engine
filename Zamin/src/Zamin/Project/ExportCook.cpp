@@ -8,6 +8,8 @@
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Utils/Image.h"
 #include "Zamin/Renderer/Texture.h"
+#include "Zamin/Scripting/Visual/VisualGraphBytecode.h"
+#include "Zamin/Scripting/Visual/VisualGraphHost.h"
 
 #include <nlohmann/json.hpp>
 
@@ -15,6 +17,8 @@
 #include <atomic>
 #include <chrono>
 #include <format>
+#include <fstream>
+#include <set>
 #include <mutex>
 #include <thread>
 
@@ -161,6 +165,129 @@ namespace Zamin {
         result.Seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
         FileSystem::WriteTextFile(in.ExportAssets.parent_path() / TextureCook::ManifestFileName,
                                   TextureCook::ManifestToJson(in.Settings, result.Assets, result.AtlasTable));
+        return result;
+    }
+
+    GraphCookResult ExportCook::CookGraphs(const GraphCookInputs& in)
+    {
+        const auto started = std::chrono::steady_clock::now();
+        GraphCookResult result;
+        auto readBytes = [](const fs::path& path, std::vector<uint8_t>& bytes) {
+            std::error_code e;
+            const auto size = fs::file_size(path, e);
+            if (e || size > Visual::Bytecode::MaxBytes) return false;
+            bytes.resize(static_cast<size_t>(size));
+            std::ifstream f(path, std::ios::binary);
+            return bool(f.read(reinterpret_cast<char*>(bytes.data()), std::streamsize(bytes.size())));
+        };
+        auto fnv = [](uint64_t hash, const std::vector<uint8_t>& bytes) {
+            for (uint8_t b : bytes) hash = (hash ^ b) * 0x100000001b3ull;
+            return hash;
+        };
+        struct Work
+        {
+            CookedGraph Graph;
+            std::vector<uint8_t> Bytes;
+            std::vector<std::string> Parents;
+        };
+        std::vector<Work> work;
+        for (const std::string& file : in.Files)
+        {
+            if (!FileSystem::HasExtension(file, { ".zgraph" })) continue;
+            Work w;
+            w.Graph.Path = file;
+            const fs::path source = in.SourceAssets / file;
+            std::vector<uint8_t> sourceBytes;
+            if (!readBytes(source, sourceBytes))
+            {
+                w.Graph.Action = "rejected";
+                w.Graph.Note = "could not be read";
+                work.push_back(std::move(w));
+                continue;
+            }
+            w.Graph.SourceBytes = sourceBytes.size();
+            try
+            {
+                Visual::Graph graph = Visual::Graph::Load(source, in.SourceAssets);
+                w.Parents = graph.Inherited.Chain;
+                // The cache key: the graph's bytes, its parent chain's, the bytecode and node catalogue version.
+                uint64_t key = fnv(0xcbf29ce484222325ull ^ Visual::Bytecode::CatalogHash(), sourceBytes);
+                for (const std::string& parent : graph.Inherited.Chain)
+                {
+                    std::vector<uint8_t> parentBytes;
+                    if (const fs::path p = FileSystem::SafeJoin(in.SourceAssets, parent); !p.empty() && readBytes(p, parentBytes)) key = fnv(key ^ 0x9e3779b97f4a7c15ull, parentBytes);
+                }
+                const fs::path cached = in.CacheDirectory.empty() ? fs::path() : in.CacheDirectory / std::format("{:016x}.zgbc", key);
+                Visual::Program program;
+                std::string error;
+                if (!cached.empty() && readBytes(cached, w.Bytes) && Visual::Bytecode::Read(w.Bytes.data(), w.Bytes.size(), program, error))
+                {
+                    w.Graph.CacheHit = true;
+                    w.Graph.Nodes = uint32_t(program.Runnable.Nodes.size());
+                }
+                else
+                {
+                    auto compiled = Visual::Bytecode::Compile(graph);
+                    if (!compiled.Ok)
+                    {
+                        w.Graph.Action = "rejected";
+                        w.Graph.Note = compiled.Error;
+                        work.push_back(std::move(w));
+                        continue;
+                    }
+                    w.Bytes = std::move(compiled.Bytes);
+                    w.Graph.Nodes = uint32_t(compiled.Nodes);
+                    if (!cached.empty())
+                    {
+                        std::error_code e;
+                        fs::create_directories(in.CacheDirectory, e);
+                        FileSystem::WriteBinaryFile(cached, w.Bytes.data(), w.Bytes.size());
+                    }
+                }
+                // Native methods that would not bind with the module the editor has loaded now.
+                std::string natives;
+                for (const auto& [method, problem] : NativeBindingProblems(graph)) natives += (natives.empty() ? "" : "; ") + method + ": " + problem;
+                if (!natives.empty()) w.Graph.Note = "native: " + natives;
+                w.Graph.Action = "cooked";
+            }
+            catch (const std::exception& e)
+            {
+                w.Graph.Action = "rejected";
+                w.Graph.Note = e.what();
+            }
+            work.push_back(std::move(w));
+        }
+        // A rejected child loads its parents from the export: they stay graph sources.
+        std::set<std::string> keep;
+        for (const Work& w : work)
+            if (w.Graph.Action == "rejected")
+                keep.insert(w.Parents.begin(), w.Parents.end());
+        for (Work& w : work)
+        {
+            if (w.Graph.Action == "cooked" && keep.contains(w.Graph.Path))
+            {
+                w.Graph.Action = "kept";
+                w.Graph.CacheHit = false;
+                w.Graph.Note = "the parent of a graph that was not cooked";
+            }
+            if (w.Graph.Action == "cooked")
+            {
+                const fs::path target = FileSystem::SafeJoin(in.ExportAssets, w.Graph.Path);
+                if (target.empty() || !FileSystem::WriteBinaryFile(target, w.Bytes.data(), w.Bytes.size()))
+                {
+                    w.Graph.Action = "rejected";
+                    w.Graph.Note = "could not be written";
+                }
+                else w.Graph.CookedBytes = w.Bytes.size();
+            }
+            if (w.Graph.Action != "cooked") w.Graph.CookedBytes = w.Graph.SourceBytes;
+            if (w.Graph.CacheHit) result.CacheHits++;
+            if (w.Graph.Action == "rejected") result.Warnings.push_back(std::format("graph {} was not cooked (the Player will report it): {}", w.Graph.Path, w.Graph.Note));
+            else if (w.Graph.Note.starts_with("native: ")) result.Warnings.push_back(std::format("graph {}: {}", w.Graph.Path, w.Graph.Note));
+            result.Graphs.push_back(std::move(w.Graph));
+        }
+        std::sort(result.Graphs.begin(), result.Graphs.end(), [](const CookedGraph& a, const CookedGraph& b) { return a.Path < b.Path; });
+        result.Seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
         return result;
     }
 

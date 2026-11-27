@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Scripting/ScriptField.h"
+#include "Zamin/Scripting/ScriptMethod.h"
 
 #include <filesystem>
 #include <functional>
@@ -17,6 +18,9 @@ namespace Zamin {
         std::string Name;
         ScriptableEntity* (*Factory)() = nullptr;
         std::vector<ScriptFieldInfo> Fields;
+        /// Methods graphs can call (ZM_METHOD): instance methods and static members.
+        std::vector<ScriptMethodInfo> Methods;
+        const ScriptMethodInfo* FindMethod(const std::string& name) const;
     };
 
     /// Global registry of C++ script classes. Classes register themselves
@@ -31,6 +35,27 @@ namespace Zamin {
         static const ScriptClassInfo* Find(const std::string& name);
         static const std::map<std::string, ScriptClassInfo>& GetAll();
         static ScriptableEntity* Instantiate(const std::string& name);
+
+        /// C++ enums / structs graphs use (ZM_SCRIPT_ENUM / ZM_SCRIPT_STRUCT) and free function libraries
+        /// (ZM_REGISTER_FUNCTIONS); like classes they come and go with the game module.
+        static void RegisterEnum(const ScriptEnumInfo& info);
+        static void UnregisterEnum(const std::string& name);
+        static const ScriptEnumInfo* FindEnum(const std::string& name);
+        static const std::map<std::string, ScriptEnumInfo>& GetEnums();
+        static void RegisterStruct(const ScriptStructInfo& info);
+        static void UnregisterStruct(const std::string& name);
+        static const ScriptStructInfo* FindStruct(const std::string& name);
+        static const std::map<std::string, ScriptStructInfo>& GetStructs();
+        static void RegisterLibrary(const ScriptLibraryInfo& info);
+        static void UnregisterLibrary(const std::string& name);
+        static const ScriptLibraryInfo* FindLibrary(const std::string& name);
+        static const std::map<std::string, ScriptLibraryInfo>& GetLibraries();
+        /// A reflected method or free function by its graph key "Class.Method" / "Library.Function".
+        static const ScriptMethodInfo* FindMethod(const std::string& key, std::string* owner = nullptr);
+
+        /// Changes on every (un)registration that the live registry sees (a module load, unload or hot
+        /// reload): a cached method binding of an older generation is looked up again.
+        static uint64_t Generation();
     };
 
     /// Loads the game's compiled C++ script module (lib<Game>.so).
@@ -55,10 +80,17 @@ namespace Zamin {
 
     struct ScriptRegistrar
     {
-        ScriptRegistrar(const char* name, ScriptableEntity* (*factory)(), std::vector<ScriptFieldInfo> fields)
+        /// The members are ZM_FIELD (inspector fields) and ZM_METHOD (methods for graphs) entries, in any order.
+        ScriptRegistrar(const char* name, ScriptableEntity* (*factory)(), std::vector<ScriptMember> members)
             : Name(name)
         {
-            ScriptRegistry::Register({ name, factory, std::move(fields) });
+            ScriptClassInfo info{ name, factory, {}, {} };
+            for (auto& member : members)
+            {
+                if (member.IsField) info.Fields.push_back(std::move(member.Field));
+                else info.Methods.push_back(std::move(member.Method));
+            }
+            ScriptRegistry::Register(info);
         }
         ~ScriptRegistrar() { ScriptRegistry::Unregister(Name); }
         std::string Name;
@@ -117,6 +149,7 @@ namespace Zamin {
 #define ZM_FIELD_TYPE(Class, Member) std::remove_cvref_t<decltype(std::declval<Class&>().Member)>
 
 /// Registers a member for the inspector:  ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed), ...)
+/// Methods for Visual Script graphs go in the same list: ZM_METHOD(Player, Heal, "Amount") (ScriptMethod.h).
 /// Attributes can be chained:  ZM_FIELD(Player, Speed).Range(0, 20).Tooltip("...").Header("Harakat")
 #define ZM_FIELD(Class, Member) \
     ::Zamin::MakeScriptField<Class, ZM_FIELD_TYPE(Class, Member)>(#Member, \

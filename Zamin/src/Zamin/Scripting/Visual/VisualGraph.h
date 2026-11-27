@@ -8,6 +8,9 @@
 #include <deque>
 #include <set>
 #include <memory>
+#include <algorithm>
+#include <string_view>
+#include <unordered_map>
 
 namespace Zamin::Visual {
     using Value = nlohmann::json;
@@ -151,6 +154,9 @@ namespace Zamin::Visual {
         uint32_t Source = 0;
     };
     const std::map<std::string, Definition>& Catalog();
+    // Reads a graph file's JSON (at most 4 MB, nesting at most 64 levels: checked on the text before parsing, which
+    // is much faster than a parser callback on large graphs).
+    Value ReadGraphJson(const std::filesystem::path& path);
     // Named values of an enumerated Number input (the dispatch validates it as an integer 0..N-1): the editor shows
     // a combo of these labels (Uzbek source texts, translated with the editor's Tr) and stores the index. The pin
     // and the file format stay plain numbers. Null for any other pin.
@@ -170,6 +176,26 @@ namespace Zamin::Visual {
         std::vector<Pin> Inputs, Outputs;
         std::map<std::string, Variable> Locals;
     };
+    // A reflected C++ method or free function a graph calls (format 6, the Native.Call / Native.Pure nodes, whose
+    // literal Method names it): the signature the graph was built with, kept in the graph so that it loads,
+    // validates and keeps its wires without the C++ module. Key: "Class.Method" or "Library.Function". The host
+    // binds it to the live method when the graph runs and reports a node whose method is gone or changed
+    // (VisualGraphHost.h: NativeBindingProblem).
+    struct NativeSignature
+    {
+        bool Static = false;              // no Target input (a static member or a free function)
+        bool Pure = false;                // a data node (Native.Pure) instead of an execution node (Native.Call)
+        std::vector<Pin> Inputs, Outputs; // the parameters; the result (none or one)
+        std::string Tooltip;
+        // The same kind and pins (names, types, named types); defaults and tooltips do not count.
+        bool Matches(const NativeSignature& other) const;
+        // "static pure (X: Number, Y: Number) -> Value: Number"
+        std::string Text() const;
+        bool operator==(const NativeSignature&) const = default;
+    };
+    constexpr size_t MaxNatives = 64;
+    // The Method literal of a Native.Call / Native.Pure node (empty for other nodes).
+    std::string NativeKey(const Node& node);
     struct Graph
     {
         // Graph inheritance (format 5): the parent's variables, functions, enums, structs, macros and event handlers
@@ -227,7 +253,9 @@ namespace Zamin::Visual {
         // unchanged (they cannot hold the newer data) and are written back as version 4. Version 5 added curves
         // (Type::Curve) and inheritance ("Parent", "Renames", the Parent.Call/Parent.Event nodes); version 1-4 files
         // load unchanged and are written back as version 5.
-        static constexpr int FormatVersion = 5;
+        // Version 6 added native method calls ("Natives", the Native.Call/Native.Pure nodes); version 1-5 files load
+        // unchanged and are written back as version 6.
+        static constexpr int FormatVersion = 6;
         int SourceVersion = FormatVersion; // the version the graph was parsed from
         std::vector<Node> Nodes;
         std::vector<Link> Links;
@@ -236,6 +264,13 @@ namespace Zamin::Visual {
         std::map<std::string, EnumDefinition> Enums;
         std::map<std::string, StructDefinition> Structs;
         std::map<std::string, MacroDefinition> Macros;
+        // The native method signatures the graph's Native.* nodes use (only the used ones are saved).
+        std::map<std::string, NativeSignature> Natives;
+        // Sets a native method's signature (e.g. the live one after a C++ change) and drops the literals and wires
+        // that no longer fit its pins; returns how many were dropped.
+        size_t SetNative(const std::string& key, NativeSignature signature);
+        // The native methods the graph's own nodes call.
+        std::set<std::string> NativesUsed() const;
         Definition Describe(const Node& node) const;
         // Type check with the named types: an Enum value must be an entry of the named enum, a Struct value must have
         // exactly the struct's fields, each fitting its field.
@@ -307,6 +342,8 @@ namespace Zamin::Visual {
     private:
         Definition DescribeStruct(const Node& node, Definition catalog) const;
         Definition DescribeMacro(const Node& node, Definition catalog) const;
+        Definition DescribeNative(const Node& node, Definition catalog) const;
+        std::vector<Diagnostic> ValidateNatives() const;
         // The node/link checks of Validate on this graph's nodes as they are (functions: the typed function scope
         // analysis too).
         std::vector<Diagnostic> ValidateNodes(bool functions) const;
@@ -324,24 +361,73 @@ namespace Zamin::Visual {
         bool Save(const std::filesystem::path& path) const;
         static Graph Example(bool threeD = true);
     };
+    // A graph as the VM runs it: validated, the parent chain resolved (Inherited.Origins: the parent file and ID of
+    // every inherited node, ParentEvents/OverriddenEvents), macros expanded, one shared pin description per node.
+    // Machine::Prepare makes it from a graph; a cooked graph stores it (VisualGraphBytecode.h).
+    struct Program
+    {
+        Graph Runnable;
+        std::vector<std::shared_ptr<const Definition>> Definitions; // per node of Runnable.Nodes, in order
+        std::map<uint32_t, std::pair<uint32_t, uint32_t>> MacroOrigins; // copied node -> {its instance, body node}
+        std::map<uint32_t, std::string> SourceMacros;                 // macro body node -> its macro
+    };
 // Independent of rendering and C++ compilation. The host supplies whitelisted engine operations.
     class Machine
     {
     public:
         using Bridge = std::function<Value(const std::string&, const std::map<std::string, Value>&)>;
+        // Validates the graph (what Load rejects: false, the first error in error, all in diagnostics), resolves
+        // its parent chain and expands its macros.
+        static bool Prepare(Graph graph, Program& out, std::string& error, std::vector<Diagnostic>* diagnostics = nullptr);
         bool Load(Graph graph, Bridge bridge = {}, const Value& overrides = Value::object());
+        // Runs a prepared program (Prepare's, or a cooked graph's: Bytecode::Read) without validating it again.
+        bool Load(Program program, Bridge bridge = {}, const Value& overrides = Value::object());
         void Event(const std::string& name, Value payload = Value::object());
         void Tick(double seconds);
         void Stop();
         const std::map<std::string, Value>& Variables() const { return m_Variables; }
         const std::string& Error() const { return m_Error; }
         const std::deque<uint32_t>& Trace() const { return m_Trace; }
+        // The native method signatures of the loaded graph (the host binds them to the live C++ methods).
+        const std::map<std::string, NativeSignature>& Natives() const { return m_Graph.Natives; }
+        // The graph as the VM runs it (parent chain resolved, macros expanded).
+        const Graph& Loaded() const { return m_Graph; }
         size_t Pending() const { return m_Tasks.size(); }
         bool Debug = false, Paused = false;
         uint32_t CurrentNode = 0;
         void Step();
         void Continue();
         size_t Budget = 10000;
+        // The VM profiler (Profiling, or ProfileAll for every machine): per node of the loaded graph (a node copied
+        // from a macro counts on its instance) the calls and the inclusive time (with the data nodes it evaluates)
+        // and exclusive time (its own), per typed function the calls and the time of the nodes that ran inside it
+        // (inclusive: also inside the functions it called; exclusive: its own nodes), and how often execution went
+        // from one node to the next (hot paths). Times in seconds, CPU time of the VM's own work: a Delay's wait does
+        // not count.
+        struct NodeProfile
+        {
+            uint64_t Calls = 0;
+            double Inclusive = 0, Exclusive = 0;
+        };
+        struct Profile
+        {
+            std::map<uint32_t, NodeProfile> Nodes;
+            std::map<std::string, NodeProfile> Functions;
+            std::map<std::pair<uint32_t, uint32_t>, uint64_t> Edges; // execution from -> to: how often
+            uint64_t Runs = 0;
+            double Seconds = 0; // inside Run, all tasks
+            // Adds another machine's profile (instances of one graph).
+            void Merge(const Profile& other);
+            // The hottest execution path: from the entry node (an event or a function entry) with the most
+            // inclusive time downstream, following the most taken transition each step, without repeats.
+            std::vector<uint32_t> HotPath(size_t limit = 32) const;
+            // The nodes with the most exclusive time, slowest first.
+            std::vector<uint32_t> Hottest(size_t count) const;
+        };
+        bool Profiling = false;
+        static inline bool ProfileAll = false;
+        const Profile& GetProfile() const { return m_Profile; }
+        void ResetProfile() { m_Profile = {}; }
         static constexpr size_t MaxRetainedBytes = 8 * 1024 * 1024;
         size_t RetainedBytes() const;
         Value DebugFrame() const;
@@ -365,6 +451,7 @@ namespace Zamin::Visual {
             size_t ReturnDepth = 0;
             std::map<std::string, Value> Arguments, Locals;
             std::map<uint32_t, Value> ParentResults;
+            double ProfileTime = 0; // profiler: the time of the steps run inside this call so far
         };
         struct Task
         {
@@ -373,14 +460,52 @@ namespace Zamin::Visual {
             std::map<uint32_t, Value> Results;
             double Wait = 0;
             std::vector<Invocation> Calls;
+            uint32_t Last = 0; // the last execution node (profiler: transitions)
         };
+        Profile m_Profile;
+        struct Measure; // a measured node (VisualGraph.cpp)
+        // Profiler: the child time of the open measured regions (exclusive = inclusive - children).
+        std::vector<double> m_ProfileChildren;
+        bool ProfilingNow() const { return Profiling || ProfileAll; }
+        // The data nodes being evaluated (cycle and depth check): a small stack, nodes leave it in reverse order.
+        struct Active
+        {
+            std::vector<uint32_t> Nodes;
+            size_t size() const { return Nodes.size(); }
+            std::pair<size_t, bool> insert(uint32_t id)
+            {
+                if (std::find(Nodes.begin(), Nodes.end(), id) != Nodes.end()) return { 0, false };
+                Nodes.push_back(id);
+                return { Nodes.size() - 1, true };
+            }
+            void erase(uint32_t id)
+            {
+                if (!Nodes.empty() && Nodes.back() == id) Nodes.pop_back();
+                else if (auto it = std::find(Nodes.begin(), Nodes.end(), id); it != Nodes.end()) Nodes.erase(it);
+            }
+        };
+        // One wire into a node's data input / out of its execution output (by the node's index in m_Graph.Nodes).
+        struct InputLink
+        {
+            std::string Input;
+            uint32_t From = 0;
+            std::string Output;
+        };
+        struct ExecLink
+        {
+            std::string Output;
+            uint32_t To = 0;
+        };
+        std::vector<std::vector<InputLink>> m_InputsOf;
+        std::vector<std::vector<ExecLink>> m_ExecOf;
+        size_t m_VariableBytes = 0; // RetainedBytes of m_Variables, kept up to date by Set
+        size_t IndexOf(const Node& node) const { return size_t(&node - m_Graph.Nodes.data()); }
         Graph m_Graph;
-        std::map<uint32_t, std::shared_ptr<const Definition>> m_Definitions;
+        std::vector<std::shared_ptr<const Definition>> m_Definitions; // per node index
         std::map<std::string, uint32_t> m_TypedEntries;
         Task* m_Active = nullptr;
         std::string m_CallStack;
-        std::map<uint32_t, size_t> m_NodeIndex;
-        std::map<std::pair<uint32_t, std::string>, Link> m_InputLinks, m_OutputLinks;
+        std::unordered_map<uint32_t, size_t> m_NodeIndex;
         std::map<std::string, uint32_t> m_Functions;
         std::map<std::string, std::vector<uint32_t>> m_Events;
         std::map<uint32_t, std::pair<std::string, uint32_t>> m_Inherited; // resolved node -> parent file, node
@@ -392,8 +517,8 @@ namespace Zamin::Visual {
         std::string m_Error;
         size_t m_Remaining = 0;
         bool m_Running = false, m_SkipBreakpoint = false;
-        Value Input(const Node&, const std::string&, Task&, std::set<uint32_t>&);
-        Value Evaluate(uint32_t, const std::string&, Task&, std::set<uint32_t>&);
+        Value Input(const Node&, std::string_view, Task&, Active&);
+        Value Evaluate(uint32_t, const std::string&, Task&, Active&);
         void Push(Task&, uint32_t, const std::string&);
         void Run(bool single = false);
         const Definition& Def(const Node& node) const;
@@ -401,6 +526,7 @@ namespace Zamin::Visual {
         void CheckStorage() const;
         void ReturnFunction(Task& task, Value values);
         void TypedCall(Task& task, const Node& node);
+        Value CallNative(const Node& node, Task& task, Active& active);
         void CaptureCallStack(const Task& task);
     };
 }

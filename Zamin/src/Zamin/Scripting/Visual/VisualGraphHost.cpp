@@ -1,4 +1,6 @@
 #include "VisualGraphHost.h"
+#include "VisualGraphBytecode.h"
+#include "Zamin/Core/Profiler.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/WorldStreaming.h"
@@ -61,7 +63,25 @@ namespace Zamin {
             auto path = FileSystem::SafeJoin(root, Graph);
             if (Graph.empty() || path.empty() || !FileSystem::IsSubPathOnDisk(path, root)) throw std::runtime_error("Graph must be inside Assets");
             auto overrides = Overrides.empty() ? Visual::Value::object() : Visual::Value::parse(Overrides);
-            if (VM.Load(Visual::Graph::Load(path, root), [this](const auto& k, const auto& args) { return Bridge(k, args); }, overrides)) Emit("Create");
+            m_Natives.clear();
+            auto bridge = [this](const auto& k, const auto& args) { return Bridge(k, args); };
+            bool loaded = false;
+            if (Visual::Bytecode::IsCookedFile(path))
+            {
+                // An exported game's graph, cooked at export (validated, resolved and expanded then).
+                Visual::Program program;
+                std::string error;
+                if (!Visual::Bytecode::ReadFile(path, program, error)) throw std::runtime_error(error);
+                loaded = VM.Load(std::move(program), bridge, overrides);
+            }
+            else loaded = VM.Load(Visual::Graph::Load(path, root), bridge, overrides);
+            if (loaded)
+            {
+                // A native method that is gone or changed stops the graph only when its node runs; say so now.
+                for (const auto& [key, problem] : NativeBindingProblems(VM.Loaded()))
+                    ZM_CORE_WARN("Visual graph '{}': native method {} cannot run: {}", Graph, key, problem);
+                Emit("Create");
+            }
             else Emit("Invalid");
         }
         catch (const std::exception& e)
@@ -76,6 +96,7 @@ namespace Zamin {
     void VisualGraphHost::Emit(const std::string& event, Visual::Value payload)
     {
         if (VM.Paused && (event == "Update" || event == "LateUpdate")) return;
+        ZM_PROFILE_SCOPE("Visual Script");
         VM.Event(event, std::move(payload));
         if ((VM.Paused || !VM.Error().empty()) && GetEntity()) m_Gameplay.Stop(GetScene());
         if (VM.Error().empty()) Overrides = Visual::Value(VM.Variables()).dump();
@@ -107,7 +128,10 @@ namespace Zamin {
             m_TraversalRevision = nav->AtlasRevision;
             Emit("NavTraversalRequested", { { "Link", std::to_string(link) }, { "Revision", std::to_string(nav->AtlasRevision) }, { "Ticket", std::to_string(nav->TraversalTicket) }, { "Entry", { nav->TraversalEntry.x, nav->TraversalEntry.y, nav->TraversalEntry.z } }, { "Exit", { nav->TraversalExit.x, nav->TraversalExit.y, nav->TraversalExit.z } } });
         }
-        VM.Tick((float)dt);
+        {
+            ZM_PROFILE_SCOPE("Visual Script");
+            VM.Tick((float)dt);
+        }
         Emit("Update", { { "Delta", (float)dt } });
     }
     Visual::Value VisualGraphHost::Bridge(const std::string& k, const std::map<std::string, Visual::Value>& a)
@@ -255,6 +279,7 @@ namespace Zamin {
         }
         if (k == "EntityValid") return (bool)target;
         if (!target) throw std::runtime_error("Target entity no longer exists");
+        if (k == "Native.Call" || k == "Native.Pure") return CallNative(target, a);
         if (k.starts_with("ReadField.") || k.starts_with("WriteField."))
         {
             auto* script = target.TryGetComponent<NativeScriptComponent>();

@@ -44,6 +44,11 @@ namespace Zamin {
         // the source's content hash, so an unchanged texture is not cooked again. Sprite atlases (.zatlas) whose
         // sources changed are re-packed into the export.
         TextureCookSettings Cook;
+        // Every Visual Script graph (.zgraph) the game takes is compiled to validated bytecode (Visual::Bytecode),
+        // written in place of the source; the Player runs it without parsing, validating, resolving the parent chain
+        // or expanding macros. A graph that does not validate is kept as it is (the report lists it). The cook
+        // cache (<project>/Build/CookCache) is keyed by the content hash of the graph and its parent chain.
+        bool CookGraphs = true;
 
         bool operator==(const ExportSettings&) const = default;
         bool IsDefault() const { return *this == ExportSettings(); }

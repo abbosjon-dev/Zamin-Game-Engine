@@ -74,6 +74,8 @@ namespace Zamin {
         if (!(Cook == TextureCookSettings()))
             j["Cook"] = { { "Enabled", Cook.Enabled }, { "Compress", Cook.Compress }, { "MaxTextureSize", Cook.MaxTextureSize },
                           { "MatchQuality", Cook.MatchQuality }, { "Always", Cook.Always } };
+        if (!CookGraphs)
+            j["CookGraphs"] = false;
         return j.dump(4);
     }
 
@@ -107,6 +109,8 @@ namespace Zamin {
             if (c.contains("MatchQuality") && c["MatchQuality"].is_boolean()) s.Cook.MatchQuality = c["MatchQuality"].get<bool>();
             if (c.contains("Always") && c["Always"].is_boolean()) s.Cook.Always = c["Always"].get<bool>();
         }
+        if (auto it = j.find("CookGraphs"); it != j.end() && it->is_boolean())
+            s.CookGraphs = it->get<bool>();
         out = std::move(s);
         return true;
     }

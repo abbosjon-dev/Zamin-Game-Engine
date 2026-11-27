@@ -2,6 +2,8 @@
 #include <cstdio>
 #include "Zamin/Utils/FileSystem.h"
 #include <algorithm>
+#include <chrono>
+#include <optional>
 #include <cmath>
 #include <fstream>
 #include <stdexcept>
@@ -19,13 +21,18 @@ namespace Zamin::Visual {
         Pin St(const char* n) { return { n, Type::Struct, Value::object() }; }
         Pin Cu(const char* n) { return { n, Type::Curve, DefaultValue(Type::Curve) }; }
         Pin EntityPin(const char* n = "Target") { return { n, Type::Entity, std::string(n) == "Target" ? UINT64_MAX : 0ull }; }
-        const Pin* FindPin(const std::vector<Pin>& pins, const std::string& name)
+        const Pin* FindPin(const std::vector<Pin>& pins, std::string_view name)
         {
             for (auto& p : pins)
                 if (p.Name == name) return &p;
             return nullptr;
         }
         void Require(bool ok, const std::string& message)
+        {
+            if (!ok) throw std::runtime_error(message);
+        }
+        // A literal message makes no string unless the check fails (the VM checks every step).
+        void Require(bool ok, const char* message)
         {
             if (!ok) throw std::runtime_error(message);
         }
@@ -203,6 +210,11 @@ add("Curve.AddKey", "Curves", { Cu("Curve"), N("Time"), N("Value"), N("Mode", 1)
 // Parent.Event runs the parent's handlers of the overridden event Name ("Start", "Custom.MyEvent" ...).
 add("Parent.Call", "Inheritance", { E("In"), S("Name", "MyFunction") }, { E("Then") });
 add("Parent.Event", "Inheritance", { E("In"), S("Name", "Start") }, { E("Then") });
+// Native methods (format 6): a reflected C++ method or free function named in the literal Method ("Class.Method",
+// "Library.Function"); its Target (instance methods), parameters and result come from the graph's signature of it
+// (Graph::Natives, Graph::Describe).
+add("Native.Call", "C++ methods", { E("In"), S("Method") }, { E("Then") });
+add("Native.Pure", "C++ methods", { S("Method") }, {}, true);
 add("ReadField.Enum", "C++ bridge", { EntityPin(), S("Name"), S("Enum") }, { En("Value") }, true);
 add("WriteField.Enum", "C++ bridge", { E("In"), EntityPin(), S("Name"), S("Enum"), En("Value") }, { E("Then") });
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
@@ -552,6 +564,7 @@ return c; }();
             shell.Functions = g.Functions;
             shell.Enums = g.Enums;
             shell.Structs = g.Structs;
+            shell.Natives = g.Natives;
             return shell;
         }
         bool UsesMacros(const Graph& g)
@@ -620,6 +633,8 @@ return c; }();
     std::vector<Diagnostic> Graph::ValidateGraph() const
     {
         auto d = ValidateTypes();
+        auto natives = ValidateNatives();
+        d.insert(d.end(), natives.begin(), natives.end());
         if (!UsesMacros(*this))
         {
             auto nodes = ValidateNodes(true);
@@ -783,6 +798,7 @@ return c; }();
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
             if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Macro.Instance" || b->Kind.starts_with("Parent.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
             if (l.Input == "Enum" && i->Kind == Type::String && b->Kind.find("Enum") != std::string::npos) error(l.To, "Enum type must be a literal");
+            if (l.Input == "Method" && b->Kind.starts_with("Native.")) error(l.To, "Native method name must be a literal");
             if ((l.Input == "Struct" || l.Input == "Field") && i->Kind == Type::String && b->Kind.find("Struct") != std::string::npos) error(l.To, "Struct type and field must be literals");
             if (i->Kind != Type::Exec) dependencies[l.To].push_back(l.From);
         }
@@ -848,6 +864,18 @@ return c; }();
             for (const auto& p : macro.Inputs) entry["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
             for (const auto& p : macro.Outputs) entry["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
             j["Macros"][name] = std::move(entry);
+        }
+        // Native method signatures: the ones this graph's own nodes call (format 6; written only when there are).
+        const auto used = NativesUsed();
+        for (const auto& [key, signature] : Natives)
+        {
+            if (!used.contains(key)) continue;
+            Value entry = { { "Static", signature.Static }, { "Pure", signature.Pure }, { "Inputs", Value::array() }, { "Outputs", Value::array() } };
+            if (!signature.Tooltip.empty()) entry["Tooltip"] = signature.Tooltip;
+            for (const auto& p : signature.Inputs) entry["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            for (const auto& p : signature.Outputs) entry["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            if (!j.contains("Natives")) j["Natives"] = Value::object();
+            j["Natives"][key] = std::move(entry);
         }
         return j;
     }
@@ -995,6 +1023,31 @@ return c; }();
                 g.Macros[it.key()] = std::move(macro);
             }
         }
+        if (j.contains("Natives"))
+        {
+            Require(version >= 6, "Native method calls need graph format version 6");
+            const auto& natives = j.at("Natives");
+            Require(natives.is_object() && natives.size() <= MaxNatives, "Native method limit/type");
+            for (auto it = natives.begin(); it != natives.end(); ++it)
+            {
+                NativeSignature signature;
+                signature.Static = it.value().value("Static", false);
+                signature.Pure = it.value().value("Pure", false);
+                signature.Tooltip = it.value().value("Tooltip", "");
+                for (const char* side : { "Inputs", "Outputs" })
+                {
+                    const auto& pins = it.value().at(side);
+                    Require(pins.is_array() && pins.size() <= 32, "Native method pin limit/type");
+                    for (const auto& pin : pins)
+                    {
+                        const auto kind = type(pin.at("Type"));
+                        (std::string(side) == "Inputs" ? signature.Inputs : signature.Outputs).push_back({ pin.at("Name").get<std::string>(), kind, pin.at("Default"), enumName(kind, pin) });
+                    }
+                }
+                g.Natives[it.key()] = std::move(signature);
+            }
+        }
+        for (const auto& n : g.Nodes) Require(version >= 6 || !n.Kind.starts_with("Native."), "Native method nodes need graph format version 6");
         if (j.contains("Parent"))
         {
             Require(version >= 5, "Graph inheritance needs graph format version 5");
@@ -1015,12 +1068,32 @@ return c; }();
         }
         return g;
     }
-    Graph Graph::Load(const std::filesystem::path& p, const std::filesystem::path& assets)
+    Value ReadGraphJson(const std::filesystem::path& p)
     {
         Require(std::filesystem::file_size(p) <= 4 * 1024 * 1024, "Graph exceeds 4 MB");
-        std::ifstream f(p);
+        std::ifstream f(p, std::ios::binary);
         Require((bool)f, "Graph file could not be opened");
-        Value j = Value::parse(f, [](int depth, Value::parse_event_t, Value&) {Require(depth<=64,"JSON nesting exceeds 64");return true; });
+        std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        // The nesting depth on the text (outside strings), so the parser needs no per-value callback.
+        int depth = 0;
+        bool inString = false, escaped = false;
+        for (const char c : text)
+        {
+            if (inString)
+            {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+            }
+            else if (c == '"') inString = true;
+            else if (c == '[' || c == '{') Require(++depth <= 64, "JSON nesting exceeds 64");
+            else if (c == ']' || c == '}') --depth;
+        }
+        return Value::parse(text);
+    }
+    Graph Graph::Load(const std::filesystem::path& p, const std::filesystem::path& assets)
+    {
+        Value j = ReadGraphJson(p);
         auto g = Parse(j);
         if (!g.Parent.empty())
         {
@@ -1037,7 +1110,7 @@ return c; }();
     }
     bool Graph::Save(const std::filesystem::path& p) const
     {
-        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64 || Structs.size() > 64 || Macros.size() > 64) return false;
+        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64 || Structs.size() > 64 || Macros.size() > 64 || Natives.size() > MaxNatives) return false;
         auto text = Serialize().dump(2);
         return text.size() <= 4 * 1024 * 1024 && FileSystem::WriteTextFileAtomic(p, text);
     }
@@ -1049,61 +1122,90 @@ return c; }();
         if (!threeD) { g.Nodes[1].Inputs = { { "X", 1.0 } }; }
         return g;
     }
+    bool Machine::Prepare(Graph graph, Program& out, std::string& error, std::vector<Diagnostic>* diagnostics)
+    {
+        out = {};
+        auto errors = graph.Validate();
+        if (diagnostics) *diagnostics = errors;
+        if (!errors.empty())
+        {
+            error = "Node " + std::to_string(errors[0].Node) + ": " + errors[0].Message;
+            return false;
+        }
+        Graph& g = out.Runnable;
+        g = graph.Inherited.Base ? graph.Resolved() : std::move(graph);
+        // The VM runs the child with its parent chain: inherited nodes remember their file and ID for errors
+        // (Inherited.Origins); the base itself is not needed any more.
+        g.Inherited.Base.reset();
+        if (!g.Macros.empty())
+        {
+            // The VM runs the expanded graph; a copied node remembers its instance and body node for errors.
+            for (const auto& n : g.Nodes)
+                if (!n.Macro.empty()) out.SourceMacros[n.ID] = n.Macro;
+            auto expansion = g.Expand();
+            g.Nodes = std::move(expansion.Nodes);
+            g.Links = std::move(expansion.Links);
+            g.Macros.clear();
+            out.MacroOrigins = std::move(expansion.Origins);
+        }
+        // Typed function, enum, struct and native nodes take their pins from the graph (signature, enum, struct,
+        // field, method) through their literal Name/Enum/Struct/Field/Method inputs: one shared description per
+        // distinct literal set.
+        std::map<std::string, std::shared_ptr<const Definition>> descriptions;
+        out.Definitions.reserve(g.Nodes.size());
+        for (const auto& n : g.Nodes)
+        {
+            std::string key = n.Kind;
+            for (const char* literal : { "Name", "Enum", "Struct", "Field", "Method" })
+                if (auto it = n.Inputs.find(literal); it != n.Inputs.end() && it->second.is_string()) key += std::string("|") + literal + "=" + it->second.get<std::string>();
+            auto& description = descriptions[key];
+            if (!description) description = std::make_shared<Definition>(g.Describe(n));
+            out.Definitions.push_back(description);
+        }
+        return true;
+    }
     bool Machine::Load(Graph graph, Bridge bridge, const Value& overrides)
+    {
+        Program program;
+        std::string error;
+        if (!Prepare(std::move(graph), program, error))
+        {
+            Load(Program{}, std::move(bridge)); // nothing of an earlier graph stays
+            m_Error = error;
+            return false;
+        }
+        return Load(std::move(program), std::move(bridge), overrides);
+    }
+    bool Machine::Load(Program program, Bridge bridge, const Value& overrides)
     {
         Stop();
         m_Error.clear();
         m_Trace.clear();
-        m_Graph = std::move(graph);
+        m_Graph = std::move(program.Runnable);
         m_Bridge = std::move(bridge);
         m_Variables.clear();
-        auto errors = m_Graph.Validate();
-        m_Origins.clear();
-        m_SourceMacros.clear();
-        m_Inherited.clear();
-        if (!errors.empty())
-        {
-            m_Error = "Node " + std::to_string(errors[0].Node) + ": " + errors[0].Message;
-            return false;
-        }
-        if (m_Graph.Inherited.Base)
-        {
-            // The VM runs the child with its parent chain: inherited nodes remember their file and ID for errors.
-            m_Graph = m_Graph.Resolved();
-            m_Inherited = m_Graph.Inherited.Origins;
-        }
-        if (!m_Graph.Macros.empty())
-        {
-            // The VM runs the expanded graph; a copied node remembers its instance and body node for errors.
-            for (const auto& n : m_Graph.Nodes)
-                if (!n.Macro.empty()) m_SourceMacros[n.ID] = n.Macro;
-            auto expansion = m_Graph.Expand();
-            m_Graph.Nodes = std::move(expansion.Nodes);
-            m_Graph.Links = std::move(expansion.Links);
-            m_Graph.Macros.clear();
-            m_Origins = std::move(expansion.Origins);
-        }
+        m_Origins = std::move(program.MacroOrigins);
+        m_SourceMacros = std::move(program.SourceMacros);
+        m_Inherited = m_Graph.Inherited.Origins;
         m_NodeIndex.clear();
-        m_InputLinks.clear();
-        m_OutputLinks.clear();
+        m_InputsOf.assign(m_Graph.Nodes.size(), {});
+        m_ExecOf.assign(m_Graph.Nodes.size(), {});
         m_Functions.clear();
         m_Events.clear();
         m_TypedEntries.clear();
         m_Definitions.clear();
         m_CallStack.clear();
-        std::map<std::string, std::shared_ptr<const Definition>> descriptions;
+        if (program.Definitions.size() != m_Graph.Nodes.size())
+        {
+            m_Error = "Program definitions do not match its nodes";
+            m_Graph = {};
+            return false;
+        }
         for (size_t i = 0; i < m_Graph.Nodes.size(); ++i)
         {
             auto& n = m_Graph.Nodes[i];
             m_NodeIndex[n.ID] = i;
             std::string functionName = n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Inputs.at("Name").get<std::string>() : "MyFunction";
-            // Typed function, enum and struct nodes take their pins from the graph (signature, enum, struct, field)
-            // through their literal Name/Enum/Struct/Field inputs: one shared description per distinct literal set.
-            std::string descriptionKey = n.Kind;
-            for (const char* literal : { "Name", "Enum", "Struct", "Field" })
-                if (auto it = n.Inputs.find(literal); it != n.Inputs.end() && it->second.is_string()) descriptionKey += std::string("|") + literal + "=" + it->second.get<std::string>();
-            if (!descriptions.contains(descriptionKey)) descriptions[descriptionKey] = std::make_shared<Definition>(m_Graph.Describe(n));
-            m_Definitions[n.ID] = descriptions.at(descriptionKey);
             if (n.Kind == "Function.Entry") m_TypedEntries[functionName] = n.ID;
             // A parent handler of an event the child handles too runs only through the child's Parent.Event.
             if (m_Graph.Inherited.OverriddenEvents.contains(n.ID)) continue;
@@ -1111,17 +1213,36 @@ return c; }();
             else if (n.Kind.starts_with("Event.")) m_Events[n.Kind.substr(6)].push_back(n.ID);
             if (n.Kind == "Function") m_Functions[n.Inputs.contains("Name") ? n.Inputs.at("Name").get<std::string>() : "MyFunction"] = n.ID;
         }
+        m_Definitions = std::move(program.Definitions);
         for (auto& l : m_Graph.Links)
         {
-            const auto& def = *m_Definitions.at(l.From);
-            auto* pin = FindPin(def.Outputs, l.Output);
-            if (pin->Kind == Type::Exec) m_OutputLinks[{ l.From, l.Output }] = l;
-            else m_InputLinks[{ l.To, l.Input }] = l;
+            auto from = m_NodeIndex.find(l.From), to = m_NodeIndex.find(l.To);
+            const auto* pin = from != m_NodeIndex.end() ? FindPin(m_Definitions[from->second]->Outputs, l.Output) : nullptr;
+            if (!pin || to == m_NodeIndex.end())
+            {
+                m_Error = "Link from a missing pin " + l.Output;
+                return false;
+            }
+            // (a later wire into the same input wins, as before)
+            if (pin->Kind == Type::Exec)
+            {
+                auto& links = m_ExecOf[from->second];
+                std::erase_if(links, [&](const ExecLink& e) { return e.Output == l.Output; });
+                links.push_back({ l.Output, l.To });
+            }
+            else
+            {
+                auto& links = m_InputsOf[to->second];
+                std::erase_if(links, [&](const InputLink& e) { return e.Input == l.Input; });
+                links.push_back({ l.Input, l.From, l.Output });
+            }
         }
+        m_VariableBytes = 0;
         for (auto& [name, v] : m_Graph.Variables)
         {
             auto it = overrides.is_object() ? overrides.find(name) : overrides.end();
-            m_Variables[name] = it != overrides.end() && m_Graph.Fits(v.Kind, v.Enum, *it) ? *it : v.Default;
+            const auto& value = m_Variables[name] = it != overrides.end() && m_Graph.Fits(v.Kind, v.Enum, *it) ? *it : v.Default;
+            m_VariableBytes += 64 + name.size() + ValueBytes(value);
         }
         try
         {
@@ -1135,7 +1256,126 @@ return c; }();
         }
         return true;
     }
-    const Definition& Machine::Def(const Node& node) const { return *m_Definitions.at(node.ID); }
+    // One measured node run (the profiler): its inclusive time, minus the measured nodes it ran inside it, is its
+    // exclusive time; an execution step's time also goes to the typed functions on the task's call stack.
+    struct Machine::Measure
+    {
+        Machine& M;
+        uint32_t Node;
+        Task* Owner = nullptr;
+        size_t Depth = 0;        // the typed function calls on the task when the step began
+        std::string Function;    // the innermost of them
+        std::chrono::steady_clock::time_point Start;
+        Measure(Machine& m, uint32_t node, Task* owner = nullptr) : M(m), Node(node)
+        {
+            if (owner && !owner->Calls.empty())
+            {
+                Owner = owner;
+                Depth = owner->Calls.size();
+                Function = owner->Calls.back().Name;
+            }
+            M.m_ProfileChildren.push_back(0);
+            Start = std::chrono::steady_clock::now();
+        }
+        Measure(const Measure&) = delete;
+        Measure& operator=(const Measure&) = delete;
+        ~Measure()
+        {
+            const double inclusive = std::chrono::duration<double>(std::chrono::steady_clock::now() - Start).count();
+            const double children = M.m_ProfileChildren.back();
+            M.m_ProfileChildren.pop_back();
+            if (!M.m_ProfileChildren.empty()) M.m_ProfileChildren.back() += inclusive;
+            auto& p = M.m_Profile.Nodes[M.Origin(Node)];
+            ++p.Calls;
+            p.Inclusive += inclusive;
+            p.Exclusive += std::max(0.0, inclusive - children);
+            if (!Owner) return;
+            // Exclusive: the function the step ran in. Inclusive: every call still on the stack that was there when
+            // the step began (ReturnFunction adds a call's total when it returns).
+            M.m_Profile.Functions[Function].Exclusive += inclusive;
+            for (size_t i = 0, n = std::min(Depth, Owner->Calls.size()); i < n; ++i) Owner->Calls[i].ProfileTime += inclusive;
+            // The step returned from its function (a Return): the call is gone, its total went to the profile.
+            if (Owner->Calls.size() < Depth) M.m_Profile.Functions[Function].Inclusive += inclusive;
+        }
+    };
+    void Machine::Profile::Merge(const Profile& other)
+    {
+        for (const auto& [id, p] : other.Nodes)
+        {
+            auto& mine = Nodes[id];
+            mine.Calls += p.Calls;
+            mine.Inclusive += p.Inclusive;
+            mine.Exclusive += p.Exclusive;
+        }
+        for (const auto& [name, p] : other.Functions)
+        {
+            auto& mine = Functions[name];
+            mine.Calls += p.Calls;
+            mine.Inclusive += p.Inclusive;
+            mine.Exclusive += p.Exclusive;
+        }
+        for (const auto& [edge, count] : other.Edges) Edges[edge] += count;
+        Runs += other.Runs;
+        Seconds += other.Seconds;
+    }
+    std::vector<uint32_t> Machine::Profile::Hottest(size_t count) const
+    {
+        std::vector<uint32_t> ids;
+        for (const auto& [id, p] : Nodes) ids.push_back(id);
+        std::sort(ids.begin(), ids.end(), [&](uint32_t a, uint32_t b) { return Nodes.at(a).Exclusive > Nodes.at(b).Exclusive || (Nodes.at(a).Exclusive == Nodes.at(b).Exclusive && a < b); });
+        if (ids.size() > count) ids.resize(count);
+        return ids;
+    }
+    std::vector<uint32_t> Machine::Profile::HotPath(size_t limit) const
+    {
+        // Successors by count; an entry is a node that execution reaches without a transition into it.
+        std::map<uint32_t, std::vector<std::pair<uint64_t, uint32_t>>> next;
+        std::set<uint32_t> targets, sources;
+        for (const auto& [edge, count] : Edges)
+        {
+            next[edge.first].push_back({ count, edge.second });
+            targets.insert(edge.second);
+            sources.insert(edge.first);
+        }
+        // The time downstream of a node (its own and what follows it, each node once).
+        auto downstream = [&](uint32_t start) {
+            double total = 0;
+            std::set<uint32_t> seen;
+            std::vector<uint32_t> stack{ start };
+            while (!stack.empty())
+            {
+                const uint32_t id = stack.back();
+                stack.pop_back();
+                if (!seen.insert(id).second) continue;
+                if (auto it = Nodes.find(id); it != Nodes.end()) total += it->second.Exclusive;
+                if (auto it = next.find(id); it != next.end())
+                    for (const auto& [count, to] : it->second) stack.push_back(to);
+            }
+            return total;
+        };
+        uint32_t best = 0;
+        double bestTime = -1;
+        for (const auto& [id, p] : Nodes)
+            if (!targets.contains(id) && (sources.contains(id) || Edges.empty()))
+                if (const double time = downstream(id); time > bestTime) best = id, bestTime = time;
+        if (!best && !Nodes.empty()) best = Hottest(1).front();
+        std::vector<uint32_t> path;
+        std::set<uint32_t> seen;
+        for (uint32_t id = best; id && path.size() < limit && seen.insert(id).second;)
+        {
+            path.push_back(id);
+            auto it = next.find(id);
+            if (it == next.end()) break;
+            id = std::max_element(it->second.begin(), it->second.end())->second;
+        }
+        return path;
+    }
+    const Definition& Machine::Def(const Node& node) const
+    {
+        const size_t index = IndexOf(node);
+        Require(index < m_Definitions.size() && &m_Graph.Nodes[index] == &node, "Node outside the loaded graph");
+        return *m_Definitions[index];
+    }
     const Node* Machine::Find(uint32_t id) const
     {
         auto it = m_NodeIndex.find(id);
@@ -1146,17 +1386,18 @@ return c; }();
         Require(m_Remaining > 0, "Instruction budget exceeded");
         --m_Remaining;
     }
-    Value Machine::Input(const Node& n, const std::string& pin, Task& t, std::set<uint32_t>& active)
+    Value Machine::Input(const Node& n, std::string_view pin, Task& t, Active& active)
     {
-        auto linked = m_InputLinks.find({ n.ID, pin });
-        if (linked != m_InputLinks.end()) return Evaluate(linked->second.From, linked->second.Output, t, active);
-        auto it = n.Inputs.find(pin);
+        if (const size_t index = IndexOf(n); index < m_InputsOf.size())
+            for (const auto& link : m_InputsOf[index])
+                if (link.Input == pin) return Evaluate(link.From, link.Output, t, active);
+        auto it = n.Inputs.find(std::string(pin));
         if (it != n.Inputs.end()) return it->second;
         auto* p = FindPin(Def(n).Inputs, pin);
         Require(p, "Unknown input");
         return p->Default;
     }
-    Value Machine::Evaluate(uint32_t id, const std::string& output, Task& t, std::set<uint32_t>& active)
+    Value Machine::Evaluate(uint32_t id, const std::string& output, Task& t, Active& active)
     {
         Charge();
         auto* n = Find(id);
@@ -1164,10 +1405,13 @@ return c; }();
         Require(active.size() < 128 && active.insert(id).second, "Data cycle/depth limit");
         struct Guard
         {
-            std::set<uint32_t>& s;
+            Active& s;
             uint32_t id;
             ~Guard() { s.erase(id); }
         } guard{ active, id };
+        // (reading the stored result of an execution node, an event's or a parameter is no node run)
+        std::optional<Measure> measure;
+        if (ProfilingNow() && Def(*n).Pure) measure.emplace(*this, id);
         const auto& k = n->Kind;
         auto in = [&](const char* p) { return Input(*n, p, t, active); };
         auto num = [&](const char* p) { return in(p).get<double>(); };
@@ -1305,6 +1549,7 @@ return c; }();
                 r = MakeCurve(std::move(keys));
             }
         }
+        else if (k == "Native.Pure") r = CallNative(*n, t, active);
         else if (k.starts_with("Constant.")) r = in("Value");
         else if (k.starts_with("Get.")) r = m_Variables.at(in("Name").get<std::string>());
         else if (!Def(*n).Pure)
@@ -1461,14 +1706,31 @@ return c; }();
         Require(p && m_Graph.Fits(*p, r) && SafeValue(r), "Invalid result from " + k + "." + output);
         return r;
     }
+    Value Machine::CallNative(const Node& n, Task& t, Active& active)
+    {
+        const auto key = NativeKey(n);
+        Require((bool)m_Bridge, "No engine bridge for native method " + key);
+        std::map<std::string, Value> args;
+        for (const auto& p : Def(n).Inputs)
+            if (p.Kind != Type::Exec) args[p.Name] = Input(n, p.Name, t, active);
+        Value result = m_Bridge(n.Kind, args);
+        const auto& outputs = Def(n).Outputs;
+        const Pin* pin = outputs.empty() || outputs.back().Kind == Type::Exec ? nullptr : &outputs.back();
+        if (!pin) return nullptr;
+        Require(m_Graph.Fits(*pin, result) && SafeValue(result), "Invalid result from native method " + key + ": not a " + TypeName(pin->Kind) + (pin->Enum.empty() ? "" : " " + pin->Enum));
+        return result;
+    }
     void Machine::Push(Task& t, uint32_t from, const std::string& pin)
     {
-        auto it = m_OutputLinks.find({ from, pin });
-        if (it != m_OutputLinks.end())
-        {
-            Require(t.Stack.size() < 1024, "Execution stack limit");
-            t.Stack.push_back({ it->second.To });
-        }
+        auto index = m_NodeIndex.find(from);
+        if (index == m_NodeIndex.end()) return;
+        for (const auto& link : m_ExecOf[index->second])
+            if (link.Output == pin)
+            {
+                Require(t.Stack.size() < 1024, "Execution stack limit");
+                t.Stack.push_back({ link.To });
+                return;
+            }
     }
     void Machine::Event(const std::string& name, Value payload)
     {
@@ -1541,6 +1803,19 @@ return c; }();
         } callGuard{ depth };
         m_Running = true;
         m_Remaining = Budget;
+        struct RunTime
+        {
+            Machine& M;
+            bool On;
+            std::chrono::steady_clock::time_point Start = std::chrono::steady_clock::now();
+            ~RunTime()
+            {
+                if (!On) return;
+                ++M.m_Profile.Runs;
+                M.m_Profile.Seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - Start).count();
+            }
+        } runTime{ *this, ProfilingNow() };
+        m_ProfileChildren.clear();
         try
         {
             size_t tasks = m_Tasks.size();
@@ -1577,9 +1852,16 @@ return c; }();
                     m_SkipBreakpoint = false;
                     Charge();
                     t.Stack.pop_back();
+                    std::optional<Measure> measure;
+                    if (ProfilingNow())
+                    {
+                        if (t.Last) ++m_Profile.Edges[{ Origin(t.Last), Origin(n->ID) }];
+                        t.Last = n->ID;
+                        measure.emplace(*this, n->ID, &t);
+                    }
                     m_Trace.push_back(n->ID);
                     if (m_Trace.size() > 128) m_Trace.pop_front();
-                    std::set<uint32_t> active;
+                    Active active;
                     auto in = [&](const char* p) { return Input(*n, p, t, active); };
                     const auto& k = n->Kind;
                     if (k == "Function.Call") TypedCall(t, *n);
@@ -1713,7 +1995,9 @@ return c; }();
                         Value value = in("Value");
                         const auto& variable = m_Graph.Variables.at(name);
                         Require(m_Graph.Fits(variable.Kind, variable.Enum, value), "Variable type mismatch");
-                        m_Variables.at(name) = value;
+                        auto& stored = m_Variables.at(name);
+                        m_VariableBytes = m_VariableBytes - ValueBytes(stored) + ValueBytes(value);
+                        stored = std::move(value);
                         CheckStorage();
                         Push(t, n->ID, "Then");
                     }
@@ -1735,6 +2019,13 @@ return c; }();
                         for (auto it = handlers->second.rbegin(); it != handlers->second.rend(); ++it) t.Stack.push_back({ *it });
                     }
                     else if (k == "Parent.Call") Require(false, "Parent.Call without an overridden parent function");
+                    else if (k == "Native.Call")
+                    {
+                        Value result = CallNative(*n, t, active);
+                        if (!Def(*n).Outputs.empty() && Def(*n).Outputs.back().Kind != Type::Exec) t.Results[n->ID] = { { Def(*n).Outputs.back().Name, std::move(result) } };
+                        CheckStorage();
+                        Push(t, n->ID, "Then");
+                    }
                     else if (k == "Function" || k == "Function.Entry" || k.starts_with("Event.")) Push(t, n->ID, "Then");
                     else
                     {
@@ -1777,6 +2068,7 @@ return c; }();
                         CheckStorage();
                         Push(t, n->ID, "Then");
                     }
+                    measure.reset();
                     if (single)
                     {
                         Paused = true;

@@ -18,38 +18,104 @@
 
 namespace Zamin {
     namespace {
+        // Everything a module registers: script classes, C++ enums / structs for graphs and function libraries.
+        struct RegistryData
+        {
+            std::map<std::string, ScriptClassInfo> Classes;
+            std::map<std::string, ScriptEnumInfo> Enums;
+            std::map<std::string, ScriptStructInfo> Structs;
+            std::map<std::string, ScriptLibraryInfo> Libraries;
+        };
         // A new module's static registrars must not replace the working module's metadata
         // until dlopen succeeds and the old module has finished its unload callback.
-        std::map<std::string, ScriptClassInfo>* s_StagedRegistry = nullptr;
+        RegistryData* s_StagedRegistry = nullptr;
         bool s_LoadingModule = false;
+        uint64_t s_Generation = 1;
     }
 
-    static std::map<std::string, ScriptClassInfo>& Registry()
+    static RegistryData& Registry()
     {
-        static std::map<std::string, ScriptClassInfo> registry = {{"Zamin.VisualGraph", MakeVisualGraphClassInfo()}};
+        static RegistryData registry = [] {
+            RegistryData data;
+            data.Classes = { { "Zamin.VisualGraph", MakeVisualGraphClassInfo() } };
+            return data;
+        }();
         return registry;
+    }
+    // Where a registrar writes: the staged registry while a module loads, else the live one (a change of the live
+    // registry is a new generation).
+    static RegistryData& Target()
+    {
+        if (s_StagedRegistry) return *s_StagedRegistry;
+        ++s_Generation;
+        return Registry();
+    }
+
+    const ScriptMethodInfo* ScriptClassInfo::FindMethod(const std::string& name) const
+    {
+        for (const auto& method : Methods)
+            if (method.Name == name) return &method;
+        return nullptr;
     }
 
     void ScriptRegistry::Register(const ScriptClassInfo& info)
     {
-        if (info.Name != "Zamin.VisualGraph") (s_StagedRegistry ? *s_StagedRegistry : Registry())[info.Name] = info;
+        if (info.Name != "Zamin.VisualGraph") Target().Classes[info.Name] = info;
     }
 
-    void ScriptRegistry::Unregister(const std::string& name) { if (name != "Zamin.VisualGraph") (s_StagedRegistry ? *s_StagedRegistry : Registry()).erase(name); }
+    void ScriptRegistry::Unregister(const std::string& name) { if (name != "Zamin.VisualGraph") Target().Classes.erase(name); }
 
     const ScriptClassInfo* ScriptRegistry::Find(const std::string& name)
     {
-        auto it = Registry().find(name);
-        return it != Registry().end() ? &it->second : nullptr;
+        auto it = Registry().Classes.find(name);
+        return it != Registry().Classes.end() ? &it->second : nullptr;
     }
 
-    const std::map<std::string, ScriptClassInfo>& ScriptRegistry::GetAll() { return Registry(); }
+    const std::map<std::string, ScriptClassInfo>& ScriptRegistry::GetAll() { return Registry().Classes; }
 
     ScriptableEntity* ScriptRegistry::Instantiate(const std::string& name)
     {
         const ScriptClassInfo* info = Find(name);
         return info && info->Factory ? info->Factory() : nullptr;
     }
+
+    void ScriptRegistry::RegisterEnum(const ScriptEnumInfo& info) { Target().Enums[info.Name] = info; }
+    void ScriptRegistry::UnregisterEnum(const std::string& name) { Target().Enums.erase(name); }
+    const ScriptEnumInfo* ScriptRegistry::FindEnum(const std::string& name)
+    {
+        auto it = Registry().Enums.find(name);
+        return it != Registry().Enums.end() ? &it->second : nullptr;
+    }
+    const std::map<std::string, ScriptEnumInfo>& ScriptRegistry::GetEnums() { return Registry().Enums; }
+    void ScriptRegistry::RegisterStruct(const ScriptStructInfo& info) { Target().Structs[info.Name] = info; }
+    void ScriptRegistry::UnregisterStruct(const std::string& name) { Target().Structs.erase(name); }
+    const ScriptStructInfo* ScriptRegistry::FindStruct(const std::string& name)
+    {
+        auto it = Registry().Structs.find(name);
+        return it != Registry().Structs.end() ? &it->second : nullptr;
+    }
+    const std::map<std::string, ScriptStructInfo>& ScriptRegistry::GetStructs() { return Registry().Structs; }
+    void ScriptRegistry::RegisterLibrary(const ScriptLibraryInfo& info) { Target().Libraries[info.Name] = info; }
+    void ScriptRegistry::UnregisterLibrary(const std::string& name) { Target().Libraries.erase(name); }
+    const ScriptLibraryInfo* ScriptRegistry::FindLibrary(const std::string& name)
+    {
+        auto it = Registry().Libraries.find(name);
+        return it != Registry().Libraries.end() ? &it->second : nullptr;
+    }
+    const std::map<std::string, ScriptLibraryInfo>& ScriptRegistry::GetLibraries() { return Registry().Libraries; }
+    const ScriptMethodInfo* ScriptRegistry::FindMethod(const std::string& key, std::string* owner)
+    {
+        const size_t dot = key.rfind('.');
+        if (dot == std::string::npos || dot == 0 || dot + 1 == key.size()) return nullptr;
+        const std::string name = key.substr(0, dot), method = key.substr(dot + 1);
+        if (owner) *owner = name;
+        if (const auto* info = Find(name)) return info->FindMethod(method);
+        if (const auto* library = FindLibrary(name))
+            for (const auto& function : library->Functions)
+                if (function.Name == method) return &function;
+        return nullptr;
+    }
+    uint64_t ScriptRegistry::Generation() { return s_Generation; }
 
     // ------------------------------------------------------------------ modules
     namespace {
@@ -160,11 +226,11 @@ namespace Zamin {
             std::filesystem::remove(copy, ec);
             return false;
         }
-        std::map<std::string, ScriptClassInfo> staged;
+        RegistryData staged;
         void* handle = nullptr;
         {
             struct RegistrationGuard {
-                explicit RegistrationGuard(std::map<std::string, ScriptClassInfo>& target){s_StagedRegistry=&target;}
+                explicit RegistrationGuard(RegistryData& target){s_StagedRegistry=&target;}
                 ~RegistrationGuard(){s_StagedRegistry=nullptr;}
             } registration(staged);
             handle = dlopen(copy.c_str(), RTLD_NOW | RTLD_LOCAL);
@@ -176,8 +242,12 @@ namespace Zamin {
             return false;
         }
         UnloadModule();
-        const size_t classCount = staged.size();
-        for (auto& [name, info] : staged) Registry()[name] = std::move(info);
+        const size_t classCount = staged.Classes.size();
+        for (auto& [name, info] : staged.Classes) Registry().Classes[name] = std::move(info);
+        for (auto& [name, info] : staged.Enums) Registry().Enums[name] = std::move(info);
+        for (auto& [name, info] : staged.Structs) Registry().Structs[name] = std::move(info);
+        for (auto& [name, info] : staged.Libraries) Registry().Libraries[name] = std::move(info);
+        ++s_Generation;
         s_Module.Handle = handle;
         s_Module.Path = path;
         s_Module.LoadedCopy = copy;

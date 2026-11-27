@@ -32,6 +32,35 @@ namespace Zamin {
         double Seconds = 0.0;
     };
 
+    // One Visual Script graph of an export's graph cook (the report).
+    struct CookedGraph
+    {
+        std::string Path;              // asset-relative
+        std::string Action;            // "cooked" (bytecode written), "rejected" (does not validate: kept as it is),
+                                       // "kept" (the parent of a rejected graph, which still loads it)
+        uint64_t SourceBytes = 0, CookedBytes = 0;
+        uint32_t Nodes = 0;            // of the program (parent chain and macros included)
+        bool CacheHit = false;
+        std::string Note;              // a rejected graph's first error; native method warnings
+        bool operator==(const CookedGraph&) const = default;
+    };
+
+    struct GraphCookInputs
+    {
+        std::filesystem::path SourceAssets;   // the project's asset folder (graphs and their parents are read there)
+        std::filesystem::path ExportAssets;   // the exported asset folder (cooked graphs are written there)
+        std::vector<std::string> Files;       // the plan's asset-relative files
+        std::filesystem::path CacheDirectory; // empty: no cache
+    };
+
+    struct GraphCookResult
+    {
+        std::vector<CookedGraph> Graphs;      // sorted by path
+        size_t CacheHits = 0;
+        std::vector<std::string> Warnings;
+        double Seconds = 0.0;
+    };
+
     class ExportCook
     {
     public:
@@ -41,6 +70,9 @@ namespace Zamin {
         static ExportCookResult Run(const ExportCookInputs& inputs);
         // Image files the cook takes (8-bit formats stb decodes; HDR stays as it is).
         static bool IsCookable(const std::string& path);
+        // Compiles every graph of the plan to bytecode in the exported folder (Visual::Bytecode). The validation
+        // is the runtime's (Machine::Load): a graph the Player would reject is kept and reported, never cooked.
+        static GraphCookResult CookGraphs(const GraphCookInputs& inputs);
     };
 
 }

@@ -354,6 +354,7 @@ namespace Zamin::Visual {
         if (found == Catalog().end()) return { n.Kind, "Unknown", {}, {}, false };
         auto result = found->second;
         if (n.Kind.starts_with("Macro.")) return DescribeMacro(n, std::move(result));
+        if (n.Kind.starts_with("Native.")) return DescribeNative(n, std::move(result));
         if (!Typed(n.Kind))
         {
             const auto has = [&](auto test) { return std::any_of(result.Inputs.begin(), result.Inputs.end(), test) || std::any_of(result.Outputs.begin(), result.Outputs.end(), test); };
@@ -568,6 +569,7 @@ namespace Zamin::Visual {
                 if (Typed(n.Kind) && Functions.contains(Name(n))) fragment.Functions[Name(n)] = Functions.at(Name(n));
                 // A macro instance carries the macro's pins; the body stays in this graph (PasteNodes needs the macro).
                 if (n.Kind == "Macro.Instance" && Macros.contains(Name(n))) fragment.Macros[Name(n)] = Macros.at(Name(n));
+                if (auto key = NativeKey(n); Natives.contains(key)) fragment.Natives[key] = Natives.at(key);
             }
         for (const auto& l : Links)
             if (selected.contains(l.From) && selected.contains(l.To)) fragment.Links.push_back(l);
@@ -607,6 +609,14 @@ namespace Zamin::Visual {
                 if (existing == next.Macros.end() || existing->second != definition) throw std::runtime_error("Macro " + name + " is not in this graph with the same pins");
             }
             if (!macro.empty() && !next.Macros.contains(macro)) throw std::runtime_error("Unknown macro: " + macro);
+            // Native method signatures: an equal one is shared, a different one (another version of the method) is
+            // rejected.
+            for (const auto& [key, signature] : fragment.Natives)
+            {
+                auto existing = next.Natives.find(key);
+                if (existing == next.Natives.end()) next.Natives[key] = signature;
+                else if (!existing->second.Matches(signature)) throw std::runtime_error("Native method " + key + " has another signature in this graph");
+            }
             for (const auto& [name, var] : fragment.Variables)
             {
                 std::string target = name;

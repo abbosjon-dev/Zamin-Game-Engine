@@ -18,16 +18,7 @@ namespace Zamin::Visual {
             if (n.Kind == "Parent.Event") return "Start";
             return n.Kind.starts_with("Function.") || n.Kind == "Parent.Call" ? "MyFunction" : "";
         }
-        Value ReadJson(const std::filesystem::path& path)
-        {
-            if (std::filesystem::file_size(path) > 4 * 1024 * 1024) throw std::runtime_error("Graph exceeds 4 MB");
-            std::ifstream f(path);
-            if (!f) throw std::runtime_error("Graph file could not be opened");
-            return Value::parse(f, [](int depth, Value::parse_event_t, Value&) {
-                if (depth > 64) throw std::runtime_error("JSON nesting exceeds 64");
-                return true;
-            });
-        }
+        Value ReadJson(const std::filesystem::path& path) { return ReadGraphJson(path); }
     }
     std::string Graph::EventKey(const Node& n)
     {
@@ -168,6 +159,9 @@ namespace Zamin::Visual {
         inherit(Enums, base->Enums, Inherited.Enums);
         inherit(Structs, base->Structs, Inherited.Structs);
         inherit(Macros, base->Macros, Inherited.Macros);
+        // The parent chain's native method signatures (for its nodes in the resolved graph; never saved here: a
+        // graph saves the ones its own nodes use).
+        for (const auto& [key, signature] : base->Natives) Natives.try_emplace(key, signature);
         for (const auto& n : base->Nodes)
             if (n.Macro.empty() && !base->Inherited.OverriddenEvents.contains(n.ID))
                 if (auto key = EventKey(n); !key.empty()) Inherited.Events.insert(key);
@@ -301,6 +295,8 @@ namespace Zamin::Visual {
         r.Enums = base.Enums;
         r.Structs = base.Structs;
         r.Macros = base.Macros;
+        r.Natives = base.Natives;
+        for (const auto& [key, signature] : Natives) r.Natives[key] = signature;
         // An overridden function: the parent's version moves to "<Parent>::<Name>" (its entry and returns follow;
         // calls keep the name and so run the override).
         std::map<std::string, std::string> hidden;

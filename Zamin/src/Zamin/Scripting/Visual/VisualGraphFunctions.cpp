@@ -1,4 +1,6 @@
 #include "VisualGraph.h"
+#include <optional>
+#include <unordered_map>
 #include <algorithm>
 #include <functional>
 #include <stdexcept>
@@ -25,25 +27,43 @@ namespace Zamin::Visual {
         // counts; a Sequence returns when one of its outputs returns on every path; any other node with several
         // execution outputs (Branch, Enum.Switch ...) needs all of them. A wire back into a node being visited
         // (a loop) and Break are not reported.
-        Coverage ReturnCoverage(const Graph& graph, const std::string& function)
+        // The execution wires of a graph, made once for the return-path analysis of all its functions (a large
+        // graph with many functions described every wire's target once per function).
+        struct ExecIndex
         {
-            Coverage coverage;
-            std::map<uint32_t, const Node*> nodes;
+            std::unordered_map<uint32_t, const Node*> Nodes;
+            std::unordered_map<uint32_t, std::vector<std::string>> Outputs; // a node's execution outputs
+            std::map<std::pair<uint32_t, std::string>, uint32_t> Next;
+            std::map<std::string, uint32_t> Entries;
+        };
+        ExecIndex BuildExecIndex(const Graph& graph)
+        {
+            ExecIndex index;
+            std::unordered_map<uint32_t, Definition> defs;
             for (const auto& n : graph.Nodes)
             {
-                nodes[n.ID] = &n;
-                if (n.Kind == "Function.Entry" && Name(n) == function) coverage.Entry = n.ID;
+                index.Nodes[n.ID] = &n;
+                if (n.Kind == "Function.Entry") index.Entries[Name(n)] = n.ID;
+                auto& def = defs[n.ID] = graph.Describe(n);
+                for (const auto& pin : def.Outputs)
+                    if (pin.Kind == Type::Exec) index.Outputs[n.ID].push_back(pin.Name);
             }
-            if (!coverage.Entry) return coverage;
-            std::map<std::pair<uint32_t, std::string>, uint32_t> next;
             for (const auto& link : graph.Links)
             {
-                auto to = nodes.find(link.To);
-                if (to == nodes.end() || !nodes.contains(link.From)) continue;
-                const auto def = graph.Describe(*to->second);
-                auto pin = std::find_if(def.Inputs.begin(), def.Inputs.end(), [&](const Pin& p) { return p.Name == link.Input; });
-                if (pin != def.Inputs.end() && pin->Kind == Type::Exec) next[{ link.From, link.Output }] = link.To;
+                auto to = defs.find(link.To);
+                if (to == defs.end() || !index.Nodes.contains(link.From)) continue;
+                auto pin = std::find_if(to->second.Inputs.begin(), to->second.Inputs.end(), [&](const Pin& p) { return p.Name == link.Input; });
+                if (pin != to->second.Inputs.end() && pin->Kind == Type::Exec) index.Next[{ link.From, link.Output }] = link.To;
             }
+            return index;
+        }
+        Coverage ReturnCoverage(const std::string& function, const ExecIndex& index)
+        {
+            Coverage coverage;
+            if (auto entry = index.Entries.find(function); entry != index.Entries.end()) coverage.Entry = entry->second;
+            if (!coverage.Entry) return coverage;
+            const auto& nodes = index.Nodes;
+            const auto& next = index.Next;
             std::map<uint32_t, bool> memo;
             std::set<uint32_t> visiting;
             std::function<bool(uint32_t, int)> returns = [&](uint32_t id, int depth) -> bool {
@@ -61,9 +81,9 @@ namespace Zamin::Visual {
                     auto it = next.find({ id, pin });
                     return it != next.end() && returns(it->second, depth + 1);
                 };
-                std::vector<std::string> outputs;
-                for (const auto& pin : graph.Describe(n).Outputs)
-                    if (pin.Kind == Type::Exec) outputs.push_back(pin.Name);
+                static const std::vector<std::string> none;
+                auto found = index.Outputs.find(id);
+                const auto& outputs = found == index.Outputs.end() ? none : found->second;
                 bool result = false;
                 if (n.Kind == "For" || n.Kind == "While" || n.Kind.starts_with("ForEach."))
                 {
@@ -100,8 +120,7 @@ namespace Zamin::Visual {
     }
     size_t Machine::RetainedBytes() const
     {
-        size_t bytes = 0;
-        for (const auto& [name, value] : m_Variables) bytes += 64 + name.size() + ValueBytes(value);
+        size_t bytes = m_VariableBytes; // (kept up to date by Load and Set)
         auto taskBytes = [&](const Task& t) {
             size_t count = sizeof(Task) + t.Stack.size() * sizeof(Frame) + ValueBytes(t.Event) + ResultBytes(t.Results);
             for (const auto& call : t.Calls)
@@ -133,9 +152,10 @@ namespace Zamin::Visual {
         const auto& signature = m_Graph.Functions.at(name);
         Invocation call;
         call.Name = name;
+        if (ProfilingNow()) ++m_Profile.Functions[name].Calls;
         call.Caller = node.ID;
         call.Entry = m_TypedEntries.at(name);
-        std::set<uint32_t> active;
+        Active active;
         for (const auto& pin : signature.Inputs)
         {
             auto value = Input(node, pin.Name, task, active);
@@ -161,6 +181,7 @@ namespace Zamin::Visual {
         for (const auto& pin : signature.Outputs) Need(values.contains(pin.Name) && m_Graph.Fits(pin, values.at(pin.Name)), "Function return type/value mismatch");
         auto call = std::move(task.Calls.back());
         task.Calls.pop_back();
+        if (ProfilingNow()) m_Profile.Functions[call.Name].Inclusive += call.ProfileTime;
         task.Stack.resize(call.ReturnDepth);
         task.Results = std::move(call.ParentResults);
         task.Results[call.Caller] = std::move(values);
@@ -218,11 +239,13 @@ namespace Zamin::Visual {
                 if (name.empty() || name.size() > 128) error(n.ID, "Invalid custom event name");
             }
         }
+        std::optional<ExecIndex> index;
         for (const auto& [name, sig] : Functions)
             if (entries[name] != 1) error(0, "Typed function needs exactly one entry: " + name);
             else if (!sig.Outputs.empty())
             {
-                const auto coverage = ReturnCoverage(*this, name);
+                if (!index) index = BuildExecIndex(*this);
+                const auto coverage = ReturnCoverage(name, *index);
                 if (!coverage.Reachable) error(coverage.Entry, "Function " + name + " has results but no reachable Return");
             }
         for (const auto& link : Links)
@@ -337,10 +360,12 @@ namespace Zamin::Visual {
                 if (auto origin = expansion.Origins.find(w.Node); origin != expansion.Origins.end()) w = { origin->second.first, w.Message, origin->second.second };
             return warnings;
         }
+        std::optional<ExecIndex> index;
         for (const auto& [name, signature] : Functions)
         {
             if (signature.Outputs.empty()) continue;
-            const auto coverage = ReturnCoverage(*this, name);
+            if (!index) index = BuildExecIndex(*this);
+            const auto coverage = ReturnCoverage(name, *index);
             if (coverage.Entry && coverage.Reachable && !coverage.AllPaths) warnings.push_back({ coverage.Entry, "Some execution paths of " + name + " end without Return" });
         }
         return warnings;

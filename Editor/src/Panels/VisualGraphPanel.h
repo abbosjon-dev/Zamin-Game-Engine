@@ -16,7 +16,33 @@ namespace Zamin {
         void SetContext(const Ref<Scene>& scene, bool editable, uint64_t selection);
         void OnImGuiRender(bool* show);
         std::function<void()> OnModified;
+        // The open graph's file (empty: none) and the graph itself.
+        const std::filesystem::path& GetPath() const { return m_Path; }
+        const Visual::Graph& GetGraph() const { return m_Graph; }
+        // Opens the Visual Script Profiler panel (the button on the status line).
+        std::function<void()> OnOpenProfiler;
+        bool HeatOverlay() const { return m_HeatOverlay; }
     private:
+        // Adds a node at the canvas's top left (one undo step; false at the node limit). Returns its ID in id.
+        bool InsertNode(const std::string& kind, std::map<std::string, Visual::Value> inputs, uint32_t* id = nullptr, bool snapshot = true);
+        // Native methods (C++ methods and free functions for graphs, ScriptMethod.h): why each one the graph calls
+        // cannot run now (empty: they all bind), recomputed when the graph or the C++ registry (a module load or hot
+        // reload) changes. A node of a broken method is drawn red and keeps its pins and wires.
+        std::map<std::string, std::string> m_NativeProblems;
+        uint64_t m_NativeGeneration = 0;
+        void RefreshNativeProblems();
+        // The node library's C++ section: every registered method and free function.
+        void NativePalette(const std::function<bool(std::string)>& matches);
+        // Adds a node of a native method with its live signature (and its C++ enums/structs), one undo step.
+        bool AddNative(const std::string& key);
+        // The selected native node's signature, binding status and "Refresh from C++".
+        void NativeProperties(const Visual::Node& node);
+        // The VM profiler while playing: the merged profile of every running instance of the open graph (the heat
+        // overlay on the canvas; the Visual Script Profiler panel shows the tables).
+        Visual::Machine::Profile m_Profile;
+        size_t m_ProfileInstances = 0;
+        bool m_HeatOverlay = true;
+        void CollectProfile();
         Visual::Graph m_Graph;
         std::filesystem::path m_Path;
         Ref<Scene> m_Scene;
@@ -73,6 +99,9 @@ namespace Zamin {
         std::vector<Visual::Value> m_Undo, m_Redo;
         void Snapshot();
         void Canvas();
+        // Canvas statistics of the last frame: the nodes/links drawn and the canvas's CPU time (ms).
+        size_t m_DrawnNodes = 0, m_DrawnLinks = 0;
+        double m_CanvasMs = 0;
         void Properties();
         void GraphVariables();
         void SceneInstance();

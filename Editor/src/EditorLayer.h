@@ -14,6 +14,7 @@
 #include "Panels/AnimationTimelinePanel.h"
 #include "Panels/AnimatorGraphPanel.h"
 #include "Panels/VisualGraphPanel.h"
+#include "Panels/VisualScriptProfilerPanel.h"
 #include "Panels/CodeEditorPanel.h"
 #include "Panels/ScenesPanel.h"
 #include "AssetUsageCache.h"
@@ -1004,6 +1005,8 @@ namespace Zamin {
         bool m_ShowCodeEditor = false;
         VisualGraphPanel m_VisualGraphPanel;
         bool m_ShowVisualGraph = false;
+        VisualScriptProfilerPanel m_VisualScriptProfilerPanel;
+        bool m_ShowVisualScriptProfiler = false;
         AnimatorGraphPanel m_AnimatorGraphPanel;
         bool m_ShowAnimatorGraph = false;
         bool m_AnimatorGraphInViewport = false;   // automation: docked over the viewport (screenshots)

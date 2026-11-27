@@ -39,6 +39,9 @@ namespace Zamin::GraphLayout {
     // Records a drawn (not ImGui item) rectangle, e.g. a canvas node header or pin; never counted as clipped.
     void RecordRect(const std::string& key, ImVec2 min, ImVec2 max);
     bool Recording();
+    // Records a value under a key (the "Values" object of the automation file): canvas statistics, profiler heat.
+    void RecordValue(const std::string& key, double value);
+    void RecordValue(const std::string& key, const std::string& value);
     // Writes the frame's rectangles (and the named region rectangle) to the automation file and starts a new frame.
     void Flush();
     void RecordRegion(const char* name);

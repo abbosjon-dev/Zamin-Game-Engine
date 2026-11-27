@@ -10,7 +10,7 @@ namespace Zamin::GraphLayout {
         {
             const char* Path = std::getenv("ZAMIN_EDITOR_VISUAL_LAYOUT");
             std::vector<std::string> Scope;
-            nlohmann::json Items = nlohmann::json::object(), Regions = nlohmann::json::object();
+            nlohmann::json Items = nlohmann::json::object(), Regions = nlohmann::json::object(), Values = nlohmann::json::object();
             std::string Written;
         };
         State& S()
@@ -53,6 +53,14 @@ namespace Zamin::GraphLayout {
     {
         if (Recording()) S().Items[key] = { { "Rect", { min.x, min.y, max.x, max.y } }, { "Clipped", false } };
     }
+    void RecordValue(const std::string& key, double value)
+    {
+        if (Recording()) S().Values[key] = value;
+    }
+    void RecordValue(const std::string& key, const std::string& value)
+    {
+        if (Recording()) S().Values[key] = value;
+    }
     void RecordRegion(const char* name)
     {
         if (!Recording()) return;
@@ -63,10 +71,11 @@ namespace Zamin::GraphLayout {
     {
         if (!Recording()) return;
         auto& state = S();
-        const std::string text = nlohmann::json{ { "Items", state.Items }, { "Regions", state.Regions } }.dump();
+        const std::string text = nlohmann::json{ { "Items", state.Items }, { "Regions", state.Regions }, { "Values", state.Values } }.dump();
         if (text != state.Written && FileSystem::WriteTextFileAtomic(state.Path, text)) state.Written = text;
         state.Items = nlohmann::json::object();
         state.Regions = nlohmann::json::object();
+        state.Values = nlohmann::json::object();
         state.Scope.clear();
     }
     void FitText(const char* text, bool disabled)

@@ -5626,6 +5626,25 @@ namespace Zamin {
             { "Atlas grid", "Atlas grid" },
             { "Tileset grid rejimidagi sprite atlas sahifasi: plitka i - atlasning i-kadri", "The tileset is a grid sprite atlas page: tile i is the atlas's frame i" },
             { "Atlas gridini olish ({} x {})", "Use the atlas grid ({} x {})" },
+            // ---- Visual Script: native methods, the bytecode cook, the VM profiler
+            { "C++ metodi ulangan", "C++ method bound" },
+            { "C++ metodi ulanmagan", "C++ methods not bound" },
+            { "C++ dan yangilash", "Refresh from C++" },
+            { "Issiqlik", "Heat" },
+            { "Visual Script profileri", "Visual Script profiler" },
+            { "Yozib borish", "Record" },
+            { "(graf ochilmagan)", "(no graph open)" },
+            { "Nusxalar: %zu  |  ishga tushishlar: %llu  |  VM vaqti: %.3f ms  |  tugunlar: %zu", "Instances: %zu  |  runs: %llu  |  VM time: %.3f ms  |  nodes: %zu" },
+            { "Grafni Visual Script oynasida oching va o'yinni ishga tushiring (Play): har bir tugunning chaqiruvlari va vaqti shu yerda ko'rinadi.",
+              "Open the graph in the Visual Script window and play the game: the calls and time of every node show here." },
+            { "Issiq yo'l", "Hot path" },
+            { "Tugunlar", "Nodes" },
+            { "Chaqiruvlar", "Calls" },
+            { "O'zi (ms)", "Self (ms)" },
+            { "Jami (ms)", "Total (ms)" },
+            { "Pishirilgan graflar", "Cooked graphs" },
+            { "Baytkod | kesh: %zu ta qayta ishlatildi | %.2f s", "Bytecode | cache: %zu reused | %.2f s" },
+            { "rad etildi", "rejected" },
         };
 
         struct Table

@@ -198,6 +198,11 @@ namespace Zamin {
         };
         m_SceneHierarchyPanel.OnOpenScriptSource = [this](const std::string& className) { OpenScriptClassSource(className); };
         m_VisualGraphPanel.OnModified = [this]() { MarkDirty(); };
+        m_VisualGraphPanel.OnOpenProfiler = [this]() { m_ShowVisualScriptProfiler = true; };
+        m_VisualScriptProfilerPanel.OnSelectNode = [this](uint32_t id) {
+            m_ShowVisualGraph = true;
+            m_VisualGraphPanel.SelectNode(id);
+        };
         auto openVisualGraph = [this](const fs::path& file) { m_ShowVisualGraph = true; m_VisualGraphPanel.Open(file); };
         m_ContentBrowserPanel.OnOpenVisualGraph = openVisualGraph;
         m_AssetInspectorPanel.OnOpenVisualGraph = openVisualGraph;
@@ -560,6 +565,9 @@ namespace Zamin {
                 const auto file=FileSystem::SafeJoin(Project::GetProjectDirectory(),source);
                 if(!file.empty()) OpenInCodeEditor(file);
             }
+            // ZAMIN_EDITOR_VISUAL_PROFILER=1: the Visual Script Profiler panel is open from the start.
+            if (const char* profiler = std::getenv("ZAMIN_EDITOR_VISUAL_PROFILER"); profiler && *profiler && std::string_view(profiler) != "0")
+                m_ShowVisualScriptProfiler = true;
             if (const char* graph = std::getenv("ZAMIN_EDITOR_VISUAL_GRAPH")) {
                 m_ShowVisualGraph = true;
                 m_VisualGraphPanel.Open(Project::GetAssetFileSystemPath(graph));
@@ -6357,6 +6365,14 @@ namespace Zamin {
         auto visualSelection = m_SceneHierarchyPanel.GetSelectedEntity();
         m_VisualGraphPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit, visualSelection ? (uint64_t)visualSelection.GetUUID() : 0);
         m_VisualGraphPanel.OnImGuiRender(&m_ShowVisualGraph);
+        {
+            // The VM profiler runs while playing when the profiler panel records or the heat overlay is shown.
+            const bool playing = m_SceneState != SceneState::Edit;
+            const auto graph = m_VisualGraphPanel.GetPath().empty() ? std::string() : Project::GetAssetRelativePath(m_VisualGraphPanel.GetPath());
+            Visual::Machine::ProfileAll = playing && ((m_ShowVisualScriptProfiler && m_VisualScriptProfilerPanel.Recording()) || (m_ShowVisualGraph && m_VisualGraphPanel.HeatOverlay()));
+            m_VisualScriptProfilerPanel.SetContext(m_ActiveScene, playing, graph, &m_VisualGraphPanel.GetGraph());
+            m_VisualScriptProfilerPanel.OnImGuiRender(&m_ShowVisualScriptProfiler);
+        }
         m_CodeEditorPanel.SetProject(Project::GetProjectDirectory(),Project::GetCacheDirectory());
         m_CodeEditorPanel.SetBuildRunning(m_Building);
         m_CodeEditorPanel.OnImGuiRender(&m_ShowCodeEditor);
@@ -6657,6 +6673,7 @@ namespace Zamin {
                 m_AnimationPanel.Focus();
             ImGui::MenuItem(Tr("Kod muharriri"), nullptr, &m_ShowCodeEditor);
             ImGui::MenuItem("Visual Script", nullptr, &m_ShowVisualGraph);
+            ImGui::MenuItem(Tr("Visual Script profileri"), nullptr, &m_ShowVisualScriptProfiler);
             if (ImGui::MenuItem(Tr(ICON_FA_DIAGRAM_PROJECT "  Animator grafi"), nullptr, &m_ShowAnimatorGraph) && m_ShowAnimatorGraph)
                 m_AnimatorGraphPanel.Focus();
             ImGui::MenuItem(Tr(ICON_FA_BROOM "  Ishlatilmagan assetlar"), nullptr, &m_ShowUnusedAssets, hasProject);

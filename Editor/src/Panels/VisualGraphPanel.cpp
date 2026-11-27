@@ -1,7 +1,10 @@
 #include <cstdlib>
 #include "VisualGraphPanel.h"
+#include <chrono>
 #include "VisualGraphLayout.h"
 #include "Zamin/Scripting/Visual/VisualGraphHost.h"
+#include "Zamin/Scripting/ScriptEngine.h"
+#include <format>
 #include "Zamin/Project/Project.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Asset/AssetRegistry.h"
@@ -609,6 +612,13 @@ namespace Zamin {
         }
         if (ImGui::Button(Tr("Grafni sig'dirish###Fit graph"))) m_Fit = true;
         ImGui::SameLine();
+        // The VM profiler: the heat overlay on the canvas while playing, and the profiler panel.
+        ImGui::Checkbox(Tr("Issiqlik###Heat"), &m_HeatOverlay);
+        GraphLayout::RecordRect("header/Heat", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        ImGui::SameLine();
+        if (ImGui::Button(Tr("Profiler###Visual Script profiler")) && OnOpenProfiler) OnOpenProfiler();
+        GraphLayout::RecordRect("header/Profiler", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        ImGui::SameLine();
         ImGui::TextColored({ .66f, .54f, 1, 1 }, "ZAMIN  /  VISUAL SCRIPT");
         ImGui::SameLine();
         ImGui::TextDisabled("%s%s", m_Path.filename().string().c_str(), m_Dirty ? " *" : "");
@@ -741,6 +751,8 @@ namespace Zamin {
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", Tr("Tanlangan tugunlar yangi tiplangan funksiyaga ko'chadi, o'rniga chaqiruv qo'yiladi (Ctrl+G)"));
         ImGui::EndDisabled();
         if (!m_Error.empty()) ImGui::TextColored({ 1, .4f, .4f, 1 }, "%s", m_Error.c_str());
+        // A module load / hot reload changes which native methods bind.
+        if (m_ValidateDirty || m_NativeGeneration != ScriptRegistry::Generation()) RefreshNativeProblems();
         if (m_ValidateDirty)
         {
             m_Diagnostics = m_Graph.Validate();
@@ -768,6 +780,21 @@ namespace Zamin {
             }
             if (ImGui::IsItemClicked()) m_Selected = m_Warnings.front().Node;
         }
+        if (!m_NativeProblems.empty())
+        {
+            // C++ methods that do not bind now (no module, removed or changed): the graph loads and keeps its wires,
+            // the node stops the graph when it runs. Hover: the reasons.
+            if (diagnostics.empty() || !m_Warnings.empty()) ImGui::SameLine();
+            ImGui::TextColored({ 1, .45f, .4f, 1 }, "|  %zu %s", m_NativeProblems.size(), Tr("C++ metodi ulanmagan"));
+            GraphLayout::RecordRect("status/native problems", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            GraphLayout::RecordValue("native/problems", double(m_NativeProblems.size()));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                for (const auto& [key, problem] : m_NativeProblems) ImGui::Text("%s: %s", key.c_str(), problem.c_str());
+                ImGui::EndTooltip();
+            }
+        }
         if (!diagnostics.empty())
         {
             ImGui::TextColored({ 1, .65f, .3f, 1 }, "%zu %s", diagnostics.size(), Tr("kompilyatsiya xatosi"));
@@ -792,6 +819,7 @@ namespace Zamin {
         ImGui::BeginChild("palette", { 205, height }, ImGuiChildFlags_Borders);
         ImGui::TextUnformatted(Tr("Tugunlar kutubxonasi"));
         ImGui::InputTextWithHint("##search", Tr("Tugun qidirish..."), m_Search, sizeof(m_Search));
+        GraphLayout::RecordRect("palette/search", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
         ImGui::TextDisabled("%s", Tr("Bosib tugun qo'shing"));
         ImGui::BeginDisabled(!m_Editable);
         std::string q = m_Search;
@@ -800,20 +828,7 @@ namespace Zamin {
             std::transform(text.begin(), text.end(), text.begin(), ::tolower);
             return q.empty() || text.find(q) != std::string::npos;
         };
-        auto addNode = [&](const std::string& kind, std::map<std::string, Visual::Value> inputs) {
-            uint64_t nextID = 1;
-            for (auto& n : m_Graph.Nodes) nextID = std::max(nextID, uint64_t(n.ID) + 1);
-            if (nextID > UINT32_MAX || m_Graph.Nodes.size() >= 4096)
-            {
-                m_Error = Tr("Tugunlar soni chegarasiga yetildi");
-                return;
-            }
-            Snapshot();
-            const auto id = uint32_t(nextID);
-            m_Graph.Nodes.push_back({ id, kind, (100 - m_Pan.x) / m_Zoom, (100 - m_Pan.y) / m_Zoom, std::move(inputs), false, m_Macro });
-            m_Selected = id;
-            m_Selection = { id };
-        };
+        auto addNode = [&](const std::string& kind, std::map<std::string, Visual::Value> inputs) { InsertNode(kind, std::move(inputs)); };
         // The graph's own typed functions first: one call entry each, found by "call" or the function's name.
         for (const auto& [name, signature] : m_Graph.Functions)
             if (matches("function.call " + name) && ImGui::Selectable((std::string(Tr("Funksiyalar")) + " / " + Tr("Chaqirish") + " " + name).c_str()))
@@ -827,9 +842,13 @@ namespace Zamin {
         for (const auto& [name, macro] : m_Graph.Macros)
             if (name != m_Macro && matches("macro.instance " + name) && ImGui::Selectable((std::string(Tr("Makroslar")) + " / " + name).c_str()))
                 addNode("Macro.Instance", { { "Name", name } });
+        // Then the C++ methods and free functions of the loaded game module.
+        NativePalette(matches);
         for (auto& [key, def] : Visual::Catalog())
         {
             if (!matches(key)) continue;
+            // A native node comes with its method (the C++ section above).
+            if (key.starts_with("Native.")) continue;
             // A macro's entry/exit come with the macro; a macro body holds no events or function entries.
             if (key == "Macro.Entry" || key == "Macro.Exit") continue;
             if (!m_Macro.empty() && (key.starts_with("Event.") || key == "Function.Entry" || key == "Function")) continue;
@@ -858,8 +877,19 @@ namespace Zamin {
         ImGui::EndChild();
         ImGui::SameLine();
         float width = std::max(150.f, ImGui::GetContentRegionAvail().x - 325);
+        if (m_HeatOverlay) CollectProfile();
+        else m_Profile = {};
         ImGui::BeginChild("canvas", { width, height }, ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        Canvas();
+        {
+            const auto started = std::chrono::steady_clock::now();
+            Canvas();
+            m_CanvasMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+            GraphLayout::RecordValue("canvas/ms", m_CanvasMs);
+            GraphLayout::RecordValue("canvas/drawnNodes", double(m_DrawnNodes));
+            GraphLayout::RecordValue("canvas/drawnLinks", double(m_DrawnLinks));
+            GraphLayout::RecordValue("canvas/nodes", double(m_Graph.Nodes.size()));
+            GraphLayout::RecordValue("canvas/vertices", double(ImGui::GetWindowDrawList()->VtxBuffer.Size));
+        }
         ImGui::EndChild();
         ImGui::SameLine();
         ImGui::BeginChild("properties", { 0, height }, ImGuiChildFlags_Borders);
@@ -913,6 +943,14 @@ namespace Zamin {
         for (float x = std::fmod(m_Pan.x, grid); x < size.x; x += grid) draw->AddLine({ origin.x + x, origin.y }, { origin.x + x, origin.y + size.y }, IM_COL32(33, 37, 49, 255));
         for (float y = std::fmod(m_Pan.y, grid); y < size.y; y += grid) draw->AddLine({ origin.x, origin.y + y }, { origin.x + size.x, origin.y + y }, IM_COL32(33, 37, 49, 255));
         auto pin = [&](const Node& n, const std::vector<Pin>& ps, const std::string& name, bool out) {size_t i=0;for(;i<ps.size();++i)if(ps[i].Name==name)break;return screen(n.X+(out?220:0),n.Y+48+(float)i*24); };
+        m_DrawnNodes = m_DrawnLinks = 0;
+        // Large graphs: nodes and wires off the visible canvas are not drawn (nor hit-tested: they cannot be under
+        // the pointer).
+        const ImVec2 clipMin = origin, clipMax = { origin.x + size.x, origin.y + size.y };
+        double hottest = 0;
+        const bool heat = m_HeatOverlay && !m_Editable && !m_Profile.Nodes.empty();
+        if (heat)
+            for (const auto& [id, p] : m_Profile.Nodes) hottest = std::max(hottest, p.Exclusive);
         std::map<uint32_t, const Node*> nodeMap;
         for (const auto& node : m_Graph.Nodes) nodeMap[node.ID] = &node;
         for (auto& l : m_Graph.Links)
@@ -923,8 +961,11 @@ namespace Zamin {
             const auto& def = Describe(*a);
             auto from = pin(*a, def.Outputs, l.Output, true), to = pin(*b, Describe(*b).Inputs, l.Input, false);
             float bend = std::max(50.f, std::abs(to.x - from.x) * .45f);
+            // Off the canvas: the curve stays inside the box of its ends and control points.
+            if (std::max(from.x + bend, to.x) < clipMin.x || std::min(from.x, to.x - bend) > clipMax.x || std::max(from.y, to.y) < clipMin.y || std::min(from.y, to.y) > clipMax.y) continue;
             auto p = std::find_if(def.Outputs.begin(), def.Outputs.end(), [&](auto& p) { return p.Name == l.Output; });
             draw->AddBezierCubic(from, { from.x + bend, from.y }, { to.x - bend, to.y }, to, p == def.Outputs.end() ? IM_COL32(255, 80, 80, 255) : Color(p->Kind), 2.5f * m_Zoom);
+            ++m_DrawnLinks;
         }
         if (m_From)
         {
@@ -957,13 +998,45 @@ namespace Zamin {
             if (it == Catalog().end() || !Visible(n)) continue;
             const auto& d = Describe(n);
             auto a = screen(n.X, n.Y), b = screen(n.X + 220, n.Y + 65 + 24 * (float)std::max(d.Inputs.size(), d.Outputs.size()));
+            if (b.x < clipMin.x || a.x > clipMax.x || b.y < clipMin.y || a.y > clipMax.y) continue;
+            ++m_DrawnNodes;
+            // A native method node: its class and method in the header; red when the method does not bind now.
+            const auto nativeKey = Visual::NativeKey(n);
+            const auto nativeProblem = nativeKey.empty() ? m_NativeProblems.end() : m_NativeProblems.find(nativeKey);
+            const bool broken = nativeProblem != m_NativeProblems.end();
             draw->AddRectFilled({ a.x + 4, a.y + 5 }, { b.x + 4, b.y + 5 }, IM_COL32(0, 0, 0, 70), 8);
             draw->AddRectFilled(a, b, IM_COL32(40, 44, 61, 255), 7);
-            draw->AddRectFilled(a, { b.x, a.y + 30 * m_Zoom }, n.Kind.starts_with("Event.") ? IM_COL32(125, 47, 76, 255) : d.Pure ? IM_COL32(42, 98, 83, 255)
-                                                                                                                                  : IM_COL32(83, 57, 137, 255),
-                                7);
+            const ImU32 headerColor = broken ? IM_COL32(150, 38, 42, 255) : !nativeKey.empty() ? (d.Pure ? IM_COL32(32, 92, 120, 255) : IM_COL32(40, 70, 150, 255))
+                                      : n.Kind.starts_with("Event.") ? IM_COL32(125, 47, 76, 255) : d.Pure ? IM_COL32(42, 98, 83, 255) : IM_COL32(83, 57, 137, 255);
+            draw->AddRectFilled(a, { b.x, a.y + 30 * m_Zoom }, headerColor, 7);
             // A macro instance shows the macro's name in its header.
-            const std::string header = n.Kind == "Macro.Instance" && n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Kind + ": " + n.Inputs.at("Name").get<std::string>() : n.Kind;
+            const std::string header = n.Kind == "Macro.Instance" && n.Inputs.contains("Name") && n.Inputs.at("Name").is_string() ? n.Kind + ": " + n.Inputs.at("Name").get<std::string>()
+                                       : !nativeKey.empty() ? (broken ? "! C++ " : "C++ ") + nativeKey : n.Kind;
+            if (broken)
+            {
+                draw->AddRect(a, b, IM_COL32(255, 80, 80, 255), 7, 0, 2);
+                if (GraphLayout::Recording()) GraphLayout::RecordRect("canvas/broken/" + std::to_string(n.ID), a, { b.x, a.y + 30 * m_Zoom });
+                if (hover && mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= a.y + 30 * m_Zoom) ImGui::SetTooltip("%s", nativeProblem->second.c_str());
+            }
+            // The heat overlay (playing, profiler on): a bar under the header coloured by the node's share of the
+            // hottest node's exclusive time (blue - yellow - red), its time and calls at the bottom.
+            if (heat)
+                if (auto p = m_Profile.Nodes.find(n.ID); p != m_Profile.Nodes.end())
+                {
+                    const float t = hottest > 0 ? float(p->second.Exclusive / hottest) : 0.f;
+                    const ImVec4 cold{ .2f, .45f, 1, 1 }, warm{ 1, .85f, .2f, 1 }, hot{ 1, .25f, .15f, 1 };
+                    auto mix = [](ImVec4 x, ImVec4 y, float k) { return ImVec4(x.x + (y.x - x.x) * k, x.y + (y.y - x.y) * k, x.z + (y.z - x.z) * k, 1); };
+                    const ImU32 color = ImGui::ColorConvertFloat4ToU32(t < .5f ? mix(cold, warm, t * 2) : mix(warm, hot, (t - .5f) * 2));
+                    draw->AddRectFilled({ a.x, a.y + 30 * m_Zoom }, { a.x + (b.x - a.x) * std::max(.04f, t), a.y + 35 * m_Zoom }, color);
+                    draw->AddRect(a, b, color, 7, 0, 1.5f + 2.5f * t);
+                    const auto text = std::format("{:.3f} ms  {} x", p->second.Exclusive * 1000.0, p->second.Calls);
+                    draw->AddText(nullptr, ImGui::GetFontSize() * m_Zoom * .9f, { a.x + 10 * m_Zoom, b.y - 18 * m_Zoom }, color, text.c_str());
+                    if (GraphLayout::Recording())
+                    {
+                        GraphLayout::RecordRect("canvas/heat/" + std::to_string(n.ID), a, { b.x, a.y + 35 * m_Zoom });
+                        GraphLayout::RecordValue("heat/" + std::to_string(n.ID), double(t));
+                    }
+                }
             draw->AddText(nullptr, ImGui::GetFontSize() * m_Zoom, { a.x + 10 * m_Zoom, a.y + 6 * m_Zoom }, IM_COL32(245, 246, 255, 255), header.c_str());
             if (m_Selection.contains(n.ID) || n.ID == m_Selected) draw->AddRect(a, b, IM_COL32(191, 152, 255, 255), 7, 0, 2);
             if (n.ID == runningNode) draw->AddRect(a, b, IM_COL32(255, 205, 80, 255), 7, 0, 3);
@@ -1110,6 +1183,7 @@ namespace Zamin {
             CombatLive(*m_Scene, actor);
         }
         GraphLayout::RecordRegion("properties");
+        GraphLayout::RecordValue("graph/selected", double(m_Selected));
         ImGui::TextUnformatted(Tr("Tanlangan tugun"));
         ImGui::BeginDisabled(!m_Editable);
         GraphLayout::PushScope("node");
@@ -1124,9 +1198,12 @@ namespace Zamin {
                 Snapshot();
                 n.Breakpoint = bp;
             }
+            const bool native = n.Kind == "Native.Call" || n.Kind == "Native.Pure";
+            if (native) NativeProperties(n);
             for (auto& p : Describe(n).Inputs)
             {
                 if (p.Kind == Type::Exec) continue;
+                if (native && p.Name == "Method") continue; // (shown above; another method is another node)
                 bool wired = std::any_of(m_Graph.Links.begin(), m_Graph.Links.end(), [&](auto& l) { return l.To == n.ID && l.Input == p.Name; });
                 if (wired)
                 {

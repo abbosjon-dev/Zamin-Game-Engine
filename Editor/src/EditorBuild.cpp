@@ -345,6 +345,7 @@ namespace Zamin {
             bakedFiles = std::move(prefabCheck.Baked);
         }
         const bool binaryScenes = m_BuildGameBinaryScenes;
+        const bool cookGraphs = exportSettings.CookGraphs;
         // The texture cook (TextureCook): the quality levels decide which mip levels every level skips.
         TextureCookSettings cookSettings = exportSettings.Cook;
         cookSettings.QualitySkips = cookSettings.MatchQuality ? ExportCook::QualitySkips(project->GetConfig().Quality) : 0;
@@ -459,6 +460,25 @@ namespace Zamin {
                 ZM_INFO("Export: cooked {} of {} textures ({} -> {}), {} from the cook cache, {} atlas pages re-packed, {:.2f} s", report->CookedCount(),
                         report->Cooked.size(), ExportAssets::FormatSize(report->CookedSourceBytes()), ExportAssets::FormatSize(report->CookedBytes()),
                         report->CookCacheHits, report->CookedAtlases, report->CookSeconds);
+            }
+            if (cookGraphs)
+            {
+                // Every graph compiled to validated bytecode in place of its source (the cook cache keeps unchanged
+                // graphs from being compiled again); a graph the Player would reject is kept and reported.
+                GraphCookInputs cook;
+                cook.SourceAssets = projectDir / assetRel;
+                cook.ExportAssets = outputDirectory / "Game" / assetRel;
+                cook.Files = assetPlan.Included;
+                cook.CacheDirectory = TextureCook::DefaultCacheDirectory(projectDir);
+                GraphCookResult cooked = ExportCook::CookGraphs(cook);
+                for (std::string& warning : cooked.Warnings)
+                    warn(std::move(warning));
+                report->CookedGraphs = std::move(cooked.Graphs);
+                report->GraphCacheHits = cooked.CacheHits;
+                report->GraphCookSeconds = cooked.Seconds;
+                if (!report->CookedGraphs.empty())
+                    ZM_INFO("Export: cooked {} of {} graphs to bytecode, {} from the cook cache, {:.2f} s", report->CookedGraphCount(),
+                            report->CookedGraphs.size(), report->GraphCacheHits, report->GraphCookSeconds);
             }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
             {

@@ -224,6 +224,50 @@ namespace Zamin {
             }
         }
 
+        // ---- the Visual Script graphs the graph cook compiled to bytecode
+        if (!r.CookedGraphs.empty())
+        {
+            uintmax_t source = 0, cookedBytes = 0;
+            for (const CookedGraph& g : r.CookedGraphs)
+                if (g.Action == "cooked") source += g.SourceBytes, cookedBytes += g.CookedBytes;
+            const std::string graphsTitle = std::format("{} ({} / {}, {} -> {})###cookedGraphs", Tr("Pishirilgan graflar"), r.CookedGraphCount(), r.CookedGraphs.size(),
+                                                        ExportAssets::FormatSize(source), ExportAssets::FormatSize(cookedBytes));
+            if (ImGui::CollapsingHeader(graphsTitle.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::TextDisabled(Tr("Baytkod | kesh: %zu ta qayta ishlatildi | %.2f s"), r.GraphCacheHits, r.GraphCookSeconds);
+                if (ImGui::BeginTable("##cookedGraphs", 5, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV,
+                                      ImVec2(0.0f, std::min(8.0f, (float)r.CookedGraphs.size() + 1.0f) * ImGui::GetFrameHeight() + 4.0f)))
+                {
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableSetupColumn(Tr("Natija"), ImGuiTableColumnFlags_WidthFixed, 90.0f);
+                    ImGui::TableSetupColumn(Tr("Manba"), ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    ImGui::TableSetupColumn(Tr("Pishirilgan"), ImGuiTableColumnFlags_WidthFixed, 90.0f);
+                    ImGui::TableSetupColumn(Tr("Tugunlar"), ImGuiTableColumnFlags_WidthFixed, 70.0f);
+                    ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableHeadersRow();
+                    for (const CookedGraph& g : r.CookedGraphs)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        const bool cooked = g.Action == "cooked";
+                        ImGui::TextColored(cooked ? green : g.Action == "rejected" ? red : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), "%s%s",
+                                           cooked ? Tr("pishirildi") : g.Action == "rejected" ? Tr("rad etildi") : Tr("manba"), g.CacheHit ? " *" : "");
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(ExportAssets::FormatSize(g.SourceBytes).c_str());
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(ExportAssets::FormatSize(g.CookedBytes).c_str());
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%u", g.Nodes);
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(g.Path.c_str());
+                        if (!g.Note.empty() && ImGui::IsItemHovered())
+                            ImGui::SetTooltip("%s", g.Note.c_str());
+                    }
+                    ImGui::EndTable();
+                }
+            }
+        }
+
         // ---- the assets left out
         const std::string excludedTitle = std::format("{} ({} {}, {})###excluded", Tr("Chiqarib tashlangan assetlar"), r.Excluded.size(), Tr("ta"),
                                                       ExportAssets::FormatSize(r.ExcludedBytes));

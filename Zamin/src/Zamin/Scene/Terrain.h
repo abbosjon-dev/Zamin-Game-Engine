@@ -31,6 +31,9 @@ namespace Zamin {
         bool LODEnabled = true;
         bool LockBorderLOD = false; // adjacent streamed tiles retain exact authored boundary samples
         float LODDistanceScale = 2.0f;
+        // Runtime only (tiled terrain streaming, not saved): how many LOD levels coarser the neighbouring tile is on
+        // each edge (-X, +X, -Z, +Z); that edge's chain follows the neighbour's samples, so tiles never crack.
+        std::array<uint8_t, 4> EdgeLOD{};
         std::vector<float> Heights;
         std::vector<glm::vec4> Weights;
         std::array<TerrainLayer, 4> Layers{ { { { 0.25f, 0.46f, 0.17f }, "", 0.25f }, { { 0.40f, 0.27f, 0.15f }, "", 0.25f }, { { 0.46f, 0.47f, 0.49f }, "", 0.25f }, { { 0.78f, 0.68f, 0.43f }, "", 0.25f } } };
@@ -44,6 +47,31 @@ namespace Zamin {
         void Reset(uint32_t resolution, glm::vec2 size, float height = 0.0f);
         void GeometryChanged() { ++GeometryRevision; }
         void PaintChanged() { ++PaintRevision; }
+    };
+    // A large terrain split into tiles on disk (a .zterrain file and its tile folder), streamed around the camera:
+    // tiles within LoadRadius are read on a background thread, far ones at a coarser LOD (fewer samples, less
+    // memory), all within MemoryBudgetMB; edges between tiles of different LOD are stitched (no cracks). Each
+    // resident tile is an ordinary terrain (GPU layers, patch LOD, picking) with its own foliage; tiles near the
+    // camera at full detail get static collision while the game runs. See docs/Terrain.md (Tiled terrain).
+    struct TiledTerrainComponent
+    {
+        std::string Path;              // asset-relative .zterrain
+        float LoadRadius = 320.0f;     // m from the camera to a tile's rectangle: loaded within
+        float UnloadRadius = 400.0f;   // ... unloaded beyond (at least LoadRadius)
+        float LODDistance = 96.0f;     // full detail nearer; every doubling of the distance one LOD level coarser
+        uint32_t MaxLOD = 3;           // the coarsest level used (the tile set may store fewer)
+        uint32_t MemoryBudgetMB = 96;  // resident tiles' CPU + estimated GPU bytes
+        uint32_t MaxLoadsPerFrame = 4; // tile reads started / tiles made resident per frame
+        bool Collision = true;         // static colliders for full-detail tiles within CollisionRadius (play)
+        float CollisionRadius = 128.0f;
+        float FoliageDistance = 200.0f; // tiles nearer than this show their foliage
+        bool ShowTileLOD = false;      // debug: tiles coloured by LOD with their borders drawn
+        struct Runtime;
+        mutable Ref<Runtime> Streamer;
+        TiledTerrainComponent() = default;
+        TiledTerrainComponent(const TiledTerrainComponent& other);
+        TiledTerrainComponent& operator=(const TiledTerrainComponent& other);
+        void Sanitize();
     };
     enum class TerrainBrush
     {

@@ -7318,6 +7318,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<MeshRendererComponent>();
     e.AddComponent<TerrainComponent>();
     e.AddComponent<FoliageComponent>();
+    e.AddComponent<TiledTerrainComponent>().Path = "Maps/World.zterrain";
     e.AddComponent<AnimatorComponent>();
     e.AddComponent<AnimationPlayerComponent>();
     e.AddComponent<DirectionalLightComponent>();
@@ -7386,7 +7387,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 76);
+    CHECK(types.size() == 77);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());

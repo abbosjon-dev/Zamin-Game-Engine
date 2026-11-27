@@ -23,6 +23,7 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, CircleRendererComponent>) return "CircleRenderer";
         else if constexpr (std::is_same_v<T, TextComponent>) return "Text";
         else if constexpr (std::is_same_v<T, TerrainComponent>) return "Terrain";
+        else if constexpr (std::is_same_v<T, TiledTerrainComponent>) return "TiledTerrain";
         else if constexpr (std::is_same_v<T, FoliageComponent>) return "Foliage";
         else if constexpr (std::is_same_v<T, MeshRendererComponent>) return "MeshRenderer";
         else if constexpr (std::is_same_v<T, AnimatorComponent>) return "Animator";

@@ -56,6 +56,7 @@ namespace Zamin {
         LODEnabled = o.LODEnabled;
         LockBorderLOD = o.LockBorderLOD;
         LODDistanceScale = o.LODDistanceScale;
+        EdgeLOD = o.EdgeLOD;
         Heights = o.Heights;
         Weights = o.Weights;
         Layers = o.Layers;

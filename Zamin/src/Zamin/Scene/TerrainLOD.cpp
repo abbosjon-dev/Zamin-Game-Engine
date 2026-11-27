@@ -143,6 +143,11 @@ namespace Zamin::TerrainTools {
                 auto& p = patches[i];
                 p.Neighbors = { x ? patches[i - 1].LOD : p.LOD, x + 1 < axis ? patches[i + 1].LOD : p.LOD,
                                 z ? patches[i - axis].LOD : p.LOD, z + 1 < axis ? patches[i + axis].LOD : p.LOD };
+                // A coarser neighbouring tile (streamed terrain): the outer edge follows its samples.
+                const bool outer[4] = { x == 0, x + 1 == axis, z == 0, z + 1 == axis };
+                for (int edge = 0; edge < 4; ++edge)
+                    if (outer[edge] && t.EdgeLOD[edge])
+                        p.Neighbors[edge] = uint8_t(std::min<int>(TerrainMaxLOD, std::max<int>(p.Neighbors[edge], p.LOD + t.EdgeLOD[edge])));
             }
     }
 

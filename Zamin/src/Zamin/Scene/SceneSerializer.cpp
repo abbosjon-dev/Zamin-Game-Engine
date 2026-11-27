@@ -1229,6 +1229,16 @@ namespace Zamin {
             for (size_t i = 0; i < c->Weights.size(); ++i)
                 if (c->Weights[i] != glm::vec4(1, 0, 0, 0)) j["Paint"].push_back({ { "Index", i }, { "Weight", ToJson(c->Weights[i]) } });
         }
+        if (auto* c = entity.TryGetComponent<TiledTerrainComponent>())
+        {
+            c->Sanitize();
+            auto& j = e["TiledTerrain"];
+            j = { { "Path", c->Path }, { "LoadRadius", c->LoadRadius }, { "UnloadRadius", c->UnloadRadius }, { "LODDistance", c->LODDistance },
+                  { "MaxLOD", c->MaxLOD }, { "MemoryBudgetMB", c->MemoryBudgetMB }, { "MaxLoadsPerFrame", c->MaxLoadsPerFrame },
+                  { "Collision", c->Collision }, { "CollisionRadius", c->CollisionRadius }, { "FoliageDistance", c->FoliageDistance },
+                  { "ShowTileLOD", c->ShowTileLOD } };
+            WriteAssetHandle(j, "Path", c->Path);
+        }
         if (auto* c = entity.TryGetComponent<MeshRendererComponent>())
         {
             json& j = e["MeshRenderer"];
@@ -2193,6 +2203,23 @@ namespace Zamin {
                 }
             }
             c.EnsureSize();
+        }
+        if (e.contains("TiledTerrain"))
+        {
+            const auto& j = e["TiledTerrain"];
+            auto& c = entity.AddComponent<TiledTerrainComponent>();
+            c.Path = ReadAssetPath(j, "Path");
+            c.LoadRadius = j.value("LoadRadius", 320.0f);
+            c.UnloadRadius = j.value("UnloadRadius", 400.0f);
+            c.LODDistance = j.value("LODDistance", 96.0f);
+            c.MaxLOD = j.value("MaxLOD", 3u);
+            c.MemoryBudgetMB = j.value("MemoryBudgetMB", 96u);
+            c.MaxLoadsPerFrame = j.value("MaxLoadsPerFrame", 4u);
+            c.Collision = j.value("Collision", true);
+            c.CollisionRadius = j.value("CollisionRadius", 128.0f);
+            c.FoliageDistance = j.value("FoliageDistance", 200.0f);
+            c.ShowTileLOD = j.value("ShowTileLOD", false);
+            c.Sanitize();
         }
         if (e.contains("MeshRenderer"))
         {

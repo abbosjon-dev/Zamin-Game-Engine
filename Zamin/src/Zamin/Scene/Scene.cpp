@@ -1,4 +1,6 @@
 #include "Zamin/Scene/TerrainLOD.h"
+#include "Zamin/Scene/TerrainStreaming.h"
+#include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/SceneLoadTiming.h"
 #include "Zamin/Core/Stopwatch.h"
@@ -3944,7 +3946,8 @@ namespace Zamin {
     void Scene::OnPhysics3DStart()
     {
         OnPhysics3DStop();
-        if (m_Registry.view<Rigidbody3DComponent>().empty() && m_Registry.view<CharacterController3DComponent>().empty())
+        if (m_Registry.view<Rigidbody3DComponent>().empty() && m_Registry.view<CharacterController3DComponent>().empty() &&
+            m_Registry.view<TiledTerrainComponent>().empty())
             return; // don't spin up Jolt for 2D-only scenes
         MakePhysicsWorld3D();
         for (entt::entity e : InSceneOrder(ViewEntities(m_Registry.view<Rigidbody3DComponent>())))
@@ -3955,6 +3958,117 @@ namespace Zamin {
         m_JointBreaks3D.clear();
         SyncJoints3D(); // once every body exists
         ReportMissingJointBodies(nullptr);
+        if (!m_Registry.view<TiledTerrainComponent>().empty())
+        {
+            PrimeTiledTerrains();
+            UpdateTiledTerrainColliders();
+        }
+    }
+
+    void Scene::PrimeTiledTerrains()
+    {
+        Entity camera = GetPrimaryCameraEntity();
+        for (auto e : m_Registry.view<TransformComponent, TiledTerrainComponent>())
+        {
+            auto& tiled = m_Registry.get<TiledTerrainComponent>(e);
+            TerrainStreamingView view;
+            view.World = GetWorldTransform({ e, this });
+            view.Camera = camera ? GetWorldPosition(camera) : glm::vec3(view.World[3]);
+            view.Runtime = true;
+            view.Synchronous = true;
+            // Enough frames for the tiles of the load radius to be in (a few reads each).
+            for (int i = 0; i < 64; i++)
+            {
+                const auto& stats = TerrainStreaming::Update(tiled, view);
+                if (stats.Loading == 0 && stats.LoadsThisFrame == 0) break;
+            }
+        }
+    }
+
+    void Scene::UpdateTiledTerrainColliders()
+    {
+        constexpr uint32_t TiledNoBody = 0xffffffff; // (as the physics world's body ids)
+        if (!m_PhysicsWorld3D) return;
+        for (auto e : m_Registry.view<TransformComponent, TiledTerrainComponent>())
+        {
+            auto& tiled = m_Registry.get<TiledTerrainComponent>(e);
+            if (!tiled.Streamer) continue;
+            auto& rt = *tiled.Streamer;
+            const glm::mat4 tiledWorld = GetWorldTransform({ e, this });
+            const glm::vec3 scale(glm::length(glm::vec3(tiledWorld[0])), glm::length(glm::vec3(tiledWorld[1])), glm::length(glm::vec3(tiledWorld[2])));
+            if (scale.x < 1e-6f || scale.y < 1e-6f || scale.z < 1e-6f) continue;
+            const glm::quat rotation = glm::quat_cast(glm::mat3(glm::vec3(tiledWorld[0]) / scale.x, glm::vec3(tiledWorld[1]) / scale.y, glm::vec3(tiledWorld[2]) / scale.z));
+            rt.Stats.Colliders = 0;
+            for (uint32_t i = 0; i < rt.Tiles.size(); i++)
+            {
+                auto& tile = rt.Tiles[i];
+                const bool wanted = tiled.Collision && tile.Terrain && tile.Level == 0 && tile.Distance <= tiled.CollisionRadius;
+                const bool current = tile.BodyId != TiledNoBody && tile.BodyTerrain == tile.Terrain.get() && tile.Terrain &&
+                                     tile.BodyRevision == tile.Terrain->GeometryRevision;
+                if (tile.BodyId != TiledNoBody && (!wanted || !current))
+                {
+                    m_PhysicsWorld3D->DestroyBody(tile.BodyId);
+                    tile.BodyId = TiledNoBody;
+                    tile.BodyTerrain = nullptr;
+                }
+                if (wanted && tile.BodyId == TiledNoBody)
+                {
+                    auto mesh = TerrainTools::GetCollisionMesh(*tile.Terrain);
+                    if (!mesh) continue;
+                    PhysicsBody3DDesc desc;
+                    desc.EntityID = Entity{ e, this }.GetUUID();
+                    desc.MotionType = 0;
+                    const glm::vec3 origin(float(i % rt.Set.TilesX) * rt.Set.TileSize, 0.0f, float(i / rt.Set.TilesX) * rt.Set.TileSize);
+                    desc.Position = glm::vec3(tiledWorld * glm::vec4(origin, 1));
+                    desc.Rotation = rotation;
+                    PhysicsBody3DDesc::Shape shape;
+                    shape.Type = PhysicsBody3DDesc::Shape::Kind::Mesh;
+                    shape.Mesh = mesh;
+                    shape.Scale = scale;
+                    desc.Shapes.push_back(shape);
+                    tile.BodyId = m_PhysicsWorld3D->CreateBody(desc);
+                    tile.BodyTerrain = tile.Terrain.get();
+                    tile.BodyRevision = tile.Terrain->GeometryRevision;
+                }
+                rt.Stats.Colliders += tile.BodyId != TiledNoBody;
+            }
+        }
+    }
+
+    TerrainStreamingStats Scene::GetTerrainStreamingStats() const
+    {
+        TerrainStreamingStats total;
+        for (auto e : m_Registry.view<TiledTerrainComponent>())
+        {
+            const auto& tiled = m_Registry.get<TiledTerrainComponent>(e);
+            if (!tiled.Streamer) continue;
+            const auto& s = tiled.Streamer->Stats;
+            total.Tiles += s.Tiles;
+            total.Resident += s.Resident;
+            total.Loading += s.Loading;
+            total.Wanted += s.Wanted;
+            total.LoadsThisFrame += s.LoadsThisFrame;
+            total.UnloadsThisFrame += s.UnloadsThisFrame;
+            total.PeakLoadsPerFrame = std::max(total.PeakLoadsPerFrame, s.PeakLoadsPerFrame);
+            total.LODChanges += s.LODChanges;
+            total.ResidentBytes += s.ResidentBytes;
+            total.BudgetBytes += s.BudgetBytes;
+            total.PeakResidentBytes += s.PeakResidentBytes;
+            total.InFlightBytes += s.InFlightBytes;
+            total.TotalLoads += s.TotalLoads;
+            total.TotalUnloads += s.TotalUnloads;
+            total.BytesRead += s.BytesRead;
+            total.OverBudgetDrops += s.OverBudgetDrops;
+            total.Coarsened += s.Coarsened;
+            for (size_t i = 0; i < total.LODCounts.size(); i++) total.LODCounts[i] += s.LODCounts[i];
+            total.Colliders += s.Colliders;
+            total.FoliageTiles += s.FoliageTiles;
+            total.DirtyTiles += s.DirtyTiles;
+            total.UpdateMilliseconds += s.UpdateMilliseconds;
+            total.IOMilliseconds += s.IOMilliseconds;
+            if (total.Error.empty()) total.Error = s.Error;
+        }
+        return total;
     }
 
     void Scene::MakePhysicsWorld3D()
@@ -4640,6 +4754,7 @@ namespace Zamin {
             }
             if (m_PhysicsWorld3D)
             {
+                UpdateTiledTerrainColliders();
                 {
                     ZM_PROFILE_SCOPE("Jolt (3D)");
                     m_PhysicsWorld3D->Step(fixedStep);
@@ -8011,6 +8126,30 @@ namespace Zamin {
             auto surface = TerrainTools::GetSurface(terrain);
             for (const auto& patch : TerrainTools::GetRenderPatches(terrain, world(e), cameraPosition, std::abs(projection[3][3]) > 0.5f))
                 if (patch && surface) Renderer3D::SubmitTerrain(patch, world(e), surface, (int)(uint32_t)e, true);
+        }
+        for (auto e : m_Registry.view<TransformComponent, TiledTerrainComponent>())
+        {
+            if (skip(e)) continue;
+            ZM_PROFILE_SCOPE("Tiled terrain streaming");
+            auto& tiled = m_Registry.get<TiledTerrainComponent>(e);
+            const glm::mat4& tiledWorld = world(e);
+            TerrainStreamingView streaming;
+            streaming.World = tiledWorld;
+            streaming.Camera = cameraPosition;
+            streaming.Runtime = m_IsRunning;
+            streaming.Synchronous = !AsyncLoader::IsEnabled(); // frame-exact captures and tests
+            streaming.Frame = Time::GetFrameCount() + 1;
+            TerrainStreaming::Update(tiled, streaming);
+            const glm::vec3 cameraLocal = std::abs(glm::determinant(tiledWorld)) > 1e-12f ? glm::vec3(glm::inverse(tiledWorld) * glm::vec4(cameraPosition, 1)) : cameraPosition;
+            for (const auto& tile : TerrainStreaming::GetDrawTiles(tiled, cameraLocal, tiled.FoliageDistance))
+            {
+                const glm::mat4 tileWorld = tiledWorld * tile.Local;
+                auto surface = TerrainTools::GetSurface(*tile.Terrain);
+                for (const auto& patch : TerrainTools::GetRenderPatches(*tile.Terrain, tileWorld, cameraPosition, std::abs(projection[3][3]) > 0.5f))
+                    if (patch && surface) Renderer3D::SubmitTerrain(patch, tileWorld, surface, (int)(uint32_t)e, true);
+                if (tile.Foliage)
+                    if (auto batch = FoliageTools::Prepare(*tile.Foliage, tileWorld, (int)(uint32_t)e)) Renderer3D::SubmitFoliage(batch);
+            }
         }
         if (options.ShowGrid)
             Renderer3D::SubmitGrid(options.GridPlane, options.Grid); // under the transparent surfaces

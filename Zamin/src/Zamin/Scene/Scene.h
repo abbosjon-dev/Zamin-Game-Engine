@@ -47,6 +47,9 @@
 #include <vector>
 
 namespace Zamin {
+    struct TerrainStreamingStats;
+}
+namespace Zamin {
 
     class Entity;
     class AssetRegistry;
@@ -969,6 +972,8 @@ namespace Zamin {
         /// Box2D steps the last frame took (fixed steps x sub-steps).
         int GetPhysics2DStepsLastFrame() const { return m_Physics2DStepsLastFrame; }
         PhysicsWorld3D* GetPhysicsWorld3D() { return m_PhysicsWorld3D.get(); }
+        // The tiled terrains' streaming numbers of the last drawn frame, summed (Statistics panel, profiler).
+        TerrainStreamingStats GetTerrainStreamingStats() const;
         /// @}
         /// @name 3D sleeping
         /// 3D sleeping (Rigidbody3DComponent::Sleeping, SceneSettings::Physics3D)
@@ -1462,6 +1467,10 @@ namespace Zamin {
         void OnPhysics2DStart();
         void OnPhysics2DStop();
         void OnPhysics3DStart();
+        // Tiled terrains: the tiles around the primary camera read now (before the first physics step), and the
+        // static colliders of full-detail tiles near the camera kept in step with the streamed tiles.
+        void PrimeTiledTerrains();
+        void UpdateTiledTerrainColliders();
         /// A new 3D world with the project's collision layers.
         void MakePhysicsWorld3D();
         /// The 3D queries with their debug drawing.

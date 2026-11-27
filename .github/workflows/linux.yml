@@ -181,6 +181,11 @@ jobs:
       - name: Health, combat, inventory, interaction and respawn workflows
         run: python3 Tests/rules_workflow_test.py --build build --out world-streaming/rules --exports
 
+      - name: Packed foliage inspector (CPU/GPU culling, HLOD settings, Undo, LOD/HLOD debug view)
+        env:
+          ZAMIN_BUILD_DIR: build
+        run: xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/foliage_editor_test.py --out world-streaming/foliage
+
       - name: Gameplay Blueprint authoring and Undo
         env:
           ZAMIN_BUILD_DIR: build

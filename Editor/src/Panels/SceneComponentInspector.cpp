@@ -12,8 +12,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cmath>
 #include <format>
+#include <map>
 #include <set>
 
 #include "InspectorNotes.h"
@@ -1491,15 +1493,35 @@ namespace Zamin {
         AddSection<FoliageComponent>(ICON_FA_TREE,"Packed foliage",entity,[&](FoliageComponent& c){
             bool changed=false;const char* types[]={Tr("Kub"),Tr("Shar"),Tr("Tekislik"),Tr("Silindr"),Tr("Konus"),"Model"};
             int near=int(c.NearType),far=int(c.FarType),backend=int(c.Settings.Backend);
+            // ZAMIN_EDITOR_FOLIAGE_RECTS (automation): each control's screen rectangle in the log, so a GUI test can click it.
+            static const bool logRects=std::getenv("ZAMIN_EDITOR_FOLIAGE_RECTS")!=nullptr;
+            auto rect=[&](const char* name){
+                if(!logRects)return;
+                static std::map<std::string,std::string> last;
+                const ImVec2 a=ImGui::GetItemRectMin(),b=ImGui::GetItemRectMax();
+                auto text=std::format("{} {:.0f} {:.0f} {:.0f} {:.0f}",name,a.x,a.y,b.x-a.x,b.y-a.y);
+                if(last[name]!=text){last[name]=text;ZM_CORE_INFO("FOLIAGE_UI {}",text);}
+            };
             if(UI::TrCombo(Tr("Yaqin LOD"),&near,types,6)){c.NearType=PrimitiveMesh(near);changed=true;}
             if(c.NearType==PrimitiveMesh::Model)changed|=UI::PropertyAssetPath("Yaqin model",c.NearModel,".gltf;.glb;.obj",ICON_FA_CUBES);
             if(UI::TrCombo(Tr("Uzoq LOD"),&far,types,6)){c.FarType=PrimitiveMesh(far);changed=true;}
             if(c.FarType==PrimitiveMesh::Model)changed|=UI::PropertyAssetPath("Uzoq model",c.FarModel,".gltf;.glb;.obj",ICON_FA_CUBES);
-            changed|=ImGui::ColorEdit4(Tr("Rang"),&c.Tint.x);changed|=ImGui::DragFloat(Tr("LOD masofasi"),&c.Settings.LODDistance,1,1,100000);
-            changed|=ImGui::DragFloat(Tr("Ko'rish masofasi"),&c.Settings.CullDistance,1,c.Settings.LODDistance,100000);
+            changed|=ImGui::ColorEdit4(Tr("Rang"),&c.Tint.x);changed|=ImGui::DragFloat(Tr("LOD masofasi"),&c.Settings.LODDistance,1,1,100000);rect("lod");
+            changed|=ImGui::DragFloat(Tr("Ko'rish masofasi"),&c.Settings.CullDistance,1,c.Settings.LODDistance,100000);rect("cull");
             changed|=ImGui::SliderFloat("LOD hysteresis",&c.Settings.Hysteresis,0,.4f);
             const char* backends[]={"Auto (GPU / CPU)","CPU",Tr("GPU (fallback bilan)")};if(UI::TrCombo("Culling",&backend,backends,3)){c.Settings.Backend=FoliageBackend(backend);changed=true;}
+            rect("culling");
             changed|=ImGui::Checkbox(Tr("Soya"),&c.CastShadows);
+            ImGui::SeparatorText("HLOD");
+            changed|=ImGui::DragFloat(Tr("HLOD masofasi"),&c.Settings.HLODDistance,1,0,c.Settings.CullDistance,c.Settings.HLODDistance>0?"%.1f m":Tr("o'chiq"));rect("hlod");
+            if(ImGui::IsItemHovered())UI::Tooltip(Tr("Bundan uzoqdagi kataklar bitta birlashgan proxy'ga aylanadi (0: o'chiq). LOD va ko'rish masofasi orasida."));
+            changed|=ImGui::DragFloat(Tr("HLOD o'tishi"),&c.Settings.HLODFade,.5f,0,1000,"%.1f m");rect("hlod-fade");
+            if(ImGui::IsItemHovered())UI::Tooltip(Tr("Instance'lar va proxy dither bilan almashadigan masofa (0: birdaniga)"));
+            changed|=ImGui::DragFloat(Tr("HLOD katagi"),&c.Settings.HLODCellSize,1,4,4096,"%.0f m");rect("hlod-cell");
+            bool debugView=Renderer3D::IsFoliageLODDebugView();
+            if(ImGui::Checkbox(Tr("LOD/HLOD ranglari"),&debugView)){Renderer3D::SetFoliageLODDebugView(debugView);}
+            rect("debug");
+            if(ImGui::IsItemHovered())UI::Tooltip(Tr("Yaqin LOD yashil, uzoq LOD sariq, HLOD proxy'lar binafsha (barcha packed foliage uchun)"));
             static int count=4096;static glm::vec2 size{128,128};ImGui::InputInt(Tr("Yangi instance soni"),&count);ImGui::DragFloat2(Tr("Maydon (m)"),&size.x,1,1,10000);
             if(ImGui::Button(Tr("Yangi grid yaratish"))){FoliageTools::GenerateGrid(c,uint32_t(std::clamp(count,0,int(FoliageBatch::MaxInstances))),size);changed=true;}
             if(ImGui::Button(Tr("Parent terrain sirtiga joylash")))
@@ -1508,8 +1530,30 @@ namespace Zamin {
                 if(parent&&parent.HasComponent<TerrainComponent>())changed |= FoliageTools::ProjectToTerrain(c,parent.GetComponent<TerrainComponent>(),entity.GetTransform().GetTransform())>0;
             }
             ImGui::Text("%zu / %u instance",c.Instances.size(),FoliageBatch::MaxInstances);
-            if(c.Runtime){auto batch=FoliageTools::Prepare(c,entity.GetScene()->GetWorldTransform(entity),int(uint32_t(entt::entity(entity))));if(batch){const auto& stats=batch->GetStats();ImGui::Text("%s culling | uploads %llu",stats.GPU?"GPU":"CPU",(unsigned long long)stats.Uploads);if(stats.CountsAvailable)ImGui::Text(Tr("Yaqin %u | uzoq %u | kesilgan %u"),stats.Near,stats.Far,stats.Culled);else ImGui::TextDisabled("%s", Tr("GPU hisoblari kutilmoqda"));ImGui::TextDisabled("CPU %llu KiB | GPU %llu KiB",(unsigned long long)(stats.CPUBytes/1024),(unsigned long long)(stats.GPUBytes/1024));if(!stats.Error.empty())ImGui::TextWrapped("%s",stats.Error.c_str());}}
-            ImGui::TextWrapped("%s", Tr("Bitta packed komponent tanlanadi. Statik opaque/cutout meshlar. Soya konservativ yaqin LOD bilan."));
+            if(c.Runtime){auto batch=FoliageTools::Prepare(c,entity.GetScene()->GetWorldTransform(entity),int(uint32_t(entt::entity(entity))));if(batch){
+                const auto& stats=batch->GetStats();
+                // Wrapped lines: the inspector column is narrow.
+                auto line=[](bool dim,const char* format,auto... values){
+                    char text[320];std::snprintf(text,sizeof(text),format,values...);
+                    if(dim)ImGui::BeginDisabled();
+                    ImGui::TextWrapped("%s",text);
+                    if(dim)ImGui::EndDisabled();
+                };
+                line(false,Tr("%s culling | yuklashlar %llu"),stats.GPU?"GPU (compute)":"CPU",(unsigned long long)stats.Uploads);
+                if(stats.CountsAvailable)
+                {
+                    line(false,Tr("Yaqin %u | uzoq %u | kesilgan %u"),stats.Near,stats.Far,stats.Culled);
+                    line(false,Tr("Soya: yaqin %u | uzoq %u"),stats.ShadowNear,stats.ShadowFar);
+                }
+                else ImGui::TextDisabled("%s", Tr("GPU hisoblari kutilmoqda"));
+                if(c.Settings.HLODEnabled())
+                    line(false,Tr("HLOD: %u katak (%u chizildi, %u o'tishda), %u instance o'rnida | katak %.0f m"),stats.HLODCells,stats.HLODCellsDrawn,stats.HLODCellsFading,stats.HLODInstances,double(stats.HLODCellSize));
+                if(c.Settings.HLODEnabled()&&stats.HLODBakes)
+                    line(true,Tr("HLOD bake: %u katak qayta, %u keshdan | %016llx"),stats.HLODRebakedCells,stats.HLODReusedCells,(unsigned long long)stats.HLODHash);
+                if(stats.GPU)line(false,Tr("Culling: CPU %.3f ms | GPU %s"),stats.CullCPUMilliseconds,stats.GPUTimeAvailable?std::format("{:.3f} ms",stats.CullGPUMilliseconds).c_str():"-");
+                else line(false,Tr("Culling: CPU %.3f ms"),stats.CullCPUMilliseconds);
+                line(true,"CPU %llu KiB | GPU %llu KiB",(unsigned long long)(stats.CPUBytes/1024),(unsigned long long)(stats.GPUBytes/1024));if(!stats.Error.empty())ImGui::TextWrapped("%s",stats.Error.c_str());}}
+            ImGui::TextWrapped("%s", Tr("Bitta packed komponent tanlanadi. Statik opaque/cutout meshlar. Soya kaskadlar hajmi bo'yicha kesilgan to'plam bilan."));
             if(changed)c.Sanitize();
             return changed;
         },true,modified);

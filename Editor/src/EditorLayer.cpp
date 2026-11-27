@@ -10557,6 +10557,24 @@ namespace Zamin {
                 UI::PropertyLabel("Soya instanced", "Kaskadlarga bir xil mesh (cutout bo'lsa, bir xil tekstura va chegara) bilan "
                                                     "instanced chizilgan soya tashlovchilar / chaqiruvlar");
                 instanced(stats.InstancedShadowCasterCount, stats.InstancedShadowDrawCount);
+                if (stats.FoliageBatches > 0)
+                {
+                    UI::PropertyLabel("Foliage LOD", "Packed foliage: chizilgan instance'lar yaqin / uzoq LOD bo'yicha (GPU yo'lida oxirgi tugagan "
+                                                     "asinxron hisob), qavsda jami. Soya to'plami kaskadlar hajmi bo'yicha kesiladi");
+                    ImGui::Text("%u / %u", stats.FoliageNear, stats.FoliageFar);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled(Tr("(%u jami, soya %u)"), stats.FoliageInstances, stats.FoliageShadowInstances);
+                    UI::PropertyLabel("Foliage HLOD", "Uzoq kataklar birlashgan proxy bilan chiziladi: chizilgan kataklar (o'tishdagilari) va "
+                                                      "proxy o'rnini bosgan instance'lar");
+                    ImGui::Text(Tr("%u katak (%u o'tishda)"), stats.FoliageHLODCells, stats.FoliageHLODFadingCells);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled(Tr("(%u instance o'rnida)"), stats.FoliageHLODInstances);
+                    UI::PropertyLabel("Foliage culling", "Kesish vaqti: CPU yo'lida butun o'tish, GPU yo'lida buyruqlarni yuborish; GPU vaqti - "
+                                                         "compute o'tishining timestamp so'rovlari (bir necha kadr kechikadi)");
+                    ImGui::Text(Tr("CPU %.3f ms | GPU %.3f ms"), stats.FoliageCullCPUMilliseconds, stats.FoliageCullGPUMilliseconds);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled(Tr("(%u/%u GPU)"), stats.FoliageGPUBatches, stats.FoliageBatches);
+                }
                 UI::PropertyLabel("2D obyektlar", "Sprite, doira, matn va zarrachalar tizimlari (qavsda kesilganlari): kamera "
                                                   "ko'rmaydiganlari chizilmaydi");
                 drawnCulled(stats.SpriteCount, stats.CulledSpriteCount);

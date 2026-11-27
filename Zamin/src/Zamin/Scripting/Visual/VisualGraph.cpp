@@ -41,7 +41,7 @@ namespace Zamin::Visual {
     }
     const char* TypeName(Type t)
     {
-        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "Struct", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity", "ArrayStruct" };
+        static const char* names[] = { "Exec", "Bool", "Number", "String", "Vec2", "Vec3", "Vec4", "Entity", "Enum", "Struct", "ArrayBool", "ArrayNumber", "ArrayString", "ArrayVec2", "ArrayVec3", "ArrayVec4", "ArrayEntity", "ArrayEnum", "ArrayStruct" };
         return t >= Type::Exec && t < Type::Count ? names[int(t)] : "Invalid";
     }
     bool Matches(Type t, const Value& v)
@@ -126,15 +126,16 @@ for (int ti = 1; ti < int(Type::Count); ++ti)
     std::string name = TypeName(type);
     // An Enum/Struct local names its enum/struct (empty: the type of the local with that name).
     const bool structured = type == Type::Struct || type == Type::ArrayStruct;
+    const bool enumerated = type == Type::Enum || type == Type::ArrayEnum;
     std::vector<Pin> getInputs{ S("Name") }, setInputs{ E("In"), S("Name") };
-    if (type == Type::Enum || structured)
+    if (enumerated || structured)
     {
         getInputs.push_back(S(structured ? "Struct" : "Enum"));
         setInputs.push_back(S(structured ? "Struct" : "Enum"));
     }
-    // Struct array nodes name their struct in a literal Struct input (after In, before the data pins).
+    // Struct/enum array nodes name their struct/enum in a literal Struct/Enum input (after In, before the data pins).
     auto named = [&](std::vector<Pin> pins) {
-        if (structured) pins.insert(pins.begin() + (!pins.empty() && pins.front().Kind == Type::Exec ? 1 : 0), S("Struct"));
+        if (structured || enumerated) pins.insert(pins.begin() + (!pins.empty() && pins.front().Kind == Type::Exec ? 1 : 0), S(structured ? "Struct" : "Enum"));
         return pins;
     };
     setInputs.push_back({ "Value", type, value });
@@ -180,6 +181,11 @@ add("Struct.Make", "Structs", { S("Struct") }, { St("Value") }, true);
 add("Struct.Break", "Structs", { S("Struct"), St("Value") }, {}, true);
 add("Struct.GetField", "Structs", { S("Struct"), S("Field"), St("Value") }, {}, true);
 add("Struct.SetField", "Structs", { S("Struct"), S("Field"), St("Value") }, { St("Value") }, true);
+// Inline macros: an instance takes the macro's pins after its Name literal; Entry/Exit live in the macro's body and
+// give/take the macro's inputs/outputs (Graph::Describe). Instances are expanded before the VM runs (Graph::Expand).
+add("Macro.Instance", "Macros", { S("Name", "MyMacro") }, {});
+add("Macro.Entry", "Macros", {}, {});
+add("Macro.Exit", "Macros", {}, {});
 add("ReadField.Enum", "C++ bridge", { EntityPin(), S("Name"), S("Enum") }, { En("Value") }, true);
 add("WriteField.Enum", "C++ bridge", { E("In"), EntityPin(), S("Name"), S("Enum"), En("Value") }, { E("Then") });
 add("Function","Functions",{S("Name","MyFunction")},{E("Then")});
@@ -461,11 +467,10 @@ return c; }();
             if (n.ID == id) return &n;
         return nullptr;
     }
-    std::vector<Diagnostic> Graph::Validate() const
+    std::vector<Diagnostic> Graph::ValidateTypes() const
     {
         std::vector<Diagnostic> d;
         auto error = [&](uint32_t n, std::string s) { d.push_back({ n, std::move(s) }); };
-        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256) error(0, "Graph size limit exceeded");
         if (Enums.size() > 64) error(0, "Enum definition limit exceeds 64");
         for (const auto& [name, definition] : Enums)
         {
@@ -481,6 +486,26 @@ return c; }();
             }
         }
         if (Structs.size() > 64) error(0, "Struct definition limit exceeds 64");
+        // A struct that contains itself has no finite value; the field values are not checked until it is fixed.
+        const auto cycle = StructCycle();
+        if (!cycle.empty()) error(0, "Struct contains itself: " + cycle);
+        // The JSON depth of a type's values (a struct value is an object, a vector/array one level more): values
+        // deeper than 8 levels do not fit the VM's value checks, so a struct may nest to depth 7 (an array of it: 8).
+        std::map<std::string, int> depths;
+        std::function<int(Type, const std::string&, int)> depthOf = [&](Type kind, const std::string& named, int guard) -> int {
+            if (guard > 64) return 64;
+            if (kind == Type::ArrayStruct) return 1 + depthOf(Type::Struct, named, guard + 1);
+            if (kind == Type::Struct)
+            {
+                if (auto known = depths.find(named); known != depths.end()) return known->second;
+                int deepest = 0;
+                if (auto it = Structs.find(named); it != Structs.end())
+                    for (const auto& field : it->second.Fields) deepest = std::max(deepest, depthOf(field.Kind, field.Enum, guard + 1));
+                return depths[named] = 1 + deepest;
+            }
+            if (kind == Type::ArrayVec2 || kind == Type::ArrayVec3 || kind == Type::ArrayVec4) return 2;
+            return IsArray(kind) || kind == Type::Vec2 || kind == Type::Vec3 || kind == Type::Vec4 ? 1 : 0;
+        };
         for (const auto& [name, definition] : Structs)
         {
             if (name.empty() || name.size() > 64) error(0, "Invalid struct name");
@@ -491,13 +516,150 @@ return c; }();
             {
                 bytes += field.Name.size() + ValueBytes(field.Default);
                 if (field.Name.empty() || field.Name.size() > 64 || field.Name == "Struct" || !names.insert(field.Name).second) error(0, "Struct " + name + " has an empty, long, reserved or duplicate field name");
-                else if (field.Kind == Type::Exec || field.Kind == Type::Struct || field.Kind == Type::ArrayStruct || field.Kind >= Type::Count) error(0, "Struct " + name + " field " + field.Name + " has an unsupported type");
-                else if (!Fits(field, field.Default)) error(0, "Struct " + name + " field " + field.Name + " has an invalid default or unknown enum");
+                else if (field.Kind == Type::Exec || field.Kind >= Type::Count) error(0, "Struct " + name + " field " + field.Name + " has an unsupported type");
+                else if (cycle.empty() && !Fits(field, field.Default)) error(0, "Struct " + name + " field " + field.Name + " has an invalid default or unknown enum or struct");
             }
             if (bytes > 65536) error(0, "Struct " + name + " defaults exceed 64 KiB");
+            if (cycle.empty() && depthOf(Type::Struct, name, 0) > 7) error(0, "Struct " + name + " nests deeper than 7 levels");
         }
-        auto extra = ValidateFunctions();
-        d.insert(d.end(), extra.begin(), extra.end());
+        return d;
+    }
+    namespace {
+        // A graph with the definitions of another but no nodes, links or macros.
+        Graph Shell(const Graph& g)
+        {
+            Graph shell;
+            shell.SourceVersion = g.SourceVersion;
+            shell.Variables = g.Variables;
+            shell.Functions = g.Functions;
+            shell.Enums = g.Enums;
+            shell.Structs = g.Structs;
+            return shell;
+        }
+        bool UsesMacros(const Graph& g)
+        {
+            return !g.Macros.empty() || std::any_of(g.Nodes.begin(), g.Nodes.end(), [](const Node& n) { return !n.Macro.empty() || n.Kind.starts_with("Macro."); });
+        }
+        std::string NameLiteral(const Node& n)
+        {
+            auto it = n.Inputs.find("Name");
+            return it != n.Inputs.end() && it->second.is_string() ? it->second.get<std::string>() : "";
+        }
+    }
+    std::vector<Diagnostic> Graph::ValidateMacros() const
+    {
+        std::vector<Diagnostic> d;
+        auto error = [&](uint32_t n, std::string s) { d.push_back({ n, std::move(s) }); };
+        if (Macros.size() > 64) error(0, "Macro definition limit exceeds 64");
+        std::map<std::string, int> entries, exits;
+        std::map<uint32_t, std::string> owner;
+        std::map<std::string, std::set<std::string>> uses;
+        for (const auto& n : Nodes)
+        {
+            owner[n.ID] = n.Macro;
+            if (!n.Macro.empty() && !Macros.contains(n.Macro)) error(n.ID, "Node belongs to unknown macro " + n.Macro);
+            if ((n.Kind == "Macro.Entry" || n.Kind == "Macro.Exit") && n.Macro.empty()) error(n.ID, "Macro entry/exit outside a macro body");
+            if (n.Kind == "Macro.Entry") ++entries[n.Macro];
+            if (n.Kind == "Macro.Exit") ++exits[n.Macro];
+            if (!n.Macro.empty() && (n.Kind.starts_with("Event.") || n.Kind == "Function.Entry" || n.Kind == "Function")) error(n.ID, "A macro cannot hold events or function entries");
+            if (n.Kind == "Macro.Instance")
+            {
+                const auto name = NameLiteral(n);
+                if (!Macros.contains(name)) error(n.ID, "Unknown macro: " + name);
+                else uses[n.Macro].insert(name);
+            }
+        }
+        for (const auto& [name, macro] : Macros)
+        {
+            if (name.empty() || name.size() > 64) error(0, "Invalid macro name");
+            if (entries[name] != 1 || exits[name] != 1) error(0, "Macro " + name + " needs exactly one entry and one exit");
+            for (const auto* pins : { &macro.Inputs, &macro.Outputs })
+            {
+                if (pins->size() > 32) error(0, "Macro " + name + " has more than 32 pins on one side");
+                std::set<std::string> names;
+                for (const auto& pin : *pins)
+                    if (pin.Name.empty() || pin.Name.size() > 64 || pin.Name == "Name" || !names.insert(pin.Name).second || pin.Kind >= Type::Count || (pin.Kind == Type::Exec ? !pin.Default.is_null() : !Fits(pin, pin.Default)))
+                        error(0, "Invalid/duplicate/reserved macro pin in " + name);
+            }
+        }
+        for (const auto& l : Links)
+            if (owner.contains(l.From) && owner.contains(l.To) && owner.at(l.From) != owner.at(l.To)) error(l.To, "Link crosses a macro boundary");
+        // A macro that instances itself, directly or through other macros, would never finish expanding.
+        std::map<std::string, int> state;
+        std::function<bool(const std::string&)> recursive = [&](const std::string& name) {
+            if (state[name] == 1) return true;
+            if (state[name] == 2) return false;
+            state[name] = 1;
+            for (const auto& used : uses[name])
+                if (recursive(used)) return true;
+            state[name] = 2;
+            return false;
+        };
+        for (const auto& [name, macro] : Macros)
+            if (state[name] != 2 && recursive(name)) error(0, "Macro " + name + " uses itself");
+        return d;
+    }
+    std::vector<Diagnostic> Graph::Validate() const
+    {
+        auto d = ValidateTypes();
+        if (!UsesMacros(*this))
+        {
+            auto nodes = ValidateNodes(true);
+            d.insert(d.end(), nodes.begin(), nodes.end());
+            return d;
+        }
+        const auto macros = ValidateMacros();
+        d.insert(d.end(), macros.begin(), macros.end());
+        // Each macro body on its own (its entry is the source of its inputs; locals and returns are checked where
+        // the body is expanded).
+        std::set<std::pair<uint32_t, std::string>> reported;
+        std::map<uint32_t, std::string> owner;
+        for (const auto& n : Nodes) owner[n.ID] = n.Macro;
+        for (const auto& [name, macro] : Macros)
+        {
+            Graph body = Shell(*this);
+            body.Macros = Macros;
+            for (const auto& n : Nodes)
+                if (n.Macro == name) body.Nodes.push_back(n);
+            for (const auto& l : Links)
+                if (owner.contains(l.From) && owner.contains(l.To) && owner.at(l.From) == name && owner.at(l.To) == name) body.Links.push_back(l);
+            for (auto& found : body.ValidateNodes(false))
+            {
+                found.Message = "In macro " + name + ": " + found.Message;
+                if (reported.insert({ found.Node, found.Message }).second) d.push_back(std::move(found));
+            }
+        }
+        if (!macros.empty()) return d; // the expansion needs consistent macro definitions
+        // The graph as the VM runs it: findings in copied macro nodes point at the macro instance.
+        auto expansion = Expand();
+        d.insert(d.end(), expansion.Errors.begin(), expansion.Errors.end());
+        Graph expanded = Shell(*this);
+        expanded.Nodes = std::move(expansion.Nodes);
+        expanded.Links = std::move(expansion.Links);
+        for (auto found : expanded.ValidateNodes(true))
+        {
+            if (auto origin = expansion.Origins.find(found.Node); origin != expansion.Origins.end())
+            {
+                const auto& [instance, source] = origin->second;
+                found.Message = "In macro " + owner[source] + ": " + found.Message;
+                if (reported.contains({ source, found.Message })) continue; // already found in the body itself
+                found.Node = instance;
+                found.Source = source;
+            }
+            if (reported.insert({ found.Node, found.Message }).second) d.push_back(std::move(found));
+        }
+        return d;
+    }
+    std::vector<Diagnostic> Graph::ValidateNodes(bool withFunctions) const
+    {
+        std::vector<Diagnostic> d;
+        auto error = [&](uint32_t n, std::string s) { d.push_back({ n, std::move(s) }); };
+        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256) error(0, "Graph size limit exceeded");
+        if (withFunctions)
+        {
+            auto extra = ValidateFunctions();
+            d.insert(d.end(), extra.begin(), extra.end());
+        }
         std::map<uint32_t, const Node*> nodeMap;
         std::map<uint32_t, Definition> definitions;
         size_t payload = 0;
@@ -544,10 +706,10 @@ return c; }();
             }
             for (const auto* pins : { &definitions.at(n.ID).Inputs, &definitions.at(n.ID).Outputs })
             {
-                auto unknown = std::find_if(pins->begin(), pins->end(), [&](const Pin& p) { return (p.Kind == Type::Enum && !Enums.contains(p.Enum)) || ((p.Kind == Type::Struct || p.Kind == Type::ArrayStruct) && !Structs.contains(p.Enum)); });
+                auto unknown = std::find_if(pins->begin(), pins->end(), [&](const Pin& p) { return ((p.Kind == Type::Enum || p.Kind == Type::ArrayEnum) && !Enums.contains(p.Enum)) || ((p.Kind == Type::Struct || p.Kind == Type::ArrayStruct) && !Structs.contains(p.Enum)); });
                 if (unknown != pins->end())
                 {
-                    error(n.ID, std::string(unknown->Kind == Type::Enum ? "Unknown enum: " : "Unknown struct: ") + unknown->Enum);
+                    error(n.ID, std::string(unknown->Kind == Type::Enum || unknown->Kind == Type::ArrayEnum ? "Unknown enum: " : "Unknown struct: ") + unknown->Enum);
                     break;
                 }
             }
@@ -601,7 +763,7 @@ return c; }();
             }
             if (i->Kind != Type::Exec && !inputs.insert({ l.To, l.Input }).second) error(l.To, "Data input already linked");
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
-            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
+            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Macro.Instance" || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
             if (l.Input == "Enum" && i->Kind == Type::String && b->Kind.find("Enum") != std::string::npos) error(l.To, "Enum type must be a literal");
             if ((l.Input == "Struct" || l.Input == "Field") && i->Kind == Type::String && b->Kind.find("Struct") != std::string::npos) error(l.To, "Struct type and field must be literals");
             if (i->Kind != Type::Exec) dependencies[l.To].push_back(l.From);
@@ -615,11 +777,15 @@ return c; }();
     {
         Value j = { { "Format", "Zamin.VisualGraph" }, { "Version", FormatVersion }, { "Nodes", Value::array() }, { "Links", Value::array() }, { "Variables", Value::object() } };
         auto typed = [](Type kind, const std::string& enumName, Value entry) {
-            if (kind == Type::Enum) entry["Enum"] = enumName;
+            if (kind == Type::Enum || kind == Type::ArrayEnum) entry["Enum"] = enumName;
             if (kind == Type::Struct || kind == Type::ArrayStruct) entry["Struct"] = enumName;
             return entry;
         };
-        for (auto& n : Nodes) j["Nodes"].push_back({ { "ID", n.ID }, { "Kind", n.Kind }, { "X", n.X }, { "Y", n.Y }, { "Inputs", n.Inputs }, { "Breakpoint", n.Breakpoint } });
+        for (auto& n : Nodes)
+        {
+            j["Nodes"].push_back({ { "ID", n.ID }, { "Kind", n.Kind }, { "X", n.X }, { "Y", n.Y }, { "Inputs", n.Inputs }, { "Breakpoint", n.Breakpoint } });
+            if (!n.Macro.empty()) j["Nodes"].back()["Macro"] = n.Macro;
+        }
         for (auto& l : Links) j["Links"].push_back({ { "From", l.From }, { "Output", l.Output }, { "To", l.To }, { "Input", l.Input } });
         for (auto& [name, v] : Variables) j["Variables"][name] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
         j["Enums"] = Value::object();
@@ -645,6 +811,14 @@ return c; }();
             for (const auto& [key, v] : signature.Locals) function["Locals"][key] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
             j["Functions"][name] = std::move(function);
         }
+        j["Macros"] = Value::object();
+        for (const auto& [name, macro] : Macros)
+        {
+            Value entry = { { "Inputs", Value::array() }, { "Outputs", Value::array() } };
+            for (const auto& p : macro.Inputs) entry["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            for (const auto& p : macro.Outputs) entry["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            j["Macros"][name] = std::move(entry);
+        }
         return j;
     }
     Graph Graph::Parse(const Value& j)
@@ -654,10 +828,16 @@ return c; }();
         Require(version >= 1 && version <= FormatVersion, "Unsupported graph format/version");
         Graph g;
         g.SourceVersion = int(version);
-        // Version 1/2 -> 3 migration: version 1 has no enum type and versions 1-2 no struct types, so their types,
-        // nodes, legacy Function/Call and typed functions read unchanged; a newer type in an older file is rejected
-        // rather than guessed.
+        // Version 1-3 -> 4 migration: version 1 has no enum type, versions 1-2 no struct types and versions 1-3 no
+        // macros, enum arrays or nested structs, so their types, nodes, legacy Function/Call and typed functions read
+        // unchanged; a newer type in an older file is rejected rather than guessed.
         auto enumName = [&](Type kind, const Value& entry) {
+            if (kind == Type::ArrayEnum)
+            {
+                Require(version >= 4, "Enum array types need graph format version 4");
+                Require(entry.contains("Enum") && entry.at("Enum").is_string(), "Enum type without an enum name");
+                return entry.at("Enum").get<std::string>();
+            }
             if (kind == Type::Struct || kind == Type::ArrayStruct)
             {
                 Require(version >= 3, "Struct types need graph format version 3");
@@ -674,7 +854,15 @@ return c; }();
         auto& ls = j.at("Links");
         auto& vs = j.at("Variables");
         Require(ns.is_array() && ns.size() <= 4096 && ls.is_array() && ls.size() <= 8192 && vs.is_object() && vs.size() <= 256, "Graph size/type limit");
-        for (auto& n : ns) g.Nodes.push_back({ readID(n.at("ID")), n.at("Kind").get<std::string>(), n.value("X", 0.f), n.value("Y", 0.f), n.value("Inputs", std::map<std::string, Value>{}), n.value("Breakpoint", false) });
+        for (auto& n : ns)
+        {
+            g.Nodes.push_back({ readID(n.at("ID")), n.at("Kind").get<std::string>(), n.value("X", 0.f), n.value("Y", 0.f), n.value("Inputs", std::map<std::string, Value>{}), n.value("Breakpoint", false) });
+            if (n.contains("Macro"))
+            {
+                Require(version >= 4, "Macros need graph format version 4");
+                g.Nodes.back().Macro = n.at("Macro").get<std::string>();
+            }
+        }
         for (auto& l : ls) g.Links.push_back({ readID(l.at("From")), l.at("Output").get<std::string>(), readID(l.at("To")), l.at("Input").get<std::string>() });
         for (auto it = vs.begin(); it != vs.end(); ++it)
         {
@@ -747,9 +935,32 @@ return c; }();
                 for (const auto& field : fields)
                 {
                     const auto kind = type(field.at("Type"));
+                    Require(version >= 4 || (kind != Type::Struct && kind != Type::ArrayStruct), "Struct fields of struct type need graph format version 4");
                     definition.Fields.push_back({ field.at("Name").get<std::string>(), kind, field.at("Default"), enumName(kind, field) });
                 }
                 g.Structs[it.key()] = std::move(definition);
+            }
+        }
+        if (j.contains("Macros"))
+        {
+            Require(version >= 4, "Macros need graph format version 4");
+            const auto& macros = j.at("Macros");
+            Require(macros.is_object() && macros.size() <= 64, "Macro definition limit/type");
+            for (auto it = macros.begin(); it != macros.end(); ++it)
+            {
+                MacroDefinition macro;
+                for (const char* side : { "Inputs", "Outputs" })
+                {
+                    const auto& pins = it.value().at(side);
+                    Require(pins.is_array() && pins.size() <= 32, "Macro pin limit/type");
+                    for (const auto& pin : pins)
+                    {
+                        // A macro pin may also be an execution pin.
+                        const auto kind = pin.at("Type") == TypeName(Type::Exec) ? Type::Exec : type(pin.at("Type"));
+                        (std::string(side) == "Inputs" ? macro.Inputs : macro.Outputs).push_back({ pin.at("Name").get<std::string>(), kind, pin.value("Default", Value()), enumName(kind, pin) });
+                    }
+                }
+                g.Macros[it.key()] = std::move(macro);
             }
         }
         return g;
@@ -764,7 +975,7 @@ return c; }();
     }
     bool Graph::Save(const std::filesystem::path& p) const
     {
-        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64 || Structs.size() > 64) return false;
+        if (Nodes.size() > 4096 || Links.size() > 8192 || Variables.size() > 256 || Functions.size() > 64 || Enums.size() > 64 || Structs.size() > 64 || Macros.size() > 64) return false;
         auto text = Serialize().dump(2);
         return text.size() <= 4 * 1024 * 1024 && FileSystem::WriteTextFileAtomic(p, text);
     }
@@ -785,10 +996,23 @@ return c; }();
         m_Bridge = std::move(bridge);
         m_Variables.clear();
         auto errors = m_Graph.Validate();
+        m_Origins.clear();
+        m_SourceMacros.clear();
         if (!errors.empty())
         {
             m_Error = "Node " + std::to_string(errors[0].Node) + ": " + errors[0].Message;
             return false;
+        }
+        if (!m_Graph.Macros.empty())
+        {
+            // The VM runs the expanded graph; a copied node remembers its instance and body node for errors.
+            for (const auto& n : m_Graph.Nodes)
+                if (!n.Macro.empty()) m_SourceMacros[n.ID] = n.Macro;
+            auto expansion = m_Graph.Expand();
+            m_Graph.Nodes = std::move(expansion.Nodes);
+            m_Graph.Links = std::move(expansion.Links);
+            m_Graph.Macros.clear();
+            m_Origins = std::move(expansion.Origins);
         }
         m_NodeIndex.clear();
         m_InputLinks.clear();
@@ -1465,7 +1689,10 @@ return c; }();
         }
         catch (const std::exception& e)
         {
-            m_Error = "Node " + std::to_string(CurrentNode) + ": " + e.what();
+            // A node copied from a macro reports its macro instance (and the macro's body node).
+            uint32_t source = 0;
+            const uint32_t node = Origin(CurrentNode, &source);
+            m_Error = "Node " + std::to_string(node) + ": " + (source ? "In macro " + m_SourceMacros[source] + " (node " + std::to_string(source) + "): " : std::string()) + e.what();
             m_Tasks.clear();
         }
         m_Running = false;

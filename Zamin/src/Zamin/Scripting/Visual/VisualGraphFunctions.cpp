@@ -316,6 +316,19 @@ namespace Zamin::Visual {
     std::vector<Diagnostic> Graph::Warnings() const
     {
         std::vector<Diagnostic> warnings;
+        if (!Macros.empty())
+        {
+            // Return paths are followed through the expanded macros; a finding in a copy names the instance.
+            auto expansion = Expand();
+            Graph expanded = *this;
+            expanded.Nodes = std::move(expansion.Nodes);
+            expanded.Links = std::move(expansion.Links);
+            expanded.Macros.clear();
+            warnings = expanded.Warnings();
+            for (auto& w : warnings)
+                if (auto origin = expansion.Origins.find(w.Node); origin != expansion.Origins.end()) w = { origin->second.first, w.Message, origin->second.second };
+            return warnings;
+        }
         for (const auto& [name, signature] : Functions)
         {
             if (signature.Outputs.empty()) continue;
@@ -386,6 +399,7 @@ namespace Zamin::Visual {
                 id = std::max<uint64_t>(id, n.ID);
                 graphMaxY = std::max(graphMaxY, n.Y + 65 + 24 * float(std::max(defs[n.ID].Inputs.size(), defs[n.ID].Outputs.size())));
                 if (!selected.contains(n.ID)) continue;
+                Need(n.Macro.empty(), "Nodes inside a macro cannot be collapsed into a function");
                 Need(!n.Kind.starts_with("Event.") && n.Kind != "Function" && n.Kind != "Function.Entry" && n.Kind != "Function.Return" && !n.Kind.starts_with("Local."),
                      "Events, function entries/returns and locals cannot be collapsed");
                 minX = std::min(minX, n.X);

@@ -547,16 +547,17 @@ TEST(BlueprintCallArityAndSignatureDiagnostics)
     g.Links.push_back({ 30, "Value", 2, "X" });
     CHECK(Mentions(g.Validate(), "Link pin types differ"));
 }
-TEST(BlueprintFormatVersion3AndOlderMigration)
+TEST(BlueprintFormatVersion4AndOlderMigration)
 {
     auto g = FunctionGraph();
     auto json = g.Serialize();
-    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 3 && json.at("Enums").is_object() && json.at("Structs").is_object());
-    // A version 1 file (no Enums/Structs section): typed functions, locals and legacy names read unchanged.
+    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 4 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
+    // A version 1 file (no Enums/Structs/Macros section): typed functions, locals and legacy names read unchanged.
     auto v1 = json;
     v1["Version"] = 1;
     v1.erase("Enums");
     v1.erase("Structs");
+    v1.erase("Macros");
     v1["Nodes"].push_back({ { "ID", 40 }, { "Kind", "Function" }, { "X", 0 }, { "Y", 0 }, { "Inputs", { { "Name", "Legacy" } } }, { "Breakpoint", false } });
     v1["Nodes"].push_back({ { "ID", 41 }, { "Kind", "Event.Create" }, { "X", 0 }, { "Y", 0 }, { "Inputs", Value::object() }, { "Breakpoint", false } });
     v1["Nodes"].push_back({ { "ID", 42 }, { "Kind", "Call" }, { "X", 0 }, { "Y", 0 }, { "Inputs", { { "Name", "Legacy" } } }, { "Breakpoint", false } });
@@ -569,11 +570,12 @@ TEST(BlueprintFormatVersion3AndOlderMigration)
     vm.Event("Start");
     CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
     const auto upgraded = migrated.Serialize();
-    CHECK(upgraded.at("Version") == 3 && Graph::Parse(upgraded).SourceVersion == 3 && Graph::Parse(upgraded).Serialize() == upgraded);
+    CHECK(upgraded.at("Version") == 4 && Graph::Parse(upgraded).SourceVersion == 4 && Graph::Parse(upgraded).Serialize() == upgraded);
     // A version 2 file (enums, no Structs section) loads unchanged and runs the same.
     auto enumV2 = EnumGraph().Serialize();
     enumV2["Version"] = 2;
     enumV2.erase("Structs");
+    enumV2.erase("Macros");
     auto fromV2 = Graph::Parse(enumV2);
     CHECK(fromV2.SourceVersion == 2 && fromV2.Validate().empty() && fromV2.Enums == EnumGraph().Enums && fromV2.Serialize() == EnumGraph().Serialize());
     // Enums do not exist in version 1, structs not in 1-2; a later version is not guessed at.
@@ -581,11 +583,13 @@ TEST(BlueprintFormatVersion3AndOlderMigration)
     enumV1["Version"] = 1;
     enumV1.erase("Enums");
     enumV1.erase("Structs");
+    enumV1.erase("Macros");
     bool threw = false;
     try { Graph::Parse(enumV1); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 2") != std::string::npos; }
     CHECK(threw);
     auto structV2 = json;
     structV2["Version"] = 2;
+    structV2.erase("Macros");
     structV2["Structs"] = { { "Point", { { "Fields", Value::array({ { { "Name", "X" }, { "Type", "Number" }, { "Default", 0 } } }) } } } };
     threw = false;
     try { Graph::Parse(structV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
@@ -593,12 +597,13 @@ TEST(BlueprintFormatVersion3AndOlderMigration)
     auto structVariableV2 = json;
     structVariableV2["Version"] = 2;
     structVariableV2.erase("Structs");
+    structVariableV2.erase("Macros");
     structVariableV2["Variables"]["P"] = { { "Type", "Struct" }, { "Default", Value::object() }, { "Struct", "Point" } };
     threw = false;
     try { Graph::Parse(structVariableV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
     CHECK(threw);
     auto future = json;
-    future["Version"] = 4;
+    future["Version"] = 5;
     threw = false;
     try { Graph::Parse(future); } catch (const std::exception&) { threw = true; }
     CHECK(threw);
@@ -918,7 +923,11 @@ TEST(BlueprintStructTypesAreCheckedStaticallyAndAtRuntime)
     definition.Structs["Hit"].Fields.push_back({ "Struct", Type::Number, 0. });
     CHECK(Mentions(definition.Validate(), "reserved or duplicate field name"));
     definition = g;
-    definition.Structs["Inner"] = { { { "Hit", Type::Struct, Value::object(), "Hit" } } };
+    definition.Structs["Inner"] = { { { "Hit", Type::Struct, Value::object(), "Hit" } } }; // a nested Hit needs a Hit default
+    CHECK(Mentions(definition.Validate(), "Struct Inner field Hit has an invalid default"));
+    definition.Structs["Inner"].Fields[0].Default = g.DefaultFor(Type::Struct, "Hit");
+    CHECK(definition.Validate().empty());
+    definition.Structs["Inner"].Fields[0].Kind = Type::Exec;
     CHECK(Mentions(definition.Validate(), "unsupported type"));
     definition = g;
     definition.Structs["Hit"].Fields[1].Enum = "Missing";
@@ -1044,4 +1053,394 @@ TEST(BlueprintCollapseCarriesStructWires)
     const auto& signature = g.Functions.at("Store");
     CHECK(signature.Inputs.size() == 1 && signature.Inputs[0].Kind == Type::Struct && signature.Inputs[0].Enum == "Hit" && g.Fits(signature.Inputs[0], signature.Inputs[0].Default));
     CHECK(g.Validate().empty() && RunStruct(g) == expected);
+}
+namespace {
+    // Struct Point {X, Y}; struct Body {Name, At: Point, Path: ArrayStruct Point}. Start makes a Body with At = {3, 4},
+    // moves it with SetField(At) of a SetField(Y) copy, appends a Point to Path and reads At.Y and Path's length back.
+    Graph NestedGraph()
+    {
+        Graph g;
+        g.Structs["Point"] = { { { "X", Type::Number, 0. }, { "Y", Type::Number, 0. } } };
+        g.Structs["Body"] = { { { "Name", Type::String, "body" }, { "At", Type::Struct, Value{ { "X", 1. }, { "Y", 2. } }, "Point" }, { "Path", Type::ArrayStruct, Value::array(), "Point" } } };
+        g.Variables["Thing"] = { Type::Struct, g.DefaultFor(Type::Struct, "Body"), "Body" };
+        g.Variables["Y"] = { Type::Number, 0. };
+        g.Variables["Steps"] = { Type::Number, 0. };
+        g.Nodes = { { 1, "Event.Start" },
+                    { 2, "Struct.Make", 0, 0, { { "Struct", "Point" }, { "X", 3. }, { "Y", 4. } } },
+                    { 3, "Struct.Make", 0, 0, { { "Struct", "Body" }, { "Name", "probe" } } },
+                    { 4, "Struct.GetField", 0, 0, { { "Struct", "Body" }, { "Field", "At" } } },
+                    { 5, "Struct.SetField", 0, 0, { { "Struct", "Point" }, { "Field", "Y" }, { "FieldValue", 9. } } },
+                    { 6, "Struct.SetField", 0, 0, { { "Struct", "Body" }, { "Field", "At" } } },
+                    { 7, "Array.Append.Struct", 0, 0, { { "Struct", "Point" } } },
+                    { 8, "Struct.GetField", 0, 0, { { "Struct", "Body" }, { "Field", "Path" } } },
+                    { 9, "Struct.SetField", 0, 0, { { "Struct", "Body" }, { "Field", "Path" } } },
+                    { 10, "Set.Struct", 0, 0, { { "Name", "Thing" } } },
+                    { 11, "Get.Struct", 0, 0, { { "Name", "Thing" } } },
+                    { 12, "Struct.Break", 0, 0, { { "Struct", "Body" } } },
+                    { 13, "Struct.Break", 0, 0, { { "Struct", "Point" } } },
+                    { 14, "Set.Number", 0, 0, { { "Name", "Y" } } },
+                    { 15, "Array.Length.Struct", 0, 0, { { "Struct", "Point" } } },
+                    { 16, "Set.Number", 0, 0, { { "Name", "Steps" } } } };
+        g.Links = { { 2, "Value", 3, "At" }, { 3, "Value", 4, "Value" }, { 4, "Value", 5, "Value" }, { 3, "Value", 6, "Value" }, { 5, "Value", 6, "FieldValue" },
+                    { 6, "Value", 8, "Value" }, { 8, "Value", 7, "Array" }, { 2, "Value", 7, "Value" }, { 6, "Value", 9, "Value" }, { 7, "Value", 9, "FieldValue" },
+                    { 1, "Then", 10, "In" }, { 9, "Value", 10, "Value" }, { 11, "Value", 12, "Value" }, { 12, "At", 13, "Value" },
+                    { 10, "Then", 14, "In" }, { 13, "Y", 14, "Value" }, { 14, "Then", 16, "In" }, { 12, "Path", 15, "Array" }, { 15, "Value", 16, "Value" } };
+        return g;
+    }
+}
+TEST(BlueprintNestedStructsMakeBreakAndFieldsRun)
+{
+    auto g = NestedGraph();
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty());
+    // The inner struct's pins keep the inner struct's name.
+    const auto make = g.Describe(*g.Find(3)), split = g.Describe(*g.Find(12)), get = g.Describe(*g.Find(4));
+    CHECK(make.Inputs[2].Name == "At" && make.Inputs[2].Kind == Type::Struct && make.Inputs[2].Enum == "Point" && make.Inputs[3].Kind == Type::ArrayStruct && make.Inputs[3].Enum == "Point");
+    CHECK(split.Outputs[1].Kind == Type::Struct && split.Outputs[1].Enum == "Point" && get.Outputs[0].Enum == "Point");
+    const auto vars = RunStruct(g);
+    const Value expected = { { "Name", "probe" }, { "At", { { "X", 3. }, { "Y", 9. } } }, { "Path", Value::array({ { { "X", 3. }, { "Y", 4. } } }) } };
+    CHECK(vars.at("Thing") == expected && vars.at("Y") == 9. && vars.at("Steps") == 1.);
+    // A Point wire does not fit a Body pin; a nested value of the wrong shape does not fit the outer struct.
+    auto wrong = g;
+    wrong.Links[0] = { 3, "Value", 3, "At" };
+    CHECK(!wrong.Validate().empty());
+    CHECK(!g.Fits(Type::Struct, "Body", { { "Name", "x" }, { "At", { { "X", 1. } } }, { "Path", Value::array() } }));
+    CHECK(g.Fits(Type::Struct, "Body", expected));
+    // Format 4 round trip.
+    const auto copy = Graph::Parse(g.Serialize());
+    CHECK(copy.Structs == g.Structs && copy.Serialize() == g.Serialize() && RunStruct(copy).at("Thing") == expected);
+}
+TEST(BlueprintNestedStructCyclesAndDepthAreRejected)
+{
+    auto g = NestedGraph();
+    // Point -> Body -> Point: a struct may not contain itself, directly or through another struct.
+    g.Structs["Point"].Fields.push_back({ "Owner", Type::Struct, Value::object(), "Body" });
+    CHECK(g.StructCycle() == "Body -> Point -> Body" || g.StructCycle() == "Point -> Body -> Point");
+    CHECK(Mentions(g.Validate(), "Struct contains itself"));
+    auto self = NestedGraph();
+    self.Structs["Point"].Fields.push_back({ "Trail", Type::ArrayStruct, Value::array(), "Point" });
+    CHECK(self.StructCycle() == "Point -> Point" && Mentions(self.Validate(), "Struct contains itself: Point -> Point"));
+    // Eight nested levels exceed the value depth the VM checks.
+    Graph deep;
+    deep.Structs["L0"] = { { { "V", Type::Number, 0. } } };
+    for (int i = 1; i <= 7; ++i)
+    {
+        const auto inner = "L" + std::to_string(i - 1);
+        deep.Structs["L" + std::to_string(i)] = { { { "In", Type::Struct, deep.DefaultFor(Type::Struct, inner), inner } } };
+    }
+    CHECK(Mentions(deep.Validate(), "Struct L7 nests deeper than 7 levels") && !Mentions(deep.Validate(), "Struct L6 nests"));
+    // The 64 KiB value limit holds for nested values: a 40 KiB inner default fits once, not twice.
+    Graph big;
+    big.Structs["Note"] = { { { "Text", Type::String, std::string(40000, 'a') } } };
+    big.Structs["Pair"] = { { { "A", Type::Struct, big.DefaultFor(Type::Struct, "Note"), "Note" }, { "B", Type::Struct, big.DefaultFor(Type::Struct, "Note"), "Note" } } };
+    CHECK(Mentions(big.Validate(), "Struct Pair defaults exceed 64 KiB"));
+    CHECK(!big.Fits(Type::Struct, "Pair", big.DefaultFor(Type::Struct, "Pair")));
+}
+TEST(BlueprintNestedStructRenamesAndFieldEditsPropagate)
+{
+    auto g = NestedGraph();
+    const auto links = g.Links.size();
+    CHECK(g.StructUses("Point") == 11 + 2); // 11 nodes show a Point pin (all but Start, the Body Get/Set and the Number sets), and the At/Path fields of Body
+    // Renaming an inner field renames it inside every stored outer value (the variable, Body's At default, literals).
+    CHECK(g.RenameStructField("Point", "Y", "Height"));
+    CHECK(g.Variables.at("Thing").Default.at("At").contains("Height") && g.Structs.at("Body").Fields[1].Default.at("Height") == 2.);
+    CHECK(g.Nodes[4].Inputs.at("Field") == "Height" && g.Validate().empty() && g.Links.size() == links);
+    // Renaming the inner struct retypes the outer struct's fields.
+    CHECK(g.RenameStruct("Point", "Vec") && g.Structs.at("Body").Fields[1].Enum == "Vec" && g.Structs.at("Body").Fields[2].Enum == "Vec" && g.Validate().empty());
+    CHECK(RunStruct(g).at("Y") == 9.);
+    // A new inner field reaches the nested values; a struct in use by a field counts as used.
+    g.Structs["Vec"].Fields.push_back({ "Z", Type::Number, 5. });
+    CHECK(g.ConformStructValues() >= 2 && g.Variables.at("Thing").Default.at("At").at("Z") == 5. && g.Structs.at("Body").Fields[1].Default.at("Z") == 5.);
+    g.PruneInvalidPins();
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty() && RunStruct(g).at("Thing").at("Path")[0].at("Z") == 5.); // Make gives Z its field default
+    Graph fieldOnly;
+    fieldOnly.Structs = g.Structs;
+    CHECK(fieldOnly.StructUses("Vec") == 2);
+}
+namespace {
+    // Enum Rank {Bronze=0, Silver=1, Gold=5}. Start appends Gold to the Ranks variable (an ArrayEnum), passes the array
+    // to Count(Ranks) -> Number, which counts the Gold entries in a ForEach.Enum + Enum.Switch, keeping a local
+    // ArrayEnum of what it saw.
+    Graph EnumArrayGraph()
+    {
+        Graph g;
+        g.Enums["Rank"] = { { { "Bronze", 0 }, { "Silver", 1 }, { "Gold", 5 } }, "" };
+        g.Variables["Ranks"] = { Type::ArrayEnum, Value::array({ 0, 5 }), "Rank" };
+        g.Variables["Golds"] = { Type::Number, 0. };
+        g.Variables["Where"] = { Type::Number, -2. };
+        g.Functions["Count"] = { { { "List", Type::ArrayEnum, Value::array(), "Rank" } }, { { "Golds", Type::Number, 0. } }, { { "Seen", { Type::ArrayEnum, Value::array(), "Rank" } }, { "N", { Type::Number, 0. } } } };
+        g.Nodes = { { 1, "Event.Start" },
+                    { 2, "Get.ArrayEnum", 0, 0, { { "Name", "Ranks" } } },
+                    { 3, "Array.Append.Enum", 0, 0, { { "Enum", "Rank" }, { "Value", 5 } } },
+                    { 4, "Set.ArrayEnum", 0, 0, { { "Name", "Ranks" }, { "Enum", "Rank" } } },
+                    { 5, "Function.Call", 0, 0, { { "Name", "Count" } } },
+                    { 6, "Set.Number", 0, 0, { { "Name", "Golds" } } },
+                    { 7, "Constant.ArrayEnum", 0, 0, { { "Enum", "Rank" }, { "Value", Value::array({ 1, 1, 5 }) } } },
+                    { 8, "Array.Find.Enum", 0, 0, { { "Enum", "Rank" }, { "Value", 5 } } },
+                    { 9, "Set.Number", 0, 0, { { "Name", "Where" } } },
+                    { 20, "Function.Entry", 0, 0, { { "Name", "Count" } } },
+                    { 21, "ForEach.Enum", 0, 0, { { "Enum", "Rank" } } },
+                    { 22, "Enum.Switch", 0, 0, { { "Enum", "Rank" } } },
+                    { 23, "Local.Get.Number", 0, 0, { { "Name", "N" } } },
+                    { 24, "Add", 0, 0, { { "B", 1. } } },
+                    { 25, "Local.Set.Number", 0, 0, { { "Name", "N" } } },
+                    { 26, "Local.Get.ArrayEnum", 0, 0, { { "Name", "Seen" } } },
+                    { 27, "Array.Append.Enum", 0, 0, { { "Enum", "Rank" } } },
+                    { 28, "Local.Set.ArrayEnum", 0, 0, { { "Name", "Seen" } } },
+                    { 29, "Function.Return", 0, 0, { { "Name", "Count" } } } };
+        g.Links = { { 1, "Then", 4, "In" }, { 2, "Value", 3, "Array" }, { 3, "Value", 4, "Value" }, { 4, "Then", 5, "In" }, { 2, "Value", 5, "List" },
+                    { 5, "Then", 6, "In" }, { 5, "Golds", 6, "Value" }, { 6, "Then", 9, "In" }, { 7, "Value", 8, "Array" }, { 8, "Value", 9, "Value" },
+                    { 20, "Then", 21, "In" }, { 20, "List", 21, "Array" }, { 21, "Body", 28, "In" }, { 26, "Value", 27, "Array" }, { 21, "Value", 27, "Value" }, { 27, "Value", 28, "Value" },
+                    { 28, "Then", 22, "In" }, { 21, "Value", 22, "Value" }, { 22, "Gold", 25, "In" }, { 23, "Value", 24, "A" }, { 24, "Value", 25, "Value" },
+                    { 21, "Completed", 29, "In" }, { 23, "Value", 29, "Golds" } };
+        return g;
+    }
+}
+TEST(BlueprintEnumArraysRunTheArrayNodesForEachAndLocals)
+{
+    auto g = EnumArrayGraph();
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty());
+    const auto each = g.Describe(*g.Find(21)), get = g.Describe(*g.Find(2));
+    CHECK(each.Outputs.back().Kind == Type::Enum && each.Outputs.back().Enum == "Rank" && each.Outputs.back().Default == 0);
+    CHECK(get.Outputs[0].Kind == Type::ArrayEnum && get.Outputs[0].Enum == "Rank" && IsNamed(Type::ArrayEnum) && ElementType(Type::ArrayEnum) == Type::Enum && ElementType(Type::ArrayStruct) == Type::Struct);
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty());
+    // The variable read inside the call is the stored array [Bronze, Gold, Gold]: the Switch counts two Golds.
+    CHECK(vm.Variables().at("Ranks") == Value::array({ 0, 5, 5 }) && vm.Variables().at("Golds") == 0. + 2. && vm.Variables().at("Where") == 2.);
+    // An integer that is no entry of the enum does not fit, statically and at run time.
+    CHECK(!g.Fits(Type::ArrayEnum, "Rank", Value::array({ 0, 2 })) && g.Fits(Type::ArrayEnum, "Rank", Value::array({ 1 })));
+    auto bad = g;
+    bad.Variables["Ranks"].Default = Value::array({ 3 });
+    CHECK(Mentions(bad.Validate(), "Invalid variable: Ranks"));
+    bad = g;
+    bad.Nodes[6].Inputs["Value"] = Value::array({ 1, 4 });
+    CHECK(Mentions(bad.Validate(), "Invalid input: Value"));
+    auto runtime = g;
+    runtime.Nodes[2].Inputs.erase("Value");
+    runtime.Nodes.push_back({ 30, "Constant.Number", 0, 0, { { "Value", 0. } } });
+    runtime.Nodes.push_back({ 31, "Array.Get.Enum", 0, 0, { { "Enum", "Rank" }, { "Index", 0. } } }); // reads an Enum, appends it
+    runtime.Links.push_back({ 7, "Value", 31, "Array" });
+    runtime.Links.push_back({ 31, "Value", 3, "Value" });
+    CHECK(runtime.Validate().empty());
+    // Another enum's array does not connect.
+    auto other = g;
+    other.Enums["Mood"] = { { { "Calm", 0 } }, "" };
+    other.Nodes[3].Inputs["Enum"] = "Mood";
+    CHECK(Mentions(other.Validate(), "Link pin types differ"));
+}
+TEST(BlueprintEnumArraysRenameRoundTripAndVersion)
+{
+    auto g = EnumArrayGraph();
+    CHECK(g.EnumUses("Rank") >= 14);
+    CHECK(g.RenameEnum("Rank", "Medal") && g.Variables.at("Ranks").Enum == "Medal" && g.Functions.at("Count").Inputs[0].Enum == "Medal" && g.Functions.at("Count").Locals.at("Seen").Enum == "Medal");
+    CHECK(g.Validate().empty());
+    const auto json = g.Serialize();
+    CHECK(json.at("Variables").at("Ranks").at("Type") == "ArrayEnum" && json.at("Variables").at("Ranks").at("Enum") == "Medal");
+    const auto copy = Graph::Parse(json);
+    CHECK(copy.Serialize() == json && copy.Validate().empty());
+    // An enum array in a version 3 file is refused rather than guessed.
+    auto v3 = json;
+    v3["Version"] = 3;
+    v3.erase("Macros");
+    bool threw = false;
+    try { Graph::Parse(v3); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 4") != std::string::npos; }
+    CHECK(threw);
+    // Struct fields may be enum arrays too.
+    Graph s;
+    s.Enums = g.Enums;
+    s.Structs["Card"] = { { { "Medals", Type::ArrayEnum, Value::array({ 5 }), "Medal" } } };
+    CHECK(s.Validate().empty() && s.EnumUses("Medal") == 1);
+    s.Structs["Card"].Fields[0].Default = Value::array({ 9 });
+    CHECK(Mentions(s.Validate(), "Struct Card field Medals has an invalid default"));
+}
+TEST(BlueprintFormatVersion3StructFilesLoadUnchanged)
+{
+    // A version 3 file (structs, no Macros section) loads unchanged and runs the same; newer data in it is refused.
+    auto v3 = StructGraph().Serialize();
+    v3["Version"] = 3;
+    v3.erase("Macros");
+    auto fromV3 = Graph::Parse(v3);
+    CHECK(fromV3.SourceVersion == 3 && fromV3.Validate().empty() && fromV3.Serialize() == StructGraph().Serialize() && RunStruct(fromV3).at("Total") == 12.);
+    auto expectRefused = [](Value json) {
+        try { Graph::Parse(json); } catch (const std::exception& e) { return std::string(e.what()).find("version 4") != std::string::npos; }
+        return false;
+    };
+    auto nested = NestedGraph().Serialize();
+    nested["Version"] = 3;
+    nested.erase("Macros");
+    CHECK(expectRefused(nested));
+    auto macros = v3;
+    macros["Macros"] = Value::object();
+    CHECK(expectRefused(macros));
+    auto body = v3;
+    body["Nodes"][0]["Macro"] = "M";
+    CHECK(expectRefused(body));
+}
+namespace {
+    // Macro Award(In: Exec, Amount: Number) -> (Then: Exec, Doubled: Number): the body multiplies Amount by 2,
+    // waits 0.1 s (latent flow, which a typed function call cannot hide) and adds Doubled to the Total variable.
+    // Start runs two instances in a row (Amount 3 from a literal, 5 from a wire) and stores the second Doubled.
+    Graph MacroGraph()
+    {
+        Graph g;
+        g.Variables["Total"] = { Type::Number, 0. };
+        g.Variables["Last"] = { Type::Number, 0. };
+        g.Macros["Award"] = { { { "In", Type::Exec, nullptr }, { "Amount", Type::Number, 1. } }, { { "Then", Type::Exec, nullptr }, { "Doubled", Type::Number, 0. } } };
+        g.Nodes = { { 1, "Event.Start" },
+                    { 2, "Macro.Instance", 0, 0, { { "Name", "Award" }, { "Amount", 3. } } },
+                    { 3, "Constant.Number", 0, 0, { { "Value", 5. } } },
+                    { 4, "Macro.Instance", 0, 0, { { "Name", "Award" } } },
+                    { 5, "Set.Number", 0, 0, { { "Name", "Last" } } },
+                    { 10, "Macro.Entry" }, { 11, "Multiply", 0, 0, { { "B", 2. } } }, { 12, "Delay", 0, 0, { { "Seconds", .1 } } },
+                    { 13, "Get.Number", 0, 0, { { "Name", "Total" } } }, { 14, "Add" }, { 15, "Set.Number", 0, 0, { { "Name", "Total" } } }, { 16, "Macro.Exit" } };
+        for (auto& n : g.Nodes)
+            if (n.ID >= 10) n.Macro = "Award";
+        g.Links = { { 1, "Then", 2, "In" }, { 2, "Then", 4, "In" }, { 3, "Value", 4, "Amount" }, { 4, "Then", 5, "In" }, { 4, "Doubled", 5, "Value" },
+                    { 10, "In", 12, "In" }, { 10, "Amount", 11, "A" }, { 12, "Then", 15, "In" }, { 13, "Value", 14, "A" }, { 11, "Value", 14, "B" }, { 14, "Value", 15, "Value" },
+                    { 15, "Then", 16, "Then" }, { 11, "Value", 16, "Doubled" } };
+        return g;
+    }
+}
+TEST(BlueprintMacrosExpandInlineWithLatentFlow)
+{
+    auto g = MacroGraph();
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty() && g.Warnings().empty());
+    // The instance shows the macro's pins; the entry/exit inside the body give/take them.
+    const auto instance = g.Describe(*g.Find(2)), entry = g.Describe(*g.Find(10)), exit = g.Describe(*g.Find(16));
+    CHECK(instance.Inputs.size() == 3 && instance.Inputs[1].Name == "In" && instance.Inputs[1].Kind == Type::Exec && instance.Outputs[1].Name == "Doubled" && !instance.Pure);
+    CHECK(entry.Outputs.size() == 2 && exit.Inputs.size() == 2 && g.MacroUses("Award") == 2);
+    // Each instance becomes its own copy of the body with new IDs, above every ID of the graph.
+    const auto expansion = g.Expand();
+    CHECK(expansion.Errors.empty() && expansion.Nodes.size() == 3 + 2 * 5);
+    std::set<uint32_t> ids;
+    for (const auto& n : expansion.Nodes)
+    {
+        CHECK(n.Macro.empty() && n.Kind != "Macro.Instance" && n.Kind != "Macro.Entry" && ids.insert(n.ID).second);
+        if (n.ID > 16) CHECK(expansion.Origins.contains(n.ID));
+    }
+    CHECK(expansion.Origins.size() == 10 && expansion.Origins.at(17).first + expansion.Origins.at(22).first == 2 + 4);
+    // The latent body runs: the first Delay holds the chain, then the second instance, then Last.
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty() && vm.Pending() == 1 && vm.Variables().at("Total") == 0.);
+    vm.Tick(.1);
+    CHECK(vm.Variables().at("Total") == 6. && vm.Pending() == 1 && vm.Variables().at("Last") == 0.);
+    vm.Tick(.1);
+    CHECK(vm.Error().empty() && vm.Pending() == 0 && vm.Variables().at("Total") == 16. && vm.Variables().at("Last") == 10.);
+    // Format 4 round trip: the definition and the body nodes' Macro key.
+    const auto json = g.Serialize();
+    CHECK(json.at("Macros").at("Award").at("Inputs")[0].at("Type") == "Exec" && json.at("Nodes")[5].at("Macro") == "Award" && !json.at("Nodes")[0].contains("Macro"));
+    const auto copy = Graph::Parse(json);
+    CHECK(copy.Macros == g.Macros && copy.Serialize() == json && copy.Validate().empty());
+}
+TEST(BlueprintMacrosPassThroughNestAndPureData)
+{
+    // Twice(X) -> Value: a pure data macro using another macro (Inc) twice; a pass-through exec and an unwired output.
+    Graph g;
+    g.Variables["Out"] = { Type::Number, 0. };
+    g.Variables["Flag"] = { Type::Bool, false };
+    g.Macros["Inc"] = { { { "X", Type::Number, 0. } }, { { "Value", Type::Number, 0. } } };
+    g.Macros["Twice"] = { { { "In", Type::Exec, nullptr }, { "X", Type::Number, 0. } }, { { "Then", Type::Exec, nullptr }, { "Value", Type::Number, 0. }, { "Done", Type::Bool, false } } };
+    g.Nodes = { { 1, "Event.Start" }, { 2, "Macro.Instance", 0, 0, { { "Name", "Twice" }, { "X", 10. } } }, { 3, "Set.Number", 0, 0, { { "Name", "Out" } } }, { 4, "Set.Bool", 0, 0, { { "Name", "Flag" } } },
+                { 10, "Macro.Entry", 0, 0, {}, false, "Inc" }, { 11, "Add", 0, 0, { { "B", 1. } }, false, "Inc" }, { 12, "Macro.Exit", 0, 0, {}, false, "Inc" },
+                { 20, "Macro.Entry", 0, 0, {}, false, "Twice" }, { 21, "Macro.Instance", 0, 0, { { "Name", "Inc" } }, false, "Twice" }, { 22, "Macro.Instance", 0, 0, { { "Name", "Inc" } }, false, "Twice" },
+                { 23, "Macro.Exit", 0, 0, { { "Done", true } }, false, "Twice" } };
+    g.Links = { { 1, "Then", 2, "In" }, { 2, "Then", 3, "In" }, { 2, "Value", 3, "Value" }, { 3, "Then", 4, "In" }, { 2, "Done", 4, "Value" },
+                { 10, "X", 11, "A" }, { 11, "Value", 12, "Value" },
+                { 20, "In", 23, "Then" }, { 20, "X", 21, "X" }, { 21, "Value", 22, "X" }, { 22, "Value", 23, "Value" } };
+    for (const auto& d : g.Validate()) std::printf("    %u: %s\n", d.Node, d.Message.c_str());
+    CHECK(g.Validate().empty() && g.Describe(*g.Find(21)).Pure && !g.Describe(*g.Find(2)).Pure);
+    const auto expansion = g.Expand();
+    CHECK(expansion.Errors.empty() && expansion.Nodes.size() == 3 + 2); // Start, the two sets and one Add per Inc
+    for (const auto& n : expansion.Nodes)
+        if (n.Kind == "Add") CHECK(expansion.Origins.at(n.ID).first == 2 && expansion.Origins.at(n.ID).second == 11);
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().empty() && vm.Variables().at("Out") == 12. && vm.Variables().at("Flag") == true);
+    // A macro that uses itself, directly or through another, is refused.
+    auto loop = g;
+    loop.Nodes.push_back({ 13, "Macro.Instance", 0, 0, { { "Name", "Twice" } }, false, "Inc" });
+    CHECK(Mentions(loop.Validate(), "uses itself"));
+}
+TEST(BlueprintMacroDiagnosticsAndErrorsPointAtTheInstance)
+{
+    // A wrong-typed wire inside the body is found in the body itself (the body node); used, a wiring error at the
+    // instance (the instance node).
+    auto g = MacroGraph();
+    g.Nodes.push_back({ 17, "Constant.String", 0, 0, { { "Value", "x" } }, false, "Award" });
+    g.Links.push_back({ 17, "Value", 14, "A" });
+    g.Links.erase(std::find_if(g.Links.begin(), g.Links.end(), [](const Link& l) { return l.From == 13; }));
+    const auto body = g.Validate();
+    CHECK(std::any_of(body.begin(), body.end(), [](const Diagnostic& d) { return d.Node == 14 && d.Message == "In macro Award: Link pin types differ or pin missing"; }));
+    g = MacroGraph();
+    g.Nodes.push_back({ 6, "Constant.String", 0, 0, { { "Value", "x" } } });
+    g.Links.push_back({ 6, "Value", 2, "Amount" });
+    const auto wiring = g.Validate();
+    CHECK(std::any_of(wiring.begin(), wiring.end(), [](const Diagnostic& d) { return d.Node == 2 && d.Message == "Link pin types differ or pin missing"; }));
+    g = MacroGraph();
+    g.Links.push_back({ 3, "Value", 2, "Missing" });
+    CHECK(Mentions(g.Validate(), "Pin Missing is not in macro Award"));
+    // A finding that only exists once the body is in place (a Local outside a typed function) names the instance and
+    // the body node it comes from.
+    g = MacroGraph();
+    g.Nodes.push_back({ 18, "Local.Get.Number", 0, 0, { { "Name", "T" } }, false, "Award" });
+    g.Links.erase(std::find_if(g.Links.begin(), g.Links.end(), [](const Link& l) { return l.From == 13; }));
+    g.Links.push_back({ 18, "Value", 14, "A" });
+    const auto scoped = g.Validate();
+    CHECK(std::any_of(scoped.begin(), scoped.end(), [](const Diagnostic& d) { return (d.Node == 2 || d.Node == 4) && d.Source == 18 && d.Message.starts_with("In macro Award: Local/return node"); }));
+    // Structural errors: events inside a macro, a missing exit, a cross-boundary wire, an unknown macro.
+    g = MacroGraph();
+    g.Nodes.push_back({ 19, "Event.Update", 0, 0, {}, false, "Award" });
+    CHECK(Mentions(g.Validate(), "A macro cannot hold events or function entries"));
+    g = MacroGraph();
+    std::erase_if(g.Nodes, [](const Node& n) { return n.ID == 16; });
+    std::erase_if(g.Links, [](const Link& l) { return l.To == 16; });
+    CHECK(Mentions(g.Validate(), "Macro Award needs exactly one entry and one exit"));
+    g = MacroGraph();
+    g.Links.push_back({ 13, "Value", 5, "Value" });
+    CHECK(Mentions(g.Validate(), "Link crosses a macro boundary"));
+    g = MacroGraph();
+    g.Nodes[1].Inputs["Name"] = "Nope";
+    CHECK(Mentions(g.Validate(), "Unknown macro: Nope"));
+    // A runtime error in a copied node reports the instance and the body node.
+    g = MacroGraph();
+    g.Nodes[7].Inputs["Seconds"] = -1.; // the Delay
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    CHECK(vm.Error().starts_with("Node 2: In macro Award (node 12): Delay must be"));
+}
+TEST(BlueprintMacroRenamesPasteAndCollapse)
+{
+    auto g = MacroGraph();
+    CHECK(g.RenameMacroPin("Award", false, "Amount", "Points") && g.RenameMacroPin("Award", true, "Doubled", "Twice"));
+    CHECK(!g.RenameMacroPin("Award", false, "Points", "In") && !g.RenameMacroPin("Award", false, "Points", "Name") && !g.RenameMacroPin("Nope", false, "Points", "X"));
+    CHECK(g.Nodes[1].Inputs.contains("Points") && g.Validate().empty() && g.PruneInvalidPins() == 0);
+    CHECK(g.RenameMacro("Award", "Bonus") && !g.RenameMacro("Bonus", "") && g.Nodes[1].Inputs.at("Name") == "Bonus" && g.Nodes[6].Macro == "Bonus" && g.Validate().empty());
+    Machine vm;
+    CHECK(vm.Load(g));
+    vm.Event("Start");
+    vm.Tick(.1);
+    vm.Tick(.1);
+    CHECK(vm.Error().empty() && vm.Variables().at("Last") == 10.);
+    // A pasted instance needs the same macro in the target graph; pasting into a body puts the nodes there.
+    std::set<uint32_t> ids;
+    std::string error;
+    auto pasted = g;
+    CHECK(pasted.PasteNodes(g.CopyNodes({ 2, 3 }), 10, 10, ids, error) && ids.size() == 2 && pasted.MacroUses("Bonus") == 3);
+    Graph other;
+    CHECK(!other.PasteNodes(g.CopyNodes({ 2 }), 0, 0, ids, error) && error.find("Macro Bonus is not in this graph") != std::string::npos && other.Nodes.empty());
+    auto inside = g;
+    CHECK(inside.PasteNodes(g.CopyNodes({ 3 }), 0, 0, ids, error, "Bonus") && inside.Find(*ids.begin())->Macro == "Bonus");
+    // Body nodes cannot be collapsed into a function; a macro's entry is not pasted twice.
+    uint32_t call = 0;
+    CHECK(!g.CollapseToFunction({ 11 }, "F", call, error) && error.find("inside a macro") != std::string::npos);
+    CHECK(!inside.PasteNodes(g.CopyNodes({ 10 }), 0, 0, ids, error, "Bonus"));
 }

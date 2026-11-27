@@ -34,6 +34,8 @@ namespace Zamin::Visual {
         ArrayVec3,
         ArrayVec4,
         ArrayEntity,
+        // An array of one enum's values (each an entry value of the enum the pin/variable names).
+        ArrayEnum,
         // An array of one struct's values (up to 1024 elements, 64 KiB).
         ArrayStruct,
         Count
@@ -43,7 +45,7 @@ namespace Zamin::Visual {
         std::string Name;
         Type Kind;
         Value Default;
-        // The named type: the enum's name when Kind == Type::Enum, the struct's name for Struct/ArrayStruct.
+        // The named type: the enum's name when Kind == Type::Enum/ArrayEnum, the struct's name for Struct/ArrayStruct.
         std::string Enum;
         bool operator==(const Pin&) const = default;
     };
@@ -60,6 +62,8 @@ namespace Zamin::Visual {
         float X = 0, Y = 0;
         std::map<std::string, Value> Inputs;
         bool Breakpoint = false;
+        // The macro whose body holds this node (Graph::Macros); empty for a node of the graph itself.
+        std::string Macro;
     };
     struct Link
     {
@@ -90,18 +94,31 @@ namespace Zamin::Visual {
         const EnumEntry* Find(const std::string& name) const;
         bool operator==(const EnumDefinition&) const = default;
     };
-    // A graph-local struct: 1..32 named, typed fields (any value type except Exec and other structs; enums and
-    // arrays are allowed). A field's Default is the field's value in a new struct value.
+    // A graph-local struct: 1..32 named, typed fields (any value type except Exec; enums, arrays and other structs of
+    // the graph are allowed, but a struct cannot contain itself, directly or through other structs). A field's Default
+    // is the field's value in a new struct value.
     struct StructDefinition
     {
         std::vector<Pin> Fields;
         const Pin* Find(const std::string& name) const;
         bool operator==(const StructDefinition&) const = default;
     };
+    // An inline macro: a subgraph of the graph's own nodes (Node::Macro == the macro's name) between one Macro.Entry
+    // (its outputs are the macro's Inputs) and one Macro.Exit (its inputs are the Outputs). Pins may be Exec or data;
+    // unlike a typed function the body may hold latent flow (Delay, loops). Each Macro.Instance node is replaced by a
+    // copy of the body at compile time (Graph::Expand), with node IDs unique per instance.
+    struct MacroDefinition
+    {
+        std::vector<Pin> Inputs, Outputs;
+        bool operator==(const MacroDefinition&) const = default;
+    };
     struct Diagnostic
     {
         uint32_t Node = 0;
         std::string Message;
+        // For a finding inside an expanded macro: the body node of the macro it comes from (Node is the macro
+        // instance in the graph). 0 otherwise.
+        uint32_t Source = 0;
     };
     const std::map<std::string, Definition>& Catalog();
     // Named values of an enumerated Number input (the dispatch validates it as an integer 0..N-1): the editor shows
@@ -110,7 +127,7 @@ namespace Zamin::Visual {
     const std::vector<const char*>* PinChoices(const std::string& kind, const std::string& pin);
     const char* TypeName(Type type);
     bool IsArray(Type type);
-    // A type that names a graph definition: Enum, Struct and ArrayStruct (Pin::Enum holds the name).
+    // A type that names a graph definition: Enum, ArrayEnum, Struct and ArrayStruct (Pin::Enum holds the name).
     bool IsNamed(Type type);
     Type ElementType(Type type);
     Value DefaultValue(Type type);
@@ -126,9 +143,10 @@ namespace Zamin::Visual {
     struct Graph
     {
         // Version 2 added enums (Type::Enum, "Enums", the "Enum" key of pins/variables); version 3 added structs
-        // (Type::Struct/ArrayStruct, "Structs", the "Struct" key). Version 1 and 2 files load unchanged (they cannot
-        // hold the newer types) and are written back as version 3.
-        static constexpr int FormatVersion = 3;
+        // (Type::Struct/ArrayStruct, "Structs", the "Struct" key); version 4 added inline macros ("Macros", the
+        // "Macro" key of body nodes), Type::ArrayEnum and struct fields of struct type. Version 1-3 files load
+        // unchanged (they cannot hold the newer data) and are written back as version 4.
+        static constexpr int FormatVersion = 4;
         int SourceVersion = FormatVersion; // the version the graph was parsed from
         std::vector<Node> Nodes;
         std::vector<Link> Links;
@@ -136,6 +154,7 @@ namespace Zamin::Visual {
         std::map<std::string, FunctionSignature> Functions;
         std::map<std::string, EnumDefinition> Enums;
         std::map<std::string, StructDefinition> Structs;
+        std::map<std::string, MacroDefinition> Macros;
         Definition Describe(const Node& node) const;
         // Type check with the named types: an Enum value must be an entry of the named enum, a Struct value must have
         // exactly the struct's fields, each fitting its field.
@@ -149,8 +168,29 @@ namespace Zamin::Visual {
         // Renames a field: the wires of Make/Break pins named after it, Get/SetField literals and the stored struct
         // values (variable defaults, signature defaults, locals, node literals) follow.
         bool RenameStructField(const std::string& structName, const std::string& from, const std::string& to);
-        // How many nodes, variables and signature pins name this struct.
+        // How many nodes, variables, signature pins and struct fields name this struct.
         size_t StructUses(const std::string& name) const;
+        // The first struct that contains itself (directly or through other structs' fields), as "A -> B -> A";
+        // empty when there is none.
+        std::string StructCycle() const;
+        // Renames a macro: its instances' Name literal and its body nodes follow.
+        bool RenameMacro(const std::string& from, const std::string& to);
+        // Renames an input (output == false) or output pin of a macro; the wires and literals of its entry/exit and
+        // instances follow.
+        bool RenameMacroPin(const std::string& macro, bool output, const std::string& from, const std::string& to);
+        // How many Macro.Instance nodes use this macro.
+        size_t MacroUses(const std::string& name) const;
+        // The graph with every Macro.Instance replaced by a copy of its macro's body (nested macros too) and without
+        // macro bodies or definitions: what the VM runs. Origins maps every copied node to {the instance in this
+        // graph, the body node it was copied from}; Errors holds the instance wiring/definition errors.
+        struct Expansion
+        {
+            std::vector<Node> Nodes;
+            std::vector<Link> Links;
+            std::map<uint32_t, std::pair<uint32_t, uint32_t>> Origins;
+            std::vector<Diagnostic> Errors;
+        };
+        Expansion Expand() const;
         // After a struct's fields change: every stored value of that struct keeps its fitting fields and takes the
         // field defaults for the others. Returns how many values changed.
         size_t ConformStructValues();
@@ -165,7 +205,8 @@ namespace Zamin::Visual {
         bool RenameFunctionPin(const std::string& function, bool result, const std::string& from, const std::string& to);
         size_t PruneInvalidPins();
         Value CopyNodes(const std::set<uint32_t>& selected) const;
-        bool PasteNodes(const Value& fragment, float x, float y, std::set<uint32_t>& inserted, std::string& error);
+        // Pastes a CopyNodes fragment into the graph itself (macro empty) or into a macro's body.
+        bool PasteNodes(const Value& fragment, float x, float y, std::set<uint32_t>& inserted, std::string& error, const std::string& macro = {});
         const Node* Find(uint32_t id) const;
         std::vector<Diagnostic> Validate() const;
         std::vector<Diagnostic> ValidateFunctions() const;
@@ -184,6 +225,12 @@ namespace Zamin::Visual {
         static Graph Parse(const Value& json);
     private:
         Definition DescribeStruct(const Node& node, Definition catalog) const;
+        Definition DescribeMacro(const Node& node, Definition catalog) const;
+        // The node/link checks of Validate on this graph's nodes as they are (functions: the typed function scope
+        // analysis too).
+        std::vector<Diagnostic> ValidateNodes(bool functions) const;
+        std::vector<Diagnostic> ValidateTypes() const;
+        std::vector<Diagnostic> ValidateMacros() const;
     public:
         static Graph Load(const std::filesystem::path& path);
         bool Save(const std::filesystem::path& path) const;
@@ -211,7 +258,12 @@ namespace Zamin::Visual {
         size_t RetainedBytes() const;
         Value DebugFrame() const;
         const std::string& CallStack() const { return m_CallStack; }
+        // The node of the loaded graph a running node comes from: a node copied from a macro body reports the
+        // macro instance (source: the body node); other nodes report themselves.
+        uint32_t Origin(uint32_t id, uint32_t* source = nullptr) const;
     private:
+        std::map<uint32_t, std::pair<uint32_t, uint32_t>> m_Origins;
+        std::map<uint32_t, std::string> m_SourceMacros; // body node -> its macro
         struct Frame
         {
             uint32_t Node = 0;

@@ -1,16 +1,14 @@
 #include "VisualGraph.h"
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 namespace Zamin::Visual {
     bool IsArray(Type type) { return type >= Type::ArrayBool && type <= Type::ArrayStruct; }
-    bool IsNamed(Type type) { return type == Type::Enum || type == Type::Struct || type == Type::ArrayStruct; }
-    Type ElementType(Type type)
-    {
-        if (type == Type::ArrayStruct) return Type::Struct;
-        return IsArray(type) ? Type(int(type) - int(Type::ArrayBool) + int(Type::Bool)) : Type::Exec;
-    }
+    bool IsNamed(Type type) { return type == Type::Enum || type == Type::ArrayEnum || type == Type::Struct || type == Type::ArrayStruct; }
+    // The array types follow the order of their element types (ArrayBool..ArrayStruct <-> Bool..Struct).
+    Type ElementType(Type type) { return IsArray(type) ? Type(int(type) - int(Type::ArrayBool) + int(Type::Bool)) : Type::Exec; }
     Value DefaultValue(Type type)
     {
         if (IsArray(type)) return Value::array();
@@ -55,8 +53,9 @@ namespace Zamin::Visual {
             auto it = n.Inputs.find(literal);
             if (it != n.Inputs.end() && it->second.is_string() && !it->second.get_ref<const std::string&>().empty()) return it->second.get<std::string>();
             const Type kind = n.Kind.ends_with(".ArrayStruct") ? Type::ArrayStruct : n.Kind.ends_with(".Struct") ? Type::Struct
-                                                                                 : n.Kind.ends_with(".Enum")     ? Type::Enum
-                                                                                                                 : Type::Exec;
+                                                                                 : n.Kind.ends_with(".ArrayEnum") ? Type::ArrayEnum
+                                                                                 : n.Kind.ends_with(".Enum")      ? Type::Enum
+                                                                                                                  : Type::Exec;
             if (kind == Type::Exec) return "";
             const auto name = Name(n);
             if (n.Kind.starts_with("Get.") || n.Kind.starts_with("Set."))
@@ -76,28 +75,41 @@ namespace Zamin::Visual {
         }
         std::string EnumOf(const Graph& g, const Node& n) { return NamedOf(g, n, "Enum"); }
         bool StructKind(Type type) { return type == Type::Struct || type == Type::ArrayStruct; }
-        // Calls visit(structName, value) for every stored struct value: variable defaults, signature defaults, locals
-        // and node literals of Struct pins, and each element of ArrayStruct ones.
+        bool EnumKind(Type type) { return type == Type::Enum || type == Type::ArrayEnum; }
+        // Calls visit(structName, value) for every stored struct value: variable defaults, signature and macro pin
+        // defaults, locals, struct field defaults and node literals of Struct pins, each element of ArrayStruct ones,
+        // and the struct values nested in those (inner values before the value that holds them).
         template<typename Visit>
         void VisitStructValues(Graph& g, Visit visit)
         {
-            auto one = [&](Type kind, const std::string& name, Value& value) {
-                if (kind == Type::Struct) visit(name, value);
-                else if (kind == Type::ArrayStruct && value.is_array())
-                    for (auto& item : value) visit(name, item);
+            std::function<void(Type, const std::string&, Value&, int)> one = [&](Type kind, const std::string& name, Value& value, int depth) {
+                if (depth > 16) return;
+                if (kind == Type::ArrayStruct && value.is_array())
+                    for (auto& item : value) one(Type::Struct, name, item, depth + 1);
+                if (kind != Type::Struct) return;
+                if (auto definition = g.Structs.find(name); definition != g.Structs.end() && value.is_object())
+                    for (const auto& field : definition->second.Fields)
+                        if (auto member = value.find(field.Name); member != value.end() && StructKind(field.Kind)) one(field.Kind, field.Enum, *member, depth + 1);
+                visit(name, value);
             };
-            for (auto& [key, v] : g.Variables) one(v.Kind, v.Enum, v.Default);
+            for (auto& [key, v] : g.Variables) one(v.Kind, v.Enum, v.Default, 0);
             for (auto& [key, signature] : g.Functions)
             {
                 for (auto* pins : { &signature.Inputs, &signature.Outputs })
-                    for (auto& pin : *pins) one(pin.Kind, pin.Enum, pin.Default);
-                for (auto& [local, v] : signature.Locals) one(v.Kind, v.Enum, v.Default);
+                    for (auto& pin : *pins) one(pin.Kind, pin.Enum, pin.Default, 0);
+                for (auto& [local, v] : signature.Locals) one(v.Kind, v.Enum, v.Default, 0);
             }
+            for (auto& [key, macro] : g.Macros)
+                for (auto* pins : { &macro.Inputs, &macro.Outputs })
+                    for (auto& pin : *pins) one(pin.Kind, pin.Enum, pin.Default, 0);
+            // Only the values change (never the definitions' field lists), so the definitions can be read meanwhile.
+            for (auto& [key, definition] : g.Structs)
+                for (auto& field : definition.Fields) one(field.Kind, field.Enum, field.Default, 0);
             for (auto& n : g.Nodes)
             {
                 const auto def = g.Describe(n);
                 for (const auto& pin : def.Inputs)
-                    if (auto it = n.Inputs.find(pin.Name); it != n.Inputs.end() && StructKind(pin.Kind)) one(pin.Kind, pin.Enum, it->second);
+                    if (auto it = n.Inputs.find(pin.Name); it != n.Inputs.end() && StructKind(pin.Kind)) one(pin.Kind, pin.Enum, it->second, 0);
             }
         }
         const Pin* PinNamed(const std::vector<Pin>& pins, const std::string& name)
@@ -137,14 +149,15 @@ namespace Zamin::Visual {
     bool Graph::Fits(Type type, const std::string& enumName, const Value& value) const
     {
         if (!Matches(type, value)) return false;
-        if (type == Type::ArrayStruct) return std::all_of(value.begin(), value.end(), [&](const Value& item) { return Fits(Type::Struct, enumName, item); });
+        if (type == Type::ArrayStruct || type == Type::ArrayEnum) return std::all_of(value.begin(), value.end(), [&](const Value& item) { return Fits(ElementType(type), enumName, item); });
         if (type == Type::Struct)
         {
+            // A nested struct value is checked field by field too; the value's own JSON depth bounds the recursion.
             auto it = Structs.find(enumName);
             if (it == Structs.end() || value.size() != it->second.Fields.size()) return false;
             return std::all_of(it->second.Fields.begin(), it->second.Fields.end(), [&](const Pin& field) {
                 auto member = value.find(field.Name);
-                return member != value.end() && !StructKind(field.Kind) && Fits(field, *member);
+                return member != value.end() && Fits(field, *member);
             });
         }
         if (type != Type::Enum) return true;
@@ -159,18 +172,21 @@ namespace Zamin::Visual {
             const auto def = Describe(n);
             bool used = false;
             for (const auto* pins : { &def.Inputs, &def.Outputs })
-                for (const auto& pin : *pins) used |= pin.Kind == Type::Enum && pin.Enum == name;
+                for (const auto& pin : *pins) used |= EnumKind(pin.Kind) && pin.Enum == name;
             uses += used;
         }
-        for (const auto& [key, v] : Variables) uses += v.Kind == Type::Enum && v.Enum == name;
+        for (const auto& [key, v] : Variables) uses += EnumKind(v.Kind) && v.Enum == name;
         for (const auto& [key, signature] : Functions)
         {
             for (const auto* pins : { &signature.Inputs, &signature.Outputs })
-                for (const auto& pin : *pins) uses += pin.Kind == Type::Enum && pin.Enum == name;
-            for (const auto& [local, v] : signature.Locals) uses += v.Kind == Type::Enum && v.Enum == name;
+                for (const auto& pin : *pins) uses += EnumKind(pin.Kind) && pin.Enum == name;
+            for (const auto& [local, v] : signature.Locals) uses += EnumKind(v.Kind) && v.Enum == name;
         }
         for (const auto& [key, definition] : Structs)
-            for (const auto& field : definition.Fields) uses += field.Kind == Type::Enum && field.Enum == name;
+            for (const auto& field : definition.Fields) uses += EnumKind(field.Kind) && field.Enum == name;
+        for (const auto& [key, macro] : Macros)
+            for (const auto* pins : { &macro.Inputs, &macro.Outputs })
+                for (const auto& pin : *pins) uses += EnumKind(pin.Kind) && pin.Enum == name;
         return uses;
     }
     size_t Graph::StructUses(const std::string& name) const
@@ -191,7 +207,40 @@ namespace Zamin::Visual {
                 for (const auto& pin : *pins) uses += StructKind(pin.Kind) && pin.Enum == name;
             for (const auto& [local, v] : signature.Locals) uses += StructKind(v.Kind) && v.Enum == name;
         }
+        for (const auto& [key, definition] : Structs)
+            for (const auto& field : definition.Fields) uses += StructKind(field.Kind) && field.Enum == name;
+        for (const auto& [key, macro] : Macros)
+            for (const auto* pins : { &macro.Inputs, &macro.Outputs })
+                for (const auto& pin : *pins) uses += StructKind(pin.Kind) && pin.Enum == name;
         return uses;
+    }
+    std::string Graph::StructCycle() const
+    {
+        // Depth-first over the struct fields of Struct/ArrayStruct type; a struct met again on the current path is a cycle.
+        std::map<std::string, int> state;
+        std::vector<std::string> path;
+        std::string cycle;
+        std::function<bool(const std::string&)> visit = [&](const std::string& name) {
+            auto definition = Structs.find(name);
+            if (definition == Structs.end() || state[name] == 2) return false;
+            if (state[name] == 1)
+            {
+                auto start = std::find(path.begin(), path.end(), name);
+                for (auto it = start; it != path.end(); ++it) cycle += *it + " -> ";
+                cycle += name;
+                return true;
+            }
+            state[name] = 1;
+            path.push_back(name);
+            for (const auto& field : definition->second.Fields)
+                if (StructKind(field.Kind) && visit(field.Enum)) return true;
+            path.pop_back();
+            state[name] = 2;
+            return false;
+        };
+        for (const auto& [name, definition] : Structs)
+            if (visit(name)) return cycle;
+        return {};
     }
     bool Graph::RenameStruct(const std::string& from, const std::string& to)
     {
@@ -209,6 +258,11 @@ namespace Zamin::Visual {
                 for (auto& pin : *pins) retype(pin.Kind, pin.Enum);
             for (auto& [local, v] : signature.Locals) retype(v.Kind, v.Enum);
         }
+        for (auto& [key, definition] : Structs)
+            for (auto& field : definition.Fields) retype(field.Kind, field.Enum);
+        for (auto& [key, macro] : Macros)
+            for (auto* pins : { &macro.Inputs, &macro.Outputs })
+                for (auto& pin : *pins) retype(pin.Kind, pin.Enum);
         return true;
     }
     bool Graph::RenameStructField(const std::string& structName, const std::string& from, const std::string& to)
@@ -245,6 +299,7 @@ namespace Zamin::Visual {
     size_t Graph::ConformStructValues()
     {
         size_t changed = 0;
+        // Inner values are visited before the values that hold them, so one pass conforms nested values too.
         VisitStructValues(*this, [&](const std::string& name, Value& value) {
             auto definition = Structs.find(name);
             if (definition == Structs.end()) return;
@@ -270,7 +325,7 @@ namespace Zamin::Visual {
         Enums.insert(std::move(entry));
         for (auto& n : Nodes)
             if (auto it = n.Inputs.find("Enum"); it != n.Inputs.end() && it->second == Value(from)) it->second = to;
-        auto retype = [&](Type kind, std::string& name) { if (kind == Type::Enum && name == from) name = to; };
+        auto retype = [&](Type kind, std::string& name) { if (EnumKind(kind) && name == from) name = to; };
         for (auto& [key, v] : Variables) retype(v.Kind, v.Enum);
         for (auto& [key, signature] : Functions)
         {
@@ -280,6 +335,9 @@ namespace Zamin::Visual {
         }
         for (auto& [key, definition] : Structs)
             for (auto& field : definition.Fields) retype(field.Kind, field.Enum);
+        for (auto& [key, macro] : Macros)
+            for (auto* pins : { &macro.Inputs, &macro.Outputs })
+                for (auto& pin : *pins) retype(pin.Kind, pin.Enum);
         return true;
     }
     Definition Graph::Describe(const Node& n) const
@@ -287,20 +345,21 @@ namespace Zamin::Visual {
         auto found = Catalog().find(n.Kind);
         if (found == Catalog().end()) return { n.Kind, "Unknown", {}, {}, false };
         auto result = found->second;
+        if (n.Kind.starts_with("Macro.")) return DescribeMacro(n, std::move(result));
         if (!Typed(n.Kind))
         {
             const auto has = [&](auto test) { return std::any_of(result.Inputs.begin(), result.Inputs.end(), test) || std::any_of(result.Outputs.begin(), result.Outputs.end(), test); };
             if (has([](const Pin& p) { return StructKind(p.Kind); }) || n.Kind.starts_with("Struct.")) return DescribeStruct(n, std::move(result));
-            const bool enumPins = has([](const Pin& p) { return p.Kind == Type::Enum; }) || n.Kind == "Enum.Switch";
+            const bool enumPins = has([](const Pin& p) { return EnumKind(p.Kind); }) || n.Kind == "Enum.Switch";
             if (!enumPins) return result;
             const auto name = EnumOf(*this, n);
             const auto definition = Enums.find(name);
             for (auto* pins : { &result.Inputs, &result.Outputs })
                 for (auto& pin : *pins)
-                    if (pin.Kind == Type::Enum)
+                    if (EnumKind(pin.Kind))
                     {
                         pin.Enum = name;
-                        if (definition != Enums.end() && !definition->second.Entries.empty()) pin.Default = definition->second.Entries.front().Value;
+                        if (pin.Kind == Type::Enum && definition != Enums.end() && !definition->second.Entries.empty()) pin.Default = definition->second.Entries.front().Value;
                     }
             if (n.Kind == "Enum.Switch" && definition != Enums.end())
                 for (const auto& entry : definition->second.Entries) result.Outputs.push_back({ entry.Name, Type::Exec, nullptr });
@@ -330,6 +389,7 @@ namespace Zamin::Visual {
                 }
         if (definition == Structs.end()) return result;
         const auto& fields = definition->second.Fields;
+        // Field pins keep their own named types (an enum, an inner struct).
         if (n.Kind == "Struct.Make") result.Inputs.insert(result.Inputs.end(), fields.begin(), fields.end());
         if (n.Kind == "Struct.Break") result.Outputs = fields;
         if (n.Kind == "Struct.GetField" || n.Kind == "Struct.SetField")
@@ -340,6 +400,65 @@ namespace Zamin::Visual {
             if (field && n.Kind == "Struct.SetField") result.Inputs.push_back({ "FieldValue", field->Kind, field->Default, field->Enum });
         }
         return result;
+    }
+    Definition Graph::DescribeMacro(const Node& n, Definition result) const
+    {
+        // An instance takes the macro's pins after its Name literal; inside the body the entry gives the inputs and
+        // the exit takes the outputs. A macro without exec pins is a pure (data-only) node.
+        const auto macro = Macros.find(n.Kind == "Macro.Instance" ? Name(n) : n.Macro);
+        if (macro == Macros.end()) return result;
+        const auto& [inputs, outputs] = std::pair{ macro->second.Inputs, macro->second.Outputs };
+        if (n.Kind == "Macro.Instance")
+        {
+            result.Inputs.insert(result.Inputs.end(), inputs.begin(), inputs.end());
+            result.Outputs = outputs;
+            result.Pure = std::none_of(inputs.begin(), inputs.end(), [](const Pin& p) { return p.Kind == Type::Exec; }) && std::none_of(outputs.begin(), outputs.end(), [](const Pin& p) { return p.Kind == Type::Exec; });
+        }
+        if (n.Kind == "Macro.Entry") result.Outputs = inputs;
+        if (n.Kind == "Macro.Exit") result.Inputs = outputs;
+        return result;
+    }
+    size_t Graph::MacroUses(const std::string& name) const
+    {
+        return size_t(std::count_if(Nodes.begin(), Nodes.end(), [&](const Node& n) { return n.Kind == "Macro.Instance" && Name(n) == name; }));
+    }
+    bool Graph::RenameMacro(const std::string& from, const std::string& to)
+    {
+        if (!Macros.contains(from) || to.empty() || to.size() > 64 || Macros.contains(to)) return false;
+        auto entry = Macros.extract(from);
+        entry.key() = to;
+        Macros.insert(std::move(entry));
+        for (auto& n : Nodes)
+        {
+            if (n.Kind == "Macro.Instance" && Name(n) == from) n.Inputs["Name"] = to;
+            if (n.Macro == from) n.Macro = to;
+        }
+        return true;
+    }
+    bool Graph::RenameMacroPin(const std::string& macro, bool output, const std::string& from, const std::string& to)
+    {
+        auto definition = Macros.find(macro);
+        if (definition == Macros.end() || to.empty() || to.size() > 64 || to == "Name") return false;
+        auto& pins = output ? definition->second.Outputs : definition->second.Inputs;
+        auto pin = std::find_if(pins.begin(), pins.end(), [&](const Pin& p) { return p.Name == from; });
+        if (pin == pins.end() || PinNamed(pins, to)) return false;
+        pin->Name = to;
+        // An input leaves the entry and enters the instances; an output enters the exit and leaves the instances.
+        std::map<uint32_t, std::string> kinds;
+        for (auto& n : Nodes)
+        {
+            const bool instance = n.Kind == "Macro.Instance" && Name(n) == macro;
+            if (instance || (n.Macro == macro && (n.Kind == "Macro.Entry" || n.Kind == "Macro.Exit"))) kinds[n.ID] = n.Kind;
+            if ((instance && !output) || (n.Kind == "Macro.Exit" && n.Macro == macro && output))
+                if (auto literal = n.Inputs.extract(from)) n.Inputs[to] = std::move(literal.mapped());
+        }
+        for (auto& l : Links)
+        {
+            auto source = kinds.find(l.From), target = kinds.find(l.To);
+            if (source != kinds.end() && l.Output == from && source->second == (output ? "Macro.Instance" : "Macro.Entry")) l.Output = to;
+            if (target != kinds.end() && l.Input == from && target->second == (output ? "Macro.Exit" : "Macro.Instance")) l.Input = to;
+        }
+        return true;
     }
     bool Graph::RenameVariable(const std::string& from, const std::string& to)
     {
@@ -428,13 +547,16 @@ namespace Zamin::Visual {
             if (selected.contains(n.ID))
             {
                 fragment.Nodes.push_back(n);
+                fragment.Nodes.back().Macro.clear(); // the paste chooses the body (PasteNodes)
                 if (Typed(n.Kind) && Functions.contains(Name(n))) fragment.Functions[Name(n)] = Functions.at(Name(n));
+                // A macro instance carries the macro's pins; the body stays in this graph (PasteNodes needs the macro).
+                if (n.Kind == "Macro.Instance" && Macros.contains(Name(n))) fragment.Macros[Name(n)] = Macros.at(Name(n));
             }
         for (const auto& l : Links)
             if (selected.contains(l.From) && selected.contains(l.To)) fragment.Links.push_back(l);
         return fragment.Serialize();
     }
-    bool Graph::PasteNodes(const Value& value, float x, float y, std::set<uint32_t>& inserted, std::string& error)
+    bool Graph::PasteNodes(const Value& value, float x, float y, std::set<uint32_t>& inserted, std::string& error, const std::string& macro)
     {
         inserted.clear();
         error.clear();
@@ -461,6 +583,13 @@ namespace Zamin::Visual {
                 if (existing == next.Structs.end()) next.Structs[name] = definition;
                 else if (existing->second != definition) throw std::runtime_error("Struct " + name + " differs in this graph");
             }
+            // A macro instance pastes only where the same macro exists: its body is not part of the fragment.
+            for (const auto& [name, definition] : fragment.Macros)
+            {
+                auto existing = next.Macros.find(name);
+                if (existing == next.Macros.end() || existing->second != definition) throw std::runtime_error("Macro " + name + " is not in this graph with the same pins");
+            }
+            if (!macro.empty() && !next.Macros.contains(macro)) throw std::runtime_error("Unknown macro: " + macro);
             for (const auto& [name, var] : fragment.Variables)
             {
                 std::string target = name;
@@ -496,6 +625,7 @@ namespace Zamin::Visual {
                 n.ID = uint32_t(id);
                 n.X += x;
                 n.Y += y;
+                n.Macro = macro;
                 next.Nodes.push_back(std::move(n));
             }
             for (auto l : fragment.Links)

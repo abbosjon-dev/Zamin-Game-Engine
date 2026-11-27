@@ -69,6 +69,8 @@ if(ZAMIN_BUILD_EXAMPLES)
     add_subdirectory(Projects/Racing)
     add_subdirectory(Projects/WorldWorkshop3D)
     add_subdirectory(Projects/WorldWorkshop2D)
+    # VisualWorkshop: graphs only, plus the native methods its NativeMethods graph calls.
+    add_subdirectory(Projects/VisualWorkshop)
 endif()
 if(ZAMIN_BUILD_TESTS)
     enable_testing()

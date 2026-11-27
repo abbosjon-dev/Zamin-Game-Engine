@@ -634,6 +634,68 @@
           }
         }
       }
+    },
+    {
+      "Entity": 920,
+      "Tag": "Workshop stats",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "WorkshopStats",
+        "Enabled": true,
+        "Fields": {
+          "Bonus": {
+            "Type": "Float",
+            "Value": 1.5
+          }
+        }
+      }
+    },
+    {
+      "Entity": 921,
+      "Tag": "Native methods controller",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Enabled": true,
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/NativeMethods.zgraph"
+          }
+        }
+      }
     }
   ],
   "RootOrder": [

@@ -1,12 +1,15 @@
 # Visual Workshop
 
-Open `VisualWorkshop.zproject` in Zamin Editor. No game module or C++ compiler is needed.
+Open `VisualWorkshop.zproject` in Zamin Editor. Every graph except `Scripts/NativeMethods.zgraph` runs without a game
+module or C++ compiler; that one calls the C++ methods of the small module in `Source/WorkshopNative.cpp`
+(`Binaries/libVisualWorkshop.so`, built with the engine, or by the editor on first open with **Scripts → Compile**).
 
 - Play `Scenes/Visual2D.zscene`: WASD / arrow keys move the purple square; green trigger pads change its color briefly.
 - Open `Scenes/Visual3D.zscene`: the two cubes share `Scripts/Spin3D.zgraph` with different Speed overrides.
 - Both scenes also run `Scripts/BlueprintGameplay.zgraph`: typed Award parameters/results, invocation-local storage across Delay, snapshot ForEach over a typed array, and a named completion event. The console prints total=12 in 2D and total=18 in 3D from per-instance Multiplier overrides. The completion event then calls `RankOf(Total)`, which returns the graph enum `Rank` (Bronze/Silver/Gold) through one of three Returns; the console prints rank=Silver in 2D and rank=Gold in 3D. Both values then go into the `Summary` variable of the graph struct `Result` (Struct.Make), which Struct.Break and Struct.GetField read back; the console prints `BLUEPRINT_SUMMARY total=12 rank=Silver` (2D) and `total=18 rank=Gold` (3D). Last, the struct `Report` nests that `Result` and keeps the rank history in an enum array (`Ranks`: Bronze, then the final rank); the graph's inline macro `Announce` (a Delay, then a Print) runs twice and prints `BLUEPRINT_REPORT total=12` / `ranks=2` (2D; `total=18` in 3D).
 - The `Blueprint inheritance controller` runs `Scripts/BlueprintChild.zgraph`, a child of `Scripts/BlueprintBase.zgraph` (graph inheritance). The parent's Start evaluates its `Falloff` curve at `Level` and calls `Bonus`, which the child overrides (Parent.Call, then x10); with the Level overrides 1 (2D) and 1.5 (3D) the console prints `BLUEPRINT_INHERIT curve=2.000 bonus=30.00 keys=3` and `curve=3.375 bonus=43.75 keys=3`. Open the child to see the inherited members (marked) and the curve editor.
-- Double-click any `.zgraph` asset, or use Window → Visual Script, to inspect and edit the logic.
+- The `Native methods controller` runs `Scripts/NativeMethods.zgraph`: it calls `WorkshopStats.Award` (an execution method), `WorkshopStats.Score` and `WorkshopStats.MedalFor` (pure; `Medal` is a C++ enum) on the `Workshop stats` entity and the free function `WorkshopMath.Hypot` (registered with `ZM_METHOD` / `ZM_FUNCTION`), and prints `BLUEPRINT_NATIVE score=36 medal=Silver hypot=5.00 awards=1` (2D; `score=54 medal=Gold` in 3D through the `Base` override). The node library's C++ section lists the methods; without the module the graph still loads and marks them.
+- Double-click any `.zgraph` asset, or use Window → Visual Script, to inspect and edit the logic. While playing, the **Heat** overlay and Window → Visual Script profiler show where the graphs spend their time.
 - Save the graph before attaching it to an entity. Save scene changes separately.
 
 See [Visual Script guide](../../docs/VisualScripting.md) for controls, execution rules and current limitations.

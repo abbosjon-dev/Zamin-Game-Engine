@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Real X11/ImGui visual graph edit regression, then a typed function, a graph struct, an inline macro (with a nested struct
 field and an enum array variable) and a child graph (a parent set, a curve variable edited key by key, an inherited function
-overridden with a call to the parent's, an inherited event overridden) authored in the UI and run in the Player.
+overridden with a call to the parent's, an inherited event overridden) authored in the UI and run in the Player; last
+(phase 6) native C++ methods from the node library through a hot reload that changes a signature, and a large graph
+played with the heat overlay, the canvas culling and the Visual Script Profiler.
 Run under xvfb-run with a 1600x1000x24 screen. Requires xdotool and ImageMagick.
 ZAMIN_BUILD_DIR chooses the build (default build); the sample is copied to a private temp directory.
 """
@@ -32,7 +34,7 @@ def find(key):
  for attempt in range(40):
   data=items();region=data['Regions'].get('properties');match=[v['Rect'] for k,v in data['Items'].items() if k==key or k.endswith('/'+key)]
   # Canvas nodes/pins, the header's buttons and an open combo's entries are clicked where they are drawn.
-  if match and key.startswith(('canvas/','header/','popup/')):return int((match[0][0]+match[0][2])/2),int((match[0][1]+match[0][3])/2)
+  if match and key.startswith(('canvas/','header/','popup/','palette/','status/','profiler/')):return int((match[0][0]+match[0][2])/2),int((match[0][1]+match[0][3])/2)
   if match and region:
    r=match[0];cx,cy=int((region[0]+region[2])/2),int((region[1]+region[3])/2)
    if r[3]>region[3]-4:x('mousemove',cx,cy);time.sleep(.3);x('click',5);time.sleep(.8);continue
@@ -136,8 +138,8 @@ try:
  else:raise RuntimeError('Function graph window did not become ready')
  time.sleep(1)
  press('Typed functions');press('functions/Create function');save()
- j=readflow();assert j['Version']==5 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
- print('UI: function created; the format 1 graph saved as format 5',flush=True)
+ j=readflow();assert j['Version']==6 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
+ print('UI: function created; the format 1 graph saved as format 6',flush=True)
  click(160,282);save()
  j=readflow();calls=[n for n in j['Nodes'] if n['Kind']=='Function.Call'];assert len(calls)==1 and calls[0]['Inputs']['Name']=='Calculate',j['Nodes']
  call=calls[0]['ID'];print('UI: call node from the node library passed',flush=True)
@@ -191,8 +193,8 @@ def struct_flow(project,env,build,out,scene):
   time.sleep(1)
   press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats');press('Stats/Add field')
   enter('Stats/0/Field name','Power');save()
-  j=readstruct();assert j['Version']==5 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
-  unclipped();print('UI: struct created, field added and renamed; saved as format 5',flush=True)
+  j=readstruct();assert j['Version']==6 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
+  unclipped();print('UI: struct created, field added and renamed; saved as format 6',flush=True)
   subprocess.run(['import','-window','root',str(out/'struct-editor.png')],check=True)
   # Make Stats from the node library (Structs / Make Stats), Power = 7; then a GetField node (struct and field preset).
   click(150,233);selectall();time.sleep(.3);x('type','--delay','150','make stats');time.sleep(1.2);click(155,283)
@@ -233,7 +235,7 @@ def struct_flow(project,env,build,out,scene):
 def macro_flow(project,env,build,out,scene):
  global app
  flow=project/'Assets/Scripts/MacroFlow.zgraph'
- # A format 3 file with an enum and a struct: the editor writes format 5 on save.
+ # A format 3 file with an enum and a struct: the editor writes format 6 on save.
  flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':3,'Nodes':[node(1,'Event.Start',40,60),node(2,'Print',760,60),node(3,'Concat',560,420,{'A':'MACRO_UI value='}),node(4,'FormatNumber',300,470,{'Decimals':0})],
   'Links':[{'From':3,'Output':'Value','To':2,'Input':'Text'},{'From':4,'Output':'Value','To':3,'Input':'B'}],'Variables':{},'Functions':{},
   'Enums':{'Rank':{'Entries':[{'Name':'Bronze','Value':0},{'Name':'Gold','Value':1}],'Source':''}},
@@ -256,8 +258,8 @@ def macro_flow(project,env,build,out,scene):
   press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats')
   press('Stats/0/Field type');press('popup/Struct');press('Stats/0/Default/fields');enter('Stats/0/Default/X','5');save()
   field=readmacro()['Structs']['Stats']['Fields'][0]
-  assert readmacro()['Version']==5 and field['Type']=='Struct' and field['Struct']=='Point' and field['Default']=={'X':5,'Y':0},field
-  unclipped();shot('nested-struct.png');print('UI: a struct field of struct type, its nested default edited field by field; saved as format 5',flush=True)
+  assert readmacro()['Version']==6 and field['Type']=='Struct' and field['Struct']=='Point' and field['Default']=={'X':5,'Y':0},field
+  unclipped();shot('nested-struct.png');print('UI: a struct field of struct type, its nested default edited field by field; saved as format 6',flush=True)
   press('Graph structs')
   # An enum array variable.
   press('Graph variables');press('variables/Variable name');x('type','--delay','150','Ranks');time.sleep(.4)
@@ -346,11 +348,11 @@ def inherit_flow(project,env,build,out,scene):
   # The parent: set by path (one undo step); its variable shows as inherited and is not saved with the child.
   press('Inheritance');press('inheritance/Parent path');selectall();time.sleep(.3);x('type','--delay','120','Scripts/CurveBase.zgraph');time.sleep(.4)
   press('inheritance/Set parent');save()
-  j=readchild();assert j['Version']==5 and j.get('Parent')=='Scripts/CurveBase.zgraph' and j['Variables']=={},j
+  j=readchild();assert j['Version']==6 and j.get('Parent')=='Scripts/CurveBase.zgraph' and j['Variables']=={},j
   assert any(k.endswith('variables/Level/inherited') for k in items()['Items']),[k for k in items()['Items'] if 'Level' in k]
   click(531,140);save();assert 'Parent' not in readchild()
   click(585,140);save();assert readchild().get('Parent')=='Scripts/CurveBase.zgraph'
-  unclipped();print('UI: parent set (undo/redo); the inherited variable is listed and not saved; saved as format 5',flush=True)
+  unclipped();print('UI: parent set (undo/redo); the inherited variable is listed and not saved; saved as format 6',flush=True)
   # A Curve variable: two keys added, the second moved (Time) and raised (Value), the first made cubic, a third added and
   # deleted (undo/redo), then the second dragged in the preview (one undo step).
   press('variables/Variable name');x('type','--delay','150','Ramp');time.sleep(.4)
@@ -418,6 +420,141 @@ def inherit_flow(project,env,build,out,scene):
  # parent's Level + 1 = 3.
  assert run.returncode==0 and 'INHERIT_UI value=5.00' in run.stdout+run.stderr and "Visual graph '" not in run.stdout+run.stderr,run.returncode
  print('UI: the child graph runs in the Player through its parent (value=5.00)',flush=True)
+def wait_editor(app,logname,ready):
+ # Until the editor opened its scene and the layout file shows the ready key (a canvas node, a profiler value ...).
+ for i in range(300):
+  if app.poll() is not None:raise RuntimeError('Editor exited early')
+  text=(work/logname).read_text()
+  if 'Scene opened:' in text:
+   try:
+    data=json.loads(layout.read_text())
+    if ready(data):return data
+   except (OSError,ValueError):pass
+  time.sleep(.4)
+ raise RuntimeError('Editor did not become ready: '+logname)
+def native_flow(project,env,build,out,scene):
+ # Phase 6a: VisualWorkshop's C++ module (Source/WorkshopNative.cpp) registers WorkshopStats.Award/Score/MedalFor and
+ # WorkshopMath.Hypot (ZM_METHOD / ZM_FUNCTION). The node library lists them; a node is added with the live signature
+ # (undo/redo); a hot reload changes Score's signature: the nodes turn red (the graph still compiles and keeps its
+ # wires), Refresh from C++ takes the new signature (undo/redo); the Player runs the graph with the new module.
+ graph=project/'Assets/Scripts/NativeMethods.zgraph'
+ readnative=lambda:json.loads(graph.read_text())
+ shot=lambda name:subprocess.run(['import','-window','root',str(out/name)],check=True)
+ log=(work/'editor-native.log').open('w')
+ app=subprocess.Popen([str(build/'bin/ZaminEditor'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/NativeMethods.zgraph'),stdout=log,stderr=subprocess.STDOUT)
+ try:
+  wait_editor(app,'editor-native.log',lambda d:'canvas/node/1' in d['Items'] and 'palette/WorkshopStats.Score' in d['Items'])
+  assert 'Script module loaded: libVisualWorkshop.so' in (work/'editor-native.log').read_text()
+  assert not any(k.startswith('canvas/broken/') for k in items()['Items'])
+  before=readnative();count=len(before['Nodes'])
+  press('palette/search');selectall();time.sleep(.3);x('type','--delay','150','Score');time.sleep(1.2)
+  assert not any(k.startswith('palette/WorkshopStats.Award') for k in items()['Items'])
+  press('palette/WorkshopStats.Score');save()
+  j=readnative();added=max(n['ID'] for n in j['Nodes'])
+  node=next(n for n in j['Nodes'] if n['ID']==added)
+  assert len(j['Nodes'])==count+1 and node['Kind']=='Native.Pure' and node['Inputs']=={'Method':'WorkshopStats.Score'},node
+  assert [p['Name'] for p in j['Natives']['WorkshopStats.Score']['Inputs']]==['Base','Multiplier'] and j['Version']==6
+  assert f'canvas/{added}/in/Base' in items()['Items'] and f'canvas/{added}/in/Target' in items()['Items'] and any(k.endswith('native/bound') for k in items()['Items'])
+  click(531,140);save();assert len(readnative()['Nodes'])==count
+  click(585,140);save();assert len(readnative()['Nodes'])==count+1
+  unclipped();shot('native-node-library.png');print('UI: a C++ method node from the node library (live signature); undo/redo',flush=True)
+  # The hot reload: Score gets a third parameter; the module is rebuilt outside the editor (as an IDE does).
+  source=project/'Source/WorkshopNative.cpp';text=source.read_text()
+  text=text.replace('float Score(float base, int multiplier) const { return std::round(base * float(multiplier) * Bonus); }','float Score(float base, int multiplier, float extra) const { return std::round(base * float(multiplier) * Bonus) + extra; }')
+  text=text.replace('ZM_PURE_METHOD(WorkshopStats, Score, "Base", "Multiplier")','ZM_PURE_METHOD(WorkshopStats, Score, "Base", "Multiplier", "Extra")')
+  assert 'float extra' in text and '"Extra")' in text;source.write_text(text)
+  configure=['cmake','-S',str(project),'-B',str(project/'Build'),'-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DZamin_DIR='+str(build)]
+  if (build/'ZaminModuleCompiler.cmake').is_file():configure+=['-C',str(build/'ZaminModuleCompiler.cmake')]
+  with (out/'native-rebuild.log').open('w') as rebuild:
+   subprocess.run(configure,check=True,stdout=rebuild,stderr=subprocess.STDOUT,timeout=900)
+   subprocess.run(['cmake','--build',str(project/'Build')],check=True,stdout=rebuild,stderr=subprocess.STDOUT,timeout=900)
+  for i in range(300):
+   if 'Scripts reloaded (hot reload)' in (work/'editor-native.log').read_text() and f'canvas/broken/{added}' in items()['Items']:break
+   time.sleep(.5)
+  else:raise RuntimeError('The hot reload did not mark the changed method')
+  data=items();assert 'canvas/broken/5' in data['Items'] and 'status/native problems' in data['Items'] and data['Values'].get('native/problems')==1,data['Values']
+  assert not any(k.startswith('canvas/broken/') and k not in (f'canvas/broken/{added}','canvas/broken/5') for k in data['Items'])
+  assert readnative()==j;shot('native-broken-after-hot-reload.png')
+  print('UI: after the hot reload the changed method\'s nodes are marked; the graph keeps loading and its wires',flush=True)
+  press(f'canvas/node/5');assert any(k.endswith('native/problem') for k in items()['Items'])
+  press('native/Refresh from C++');save()
+  j=readnative();wires={(l['From'],l['Output'],l['To'],l['Input']) for l in j['Links']}
+  assert [p['Name'] for p in j['Natives']['WorkshopStats.Score']['Inputs']]==['Base','Multiplier','Extra'],j['Natives']
+  assert {(2,'Value',5,'Target'),(4,'Value',5,'Base'),(5,'Value',9,'Value'),(5,'Value',7,'Score')}<=wires,wires
+  for i in range(20):
+   if not any(k.startswith('canvas/broken/') for k in items()['Items']):break
+   time.sleep(.3)
+  else:raise RuntimeError('Nodes still marked after the refresh')
+  assert 'canvas/5/in/Extra' in items()['Items']
+  click(531,140);save();assert [p['Name'] for p in readnative()['Natives']['WorkshopStats.Score']['Inputs']]==['Base','Multiplier']
+  click(585,140);save();assert [p['Name'] for p in readnative()['Natives']['WorkshopStats.Score']['Inputs']]==['Base','Multiplier','Extra']
+  unclipped();shot('native-refreshed.png');print('UI: Refresh from C++ takes the new signature, keeps the wires; undo/redo',flush=True)
+ except BaseException:
+  shot('editor-native-failure.png');raise
+ finally:
+  app.terminate()
+  try:app.wait(timeout=10)
+  except subprocess.TimeoutExpired:app.kill();app.wait()
+  log.close()
+  shutil.copyfile(work/'editor-native.log',out/'editor-native.log')
+ run=subprocess.run([str(build/'bin/ZaminPlayer'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_MAX_FRAMES='30'),capture_output=True,text=True,timeout=180)
+ (out/'player-native.log').write_text(run.stdout+run.stderr)
+ assert run.returncode==0 and 'BLUEPRINT_NATIVE score=36 medal=Silver hypot=5.00 awards=1' in run.stdout+run.stderr and "Visual graph '" not in run.stdout+run.stderr,run.returncode
+ print('UI: the Player runs the refreshed graph with the rebuilt module (BLUEPRINT_NATIVE score=36 medal=Silver)',flush=True)
+def profile_flow(project,env,build,out,scene):
+ # Phase 6b: a large graph (about 3000 nodes: an Update handler whose 30-iteration loop is the hot spot, a chain of 300
+ # Set nodes, pure filler far to the right) on an entity of the 2D scene, played in the editor: the canvas draws only
+ # the visible nodes, the heat overlay marks the loop's nodes hottest, the Visual Script Profiler lists the nodes and
+ # the hot path, and a profiler row selects its node in the graph.
+ large=project/'Assets/Scripts/LargeGraph.zgraph'
+ nodes,links=[],[]
+ def add(kind,x,y,inputs=None):
+  nodes.append(node(len(nodes)+1,kind,x,y,inputs));return len(nodes)
+ def wire(a,o,b,i):links.append({'From':a,'Output':o,'To':b,'Input':i})
+ update=add('Event.Update',40,60);loop=add('For',300,60,{'Count':30});hot=add('Set.Number',600,60,{'Name':'Accum'})
+ get=add('Get.Number',300,300,{'Name':'Accum'});sin=add('Sin',600,300);plus=add('Add',900,300)
+ wire(update,'Then',loop,'In');wire(loop,'Body',hot,'In');wire(loop,'Index',sin,'A');wire(get,'Value',plus,'A');wire(sin,'Value',plus,'B');wire(plus,'Value',hot,'Value')
+ last,out_pin=loop,'Completed'
+ for i in range(300):
+  s=add('Set.Number',1200+(i%10)*260,60+(i//10)*220,{'Name':'X'});g=add('Get.Number',1200+(i%10)*260,160+(i//10)*220,{'Name':'X'});a=add('Add',1300+(i%10)*260,160+(i//10)*220,{'B':1})
+  wire(last,out_pin,s,'In');wire(g,'Value',a,'A');wire(a,'Value',s,'Value');last,out_pin=s,'Then'
+ while len(nodes)+2<=3000:
+  i=len(nodes);g=add('Get.Number',4000+(i%60)*260,60+(i//60)*220,{'Name':'X'});m=add('Multiply',4130+(i%60)*260,60+(i//60)*220,{'B':2});wire(g,'Value',m,'A')
+ large.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':6,'Nodes':nodes,'Links':links,'Variables':{'Accum':{'Type':'Number','Default':0},'X':{'Type':'Number','Default':0}}},indent=1))
+ data=json.loads(scene.read_text())
+ controller=json.loads(json.dumps(next(e for e in data['Entities'] if e['Tag']=='Native methods controller')))
+ controller.update({'Entity':930,'Tag':'Large graph controller'});controller['NativeScript']['Fields']={'Graph':{'Type':'String','Value':'Scripts/LargeGraph.zgraph'}}
+ data['Entities'].append(controller);scene.write_text(json.dumps(data,indent=2)+'\n')
+ shot=lambda name:subprocess.run(['import','-window','root',str(out/name)],check=True)
+ log=(work/'editor-profile.log').open('w')
+ app=subprocess.Popen([str(build/'bin/ZaminEditor'),str(project/'VisualWorkshop.zproject')],env=dict(env,ZAMIN_EDITOR_VISUAL_GRAPH='Scripts/LargeGraph.zgraph',ZAMIN_EDITOR_PLAY='1',ZAMIN_EDITOR_VISUAL_PROFILER='1',ZAMIN_EDITOR_SELECT='Large graph controller'),stdout=log,stderr=subprocess.STDOUT)
+ try:
+  data=wait_editor(app,'editor-profile.log',lambda d:d['Values'].get('profiler/nodes',0)>=5 and f'heat/{hot}' in d['Values'])
+  time.sleep(3);v=items()['Values']
+  # Culling: thousands of nodes, only the visible ones drawn.
+  assert v['canvas/nodes']==len(nodes) and 0<v['canvas/drawnNodes']<v['canvas/nodes']/4,(v['canvas/nodes'],v['canvas/drawnNodes'])
+  heats={int(k[5:]):h for k,h in v.items() if k.startswith('heat/')}
+  hottest=max(heats,key=heats.get)
+  assert heats[hottest]==1 and hottest in (loop,hot,sin,plus,get),heats
+  assert v['profiler/instances']==1 and v['profiler/hotPath']>=3 and v['profiler/nodes']>=300,v
+  items_=items()['Items'];assert 'profiler/hot/0' in items_ and f'profiler/node/{hottest}' in items_
+  print(f'UI: large graph ({len(nodes)} nodes) playing: {v["canvas/drawnNodes"]:.0f} nodes drawn, canvas {v["canvas/ms"]:.1f} ms; hottest node #{hottest} heat 1.0; profiler: {v["profiler/nodes"]:.0f} nodes, hot path {v["profiler/hotPath"]:.0f}',flush=True)
+  shot('heat-overlay-large-graph.png')
+  press(f'profiler/node/{hot}')
+  for i in range(20):
+   if items()['Values'].get('graph/selected')==hot:break
+   time.sleep(.3)
+  else:raise RuntimeError('A profiler row did not select its node')
+  shot('visual-script-profiler.png');print('UI: a profiler row selects its node in the graph',flush=True)
+  assert "Visual graph '" not in (work/'editor-profile.log').read_text()
+ except BaseException:
+  shot('editor-profile-failure.png');raise
+ finally:
+  app.terminate()
+  try:app.wait(timeout=10)
+  except subprocess.TimeoutExpired:app.kill();app.wait()
+  log.close()
+  shutil.copyfile(work/'editor-profile.log',out/'editor-profile.log')
 try:
  # Run: the Player starts the 2D scene with the authored graph on the Player entity.
  scene=project/'Assets/Scenes/Visual2D.zscene'
@@ -430,5 +567,7 @@ try:
  struct_flow(project,env,build,out,scene)
  macro_flow(project,env,build,out,scene)
  inherit_flow(project,env,build,out,scene)
+ native_flow(project,env,build,out,scene)
+ profile_flow(project,env,build,out,scene)
 finally:
  temporary.cleanup()

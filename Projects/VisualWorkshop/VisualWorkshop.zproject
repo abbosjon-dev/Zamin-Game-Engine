@@ -5,8 +5,8 @@
     "StartScene": "Scenes/Visual2D.zscene",
     "AssetDirectory": "Assets",
     "SourceDirectory": "Source",
-    "ScriptModulePath": "",
-    "Description": "No C++ module: visual scripting for 2D and 3D.",
+    "ScriptModulePath": "Binaries/libVisualWorkshop.so",
+    "Description": "Visual scripting for 2D and 3D; one graph calls C++ methods of a small native module.",
     "Thumbnail": "Thumbnail.png"
   },
   "Player": {

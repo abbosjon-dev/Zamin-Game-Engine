@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Compiler-free typed Blueprint gameplay in real 2D/3D Player, editor and optional relocated exports."""
+"""Typed Blueprint gameplay in real 2D/3D Player, editor and optional relocated exports: the compiler-free graphs, and the
+NativeMethods graph that calls the sample's C++ module (ZM_METHOD / ZM_FUNCTION)."""
 import argparse
 import json
 import os
@@ -30,7 +31,15 @@ def main():
             shutil.copytree(ROOT / 'Projects/VisualWorkshop', project, ignore=shutil.ignore_patterns('.zamin', 'Build'))
             manifest = project / 'VisualWorkshop.zproject'
             data = json.loads(manifest.read_text())
-            assert not data['Project']['ScriptModulePath'], 'Acceptance must not use a native game module'
+            # Every graph but NativeMethods.zgraph is compiler-free; that one calls the sample's C++ module, built with the
+            # engine into Binaries/ (the main build tree) - the other graphs' lines are checked either way.
+            module = project / data['Project']['ScriptModulePath']
+            if not module.is_file():
+                built = build / 'GameModules' / module.name
+                if built.is_file():
+                    module.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(built, module)
+            assert module.is_file(), f'the VisualWorkshop module is not built: {module}'
             data['Project']['StartScene'] = f'Scenes/{scene}.zscene'
             manifest.write_text(json.dumps(data, indent=2)+'\n')
             home = Path(scratch) / (scene+'-home')
@@ -64,11 +73,15 @@ def main():
                 # Level override and calls Bonus, which the child overrides (Parent.Call, then x10).
                 if f'BLUEPRINT_INHERIT {inherit} keys=3' not in text:
                     raise RuntimeError(f'{scene}/{mode}: missing curve/inheritance line; {log}')
+                # NativeMethods.zgraph: C++ methods of the module (an execution method, pure ones, a free function).
+                native = 'BLUEPRINT_NATIVE score=36 medal=Silver' if scene == 'Visual2D' else 'BLUEPRINT_NATIVE score=54 medal=Gold'
+                if f'{native} hypot=5.00 awards=1' not in text:
+                    raise RuntimeError(f'{scene}/{mode}: missing native method line; {log}')
                 if any(marker in text for marker in ('GL_INVALID_', 'Assertion failed', "Visual graph '", 'Visual graph error', 'Visual graph:')):
                     raise RuntimeError(f'{scene}/{mode}: runtime diagnostic; {log}')
                 subprocess.run(['python3', str(ROOT / 'Tests/png_check.py'), str(png)], check=True)
-                results.append({'Scene': scene, 'Mode': mode, 'Frames': 120, 'Total': score, 'Rank': rank, 'Inherit': inherit, 'NativeGameModule': False})
-                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary + nested struct/enum array macro report + curve-driven child graph override, total={score} rank={rank} {inherit}', flush=True)
+                results.append({'Scene': scene, 'Mode': mode, 'Frames': 120, 'Total': score, 'Rank': rank, 'Inherit': inherit, 'NativeMethods': native})
+                print(f'PASS {scene}/{mode}: delayed typed function + local + snapshot ForEach + named event + enum return + struct summary + nested struct/enum array macro report + curve-driven child graph override + C++ methods, total={score} rank={rank} {inherit}', flush=True)
             if args.exports:
                 export_out = out / (scene+'-export')
                 export_env = dict(env, ZAMIN_BUILD_DIR=str(build))

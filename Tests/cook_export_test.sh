@@ -6,7 +6,11 @@
 #   - the exported textures are ZTEX files at their asset paths, the atlas's unused source sprites are not exported,
 #     cook-manifest.json lists the textures and the atlas UV table, the tiled terrain's tiles went along;
 #   - a second export takes every texture from the cook cache (<project>/Build/CookCache);
-#   - the editor shows the report's cooked textures (a screenshot of the Export report window).
+#   - the editor shows the report's cooked textures (a screenshot of the Export report window);
+#   - Projects/VisualWorkshop exported too: every Visual Script graph cooked to bytecode (export-report.json "GraphCook",
+#     ZGBC files at the .zgraph paths, smaller than their sources), the exported Player runs the cooked graphs (the
+#     BLUEPRINT_* lines of the 2D scene, the native method graph with the Release module), a second export takes every
+#     graph from the cook cache, and the Export report window lists the cooked graphs.
 #   Tests/cook_export_test.sh [--work DIR] [--out DIR]     (the logs and screenshots copied to DIR)
 # Exit code: 0 when every check passed, 1 when one failed, 2 when the editor / player are missing.
 set -uo pipefail
@@ -18,7 +22,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --work) work="$2"; shift 2 ;;
         --out) out="$2"; shift 2 ;;
-        -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $1 (--help)" >&2; exit 2 ;;
     esac
 done
@@ -88,12 +92,56 @@ HOME="$work/first/home" LIBGL_ALWAYS_SOFTWARE=1 ZAMIN_EDITOR_EXPORT_REPORT="$exp
     "${runner[@]}" "$build/bin/ZaminEditor" "$work/StreamingWorkshop/StreamingWorkshop.zproject" >"$work/report-editor.log" 2>&1
 if [[ -f "$shot" ]]; then pass "the Export report window: $shot"; else fail "no screenshot of the Export report window"; fi
 
+echo "== VisualWorkshop: the graph cook (bytecode) and the Player on cooked graphs"
+rm -rf "$work/VisualWorkshop" "$work/graphs" "$work/graphs-second"
+cp -r "$root/Projects/VisualWorkshop" "$work/VisualWorkshop"
+rm -rf "$work/VisualWorkshop/Build" "$work/VisualWorkshop/.zamin"
+ZAMIN_BUILD_DIR="$build" "$root/Tests/export_test.sh" --project "$work/VisualWorkshop" --frames 60 --work "$work/graphs" >"$work/graphs-export.log" 2>&1 \
+    || fail "the VisualWorkshop export failed (see $work/graphs-export.log)"
+graph_export="$work/graphs/export"
+python3 - "$graph_export" "$work/graphs/player.log" <<'EOF' || failures=$((failures + 1))
+import json, re, sys
+from pathlib import Path
+folder, log = Path(sys.argv[1]), Path(sys.argv[2]).read_text(errors='replace')
+report = json.load(open(folder / 'export-report.json'))
+graphs = {g['Path']: g for g in report['GraphCook']['Graphs']}
+expected = {'Scripts/' + name + '.zgraph' for name in ('Move2D', 'Spin3D', 'BlueprintGameplay', 'BlueprintBase', 'BlueprintChild', 'NativeMethods', 'AnimatorGameplay', 'AnimatorDisplay2D')}
+assert expected <= set(graphs), sorted(graphs)
+for path, g in graphs.items():
+    assert g['Action'] == 'cooked' and 0 < g['CookedBytes'] < g['SourceBytes'] and g['Nodes'] > 0, g
+    assert (folder / 'Game/Assets' / path).read_bytes()[:4] == b'ZGBC', path + ' is not a cooked graph'
+source = sum(g['SourceBytes'] for g in graphs.values()); cooked = sum(g['CookedBytes'] for g in graphs.values())
+print(f"  [ OK ] {len(graphs)} graphs cooked to bytecode: {source} -> {cooked} bytes ({source / cooked:.1f}x smaller), {report['GraphCook']['Seconds']:.2f} s")
+text = (folder / 'export-report.txt').read_text()
+assert 'Cooked graphs: ' + str(len(graphs)) + ' of ' + str(len(graphs)) in text, 'the text report does not list the cooked graphs'
+for line in ('BLUEPRINT_ACCEPTANCE total=12', 'BLUEPRINT_SUMMARY total=12 rank=Silver', 'BLUEPRINT_INHERIT curve=2.000 bonus=30.00 keys=3', 'BLUEPRINT_NATIVE score=36 medal=Silver hypot=5.00 awards=1'):
+    assert line in log, 'the exported Player did not print ' + line
+assert "Visual graph '" not in log and 'Cooked graph' not in log, 'a graph error in the exported Player'
+print('  [ OK ] the exported Player ran the cooked graphs: BLUEPRINT_ACCEPTANCE/SUMMARY/INHERIT and BLUEPRINT_NATIVE (C++ methods)')
+EOF
+ZAMIN_BUILD_DIR="$build" "$root/Tests/export_test.sh" --project "$work/VisualWorkshop" --frames 20 --work "$work/graphs-second" >"$work/graphs-second-export.log" 2>&1 \
+    || fail "the second VisualWorkshop export failed (see $work/graphs-second-export.log)"
+python3 - "$work/graphs-second/export/export-report.json" <<'EOF' || failures=$((failures + 1))
+import json, sys
+cook = json.load(open(sys.argv[1]))['GraphCook']
+assert cook['CacheHits'] == len(cook['Graphs']), cook['CacheHits']
+print(f"  [ OK ] second export: all {cook['CacheHits']} graphs from the cook cache, {cook['Seconds']:.2f} s")
+EOF
+graph_shot="$work/export-report-graphs.png"
+HOME="$work/graphs/home" LIBGL_ALWAYS_SOFTWARE=1 ZAMIN_EDITOR_EXPORT_REPORT="$graph_export" ZAMIN_SCREENSHOT="$graph_shot" ZAMIN_MAX_FRAMES=40 \
+    "${runner[@]}" "$build/bin/ZaminEditor" "$work/VisualWorkshop/VisualWorkshop.zproject" >"$work/graphs-report-editor.log" 2>&1
+if [[ -f "$graph_shot" ]]; then pass "the Export report window with the cooked graphs: $graph_shot"; else fail "no screenshot of the Export report window (graphs)"; fi
+
 if [[ -n "$out" ]]; then
     mkdir -p "$out"
+    cp -f "$graph_export/export-report.json" "$out/export-report-graphs.json" 2>/dev/null
+    cp -f "$graph_export/export-report.txt" "$out/export-report-graphs.txt" 2>/dev/null
+    cp -f "$graph_shot" "$out/" 2>/dev/null
+    cp -f "$work/graphs/player.log" "$out/player-graphs.log" 2>/dev/null
     cp -f "$report" "$export_dir/export-report.txt" "$export_dir/Game/cook-manifest.json" "$out/" 2>/dev/null
     cp -f "$shot" "$work/first/"*.png "$out/" 2>/dev/null
     cp -f "$work/first/"*.log "$out/" 2>/dev/null
 fi
-if [[ $failures -eq 0 ]]; then echo "PASS cooked export: the Player ran on cooked textures, an atlas page and streamed tiles"; exit 0; fi
+if [[ $failures -eq 0 ]]; then echo "PASS cooked export: the Player ran on cooked textures, an atlas page, streamed tiles and cooked graphs"; exit 0; fi
 echo "$failures check(s) failed (work folder: $work)"
 exit 1

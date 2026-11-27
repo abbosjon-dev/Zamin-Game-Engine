@@ -1,0 +1,493 @@
+{
+  "Format": "Zamin.VisualGraph",
+  "Version": 6,
+  "Nodes": [
+    {
+      "ID": 1,
+      "Kind": "Event.Start",
+      "X": 40.0,
+      "Y": 60.0,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 2,
+      "Kind": "FindEntity",
+      "X": 40.0,
+      "Y": 300.0,
+      "Inputs": {
+        "Name": "Workshop stats"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 3,
+      "Kind": "Native.Call",
+      "X": 340.0,
+      "Y": 60.0,
+      "Inputs": {
+        "Method": "WorkshopStats.Award",
+        "Reason": "graph"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 4,
+      "Kind": "Get.Number",
+      "X": 340.0,
+      "Y": 420.0,
+      "Inputs": {
+        "Name": "Base"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 5,
+      "Kind": "Native.Pure",
+      "X": 640.0,
+      "Y": 360.0,
+      "Inputs": {
+        "Method": "WorkshopStats.Score",
+        "Multiplier": 2.0
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 6,
+      "Kind": "Native.Pure",
+      "X": 640.0,
+      "Y": 620.0,
+      "Inputs": {
+        "Method": "WorkshopMath.Hypot",
+        "X": 3.0,
+        "Y": 4.0
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 7,
+      "Kind": "Native.Pure",
+      "X": 940.0,
+      "Y": 380.0,
+      "Inputs": {
+        "Method": "WorkshopStats.MedalFor"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 8,
+      "Kind": "Enum.ToText",
+      "X": 1240.0,
+      "Y": 400.0,
+      "Inputs": {
+        "Enum": "Medal"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 9,
+      "Kind": "Set.Number",
+      "X": 640.0,
+      "Y": 60.0,
+      "Inputs": {
+        "Name": "Score"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 10,
+      "Kind": "Set.String",
+      "X": 940.0,
+      "Y": 60.0,
+      "Inputs": {
+        "Name": "MedalName"
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 11,
+      "Kind": "FormatNumber",
+      "X": 1240.0,
+      "Y": 560.0,
+      "Inputs": {
+        "Decimals": 0.0
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 12,
+      "Kind": "FormatNumber",
+      "X": 1240.0,
+      "Y": 700.0,
+      "Inputs": {
+        "Decimals": 2.0
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 13,
+      "Kind": "FormatNumber",
+      "X": 1240.0,
+      "Y": 840.0,
+      "Inputs": {
+        "Decimals": 0.0
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 14,
+      "Kind": "Concat",
+      "X": 1540.0,
+      "Y": 400.0,
+      "Inputs": {
+        "A": "BLUEPRINT_NATIVE score="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 15,
+      "Kind": "Concat",
+      "X": 1540.0,
+      "Y": 520.0,
+      "Inputs": {
+        "B": " medal="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 16,
+      "Kind": "Concat",
+      "X": 1540.0,
+      "Y": 640.0,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 17,
+      "Kind": "Concat",
+      "X": 1540.0,
+      "Y": 760.0,
+      "Inputs": {
+        "B": " hypot="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 18,
+      "Kind": "Concat",
+      "X": 1840.0,
+      "Y": 400.0,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 19,
+      "Kind": "Concat",
+      "X": 1840.0,
+      "Y": 520.0,
+      "Inputs": {
+        "B": " awards="
+      },
+      "Breakpoint": false
+    },
+    {
+      "ID": 20,
+      "Kind": "Concat",
+      "X": 1840.0,
+      "Y": 640.0,
+      "Inputs": {},
+      "Breakpoint": false
+    },
+    {
+      "ID": 21,
+      "Kind": "Print",
+      "X": 1240.0,
+      "Y": 60.0,
+      "Inputs": {},
+      "Breakpoint": false
+    }
+  ],
+  "Links": [
+    {
+      "From": 1,
+      "Output": "Then",
+      "To": 3,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 3,
+      "Input": "Target"
+    },
+    {
+      "From": 3,
+      "Output": "Then",
+      "To": 9,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 5,
+      "Input": "Target"
+    },
+    {
+      "From": 4,
+      "Output": "Value",
+      "To": 5,
+      "Input": "Base"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 9,
+      "Input": "Value"
+    },
+    {
+      "From": 9,
+      "Output": "Then",
+      "To": 10,
+      "Input": "In"
+    },
+    {
+      "From": 2,
+      "Output": "Value",
+      "To": 7,
+      "Input": "Target"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 7,
+      "Input": "Score"
+    },
+    {
+      "From": 7,
+      "Output": "Value",
+      "To": 8,
+      "Input": "Value"
+    },
+    {
+      "From": 8,
+      "Output": "Value",
+      "To": 10,
+      "Input": "Value"
+    },
+    {
+      "From": 10,
+      "Output": "Then",
+      "To": 21,
+      "Input": "In"
+    },
+    {
+      "From": 5,
+      "Output": "Value",
+      "To": 11,
+      "Input": "Number"
+    },
+    {
+      "From": 6,
+      "Output": "Value",
+      "To": 12,
+      "Input": "Number"
+    },
+    {
+      "From": 3,
+      "Output": "Awards",
+      "To": 13,
+      "Input": "Number"
+    },
+    {
+      "From": 11,
+      "Output": "Value",
+      "To": 14,
+      "Input": "B"
+    },
+    {
+      "From": 14,
+      "Output": "Value",
+      "To": 15,
+      "Input": "A"
+    },
+    {
+      "From": 15,
+      "Output": "Value",
+      "To": 16,
+      "Input": "A"
+    },
+    {
+      "From": 8,
+      "Output": "Value",
+      "To": 16,
+      "Input": "B"
+    },
+    {
+      "From": 16,
+      "Output": "Value",
+      "To": 17,
+      "Input": "A"
+    },
+    {
+      "From": 17,
+      "Output": "Value",
+      "To": 18,
+      "Input": "A"
+    },
+    {
+      "From": 12,
+      "Output": "Value",
+      "To": 18,
+      "Input": "B"
+    },
+    {
+      "From": 18,
+      "Output": "Value",
+      "To": 19,
+      "Input": "A"
+    },
+    {
+      "From": 19,
+      "Output": "Value",
+      "To": 20,
+      "Input": "A"
+    },
+    {
+      "From": 13,
+      "Output": "Value",
+      "To": 20,
+      "Input": "B"
+    },
+    {
+      "From": 20,
+      "Output": "Value",
+      "To": 21,
+      "Input": "Text"
+    }
+  ],
+  "Variables": {
+    "Base": {
+      "Type": "Number",
+      "Default": 12.0
+    },
+    "MedalName": {
+      "Type": "String",
+      "Default": ""
+    },
+    "Score": {
+      "Type": "Number",
+      "Default": 0.0
+    }
+  },
+  "Enums": {
+    "Medal": {
+      "Entries": [
+        {
+          "Name": "Bronze",
+          "Value": 0
+        },
+        {
+          "Name": "Silver",
+          "Value": 1
+        },
+        {
+          "Name": "Gold",
+          "Value": 2
+        }
+      ],
+      "Source": "C++ enum Medal"
+    }
+  },
+  "Structs": {},
+  "Functions": {},
+  "Macros": {},
+  "Natives": {
+    "WorkshopStats.Award": {
+      "Static": false,
+      "Pure": false,
+      "Inputs": [
+        {
+          "Name": "Reason",
+          "Type": "String",
+          "Default": ""
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Awards",
+          "Type": "Number",
+          "Default": 0.0
+        }
+      ],
+      "Tooltip": "Counts an award; returns the number of awards"
+    },
+    "WorkshopStats.Score": {
+      "Static": false,
+      "Pure": true,
+      "Inputs": [
+        {
+          "Name": "Base",
+          "Type": "Number",
+          "Default": 0.0
+        },
+        {
+          "Name": "Multiplier",
+          "Type": "Number",
+          "Default": 0.0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Value",
+          "Type": "Number",
+          "Default": 0.0
+        }
+      ],
+      "Tooltip": "Base x Multiplier x Bonus, rounded"
+    },
+    "WorkshopStats.MedalFor": {
+      "Static": false,
+      "Pure": true,
+      "Inputs": [
+        {
+          "Name": "Score",
+          "Type": "Number",
+          "Default": 0.0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Value",
+          "Type": "Enum",
+          "Default": 0,
+          "Enum": "Medal"
+        }
+      ],
+      "Tooltip": "Gold from 50, Silver from 30"
+    },
+    "WorkshopMath.Hypot": {
+      "Static": true,
+      "Pure": true,
+      "Inputs": [
+        {
+          "Name": "X",
+          "Type": "Number",
+          "Default": 0.0
+        },
+        {
+          "Name": "Y",
+          "Type": "Number",
+          "Default": 0.0
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Value",
+          "Type": "Number",
+          "Default": 0.0
+        }
+      ],
+      "Tooltip": "The length of (X, Y)"
+    }
+  }
+}

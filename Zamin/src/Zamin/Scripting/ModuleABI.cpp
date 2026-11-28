@@ -74,6 +74,47 @@ namespace Zamin {
         report.ModuleFingerprint = std::string(record.Fingerprint, 64);
         if (std::memcmp(&record, &expected, sizeof(record)) != 0)
             return fail(ModuleABIStatus::Incompatible, "The module and the engine SDK/ABI do not match. Rebuild the scripts with the current engine SDK.");
+        // Every compiled file of the module stamps the SDK fingerprint it was compiled against (.zamin_abi_tu).
+        const Elf64_Shdr* stamps = nullptr;
+        constexpr char stampSectionName[] = ".zamin_abi_tu";
+        for (const auto& section : sections)
+        {
+            if (section.sh_name > names.size() || sizeof(stampSectionName) > names.size() - section.sh_name) continue;
+            if (std::memcmp(names.data() + section.sh_name, stampSectionName, sizeof(stampSectionName)) != 0) continue;
+            if (stamps) return fail(ModuleABIStatus::InvalidRecord, "The module has a repeated translation unit stamp section.");
+            stamps = &section;
+        }
+        if (!stamps)
+            return fail(ModuleABIStatus::Incompatible, "The module's object files carry no SDK stamps (an older SDK built them). Rebuild the scripts with the current engine SDK.");
+        constexpr uint64_t stampSize = sizeof(Detail::ModuleTranslationUnitStamp), maxStamps = 65536;
+        if (stamps->sh_type != SHT_PROGBITS || (stamps->sh_flags & SHF_COMPRESSED) || stamps->sh_size == 0 ||
+            stamps->sh_size % stampSize != 0 || stamps->sh_size / stampSize > maxStamps || !range(stamps->sh_offset, stamps->sh_size))
+            return fail(ModuleABIStatus::InvalidRecord, "The module's translation unit stamps are broken.");
+        std::vector<Detail::ModuleTranslationUnitStamp> entries(size_t(stamps->sh_size / stampSize));
+        if (!read(stamps->sh_offset, entries.data(), size_t(stamps->sh_size)))
+            return fail(ModuleABIStatus::InvalidRecord, "The module's translation unit stamps are outside the file.");
+        for (const auto& entry : entries)
+        {
+            if (std::memcmp(entry.Magic, Detail::ModuleTranslationUnitStampMagic, sizeof(entry.Magic)) != 0 || entry.Fingerprint[64] != 0 ||
+                !std::all_of(entry.Fingerprint, entry.Fingerprint + 64, [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }) ||
+                std::any_of(std::begin(entry.Reserved), std::end(entry.Reserved), [](uint8_t b) { return b != 0; }))
+                return fail(ModuleABIStatus::InvalidRecord, "The module's translation unit stamp format is invalid.");
+            ++report.TranslationUnits;
+            if (std::memcmp(entry.Fingerprint, expected.Fingerprint, 64) != 0)
+            {
+                if (report.StaleFingerprint.empty()) report.StaleFingerprint = std::string(entry.Fingerprint, 64);
+                ++report.StaleTranslationUnits;
+            }
+        }
+        if (report.StaleTranslationUnits)
+        {
+            report.Status = ModuleABIStatus::StaleObjects;
+            report.Message = std::to_string(report.StaleTranslationUnits) + " of " + std::to_string(report.TranslationUnits) +
+                " compiled files of the module were built against other engine headers (SDK " + report.StaleFingerprint.substr(0, 12) +
+                ", the engine is " + report.EngineFingerprint.substr(0, 12) +
+                "): stale object files. Delete the module's object files (its build folder) and compile the scripts again.";
+            return report;
+        }
         report.Status = ModuleABIStatus::Compatible;
         report.Message = "The module SDK/ABI matches.";
         return report;

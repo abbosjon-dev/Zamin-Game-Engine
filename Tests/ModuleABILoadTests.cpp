@@ -23,7 +23,15 @@ static float Value()
 }
 int main(int argc, char** argv)
 {
-    if (argc != 5) return 2;
+    if (argc < 2) return 2;
+    // ZaminModuleABITests --inspect <module>: print the ABI report (Tests/module_rebuild_test.py).
+    if (std::string(argv[1]) == "--inspect" && argc == 3)
+    {
+        auto report = ModuleABI::Inspect(argv[2]);
+        std::printf("status=%d units=%zu stale=%zu\n%s\n", int(report.Status), report.TranslationUnits, report.StaleTranslationUnits, report.Message.c_str());
+        return report.Compatible() ? 0 : 1;
+    }
+    if (argc != 6) return 2;
     auto work = fs::temp_directory_path() / ("zamin-abi-load-" + std::to_string(uint64_t(UUID())));
     fs::create_directories(work);
     auto trace = work / "constructors.log";
@@ -57,6 +65,13 @@ int main(int argc, char** argv)
         Check(!ScriptEngine::LoadModule(bad), "reject mismatched ABI");
         Check(callbacks == 0 && Value() == 17, "bad ABI preserves running module");
         Check(FileSystem::ReadTextFile(trace) == before, "bad ABI executes no constructors");
+        auto stale = ModuleABI::Inspect(argv[5]);
+        Check(stale.Status == ModuleABIStatus::StaleObjects && stale.StaleTranslationUnits == 1 && stale.TranslationUnits == 3,
+              "a stale object file (another SDK stamp) is found");
+        Check(stale.Message.find("other engine headers") != std::string::npos, "the stale object diagnostic names the cause");
+        Check(!ScriptEngine::LoadModule(argv[5]), "reject a module with a stale object file");
+        Check(callbacks == 0 && Value() == 17, "stale rejection preserves v1");
+        Check(FileSystem::ReadTextFile(trace) == before, "stale module constructors never run");
         Check(!ScriptEngine::LoadModule(argv[3]), "reject missing ABI marker");
         Check(callbacks == 0 && Value() == 17, "legacy rejection preserves v1");
         Check(FileSystem::ReadTextFile(trace) == before, "legacy constructor never runs");

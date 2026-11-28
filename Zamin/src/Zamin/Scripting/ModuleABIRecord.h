@@ -43,4 +43,22 @@ namespace Zamin::Detail {
 #endif
         return record;
     }
+    // One per compiled C++ file of a module (the .zamin_abi_tu section): the SDK fingerprint that translation unit
+    // was compiled against. The stamp header zamin_attach_module_abi forces into every file writes it
+    // (cmake/ModuleABI.cmake); 128 bytes and 32-byte aligned, so the linker lays the stamps out back to back.
+    struct ModuleTranslationUnitStamp
+    {
+        char Magic[16]{};
+        char Fingerprint[65]{};
+        uint8_t Reserved[47]{};
+    };
+    static_assert(sizeof(ModuleTranslationUnitStamp) == 128);
+    inline constexpr char ModuleTranslationUnitStampMagic[16] = "ZAMIN-SDK-TU-1";
+    constexpr ModuleTranslationUnitStamp MakeModuleTranslationUnitStamp(const char (&fingerprint)[65])
+    {
+        ModuleTranslationUnitStamp stamp;
+        for (size_t i = 0; i < 16; ++i) stamp.Magic[i] = ModuleTranslationUnitStampMagic[i];
+        for (size_t i = 0; i < 65; ++i) stamp.Fingerprint[i] = fingerprint[i];
+        return stamp;
+    }
 }

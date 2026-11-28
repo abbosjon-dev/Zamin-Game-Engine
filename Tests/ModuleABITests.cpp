@@ -24,10 +24,11 @@ namespace {
     {
         std::filesystem::path Path = std::filesystem::temp_directory_path() / ("zamin-abi-parser-" + std::to_string(uint64_t(std::random_device{}())) + ".so");
         std::vector<uint8_t> Bytes;
-        static constexpr size_t NamesOffset = sizeof(Elf64_Ehdr) + 3 * sizeof(Elf64_Shdr), RecordOffset = NamesOffset + 64;
+        static constexpr size_t NamesOffset = sizeof(Elf64_Ehdr) + 4 * sizeof(Elf64_Shdr), RecordOffset = NamesOffset + 64,
+                                StampOffset = RecordOffset + 128, StampHeader = sizeof(Elf64_Ehdr) + 3 * sizeof(Elf64_Shdr);
         Fixture()
         {
-            Bytes.resize(RecordOffset + 128);
+            Bytes.resize(StampOffset + 2 * 128);
             Elf64_Ehdr header{};
             std::memcpy(header.e_ident, ELFMAG, SELFMAG);
             header.e_ident[EI_CLASS] = ELFCLASS64;
@@ -39,7 +40,7 @@ namespace {
             header.e_ehsize = sizeof(header);
             header.e_shoff = sizeof(header);
             header.e_shentsize = sizeof(Elf64_Shdr);
-            header.e_shnum = 3;
+            header.e_shnum = 4;
             header.e_shstrndx = 1;
             Put(0, header);
             Elf64_Shdr names{};
@@ -47,7 +48,7 @@ namespace {
             names.sh_offset = NamesOffset;
             names.sh_size = 64;
             Put(sizeof(header) + sizeof(Elf64_Shdr), names);
-            constexpr char text[] = "\0.shstrtab\0.zamin_abi\0";
+            constexpr char text[] = "\0.shstrtab\0.zamin_abi\0.zamin_abi_tu\0";
             std::memcpy(Bytes.data() + NamesOffset, text, sizeof(text));
             Elf64_Shdr record{};
             record.sh_name = 11;
@@ -58,6 +59,15 @@ namespace {
             char fingerprint[65];
             std::memcpy(fingerprint, ModuleABI::EngineFingerprint().c_str(), 65);
             Put(RecordOffset, Detail::MakeModuleABIRecord(fingerprint));
+            // Two compiled files, both stamped with the engine's fingerprint.
+            Elf64_Shdr stamps{};
+            stamps.sh_name = 22;
+            stamps.sh_type = SHT_PROGBITS;
+            stamps.sh_offset = StampOffset;
+            stamps.sh_size = 2 * 128;
+            Put(StampHeader, stamps);
+            Put(StampOffset, Detail::MakeModuleTranslationUnitStamp(fingerprint));
+            Put(StampOffset + 128, Detail::MakeModuleTranslationUnitStamp(fingerprint));
         }
         ~Fixture()
         {
@@ -163,6 +173,40 @@ namespace {
             f.Bytes[random() % f.Bytes.size()] ^= uint8_t(1 + random() % 255);
             auto report = f.Inspect();
             CHECK(report.EngineFingerprint == ModuleABI::EngineFingerprint());
+        }
+    }
+    // A module whose ABI record matches but one of whose object files was compiled against other engine headers (it was
+    // not rebuilt after a header change): refused with the count, never loaded.
+    TEST(ModuleABIRefusesStaleObjectFiles)
+    {
+        Fixture f;
+        auto report = f.Inspect();
+        CHECK(report.Compatible() && report.TranslationUnits == 2 && report.StaleTranslationUnits == 0);
+        auto stamp = f.Get<Detail::ModuleTranslationUnitStamp>(Fixture::StampOffset + 128);
+        stamp.Fingerprint[3] = stamp.Fingerprint[3] == '0' ? '1' : '0';
+        f.Put(Fixture::StampOffset + 128, stamp);
+        report = f.Inspect();
+        CHECK(report.Status == ModuleABIStatus::StaleObjects);
+        CHECK(report.TranslationUnits == 2 && report.StaleTranslationUnits == 1);
+        CHECK(report.StaleFingerprint == std::string(stamp.Fingerprint, 64));
+        CHECK(report.Message.find("1 of 2 compiled files") != std::string::npos);
+    }
+    TEST(ModuleABIRejectsMissingOrBrokenStamps)
+    {
+        for (int kind = 0; kind < 5; ++kind)
+        {
+            Fixture f;
+            auto s = f.Get<Elf64_Shdr>(Fixture::StampHeader);
+            auto stamp = f.Get<Detail::ModuleTranslationUnitStamp>(Fixture::StampOffset);
+            if (kind == 0) f.Bytes[Fixture::NamesOffset + 22] = '!';
+            if (kind == 1) s.sh_size = 200;
+            if (kind == 2) s.sh_offset = UINT64_MAX - 8;
+            if (kind == 3) stamp.Magic[0] = '!';
+            if (kind == 4) stamp.Reserved[5] = 1;
+            f.Put(Fixture::StampHeader, s);
+            f.Put(Fixture::StampOffset, stamp);
+            auto report = f.Inspect();
+            CHECK(report.Status == (kind == 0 ? ModuleABIStatus::Incompatible : ModuleABIStatus::InvalidRecord));
         }
     }
 }

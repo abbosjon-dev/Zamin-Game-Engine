@@ -68,10 +68,35 @@ namespace Zamin {
             }
         }
 
+        // The modifiers held when `key` went down this frame. ImGui applies a frame's queued events
+        // together (it only holds back a second change of the same key), so a Ctrl released right
+        // after the S - a quick Ctrl+S on a slow frame, or xdotool, which lets go of Ctrl first - is
+        // already up in io.KeyCtrl by the time the frame sees S pressed: the shortcut was lost (and
+        // the bare key's ran instead). The frame's event trail is walked back to the press, undoing
+        // every modifier change that came after it.
+        KeyChord ChordAtPress(Key key, ImGuiKey imguiKey)
+        {
+            ImGuiContext& g = *ImGui::GetCurrentContext();
+            const ImVector<ImGuiInputEvent>& trail = g.InputEventsTrail;
+            int press = trail.Size - 1;
+            for (; press >= 0; press--)
+                if (trail[press].Type == ImGuiInputEventType_Key && trail[press].Key.Key == imguiKey && trail[press].Key.Down)
+                    break;
+            ImGuiKeyChord mods = g.IO.KeyMods;
+            for (int i = trail.Size - 1; press >= 0 && i > press; i--)
+            {
+                const ImGuiInputEvent& e = trail[i];
+                if (e.Type != ImGuiInputEventType_Key || (e.Key.Key & ImGuiMod_Mask_) == 0)
+                    continue;
+                const ImGuiKeyChord mod = (ImGuiKeyChord)e.Key.Key; // ImGuiMod_Ctrl / _Shift / _Alt / _Super
+                mods = e.Key.Down ? (mods & ~mod) : (mods | mod);   // the state before this change
+            }
+            return KeyChord(key, (mods & ImGuiMod_Ctrl) != 0, (mods & ImGuiMod_Shift) != 0, (mods & ImGuiMod_Alt) != 0);
+        }
+
         // The chord pressed this frame (a key that is not a modifier, with the modifiers held).
         bool PressedChord(KeyChord& out)
         {
-            const ImGuiIO& io = ImGui::GetIO();
             for (Key key : GetAllKeys())
             {
                 if (KeyChord::IsModifierKey(key))
@@ -79,7 +104,7 @@ namespace Zamin {
                 const ImGuiKey imguiKey = ToImGuiKey(key);
                 if (imguiKey != ImGuiKey_None && ImGui::IsKeyPressed(imguiKey, false))
                 {
-                    out = KeyChord(key, io.KeyCtrl, io.KeyShift, io.KeyAlt);
+                    out = ChordAtPress(key, imguiKey);
                     return true;
                 }
             }
@@ -315,7 +340,7 @@ namespace Zamin {
                 continue;
             if (situations == 0)
                 situations = GetShortcutSituations();
-            const KeyChord chord(key, io.KeyCtrl, io.KeyShift, io.KeyAlt);
+            const KeyChord chord = ChordAtPress(key, imguiKey);
             if (const ShortcutInfo* shortcut = m_Shortcuts.Match(chord, situations); shortcut && shortcut->Action)
                 shortcut->Action();
         }

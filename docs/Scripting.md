@@ -9,7 +9,7 @@ API in `Zamin/src/Zamin/Scripting/ScriptableEntity.h`; the examples come from th
 (`Projects/Platformer2D`, `Projects/Showcase3D`, `Projects/Adventure3D`) or from the
 [2D](Tutorial-2D.md) / [3D](Tutorial-3D.md) tutorials and have been compiled and tested.
 
-For editing, building and diagnosing scripts inside the engine there is the [Code editor](CodeEditor.md) guide.
+For editing, building and diagnosing scripts inside the engine there is the [Code editor](CodeEditor.md) guide (with clangd installed: semantic completion, F12 go-to-definition, F2 project rename and live errors — [Semantic features](CodeEditor.md#semantic-features-clangd)).
 
 The code examples are written with `#include <Zamin/Zamin.h>` and `using namespace Zamin;`.
 

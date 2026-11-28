@@ -851,7 +851,30 @@ Native method, bytecode and profiling evidence (2026-11-27): `ZaminTests --filte
 - [x] Save-all before a build, F7 build/hot reload, error line/column navigation.
 - [x] Atomic save, external change conflicts, UTF-8/BOM/CRLF, bounded undo and crash recovery.
 - [x] 9 file-protection tests, 691 unit tests in all, a real keyboard/build/error/recovery GUI test.
-- [ ] Semantic completion, go-to-definition, project rename and live type diagnostics through clangd/LSP.
+- [x] Semantic completion, go-to-definition, project rename and live type diagnostics through clangd/LSP.
+
+clangd/LSP evidence (2026-11-28): an LSP client of its own (`Zamin/Editor/LspProtocol.h`, `LspClient.h`,
+`CodeIntelligence.h`): JSON-RPC over a socket pair to a clangd child process, a reader and a writer thread, answers
+handled in the editor's frame (UTF-8 positions negotiated, UTF-16 kept working), incremental `didChange`, request
+timeouts with `$/cancelRequest`, answers for an older document version dropped, a crashed clangd restarted with its open
+files (at most 4 times a minute). clangd is optional: found through Preferences (Code editor) or `PATH`; without it a
+one-line notice and the catalogue completion. A per-project `.zamin/clangd/compile_commands.json` from the project's CMake
+export (`zamin_add_game_module` now exports compile commands), the engine build's (the samples) and the SDK's flags, a new
+source added within 2 s. Ctrl+Space completes with clangd (the catalogue when it has nothing), F12 / Ctrl+click open the
+definition (SDK headers read-only), F2 previews a rename in every file and applies it all-or-nothing with the atomic save
+(Ctrl+Z restores every file), errors are underlined as you type and listed in the Compilation window's **Live (clangd)**
+tab; hover shows clangd's type text. `ZaminTests --filter "Lsp*:CodeIntelligence*"`: 9 tests (framing, positions, 300
+random incremental changes in both encodings, workspace edits, rename plans, parsers, the compile database, timeouts and
+stopped stand-in servers, and the real clangd test - also `ctest -R ClangdLsp`, `SKIP` without clangd: diagnostics 72 ms
+after an edit, completion 10 ms, a cross-file rename of 3 files, a stale answer dropped, a SIGKILL and the restart); 1436/1436
+quick unit tests. `Tests/code_editor_ui_test.py` (the real editor under xvfb, widgets found through
+`ZAMIN_EDITOR_VISUAL_LAYOUT`, the earlier fixed coordinates removed) completes `Hero().Sta` to `Stamina` (31-34 ms), sees
+`No member named 'Nope' in 'Hero'` appear 70-92 ms after typing and go away, Ctrl+clicks `Heal` into `Hero.cpp`, presses
+F12 on `Health` into `Hero.h` and Ctrl+clicks `ScriptableEntity` into the read-only engine header, renames `Health` to
+`Vitality` in 3 files with the preview and undoes it with Ctrl+Z, then shows the notice without clangd. In a file that
+includes `Zamin/Zamin.h` (4 vCPU VM, clangd 18.1.3): the first check 4.2-4.5 s (the preamble), completion 150-210 ms,
+errors about 0.6 s after an edit; the editor frame never waits on clangd. Not done: code actions/fix-its, find references,
+signature help, semantic highlighting.
 
 ### P2 — GPU terrain materials, 2026-11-10
 

@@ -241,7 +241,8 @@ animations), with its path, UUID and details (submeshes, triangles, skeleton).*
 copying a message (`Ctrl+C`). The log levels and the log file — **Preferences → Log** ([Core.md](Core.md)).
 
 The **Compilation** window (**Window → Compilation**): **Problems** — the list of errors and warnings (clicking one opens the
-file at that line in the [built-in code editor](CodeEditor.md)), **Full output** — the CMake and compiler output. More:
+file at that line in the [built-in code editor](CodeEditor.md)), **Full output** — the CMake and compiler output,
+**Live (clangd)** — the open files' errors as you type (the code editor's [clangd](CodeEditor.md#semantic-features-clangd)). More:
 [Scripting.md](Scripting.md#20-compilation-and-hot-reload).
 
 ## 10. Other windows

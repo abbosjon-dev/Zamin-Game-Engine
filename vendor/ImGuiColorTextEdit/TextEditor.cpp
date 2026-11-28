@@ -2233,6 +2233,16 @@ void TextEditor::HandleMouseInputs()
 			/*
 			Left mouse button click
 			*/
+			else if (click && ctrl && mCtrlClickNavigates)
+			{
+				mState.mCurrentCursor = 0;
+				Coordinates cursorCoords = ScreenPosToCoordinates(ImGui::GetMousePos());
+				SetCursorPosition(cursorCoords, mState.GetLastAddedCursorIndex());
+				mCtrlClicked = true;
+				mCtrlClickCoords = SanitizeCoordinates(cursorCoords);
+				mLastClickTime = (float)ImGui::GetTime();
+				mLastClickPos = io.MousePos;
+			}
 			else if (click)
 			{
 				if (ctrl)
@@ -2303,6 +2313,7 @@ void TextEditor::Render(bool aParentIsFocused)
 	}
 
 	ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+	mLastOrigin = cursorScreenPos;
 	mScrollX = ImGui::GetScrollX();
 	mScrollY = ImGui::GetScrollY();
 	UpdateViewVariables(mScrollX, mScrollY);
@@ -2456,6 +2467,37 @@ void TextEditor::Render(bool aParentIsFocused)
 
 				MoveCharIndexAndColumn(lineNo, charIndex, column);
 			}
+		}
+	}
+	// Zamin: wavy underlines under the diagnostics' ranges; the one under the mouse is remembered (its tooltip).
+	mHoveredSquiggle = -1;
+	if (!mSquiggles.empty())
+	{
+		auto drawList = ImGui::GetWindowDrawList();
+		const ImVec2 mouse = ImGui::GetMousePos();
+		const bool hovered = ImGui::IsWindowHovered();
+		for (int i = 0; i < (int)mSquiggles.size(); i++)
+		{
+			const Squiggle& s = mSquiggles[i];
+			if (s.mLine < mFirstVisibleLine || s.mLine > mLastVisibleLine || s.mLine >= (int)mLines.size())
+				continue;
+			const int lineLength = (int)mLines[s.mLine].size();
+			const int start = Max(0, Min(s.mStartChar, lineLength));
+			int end = Max(start, Min(s.mEndChar, lineLength));
+			float x0 = cursorScreenPos.x + mTextStart + TextDistanceToLineStart({ s.mLine, GetCharacterColumn(s.mLine, start) }, false);
+			float x1 = cursorScreenPos.x + mTextStart + TextDistanceToLineStart({ s.mLine, GetCharacterColumn(s.mLine, end) }, false);
+			if (x1 - x0 < mCharAdvance.x)
+				x1 = x0 + mCharAdvance.x;
+			const float top = cursorScreenPos.y + s.mLine * mCharAdvance.y;
+			const float y = top + mCharAdvance.y - 2.5f;
+			ImVec2 points[512];
+			int count = 0;
+			for (float x = x0; x <= x1 && count < 512; x += 2.0f, count++)
+				points[count] = ImVec2(x, y + ((count & 1) ? -1.5f : 1.0f));
+			if (count > 1)
+				drawList->AddPolyline(points, count, s.mColor, ImDrawFlags_None, 1.2f);
+			if (hovered && mouse.x >= x0 && mouse.x <= x1 && mouse.y >= top && mouse.y < top + mCharAdvance.y)
+				mHoveredSquiggle = i;
 		}
 	}
 	mCurrentSpaceHeight = (mLines.size() + Min(mVisibleLineCount - 1, (int)mLines.size())) * mCharAdvance.y;
@@ -3024,3 +3066,44 @@ const std::unordered_map<char, char> TextEditor::CLOSE_TO_OPEN_CHAR = {
 };
 
 TextEditor::PaletteId TextEditor::defaultPalette = TextEditor::PaletteId::Dark;
+
+// ---------- Zamin additions ---------- //
+
+bool TextEditor::ConsumeCtrlClick(int& outLine, int& outCharIndex)
+{
+	if (!mCtrlClicked)
+		return false;
+	mCtrlClicked = false;
+	outLine = mCtrlClickCoords.mLine;
+	outCharIndex = GetCharacterIndexL(mCtrlClickCoords);
+	return true;
+}
+
+bool TextEditor::GetMouseCharPosition(int& outLine, int& outCharIndex) const
+{
+	if (mLines.empty() || mCharAdvance.x <= 0.0f || mCharAdvance.y <= 0.0f)
+		return false;
+	const ImVec2 mouse = ImGui::GetMousePos();
+	const float localX = mouse.x - mLastOrigin.x - mTextStart, localY = mouse.y - mLastOrigin.y;
+	if (localX < 0.0f || localY < 0.0f)
+		return false;
+	const int line = (int)floor(localY / mCharAdvance.y);
+	if (line >= (int)mLines.size())
+		return false;
+	const int column = (int)floor(localX / mCharAdvance.x);
+	if (column >= GetLineMaxColumn(line))
+		return false;
+	outLine = line;
+	outCharIndex = GetCharacterIndexL({ line, column });
+	return true;
+}
+
+ImVec2 TextEditor::GetCharScreenPosition(int aLine, int aCharIndex) const
+{
+	if (mLines.empty())
+		return mLastOrigin;
+	aLine = Max(0, Min(aLine, (int)mLines.size() - 1));
+	aCharIndex = Max(0, Min(aCharIndex, (int)mLines[aLine].size()));
+	return ImVec2(mLastOrigin.x + mTextStart + TextDistanceToLineStart({ aLine, GetCharacterColumn(aLine, aCharIndex) }, false),
+		mLastOrigin.y + aLine * mCharAdvance.y);
+}

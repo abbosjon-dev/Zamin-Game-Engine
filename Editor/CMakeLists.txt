@@ -11,4 +11,4 @@ target_sources(ZaminEditor PRIVATE
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/vendor/ImGuiColorTextEdit/TextEditor.cpp
     ${PROJECT_SOURCE_DIR}/vendor/ImGuiColorTextEdit/LanguageDefinitions.cpp
-    PROPERTIES COMPILE_OPTIONS "-Wno-sign-compare;-Wno-unused-variable;-Wno-unused-parameter")
+    PROPERTIES COMPILE_OPTIONS "-Wno-sign-compare;-Wno-unused-variable;-Wno-unused-parameter;-Wno-parentheses")

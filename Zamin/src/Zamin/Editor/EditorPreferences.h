@@ -137,6 +137,15 @@ namespace Zamin {
         std::string Command;
     };
 
+    // The built-in code editor's semantic features through clangd (Preferences > Code editor): the clangd program
+    // (empty: found on PATH - clangd, clangd-20 ... clangd-14) and whether it is used at all. Without clangd the editor
+    // keeps its catalogue completion.
+    struct CodeEditorPreferences
+    {
+        std::string ClangdPath;
+        bool UseClangd = true;
+    };
+
     // The editor's per-user preferences (Edit > Preferences), stored as JSON in the user's
     // config directory (~/.config/zamin/preferences.json).
     struct EditorPreferences
@@ -150,6 +159,7 @@ namespace Zamin {
         UndoPreferences Undo;
         LayoutPreferences Layout;
         ExternalEditorPreferences ExternalEditor;
+        CodeEditorPreferences CodeEditor;
         IdleThrottleSettings Idle;    // fewer frames while unfocused / idle (Preferences > Performance)
         // The editor UI's language (Preferences > View > Language): "en" (the default) or "uz".
         std::string Language = "en";

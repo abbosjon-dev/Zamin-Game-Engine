@@ -3,6 +3,7 @@
 // "Kompilyatsiya" window lists them (filter by severity, search), a double click opens the file at
 // the line in the external editor; the status bar shows how many errors / warnings the last build had.
 #include "EditorLayer.h"
+#include "Panels/VisualGraphLayout.h"
 #include "UI.h"
 
 #include <imgui.h>
@@ -481,6 +482,44 @@ namespace Zamin {
                         ImGui::SetScrollHereY(1.0f); // follow the new lines
                 }
                 ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+            // The code editor's live diagnostics (clangd, updated as you type) of the open files.
+            const std::vector<CompilerDiagnostic>& live = m_CodeEditorPanel.GetLiveDiagnostics();
+            if (ImGui::BeginTabItem(std::format(ICON_FA_BOLT "  {} ({})###buildLive", Tr("Jonli (clangd)"), live.size()).c_str()))
+            {
+                GraphLayout::RecordKey("BuildOutput/LiveTab");
+                GraphLayout::RecordValue("BuildOutput/Live", (double)live.size());
+                if (live.empty())
+                    ImGui::TextDisabled("%s", Tr("Ochiq fayllarda clangd xatolari yo'q"));
+                else if (ImGui::BeginTable("##liveTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY |
+                                                                 ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX))
+                {
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableSetupColumn(Tr("Xabar"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+                    ImGui::TableSetupColumn(Tr("Fayl"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    ImGui::TableSetupColumn(Tr("Qator"), ImGuiTableColumnFlags_WidthFixed, 64.0f);
+                    ImGui::TableHeadersRow();
+                    for (size_t n = 0; n < live.size(); n++)
+                    {
+                        const CompilerDiagnostic& d = live[n];
+                        ImGui::PushID((int)n);
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::PushStyleColor(ImGuiCol_Text, SeverityColor(d.Severity));
+                        if (ImGui::Selectable(std::format("{}  {}", SeverityIcon(d.Severity), d.Message).c_str(), false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick) &&
+                            ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                            OpenDiagnostic(d);
+                        ImGui::PopStyleColor();
+                        GraphLayout::RecordKey("BuildOutput/Live/" + std::to_string(n));
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::TextDisabled("%s", ShownFile(d.File).c_str());
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::TextDisabled("%d:%d", d.Line, d.Column);
+                        ImGui::PopID();
+                    }
+                    ImGui::EndTable();
+                }
                 ImGui::EndTabItem();
             }
             ImGui::EndTabBar();

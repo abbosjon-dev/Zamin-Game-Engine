@@ -97,6 +97,25 @@ public:
 
 	bool Render(const char* aTitle, bool aParentIsFocused = false, const ImVec2& aSize = ImVec2(), bool aBorder = false);
 
+	// Zamin: wavy underlines (live diagnostics) between two character (byte) indices of a line, the one under the mouse,
+	// Ctrl+click as a navigation request instead of an extra cursor, and screen positions of the last Render.
+	struct Squiggle
+	{
+		int mLine = 0, mStartChar = 0, mEndChar = 0;
+		ImU32 mColor = 0;
+	};
+	inline void SetSquiggles(std::vector<Squiggle> aSquiggles) { mSquiggles = std::move(aSquiggles); mHoveredSquiggle = -1; }
+	inline const std::vector<Squiggle>& GetSquiggles() const { return mSquiggles; }
+	inline int GetHoveredSquiggle() const { return mHoveredSquiggle; }
+	inline void SetCtrlClickNavigates(bool aValue) { mCtrlClickNavigates = aValue; }
+	bool ConsumeCtrlClick(int& outLine, int& outCharIndex);
+	// The character under the mouse (false: not over the text).
+	bool GetMouseCharPosition(int& outLine, int& outCharIndex) const;
+	// The top-left screen position of a character in the last Render.
+	ImVec2 GetCharScreenPosition(int aLine, int aCharIndex) const;
+	inline float GetLineHeight() const { return mCharAdvance.y; }
+	inline float GetCharWidth() const { return mCharAdvance.x; }
+
 	void ImGuiDebugPanel(const std::string& panelName = "Debug");
 	void UnitTests();
 
@@ -448,6 +467,12 @@ private:
 	bool mCursorPositionChanged = false;
 	bool mCursorOnBracket = false;
 	Coordinates mMatchingBracketCoords;
+
+	std::vector<Squiggle> mSquiggles;
+	int mHoveredSquiggle = -1;
+	bool mCtrlClickNavigates = false, mCtrlClicked = false;
+	Coordinates mCtrlClickCoords;
+	ImVec2 mLastOrigin;
 
 	int mColorRangeMin = 0;
 	int mColorRangeMax = 0;

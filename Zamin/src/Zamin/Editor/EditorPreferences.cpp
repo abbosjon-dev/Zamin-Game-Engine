@@ -224,6 +224,10 @@ namespace Zamin {
         j["ExternalEditor"] = {
             { "Command", ExternalEditor.Command },
         };
+        j["CodeEditor"] = {
+            { "ClangdPath", CodeEditor.ClangdPath },
+            { "UseClangd", CodeEditor.UseClangd },
+        };
         j["Shortcuts"] = json::object();
         for (const auto& [id, chord] : Shortcuts)
             j["Shortcuts"][id] = chord;
@@ -305,6 +309,12 @@ namespace Zamin {
         if (auto it = j.find("ExternalEditor"); it != j.end() && it->is_object())
             if (auto command = it->find("Command"); command != it->end() && command->is_string())
                 ExternalEditor.Command = command->get<std::string>();
+        if (auto it = j.find("CodeEditor"); it != j.end() && it->is_object())
+        {
+            if (auto path = it->find("ClangdPath"); path != it->end() && path->is_string())
+                CodeEditor.ClangdPath = path->get<std::string>();
+            Read(*it, "UseClangd", CodeEditor.UseClangd);
+        }
         if (auto it = j.find("Shortcuts"); it != j.end() && it->is_object())
         {
             Shortcuts.clear();

@@ -7,3 +7,5 @@ The upstream MIT license is preserved in LICENSE. Compiled only into ZaminEditor
 Local changes: std::regex in place of Boost (no extra binary dependency); undoable InsertText without
 clipboard modification; a monotonic edit revision; 256-record / 4 MB undo-text retention per document;
 cursor byte-offset accessor; invalid palette fallback; 1 MB paste limit; IMGUI_DEFINE_MATH_OPERATORS redefinition guard. C++ uses the upstream manual tokenizer.
+Wavy underlines for live diagnostics (`SetSquiggles`, the hovered one), Ctrl+click as a navigation request
+(`SetCtrlClickNavigates` / `ConsumeCtrlClick`) and screen/mouse character positions of the last Render.

@@ -6375,6 +6375,7 @@ namespace Zamin {
         }
         m_CodeEditorPanel.SetProject(Project::GetProjectDirectory(),Project::GetCacheDirectory());
         m_CodeEditorPanel.SetBuildRunning(m_Building);
+        m_CodeEditorPanel.SetClangd(m_Preferences.CodeEditor.ClangdPath, m_Preferences.CodeEditor.UseClangd);
         m_CodeEditorPanel.OnImGuiRender(&m_ShowCodeEditor);
         m_AudioMixerPanel.SetPlaying(m_SceneState == SceneState::Play);
         m_AudioMixerPanel.OnImGuiRender(&m_ShowAudioMixer);

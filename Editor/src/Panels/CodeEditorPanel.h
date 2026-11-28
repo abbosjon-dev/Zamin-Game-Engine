@@ -22,6 +22,12 @@ namespace Zamin {
         void SetDiagnostics(const std::vector<CompilerDiagnostic>& diagnostics);
         std::function<void()> OnBuild;
         std::function<void(const std::filesystem::path&, int, int)> OnExternalOpen;
+        // clangd (Preferences > Code editor): its path ("" = PATH) and whether semantic features are used.
+        void SetClangd(const std::string& path, bool enabled);
+        // One line on the semantic features (clangd's version, or why only the catalogue completion works).
+        std::string GetClangdStatus() const;
+        // The open files' live (clangd) diagnostics as compiler diagnostics (the compile errors panel's Live tab).
+        const std::vector<CompilerDiagnostic>& GetLiveDiagnostics() const;
     private:
         struct Impl;
         std::unique_ptr<Impl> m_Impl;

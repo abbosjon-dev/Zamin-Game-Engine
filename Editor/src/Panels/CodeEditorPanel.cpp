@@ -1,11 +1,14 @@
 #include "CodeEditorPanel.h"
+#include "VisualGraphLayout.h"
 #include "Zamin/Editor/CodeDocument.h"
+#include "Zamin/Editor/CodeIntelligence.h"
 #include "Zamin/Editor/EditorLanguage.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Editor/ExternalEditor.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "../../../vendor/ImGuiColorTextEdit/TextEditor.h"
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <algorithm>
 #include <cstring>
@@ -52,6 +55,28 @@ namespace Zamin {
                 }
             return { line, (int)(offset - start) };
         }
+        // The byte offset of (line, byte in the line) in a text.
+        size_t Offset(std::string_view text, int line, int byte)
+        {
+            size_t at = 0;
+            for (int l = 0; l < line && at < text.size(); ++l)
+            {
+                const size_t next = text.find('\n', at);
+                if (next == std::string_view::npos) return text.size();
+                at = next + 1;
+            }
+            const size_t end = std::min(text.find('\n', at), text.size());
+            return std::min(at + (size_t)std::max(0, byte), end);
+        }
+        bool IsIdentifier(const std::string& name)
+        {
+            if (name.empty() || std::isdigit((unsigned char)name[0])) return false;
+            return std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isalnum(c) || c == '_'; });
+        }
+        ImU32 SeverityColor(int severity)
+        {
+            return severity == 1 ? IM_COL32(255, 85, 85, 255) : severity == 2 ? IM_COL32(235, 190, 60, 255) : IM_COL32(110, 170, 255, 255);
+        }
     }
     struct CodeEditorPanel::Impl
     {
@@ -63,6 +88,9 @@ namespace Zamin {
             double ChangedAt = 0;
             uint64_t Revision = 0;
             int JumpLine = -1, JumpColumn = 0;
+            bool Cpp = false;               // a C++ file clangd knows
+            uint64_t SentRevision = ~0ull;  // the editor revision clangd has
+            std::vector<Lsp::Diagnostic> Live; // clangd's diagnostics, the squiggles' messages (same order)
         };
         std::filesystem::path Root, Cache;
         std::vector<std::unique_ptr<Tab>> Tabs;
@@ -77,7 +105,70 @@ namespace Zamin {
         double LastScan = -100, LastDiskCheck = -100;
         bool ExternalChanged = false, TextFocused = false, Completion = false;
         int CompleteLine = 0, CompleteStart = 0, CompleteEnd = 0;
+        CodeEditorPanel* Owner = nullptr;
+        // clangd (CodeIntelligence): settings, semantic completion, rename, hover, transient notices.
+        std::string ClangdPath;
+        bool UseClangd = true;
+        uint64_t SeenDiagnostics = ~0ull;
+        std::vector<CompilerDiagnostic> Live;
+        std::vector<Lsp::CompletionItem> Semantic;
+        bool SemanticPending = false;
+        double SemanticAsked = 0;
+        std::string SemanticError;
+        int CompleteSelected = 0;
+        bool RenameOpenRequest = false, RenameFocus = false, RenamePending = false;
+        std::string RenameOld, RenameNew, RenameError;
+        std::filesystem::path RenameFile;
+        size_t RenameOffset = 0;
+        std::vector<Lsp::FileChange> RenamePlan;
+        struct RenameUndo
+        {
+            std::vector<std::pair<std::filesystem::path, int>> Tabs; // the file and its undo index after the rename
+            std::string From, To;
+        };
+        std::optional<RenameUndo> LastRename;
+        std::string Notice;
+        double NoticeAt = -100;
+        int HoverLine = -1, HoverChar = -1, HoverAskedLine = -1, HoverAskedChar = -1;
+        double HoverSince = 0;
+        std::string HoverText;
+        bool HoverPending = false;
         Tab* Current() { return Active < Tabs.size() ? Tabs[Active].get() : nullptr; }
+        Tab* Find(const std::filesystem::path& file)
+        {
+            std::error_code ec;
+            const auto path = std::filesystem::weakly_canonical(file, ec);
+            for (auto& t : Tabs)
+                if (t->Document.Path() == path) return t.get();
+            return nullptr;
+        }
+        void Say(std::string text)
+        {
+            Notice = std::move(text);
+            NoticeAt = ImGui::GetTime();
+        }
+        // clangd gets every change of an open C++ file (incremental didChange).
+        void Send(Tab& t)
+        {
+            Sync(t);
+            if (t.Cpp && t.SentRevision != t.Revision)
+            {
+                Intel.Change(t.Document.Path(), t.Document.Text());
+                t.SentRevision = t.Revision;
+            }
+        }
+        size_t CursorOffset(Tab& t)
+        {
+            int line = 0, byte = 0;
+            t.Editor.GetCursorBytePosition(line, byte);
+            return Offset(t.Document.Text(), line, byte);
+        }
+        void RebuildDiagnostics();
+        void GoToDefinition(Tab& t, size_t offset);
+        void Navigate(const Lsp::Location& location);
+        void RequestRename(Tab& t);
+        void ApplyRename();
+        void UndoRename();
         void Sync(Tab& t)
         {
             if (t.Editor.GetRevision() != t.Revision)
@@ -136,15 +227,252 @@ namespace Zamin {
             }
             std::sort(Files.begin(), Files.end());
         }
+        CodeIntelligence Intel; // last: destroyed first, while the state its callbacks write is still alive
     };
-    CodeEditorPanel::CodeEditorPanel() : m_Impl(std::make_unique<Impl>()) {}
+
+    void CodeEditorPanel::Impl::RebuildDiagnostics()
+    {
+        Live.clear();
+        const auto encoding = Intel.GetEncoding();
+        for (auto& t : Tabs)
+        {
+            t->Live.clear();
+            std::vector<TextEditor::Squiggle> squiggles;
+            const auto* list = t->Cpp ? Intel.GetDiagnostics(t->Document.Path()) : nullptr;
+            if (list)
+                for (const auto& d : *list)
+                {
+                    const std::string& text = t->Document.Text();
+                    const auto a = Position(text, Lsp::OffsetOf(text, d.Range.Start, encoding));
+                    auto b = Position(text, Lsp::OffsetOf(text, d.Range.End, encoding));
+                    if (b.first != a.first) b = { a.first, (int)(Offset(text, a.first, 1 << 30) - Offset(text, a.first, 0)) };
+                    squiggles.push_back({ a.first, a.second, b.second, SeverityColor(d.Severity) });
+                    t->Live.push_back(d);
+                    CompilerDiagnostic c;
+                    c.Severity = d.Severity == 1 ? DiagnosticSeverity::Error : d.Severity == 2 ? DiagnosticSeverity::Warning : DiagnosticSeverity::Note;
+                    c.File = t->Document.Path().string();
+                    c.Line = a.first + 1;
+                    c.Column = a.second + 1;
+                    c.Message = d.Message;
+                    Live.push_back(std::move(c));
+                }
+            t->Editor.SetSquiggles(std::move(squiggles));
+        }
+    }
+
+    void CodeEditorPanel::Impl::GoToDefinition(Tab& t, size_t offset)
+    {
+        if (!t.Cpp) return;
+        if (!Intel.IsReady())
+        {
+            Say(Tr("Ta'rifga o'tish uchun clangd kerak (Sozlamalar > Kod muharriri)"));
+            return;
+        }
+        Send(t);
+        Intel.Definition(t.Document.Path(), offset, [this](std::vector<Lsp::Location> found, const std::string& error) {
+            if (found.empty()) Say(error.empty() ? std::string(Tr("Ta'rif topilmadi")) : "clangd: " + error);
+            else Navigate(found.front());
+        });
+    }
+
+    void CodeEditorPanel::Impl::Navigate(const Lsp::Location& location)
+    {
+        std::string text;
+        if (auto* open = Find(location.File)) text = open->Document.Text();
+        else
+        {
+            text = FileSystem::ReadTextFile(location.File);
+            std::erase(text, '\r');
+        }
+        const auto at = Position(text, Lsp::OffsetOf(text, location.Range.Start, Intel.GetEncoding()));
+        if (Owner->Open(location.File, at.first + 1, at.second + 1))
+            Say(TrFormat("Ta'rif: {}:{}", location.File.filename().string(), at.first + 1));
+    }
+
+    void CodeEditorPanel::Impl::RequestRename(Tab& t)
+    {
+        RenameError.clear();
+        RenamePlan.clear();
+        RenamePending = true;
+        Send(t);
+        Intel.Rename(t.Document.Path(), RenameOffset, RenameNew, [this](std::vector<Lsp::FileEdits> edits, const std::string& error) {
+            RenamePending = false;
+            if (!error.empty())
+            {
+                RenameError = "clangd: " + error;
+                return;
+            }
+            auto read = [this](const std::filesystem::path& file) -> std::optional<std::string> {
+                if (auto* open = Find(file))
+                {
+                    Sync(*open);
+                    return open->Document.Text();
+                }
+                std::error_code ec;
+                if (!std::filesystem::is_regular_file(file, ec)) return std::nullopt;
+                std::string text = FileSystem::ReadTextFile(file);
+                std::erase(text, '\r');
+                return text;
+            };
+            std::string problem;
+            RenamePlan = Lsp::PlanChanges(edits, Intel.GetEncoding(), read, &problem);
+            if (!problem.empty()) RenameError = problem;
+            for (const auto& change : RenamePlan)
+                if (Root.empty() || !FileSystem::IsSubPathOnDisk(change.File, Root))
+                {
+                    RenameError = TrFormat("{} loyihadan tashqarida (faqat o'qish uchun): nom o'zgartirilmaydi", change.File.filename().string());
+                    RenamePlan.clear();
+                    break;
+                }
+        });
+    }
+
+    // Every file of the plan in a tab, each change one undoable edit, then every file saved (atomic writes). When a file
+    // cannot be opened, changed since the preview or saved, every tab is put back (undo, saved again): all or nothing.
+    void CodeEditorPanel::Impl::ApplyRename()
+    {
+        const std::filesystem::path keep = Current() ? Current()->Document.Path() : std::filesystem::path();
+        std::vector<Tab*> tabs;
+        std::vector<std::filesystem::path> opened;
+        std::string problem;
+        for (const auto& change : RenamePlan)
+        {
+            Tab* t = Find(change.File);
+            if (!t)
+            {
+                if (!Owner->Open(change.File)) problem = Error;
+                else opened.push_back(change.File);
+                t = Find(change.File);
+            }
+            if (!t)
+            {
+                if (problem.empty()) problem = TrFormat("{} ochilmadi", change.File.filename().string());
+                break;
+            }
+            Sync(*t);
+            if (t->ReadOnly) problem = TrFormat("{} faqat o'qish uchun", change.File.filename().string());
+            else if (t->Document.Text() != change.Before) problem = TrFormat("{} ko'rib chiqilgandan keyin o'zgardi - qaytadan ko'rib chiqing", change.File.filename().string());
+            if (!problem.empty()) break;
+            tabs.push_back(t);
+        }
+        auto closeOpened = [&] {
+            for (const auto& file : opened)
+                for (size_t n = 0; n < Tabs.size(); ++n)
+                    if (Tabs[n]->Document.Path() == std::filesystem::weakly_canonical(file) && !Tabs[n]->Document.Dirty())
+                    {
+                        if (Tabs[n]->Cpp) Intel.Close(Tabs[n]->Document.Path());
+                        Tabs.erase(Tabs.begin() + (std::ptrdiff_t)n);
+                        break;
+                    }
+        };
+        auto restoreActive = [&] {
+            for (size_t n = 0; n < Tabs.size(); ++n)
+                if (Tabs[n]->Document.Path() == keep) Active = n;
+            Focus = true;
+        };
+        if (!problem.empty())
+        {
+            closeOpened();
+            restoreActive();
+            RenameError = problem;
+            return;
+        }
+        RenameUndo undo{ {}, RenameOld, RenameNew };
+        std::vector<Tab*> edited;
+        auto rollback = [&](size_t saved) {
+            for (size_t n = 0; n < edited.size(); ++n)
+            {
+                edited[n]->Editor.Undo();
+                Sync(*edited[n]);
+                if (n < saved) Save(*edited[n]);
+            }
+        };
+        for (size_t n = 0; n < tabs.size(); ++n)
+        {
+            auto& t = *tabs[n];
+            const auto& change = RenamePlan[n];
+            auto region = Lsp::ComputeChange(change.Before, change.After, Lsp::Encoding::UTF8); // UTF-8 characters = bytes
+            if (!region) continue;
+            t.Editor.SelectRegion(region->Range.Start.Line, region->Range.Start.Character, region->Range.End.Line, region->Range.End.Character);
+            t.Editor.InsertText(region->Text);
+            Sync(t);
+            edited.push_back(&t);
+            if (t.Document.Text() != change.After)
+            {
+                rollback(0);
+                closeOpened();
+                restoreActive();
+                RenameError = TrFormat("{}: tahrir qo'llanmadi", t.Document.Path().filename().string());
+                return;
+            }
+            undo.Tabs.emplace_back(t.Document.Path(), t.Editor.GetUndoIndex());
+        }
+        for (size_t n = 0; n < edited.size(); ++n)
+            if (!Save(*edited[n]))
+            {
+                const std::string why = Error;
+                rollback(n);
+                closeOpened();
+                restoreActive();
+                RenameError = TrFormat("Saqlanmadi ({}) - hamma fayllar qaytarildi", why);
+                return;
+            }
+            else if (edited[n]->Cpp) Intel.Save(edited[n]->Document.Path());
+        restoreActive();
+        Say(TrFormat("'{}' -> '{}': {} ta fayl - Ctrl+Z yoki 'Nom o'zgarishini bekor qilish' qaytaradi", RenameOld, RenameNew, undo.Tabs.size()));
+        LastRename = std::move(undo);
+        RenamePlan.clear();
+    }
+
+    void CodeEditorPanel::Impl::UndoRename()
+    {
+        if (!LastRename) return;
+        int undone = 0;
+        for (const auto& [file, index] : LastRename->Tabs)
+            if (Tab* t = Find(file); t && t->Editor.GetUndoIndex() == index && t->Editor.CanUndo())
+            {
+                t->Editor.Undo();
+                Sync(*t);
+                if (Save(*t))
+                {
+                    ++undone;
+                    if (t->Cpp) Intel.Save(t->Document.Path());
+                }
+            }
+        Say(TrFormat("Nom o'zgarishi bekor qilindi: {} ta fayl", undone));
+        LastRename.reset();
+    }
+    CodeEditorPanel::CodeEditorPanel() : m_Impl(std::make_unique<Impl>()) { m_Impl->Owner = this; }
+    void CodeEditorPanel::SetClangd(const std::string& path, bool enabled)
+    {
+        m_Impl->ClangdPath = path;
+        m_Impl->UseClangd = enabled;
+    }
+    const std::vector<CompilerDiagnostic>& CodeEditorPanel::GetLiveDiagnostics() const { return m_Impl->Live; }
+    std::string CodeEditorPanel::GetClangdStatus() const
+    {
+        const auto& intel = m_Impl->Intel;
+        switch (intel.GetStatus())
+        {
+            case CodeIntelligence::Status::Off: return m_Impl->UseClangd ? Tr("clangd: loyiha ochilganda ishga tushadi") : Tr("clangd o'chirilgan - faqat katalog to'ldirish");
+            case CodeIntelligence::Status::NotFound:
+                return m_Impl->ClangdPath.empty() ? Tr("clangd topilmadi - faqat katalog to'ldirish (clangd o'rnating yoki yo'lini Sozlamalar > Kod muharririda kiriting)")
+                                                  : TrFormat("clangd '{}' da topilmadi - faqat katalog to'ldirish (Sozlamalar > Kod muharriri)", m_Impl->ClangdPath);
+            case CodeIntelligence::Status::Starting: return Tr("clangd ishga tushmoqda...");
+            case CodeIntelligence::Status::Ready: return TrFormat("clangd {} - semantik to'ldirish, F12 ta'rif, F2 nomini o'zgartirish, jonli xatolar", intel.GetServerVersion());
+            default: return intel.GetStatusText();
+        }
+    }
     CodeEditorPanel::~CodeEditorPanel() { FlushRecovery(); }
     void CodeEditorPanel::SetProject(const std::filesystem::path& root, const std::filesystem::path& cache)
     {
         auto& i = *m_Impl;
         if (i.Root == root && i.Cache == cache) return;
         FlushRecovery();
+        for (auto& t : i.Tabs)
+            if (t->Cpp) i.Intel.Close(t->Document.Path());
         i.Tabs.clear();
+        i.LastRename.reset();
         i.Root = root;
         i.Cache = cache;
         i.Active = 0;
@@ -212,12 +540,21 @@ namespace Zamin {
         t->Editor.SetShowWhitespacesEnabled(false);
         t->Editor.SetReadOnlyEnabled(t->ReadOnly);
         t->Editor.SetText(t->Document.Text());
+        t->Editor.SetCtrlClickNavigates(true);
+        t->Cpp = ExternalEditor::IsSourceFile(path);
+        if (t->Cpp)
+        {
+            i.Intel.Open(path, t->Document.Text());
+            t->Revision = t->Editor.GetRevision();
+            t->SentRevision = t->Revision;
+        }
         if (line > 0)
         {
             t->JumpLine = line - 1;
             t->JumpColumn = std::max(0, column - 1);
         }
         i.Tabs.push_back(std::move(t));
+        i.SeenDiagnostics = ~0ull;
         i.Active = i.Tabs.size() - 1;
         i.Focus = true;
         i.Error.clear();
@@ -226,6 +563,31 @@ namespace Zamin {
     void CodeEditorPanel::OnImGuiRender(bool* show)
     {
         auto& i = *m_Impl;
+        // clangd follows the project and the preferences; it runs while tabs are open even when the window is hidden.
+        {
+            CodeIntelligence::Settings settings;
+            if (i.UseClangd && !i.Root.empty())
+            {
+                settings.ClangdPath = i.ClangdPath;
+                settings.ProjectRoot = i.Root;
+                settings.SourceDirectory = Project::GetSourceDirectory().empty() ? i.Root / "Source" : Project::GetSourceDirectory();
+                settings.CacheDirectory = i.Cache.empty() ? i.Root / ".zamin" : i.Cache;
+                settings.EngineBuildDirectory = FileSystem::GetExecutableDirectory().parent_path();
+            }
+            if (settings.ProjectRoot.empty()) { if (i.Intel.GetStatus() != CodeIntelligence::Status::Off) i.Intel.Shutdown(); }
+            else i.Intel.Configure(settings);
+            const bool wasReady = i.Intel.IsReady();
+            i.Intel.Poll();
+            if (!wasReady && i.Intel.IsReady())
+                for (auto& t : i.Tabs) t->SentRevision = t->Revision; // reopened with the current text
+            for (auto& t : i.Tabs)
+                if (t->Cpp && t->SentRevision != t->Editor.GetRevision()) i.Send(*t);
+            if (i.Intel.GetDiagnosticsRevision() != i.SeenDiagnostics)
+            {
+                i.SeenDiagnostics = i.Intel.GetDiagnosticsRevision();
+                i.RebuildDiagnostics();
+            }
+        }
         if (!*show)
         {
             i.Focused = false;
@@ -259,6 +621,12 @@ namespace Zamin {
         if (ImGui::Button("New script") && OnNewScript) OnNewScript();
         ImGui::SameLine();
         ImGui::BeginDisabled(!tab || tab->ReadOnly);
+        GraphLayout::RecordRegion("CodeEditor");
+        if (GraphLayout::Recording())
+        {
+            const ImRect title = ImGui::GetCurrentWindow()->TitleBarRect();
+            GraphLayout::RecordRect("CodeEditor/Title", title.Min, title.Max);
+        }
         bool save = ImGui::Button("Save  Ctrl+S");
         ImGui::SameLine();
         ImGui::EndDisabled();
@@ -291,6 +659,33 @@ namespace Zamin {
         ImGui::SetNextItemWidth(85);
         ImGui::SliderFloat("Zoom", &i.Zoom, .75f, 1.5f, "%.2f");
         if (!i.Error.empty()) ImGui::TextColored({ 1, .45f, .4f, 1 }, "%s", i.Error.c_str());
+        {
+            // The semantic features' state: one line (clangd's version, or why only the catalogue completion works).
+            const auto status = i.Intel.GetStatus();
+            const std::string line = GetClangdStatus();
+            if (status == CodeIntelligence::Status::Ready) ImGui::TextDisabled("%s", line.c_str());
+            else if (status == CodeIntelligence::Status::Starting || status == CodeIntelligence::Status::Off) ImGui::TextDisabled("%s", line.c_str());
+            else ImGui::TextColored({ 1, .72f, .3f, 1 }, "%s", line.c_str());
+            GraphLayout::RecordKey("CodeEditor/ClangdStatus");
+            static const char* names[] = { "Off", "NotFound", "Starting", "Ready", "Restarting", "Failed" };
+            GraphLayout::RecordValue("CodeEditor/Clangd", std::string(names[(int)status]));
+            GraphLayout::RecordValue("CodeEditor/ClangdStatus", line);
+            GraphLayout::RecordValue("CodeEditor/CompletionMs", i.Intel.GetLastCompletionMs());
+            GraphLayout::RecordValue("CodeEditor/DiagnosticsMs", i.Intel.GetLastDiagnosticsMs());
+            if (!i.Notice.empty() && ImGui::GetTime() - i.NoticeAt < 12)
+            {
+                ImGui::SameLine();
+                ImGui::TextColored({ .55f, .85f, 1, 1 }, "|  %s", i.Notice.c_str());
+                GraphLayout::RecordKey("CodeEditor/Notice");
+                GraphLayout::RecordValue("CodeEditor/Notice", i.Notice);
+                if (i.LastRename)
+                {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(Tr("Nom o'zgarishini bekor qilish"))) i.UndoRename();
+                    GraphLayout::RecordKey("CodeEditor/UndoRename");
+                }
+            }
+        }
         if (tab && tab->Document.HasRecovery())
         {
             ImGui::TextColored({ 1, .8f, .4f, 1 }, "Unsaved recovery found for this file.");
@@ -412,7 +807,9 @@ namespace Zamin {
         for (auto& file : i.Files)
         {
             auto label = file.lexically_relative(i.Root).generic_string();
-            if (Contains(label, i.FileQuery) && ImGui::Selectable(label.c_str(), tab && tab->Document.Path() == std::filesystem::weakly_canonical(file))) Open(file);
+            if (!Contains(label, i.FileQuery)) continue;
+            if (ImGui::Selectable(label.c_str(), tab && tab->Document.Path() == std::filesystem::weakly_canonical(file))) Open(file);
+            GraphLayout::RecordKey("CodeEditor/Source/" + label);
         }
         if (i.Files.empty()) ImGui::TextWrapped("No C++ files yet. Use New script to create a gameplay script.");
         ImGui::EndChild();
@@ -421,15 +818,18 @@ namespace Zamin {
         ImGui::BeginChild("codeArea", { codeWidth, h });
         if (ImGui::BeginTabBar("sourceTabs", ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll))
         {
+            // A tab opened or chosen this frame: ImGui selects it from the next frame on, so the tab still shown
+            // this frame must not take Active back.
+            const int select = i.Focus ? (int)i.Active : -1;
             for (size_t n = 0; n < i.Tabs.size(); ++n)
             {
                 auto& t = *i.Tabs[n];
                 bool open = true;
                 std::string title = t.Document.Path().filename().string() + "###" + t.Document.Path().generic_string();
-                auto flags = (n == i.Active && i.Focus ? ImGuiTabItemFlags_SetSelected : 0) | (t.Document.Dirty() ? ImGuiTabItemFlags_UnsavedDocument : 0);
+                auto flags = ((int)n == select ? ImGuiTabItemFlags_SetSelected : 0) | (t.Document.Dirty() ? ImGuiTabItemFlags_UnsavedDocument : 0);
                 if (ImGui::BeginTabItem(title.c_str(), &open, flags))
                 {
-                    if (i.Active != n)
+                    if (i.Active != n && select < 0)
                     {
                         i.Active = n;
                         i.LastDiskCheck = -100;
@@ -460,17 +860,120 @@ namespace Zamin {
                         t.Editor.SetViewAtLine(row, TextEditor::SetViewAtLineMode::Centered);
                         t.JumpLine = -1;
                     }
+                    // Ctrl+Z right after a rename undoes it in every file it changed (the editor's own undo is held back
+                    // for this frame); F12 / Ctrl+click: go to the definition; F2: rename the symbol at the cursor.
+                    const bool keys = i.TextFocused && !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+                    bool holdUndo = false;
+                    if (keys && i.LastRename && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+                        for (const auto& [file, index] : i.LastRename->Tabs)
+                            if (file == t.Document.Path() && t.Editor.GetUndoIndex() == index) holdUndo = true;
+                    if (holdUndo)
+                    {
+                        i.UndoRename();
+                        t.Editor.SetReadOnlyEnabled(true); // this frame's Ctrl+Z is the rename's undo, not one more
+                    }
                     ImGui::PushFont(CodeFont());
                     ImGui::SetWindowFontScale(i.Zoom);
-                    if (i.Focus) ImGui::SetNextWindowFocus();
+                    if (i.Focus && ((int)n == select || select < 0)) ImGui::SetNextWindowFocus();
                     bool focused = t.Editor.Render("##source", false, { 0, std::max(80.f, ImGui::GetContentRegionAvail().y - 90) });
+                    const ImVec2 textMin = ImGui::GetItemRectMin(), textMax = ImGui::GetItemRectMax();
+                    if (holdUndo) t.Editor.SetReadOnlyEnabled(t.ReadOnly);
                     i.Focused |= focused;
                     i.TextFocused = focused;
+                    if (GraphLayout::Recording())
+                    {
+                        GraphLayout::RecordRect("CodeEditor/Text", textMin, textMax);
+                        const ImVec2 origin = t.Editor.GetCharScreenPosition(0, 0);
+                        GraphLayout::RecordValue("CodeEditor/OriginX", origin.x);
+                        GraphLayout::RecordValue("CodeEditor/OriginY", origin.y);
+                        GraphLayout::RecordValue("CodeEditor/LineHeight", t.Editor.GetLineHeight());
+                        GraphLayout::RecordValue("CodeEditor/CharWidth", t.Editor.GetCharWidth());
+                        GraphLayout::RecordValue("CodeEditor/ActiveFile", t.Document.Path().string());
+                        int cl = 0, cb = 0;
+                        t.Editor.GetCursorBytePosition(cl, cb);
+                        GraphLayout::RecordValue("CodeEditor/CursorLine", cl);
+                        GraphLayout::RecordValue("CodeEditor/CursorByte", cb);
+                        GraphLayout::RecordValue("CodeEditor/Squiggles", (double)t.Editor.GetSquiggles().size());
+                        GraphLayout::RecordValue("CodeEditor/Dirty", t.Document.Dirty() ? 1.0 : 0.0);
+                        GraphLayout::RecordValue("CodeEditor/ReadOnly", t.ReadOnly ? 1.0 : 0.0);
+                        for (size_t n = 0; n < t.Editor.GetSquiggles().size(); ++n)
+                        {
+                            const auto& q = t.Editor.GetSquiggles()[n];
+                            const ImVec2 a = t.Editor.GetCharScreenPosition(q.mLine, q.mStartChar), b = t.Editor.GetCharScreenPosition(q.mLine, q.mEndChar);
+                            GraphLayout::RecordRect("CodeEditor/Squiggle/" + std::to_string(n), a, { std::max(b.x, a.x + t.Editor.GetCharWidth()), a.y + t.Editor.GetLineHeight() });
+                            if (n < t.Live.size()) GraphLayout::RecordValue("CodeEditor/SquiggleMessage/" + std::to_string(n), t.Live[n].Message);
+                        }
+                    }
 
                     ImGui::SetWindowFontScale(1);
                     ImGui::PopFont();
-                    i.Focus = false;
+                    if ((int)n == select || select < 0) i.Focus = false; // a newly chosen tab keeps the request until it is shown
                     i.Sync(t);
+                    int clickLine = 0, clickByte = 0;
+                    if (t.Editor.ConsumeCtrlClick(clickLine, clickByte))
+                    {
+                        t.Editor.ClearExtraCursors();
+                        i.GoToDefinition(t, Offset(t.Document.Text(), clickLine, clickByte));
+                    }
+                    if (keys && ImGui::IsKeyPressed(ImGuiKey_F12, false)) i.GoToDefinition(t, i.CursorOffset(t));
+                    if (keys && ImGui::IsKeyPressed(ImGuiKey_F2, false) && t.Cpp)
+                    {
+                        const size_t offset = i.CursorOffset(t);
+                        const auto [a, b] = Lsp::IdentifierAt(t.Document.Text(), offset);
+                        if (a == b) i.Say(Tr("Nomini o'zgartirish uchun kursorni nom ustiga qo'ying"));
+                        else if (!i.Intel.IsReady()) i.Say(Tr("Nom o'zgartirish uchun clangd kerak (Sozlamalar > Kod muharriri)"));
+                        else if (t.ReadOnly) i.Say(Tr("Bu fayl faqat o'qish uchun"));
+                        else
+                        {
+                            i.RenameOld = t.Document.Text().substr(a, b - a);
+                            i.RenameNew = i.RenameOld;
+                            i.RenameFile = t.Document.Path();
+                            i.RenameOffset = a;
+                            i.RenamePlan.clear();
+                            i.RenameError.clear();
+                            i.RenamePending = false;
+                            i.RenameOpenRequest = true;
+                            i.RenameFocus = true;
+                        }
+                    }
+                    // A squiggle's message, else clangd's hover text for the name under the mouse (after 0.5 s).
+                    if (int hovered = t.Editor.GetHoveredSquiggle(); hovered >= 0 && hovered < (int)t.Live.size())
+                        ImGui::SetTooltip("%s", t.Live[hovered].Message.c_str());
+                    else if (t.Cpp && i.Intel.IsReady() && ImGui::IsMouseHoveringRect(textMin, textMax) && !ImGui::IsAnyMouseDown() &&
+                             !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId))
+                    {
+                        int line = 0, byte = 0;
+                        if (t.Editor.GetMouseCharPosition(line, byte))
+                        {
+                            if (line != i.HoverLine || byte != i.HoverChar)
+                            {
+                                i.HoverLine = line;
+                                i.HoverChar = byte;
+                                i.HoverSince = ImGui::GetTime();
+                                i.HoverText.clear();
+                            }
+                            else if (ImGui::GetTime() - i.HoverSince > .5 && (i.HoverAskedLine != line || i.HoverAskedChar != byte) && !i.HoverPending)
+                            {
+                                i.HoverAskedLine = line;
+                                i.HoverAskedChar = byte;
+                                i.HoverPending = true;
+                                i.Send(t);
+                                i.Intel.Hover(t.Document.Path(), Offset(t.Document.Text(), line, byte), [&i, line, byte](std::string text, const std::string&) {
+                                    i.HoverPending = false;
+                                    if (line == i.HoverLine && byte == i.HoverChar) i.HoverText = std::move(text);
+                                });
+                            }
+                            if (!i.HoverText.empty() && line == i.HoverAskedLine && byte == i.HoverAskedChar)
+                            {
+                                ImGui::BeginTooltip();
+                                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 40);
+                                ImGui::TextUnformatted(i.HoverText.substr(0, 1500).c_str());
+                                ImGui::PopTextWrapPos();
+                                ImGui::EndTooltip();
+                            }
+                        }
+                        else i.HoverLine = -1;
+                    }
                     if (t.PendingRecovery && ImGui::GetTime() - t.ChangedAt > .75)
                     {
                         if (t.Document.WriteRecovery()) t.PendingRecovery = false;
@@ -492,8 +995,25 @@ namespace Zamin {
                                 t.JumpColumn = std::max(0, d.Column - 1);
                                 i.Focus = true;
                             }
+                            GraphLayout::RecordKey("CodeEditor/FileDiagnostic/" + std::to_string(&d - i.Diagnostics.data()));
                             ImGui::PopStyleColor();
                         }
+                    }
+                    for (size_t n = 0; n < t.Live.size(); ++n)
+                    {
+                        const auto& d = t.Live[n];
+                        any = true;
+                        const auto& q = t.Editor.GetSquiggles();
+                        const int line = n < q.size() ? q[n].mLine : 0, byte = n < q.size() ? q[n].mStartChar : 0;
+                        ImGui::PushStyleColor(ImGuiCol_Text, d.Severity == 1 ? ImVec4(1, .45f, .4f, 1) : d.Severity == 2 ? ImVec4(1, .8f, .4f, 1) : ImVec4(.55f, .75f, 1, 1));
+                        if (ImGui::Selectable((std::to_string(line + 1) + ":" + std::to_string(byte + 1) + "  clangd: " + d.Message + "##live" + std::to_string(n)).c_str()))
+                        {
+                            t.JumpLine = line;
+                            t.JumpColumn = byte;
+                            i.Focus = true;
+                        }
+                        GraphLayout::RecordKey("CodeEditor/LiveDiagnostic/" + std::to_string(n));
+                        ImGui::PopStyleColor();
                     }
                     if (!any) ImGui::TextDisabled("Build messages for this file appear here.");
                     ImGui::EndChild();
@@ -556,7 +1076,11 @@ namespace Zamin {
                 if (ok)
                 {
                     if (i.Close == -2) *show = false;
-                    else i.Tabs.erase(i.Tabs.begin() + i.Close);
+                    else
+                    {
+                        if (i.Tabs[i.Close]->Cpp) i.Intel.Close(i.Tabs[i.Close]->Document.Path());
+                        i.Tabs.erase(i.Tabs.begin() + i.Close);
+                    }
                     i.Close = -1;
                     ImGui::CloseCurrentPopup();
                 }
@@ -566,7 +1090,11 @@ namespace Zamin {
             {
                 if (i.Close == -2)
                 {
-                    for (auto& t : i.Tabs) t->Document.DiscardRecovery();
+                    for (auto& t : i.Tabs)
+                    {
+                        t->Document.DiscardRecovery();
+                        if (t->Cpp) i.Intel.Close(t->Document.Path());
+                    }
                     i.Tabs.clear();
                     i.Active = 0;
                     *show = false;
@@ -574,6 +1102,7 @@ namespace Zamin {
                 else
                 {
                     i.Tabs[i.Close]->Document.DiscardRecovery();
+                    if (i.Tabs[i.Close]->Cpp) i.Intel.Close(i.Tabs[i.Close]->Document.Path());
                     i.Tabs.erase(i.Tabs.begin() + i.Close);
                 }
                 i.Close = -1;
@@ -589,6 +1118,7 @@ namespace Zamin {
         }
         else if (i.Close >= 0 && (size_t)i.Close < i.Tabs.size() && !i.Tabs[i.Close]->Document.Dirty())
         {
+            if (i.Tabs[i.Close]->Cpp) i.Intel.Close(i.Tabs[i.Close]->Document.Path());
             i.Tabs.erase(i.Tabs.begin() + i.Close);
             i.Close = -1;
         }
@@ -610,8 +1140,29 @@ namespace Zamin {
                 i.CompleteEnd = byte;
                 i.APIQuery = lines[line].substr(start, byte - start);
                 i.Completion = true;
+                i.CompleteSelected = 0;
+                i.Semantic.clear();
+                i.SemanticError.clear();
+                i.SemanticPending = false;
+                // Semantic completion from clangd (project classes, members, locals); the catalogue when it is not there.
+                if (tab->Cpp && i.Intel.IsReady())
+                {
+                    i.Send(*tab);
+                    i.SemanticPending = true;
+                    i.SemanticAsked = ImGui::GetTime();
+                    i.Intel.Complete(tab->Document.Path(), Offset(tab->Document.Text(), line, byte), [&i](Lsp::CompletionList list, const std::string& error) {
+                        i.SemanticPending = false;
+                        i.SemanticError = error;
+                        i.Semantic = std::move(list.Items);
+                    });
+                }
                 ImGui::OpenPopup("API completion");
             }
+        }
+        if (i.SemanticPending && ImGui::GetTime() - i.SemanticAsked > 8)
+        {
+            i.SemanticPending = false; // a stale answer never comes: the catalogue instead
+            i.SemanticError = "no answer";
         }
         if (ImGui::BeginPopup("API completion"))
         {
@@ -621,23 +1172,141 @@ namespace Zamin {
                 i.Completion = false;
             }
             ImGui::InputTextWithHint("##complete", "API name...", &i.APIQuery);
-            ImGui::TextDisabled("API names; compiler validates C++ types");
-            int count = 0;
-            for (auto& [name, signature] : API)
-                if (Contains(name, i.APIQuery) && count++ < 20)
+            GraphLayout::RecordKey("CodeEditor/CompletionQuery");
+            // The candidates: clangd's (when it answered with any), else the Zamin API catalogue.
+            struct Candidate
+            {
+                std::string Label, Insert, Detail;
+                int StartByte;
+            };
+            std::vector<Candidate> candidates;
+            for (const auto& item : i.Semantic)
+            {
+                const std::string& filter = item.FilterText.empty() ? item.Label : item.FilterText;
+                if (!Contains(filter, i.APIQuery) || candidates.size() >= 40) continue;
+                int startByte = i.CompleteStart;
+                if (item.Edit && item.Edit->Range.Start.Line == i.CompleteLine && tab)
                 {
-                    if (ImGui::Selectable(name.c_str()) || (count == 1 && ImGui::IsKeyPressed(ImGuiKey_Enter, false)))
-                    {
-                        if (tab)
-                        {
-                            tab->Editor.SelectRegion(i.CompleteLine, i.CompleteStart, i.CompleteLine, i.CompleteEnd);
-                            i.Insert(*tab, name);
-                        }
-                        ImGui::CloseCurrentPopup();
-                        break;
-                    }
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", signature.c_str());
+                    const std::string& text = tab->Document.Text();
+                    startByte = Position(text, Lsp::OffsetOf(text, item.Edit->Range.Start, i.Intel.GetEncoding())).second;
+                    if (startByte > i.CompleteEnd) startByte = i.CompleteStart;
                 }
+                candidates.push_back({ item.Label, item.Text(), item.Detail.empty() ? std::string(item.KindName()) : item.Detail, startByte });
+            }
+            const bool semantic = !candidates.empty();
+            if (!semantic)
+                for (auto& [name, signature] : API)
+                    if (Contains(name, i.APIQuery) && candidates.size() < 20) candidates.push_back({ name, name, signature, i.CompleteStart });
+            const char* source = semantic ? "clangd" : i.SemanticPending ? "pending" : "catalogue";
+            GraphLayout::RecordValue("CodeEditor/CompletionSource", std::string(source));
+            GraphLayout::RecordValue("CodeEditor/CompletionCount", (double)candidates.size());
+            if (semantic) ImGui::TextDisabled("%s", Tr("clangd: loyiha turlari va a'zolari"));
+            else if (i.SemanticPending) ImGui::TextDisabled("%s", Tr("clangd'dan so'ralmoqda (hozircha API katalogi)"));
+            else ImGui::TextDisabled("API names; compiler validates C++ types");
+            if (!candidates.empty())
+            {
+                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) i.CompleteSelected = std::min(i.CompleteSelected + 1, (int)candidates.size() - 1);
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) i.CompleteSelected = std::max(i.CompleteSelected - 1, 0);
+            }
+            i.CompleteSelected = std::clamp(i.CompleteSelected, 0, std::max(0, (int)candidates.size() - 1));
+            const bool enter = ImGui::IsKeyPressed(ImGuiKey_Enter, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false);
+            for (size_t n = 0; n < candidates.size(); ++n)
+            {
+                const auto& c = candidates[n];
+                const bool picked = ImGui::Selectable((c.Label + "##c" + std::to_string(n)).c_str(), (int)n == i.CompleteSelected) || (enter && (int)n == i.CompleteSelected);
+                GraphLayout::RecordKey("CodeEditor/Completion/" + c.Label);
+                if (!c.Detail.empty())
+                {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("%s", c.Detail.c_str());
+                }
+                if (picked)
+                {
+                    if (tab)
+                    {
+                        tab->Editor.SelectRegion(i.CompleteLine, c.StartByte, i.CompleteLine, i.CompleteEnd);
+                        i.Insert(*tab, c.Insert);
+                    }
+                    ImGui::CloseCurrentPopup();
+                    break;
+                }
+                if (ImGui::IsItemHovered() && !c.Detail.empty()) ImGui::SetTooltip("%s", c.Detail.c_str());
+            }
+            if (GraphLayout::Recording()) GraphLayout::RecordRegion("CodeEditor/CompletionPopup");
+            ImGui::EndPopup();
+        }
+        // F2: the new name, a preview of every edit in every file, applied all together (one undo restores them).
+        if (i.RenameOpenRequest)
+        {
+            ImGui::OpenPopup(Tr("Nomini o'zgartirish###CodeRename"));
+            i.RenameOpenRequest = false;
+        }
+        if (ImGui::BeginPopupModal(Tr("Nomini o'zgartirish###CodeRename"), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text(Tr("'%s' yangi nomi:"), i.RenameOld.c_str());
+            if (i.RenameFocus)
+            {
+                ImGui::SetKeyboardFocusHere();
+                i.RenameFocus = false;
+            }
+            ImGui::SetNextItemWidth(720);
+            const bool submitted = ImGui::InputText("##renameName", &i.RenameNew, ImGuiInputTextFlags_EnterReturnsTrue);
+            GraphLayout::RecordKey("CodeEditor/RenameName");
+            const bool valid = IsIdentifier(i.RenameNew) && i.RenameNew != i.RenameOld;
+            ImGui::BeginDisabled(!valid || i.RenamePending);
+            bool preview = ImGui::Button((std::string(EditorText::Choose("Ko'rib chiqish", "Preview")) + "###renamePreview").c_str());
+            GraphLayout::RecordKey("CodeEditor/RenamePreview");
+            ImGui::EndDisabled();
+            if ((preview || (submitted && i.RenamePlan.empty())) && valid && !i.RenamePending)
+                if (auto* t = i.Find(i.RenameFile)) i.RequestRename(*t);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(i.RenamePlan.empty() || i.RenamePending);
+            const bool apply = ImGui::Button(TrFormat("Qo'llash ({} ta fayl)###renameApply", i.RenamePlan.size()).c_str()) ||
+                               (submitted && !i.RenamePlan.empty());
+            GraphLayout::RecordKey("CodeEditor/RenameApply");
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            const bool cancel = ImGui::Button(Tr("Bekor")) || ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+            GraphLayout::RecordKey("CodeEditor/RenameCancel");
+            if (!valid && !i.RenameNew.empty() && i.RenameNew != i.RenameOld) ImGui::TextColored({ 1, .45f, .4f, 1 }, "%s", Tr("C++ nomi emas"));
+            if (i.RenamePending) ImGui::TextDisabled("%s", Tr("clangd'dan so'ralmoqda..."));
+            if (!i.RenameError.empty()) ImGui::TextColored({ 1, .45f, .4f, 1 }, "%s", i.RenameError.c_str());
+            GraphLayout::RecordValue("CodeEditor/RenameFiles", (double)i.RenamePlan.size());
+            GraphLayout::RecordValue("CodeEditor/RenameError", i.RenameError);
+            if (!i.RenamePlan.empty())
+            {
+                int edits = 0;
+                for (const auto& c : i.RenamePlan) edits += c.Edits;
+                ImGui::SeparatorText(TrFormat("Ko'rib chiqish: {} ta o'zgarish, {} ta fayl", edits, i.RenamePlan.size()).c_str());
+                ImGui::BeginChild("renamePreview", { 720, std::min(360.f, 60.f + 22.f * (float)edits + 26.f * (float)i.RenamePlan.size()) }, ImGuiChildFlags_Borders);
+                for (const auto& c : i.RenamePlan)
+                {
+                    const std::string label = i.Root.empty() ? c.File.filename().string() : c.File.lexically_relative(i.Root).generic_string();
+                    ImGui::TextColored({ .55f, .85f, 1, 1 }, "%s", label.c_str());
+                    GraphLayout::RecordKey("CodeEditor/RenameFile/" + c.File.filename().string());
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("(%d)", c.Edits);
+                    ImGui::PushFont(CodeFont());
+                    for (const auto& line : Lsp::PreviewChange(c, 20))
+                    {
+                        ImGui::TextColored({ 1, .55f, .5f, 1 }, "%5d - %s", line.Line, line.Before.c_str());
+                        ImGui::TextColored({ .5f, .9f, .55f, 1 }, "%5d + %s", line.Line, line.After.c_str());
+                    }
+                    ImGui::PopFont();
+                }
+                ImGui::EndChild();
+            }
+            if (GraphLayout::Recording()) GraphLayout::RecordRegion("CodeEditor/RenamePopup");
+            if (apply && !i.RenamePlan.empty())
+            {
+                i.ApplyRename();
+                if (i.RenameError.empty()) ImGui::CloseCurrentPopup();
+            }
+            if (cancel)
+            {
+                i.RenamePlan.clear();
+                ImGui::CloseCurrentPopup();
+            }
             ImGui::EndPopup();
         }
         if (requestSave)

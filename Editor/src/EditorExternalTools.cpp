@@ -4,6 +4,7 @@
 // xdg-open (see ExternalEditor).
 #include "EditorLayer.h"
 #include "UI.h"
+#include <Zamin/Editor/CodeIntelligence.h>
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -73,6 +74,24 @@ namespace Zamin {
 
     void EditorLayer::UI_ExternalEditorPreferences(bool& changed)
     {
+        // The built-in code editor's clangd: semantic completion, F12, F2 rename, live errors.
+        CodeEditorPreferences& code = m_Preferences.CodeEditor;
+        ImGui::SeparatorText(Tr("Kod muharriri (clangd)"));
+        ImGui::TextWrapped("%s", Tr("clangd: semantik to'ldirish (Ctrl+Space), ta'rifga o'tish (F12 / Ctrl+bosish), nomini o'zgartirish (F2) va yozayotganda xatolar. clangd bo'lmasa API katalogi ishlaydi."));
+        if (ImGui::Checkbox(Tr("clangd ishlatish"), &code.UseClangd))
+            changed = true;
+        ImGui::BeginDisabled(!code.UseClangd);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::InputTextWithHint("##clangdPath", Tr("clangd yo'li (bo'sh: PATH'dan clangd)"), &code.ClangdPath))
+            changed = true;
+        ImGui::EndDisabled();
+        const std::filesystem::path found = CodeIntelligence::FindClangd(code.ClangdPath);
+        if (found.empty())
+            ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.3f, 1.0f), "%s", Tr("clangd topilmadi - faqat katalog to'ldirish (clangd o'rnating yoki yo'lini Sozlamalar > Kod muharririda kiriting)"));
+        else
+            ImGui::TextDisabled("%s", found.string().c_str());
+        ImGui::TextDisabled("%s", m_CodeEditorPanel.GetClangdStatus().c_str());
+        ImGui::Spacing();
         ExternalEditorPreferences& prefs = m_Preferences.ExternalEditor;
         ImGui::SeparatorText(Tr("Tashqi kod muharriri"));
         ImGui::TextWrapped("%s", Tr("C++ skriptlar va kompilyatsiya xatolari ichki Kod muharririda ochiladi. "

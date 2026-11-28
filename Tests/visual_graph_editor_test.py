@@ -138,8 +138,8 @@ try:
  else:raise RuntimeError('Function graph window did not become ready')
  time.sleep(1)
  press('Typed functions');press('functions/Create function');save()
- j=readflow();assert j['Version']==6 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
- print('UI: function created; the format 1 graph saved as format 6',flush=True)
+ j=readflow();assert j['Version']==7 and 'Calculate' in j['Functions'] and len(j['Nodes'])==6,j
+ print('UI: function created; the format 1 graph saved as format 7',flush=True)
  click(160,282);save()
  j=readflow();calls=[n for n in j['Nodes'] if n['Kind']=='Function.Call'];assert len(calls)==1 and calls[0]['Inputs']['Name']=='Calculate',j['Nodes']
  call=calls[0]['ID'];print('UI: call node from the node library passed',flush=True)
@@ -193,8 +193,8 @@ def struct_flow(project,env,build,out,scene):
   time.sleep(1)
   press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats');press('Stats/Add field')
   enter('Stats/0/Field name','Power');save()
-  j=readstruct();assert j['Version']==6 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
-  unclipped();print('UI: struct created, field added and renamed; saved as format 6',flush=True)
+  j=readstruct();assert j['Version']==7 and [f['Name'] for f in j['Structs']['Stats']['Fields']]==['Power','Field2'],j.get('Structs')
+  unclipped();print('UI: struct created, field added and renamed; saved as format 7',flush=True)
   subprocess.run(['import','-window','root',str(out/'struct-editor.png')],check=True)
   # Make Stats from the node library (Structs / Make Stats), Power = 7; then a GetField node (struct and field preset).
   click(150,233);selectall();time.sleep(.3);x('type','--delay','150','make stats');time.sleep(1.2);click(155,283)
@@ -235,7 +235,7 @@ def struct_flow(project,env,build,out,scene):
 def macro_flow(project,env,build,out,scene):
  global app
  flow=project/'Assets/Scripts/MacroFlow.zgraph'
- # A format 3 file with an enum and a struct: the editor writes format 6 on save.
+ # A format 3 file with an enum and a struct: the editor writes format 7 on save.
  flow.write_text(json.dumps({'Format':'Zamin.VisualGraph','Version':3,'Nodes':[node(1,'Event.Start',40,60),node(2,'Print',760,60),node(3,'Concat',560,420,{'A':'MACRO_UI value='}),node(4,'FormatNumber',300,470,{'Decimals':0})],
   'Links':[{'From':3,'Output':'Value','To':2,'Input':'Text'},{'From':4,'Output':'Value','To':3,'Input':'B'}],'Variables':{},'Functions':{},
   'Enums':{'Rank':{'Entries':[{'Name':'Bronze','Value':0},{'Name':'Gold','Value':1}],'Source':''}},
@@ -258,8 +258,8 @@ def macro_flow(project,env,build,out,scene):
   press('Graph variables');press('Graph structs');press('structs/Create struct');press('structs/Stats')
   press('Stats/0/Field type');press('popup/Struct');press('Stats/0/Default/fields');enter('Stats/0/Default/X','5');save()
   field=readmacro()['Structs']['Stats']['Fields'][0]
-  assert readmacro()['Version']==6 and field['Type']=='Struct' and field['Struct']=='Point' and field['Default']=={'X':5,'Y':0},field
-  unclipped();shot('nested-struct.png');print('UI: a struct field of struct type, its nested default edited field by field; saved as format 6',flush=True)
+  assert readmacro()['Version']==7 and field['Type']=='Struct' and field['Struct']=='Point' and field['Default']=={'X':5,'Y':0},field
+  unclipped();shot('nested-struct.png');print('UI: a struct field of struct type, its nested default edited field by field; saved as format 7',flush=True)
   press('Graph structs')
   # An enum array variable.
   press('Graph variables');press('variables/Variable name');x('type','--delay','150','Ranks');time.sleep(.4)
@@ -348,11 +348,11 @@ def inherit_flow(project,env,build,out,scene):
   # The parent: set by path (one undo step); its variable shows as inherited and is not saved with the child.
   press('Inheritance');press('inheritance/Parent path');selectall();time.sleep(.3);x('type','--delay','120','Scripts/CurveBase.zgraph');time.sleep(.4)
   press('inheritance/Set parent');save()
-  j=readchild();assert j['Version']==6 and j.get('Parent')=='Scripts/CurveBase.zgraph' and j['Variables']=={},j
+  j=readchild();assert j['Version']==7 and j.get('Parent')=='Scripts/CurveBase.zgraph' and j['Variables']=={},j
   assert any(k.endswith('variables/Level/inherited') for k in items()['Items']),[k for k in items()['Items'] if 'Level' in k]
   click(531,140);save();assert 'Parent' not in readchild()
   click(585,140);save();assert readchild().get('Parent')=='Scripts/CurveBase.zgraph'
-  unclipped();print('UI: parent set (undo/redo); the inherited variable is listed and not saved; saved as format 6',flush=True)
+  unclipped();print('UI: parent set (undo/redo); the inherited variable is listed and not saved; saved as format 7',flush=True)
   # A Curve variable: two keys added, the second moved (Time) and raised (Value), the first made cubic, a third added and
   # deleted (undo/redo), then the second dragged in the preview (one undo step).
   press('variables/Variable name');x('type','--delay','150','Ramp');time.sleep(.4)
@@ -453,7 +453,7 @@ def native_flow(project,env,build,out,scene):
   j=readnative();added=max(n['ID'] for n in j['Nodes'])
   node=next(n for n in j['Nodes'] if n['ID']==added)
   assert len(j['Nodes'])==count+1 and node['Kind']=='Native.Pure' and node['Inputs']=={'Method':'WorkshopStats.Score'},node
-  assert [p['Name'] for p in j['Natives']['WorkshopStats.Score']['Inputs']]==['Base','Multiplier'] and j['Version']==6
+  assert [p['Name'] for p in j['Natives']['WorkshopStats.Score']['Inputs']]==['Base','Multiplier'] and j['Version']==7
   assert f'canvas/{added}/in/Base' in items()['Items'] and f'canvas/{added}/in/Target' in items()['Items'] and any(k.endswith('native/bound') for k in items()['Items'])
   click(531,140);save();assert len(readnative()['Nodes'])==count
   click(585,140);save();assert len(readnative()['Nodes'])==count+1

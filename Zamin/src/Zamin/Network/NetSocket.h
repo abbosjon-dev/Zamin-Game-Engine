@@ -125,6 +125,8 @@ namespace Zamin::Net {
     {
     public:
         LinkConditioner(std::unique_ptr<Socket> inner, const ConditionerSettings& settings);
+        /// What it still holds is sent at once (a goodbye sent just before the socket closes still leaves).
+        ~LinkConditioner() override;
         bool Send(const Address& to, const uint8_t* data, size_t size) override;
         bool Receive(Address& from, std::vector<uint8_t>& data) override;
         Address GetLocalAddress() const override { return m_Inner->GetLocalAddress(); }

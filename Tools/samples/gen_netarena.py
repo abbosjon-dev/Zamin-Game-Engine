@@ -97,6 +97,16 @@ def rules_graph():
     heard = g.n("Event.Rpc", Name="Honk")
     stored = g.setv((heard, "Then"), "LastHorn", data=(heard, "Text"))
     g.print_(stored[0], g.text(["BLUEPRINT_NET honk: ", (heard, "Text")]))
+    # A compact layout: each lane wraps after 6 nodes, the lanes one under the other (the graph fits the canvas).
+    lanes = {}
+    for node in g.data["Nodes"]:
+        lanes.setdefault(node["Y"] // 900, []).append(node)
+    top = 0
+    for row in sorted(lanes):
+        nodes = lanes[row]
+        for i, node in enumerate(nodes):
+            node["X"], node["Y"] = (i % 6) * 250, top + (i // 6) * 170
+        top += ((len(nodes) + 5) // 6) * 170 + 60
     return g
 
 
@@ -114,7 +124,7 @@ def scene():
     # The graph: spawns, the joins counter, the horn.
     s.entity("Rules", NetworkIdentity={"AlwaysRelevant": True, "RelevanceRadius": 0.0},
              NativeScript={"Class": "Zamin.VisualGraph", "Fields": {"Graph": {"Type": "String", "Value": "Scripts/ArenaRules.zgraph"}}})
-    s.entity("Scoreboard", pos=(-ARENA[0], ARENA[1] + 0.95, 0), scale=(0.5, 0.5, 1), Text=k.world_text("", (0.95, 0.95, 1, 1), "Left"))
+    s.entity("Scoreboard", pos=(-ARENA[0], ARENA[1] + 1.45, 0), scale=(0.5, 0.5, 1), Text=k.world_text("", (0.95, 0.95, 1, 1), "Left"))
     s.entity("Status", pos=(ARENA[0], ARENA[1] + 0.95, 0), scale=(0.4, 0.4, 1), Text=k.world_text("", (0.6, 0.8, 1, 1), "Right"))
     s.entity("Hint", pos=(0, -ARENA[1] - 1.0, 0), scale=(0.36, 0.36, 1),
              Text=k.world_text("WASD / stick: move   Space: collect a coin   H: horn", (0.55, 0.6, 0.75, 1)))

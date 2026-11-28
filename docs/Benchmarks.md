@@ -188,6 +188,34 @@ The editor: a 4000-node graph opened at the fit zoom drew every node and wire ev
 562 772 vertices and 149 ms of canvas CPU time a frame (a **Debug** build, Mesa llvmpipe, `ZAMIN_EDITOR_VISUAL_LAYOUT`
 statistics); the canvas now culls what is off screen: 80 nodes / 99 wires, 17 932 vertices, 19 ms.
 
+## Network replication (`ZaminBench --net`)
+
+`Tests/NetBench.cpp` ([Networking.md](Networking.md)): a server scene with N networked entities that all move every tick (a
+replicated field changes now and then) and C clients, each in its own scene, over an in-process `LoopbackNetwork` on a manual clock
+(CPU time only: no sockets, no waiting). Every client owns one entity, so distance-based interest decides what it gets. Reported: the
+session's tick (snapshots, deltas, interest, inputs), the whole server frame, a client frame (decode, apply, interpolate), bytes sent
+per client a second, entities per client snapshot; invariants (exit code 3): every client connected, a snapshot every tick, fewer
+entities than exist per client, and with the world standing still every entity a client shows is where the server has it.
+
+```bash
+build-release/bin/ZaminBench --net [--clients 64] [--entities 1000] [--seconds 5] [--radius 30] [--budget 900] [--json net.json]
+```
+
+### Baseline (2026-11-28)
+
+Release, 4 vCPU Intel Xeon @ 2.10 GHz, 64 clients, 1000 entities, 30 m interest, 900-byte snapshot budget, 30 Hz, 5 s
+(`Tests/Baselines/net-release.json`):
+
+| Measure | Result |
+|---|---|
+| Session tick (server) | 5.71 ms average, 6.96 ms p95 |
+| Server frame (the scene with the session) | 5.97 ms average, 7.26 ms p95 |
+| Client frame | 1.08 ms |
+| Sent per client | 27.1 KB/s (925 B a snapshot: the budget - the 105 moving entities in view go round-robin) |
+| Entities per client | 105.2 of 1000 |
+
+The same in a Debug build: 30.8 ms a tick. The smoke test (`BenchNetSmoke`: 8 clients, 200 entities, 1 s) checks the invariants only.
+
 ## ECS: creating, iterating, deleting (`ZaminBench --ecs`)
 
 `Tests/EcsBench.cpp`, run with `ZaminBench --ecs [--entities N] [--frames N] [--json file]` or

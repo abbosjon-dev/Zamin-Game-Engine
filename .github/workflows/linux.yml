@@ -249,6 +249,23 @@ jobs:
       - name: Script hot reload test
         run: Tests/hot_reload_test.sh
 
+      # Networking (docs/Networking.md): a dedicated server and two headless bot clients of NetArena as separate
+      # processes through the link conditioner, one killed and resumed (state agreement, RPC effects, RTT and
+      # bandwidth); the replication benchmark at a small size; the editor's Play with clients and the Network panel.
+      - name: Networking tests
+        run: |
+          ctest --test-dir build -R 'NetworkIntegration|BenchNetSmoke' --output-on-failure
+          xvfb-run -a -s '-screen 0 1600x1000x24 -nolisten tcp' python3 Tests/network_editor_test.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: network-tests-${{ matrix.compiler.cc }}
+          path: |
+            build/NetworkIntegration/
+            build/NetworkEditorTest/
+          if-no-files-found: warn
+
       # The three sample games exported by the editor, each tested the way a player gets it (Tests/export_test.sh:
       # --version, a timed run, a headless run with a screenshot, moved elsewhere) and only then packed as
       # <Name>-<version>-linux-x86_64.tar.gz + .sha256 (unpacked again and started): this commit's player builds.

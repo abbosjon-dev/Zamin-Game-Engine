@@ -233,6 +233,9 @@ animations), with its path, UUID and details (submeshes, triangles, skeleton).*
 - In play mode the keyboard and the mouse go to the game while the viewport has the focus.
 - When the game switches scenes (`LoadScene`), after **Stop** the editor returns to the start scene and its previous state.
 - The game does not start in prefab mode.
+- **Play with clients** (**Window → Network**): the editor hosts the play scene (a server that plays as client 0) and the other
+  players start as ZaminPlayer processes connected to it; the Network panel shows the clients (RTT, loss, bandwidth, replicated
+  entities), the session's tick and RPC counts, its log and the link conditioner ([Networking.md](Networking.md#6-the-player-and-the-editor)).
 
 ## 9. The console and compiling
 
@@ -261,6 +264,7 @@ file at that line in the [built-in code editor](CodeEditor.md)), **Full output**
 | Tile palette | Drawing a tilemap: brush (`B`), rectangle (`R`), fill (`G`), eraser (`E`), picker (`I`) | — |
 | Unused assets | Files that are not used anywhere | [Runtime.md](Runtime.md) |
 | Undo history | The list of performed operations, going back to any of them | section 11 |
+| Network | Play with clients, the session and its clients (RTT, loss, bandwidth), the link conditioner, the session log | [Networking.md](Networking.md) |
 | Scenes | The project's scenes, the build list | [Scenes.md](Scenes.md) |
 
 Prefab mode (editing a prefab on its own), Apply / Revert and variants: [Prefabs.md](Prefabs.md).

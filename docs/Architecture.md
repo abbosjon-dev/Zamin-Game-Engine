@@ -90,6 +90,7 @@ The build system and its variants - [BuildAndExport.md](BuildAndExport.md).
 | `Project/` | The project, its settings, the player settings, export | `Project`, `ProjectConfig`, `ProjectMigration`, `PlayerSettings`, `PlayerLaunch`, `ExportAssets`, `ExportBuild`, `PrefabExport`, `PlayerBenchmark` |
 | `Math/` | Mathematics | `Math`, `MathUtils`, `Quaternion`, `Geometry`, `Noise`, `AnimationCurve`, `Easing`, `Spline`, `Color`, `Random` |
 | `Localization/` | The game's languages | `Localization` |
+| `Network/` | Multiplayer ([Networking.md](Networking.md)): the codec, UDP / loopback sockets and the link conditioner, connections (acks, reliable and unreliable channels, fragmentation), the transport (handshake, resume, rate limits), the replication / RPC session one scene drives, the Player's and the editor's launch helpers | `Net::Reader`/`Writer`, `UdpSocket`, `LoopbackNetwork`, `LinkConditioner`, `Connection`, `ServerTransport`, `ClientTransport`, `Session`, `Net.h`, `NetGame.h` |
 | `Debug/` | Debug drawing | `DebugDraw`, `MeshNormals` |
 | `Editor/` | The editor's parts without a GUI (tested): undo, shortcuts, layouts, preferences ... | `UndoHistory`, `ShortcutRegistry`, `EditorLayouts`, `EditorPreferences`, `EditorAutosave`, `CompilerDiagnostics` |
 | `ImGui/` | The ImGui layer, theme, icons | `ImGuiLayer`, `Icons.h`, `ImGuiConfig.h` |

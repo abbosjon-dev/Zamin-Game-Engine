@@ -126,6 +126,11 @@ to the log as a warning, and the rest are used. `ZaminPlayer --help` - all of th
 | `--log-level <level>` | The log levels: `warn` (both loggers), `engine=warn,app=info,file=error` (section 6) |
 | `--no-crash-handler`, `--no-crash-dialog` | Without a crash report (debugger, core dump) / a report but no window |
 | `--benchmark N` (+ `--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | The performance test (section 12) |
+| `--server`, `--port N`, `--max-clients N`, `--tick-rate N` | A dedicated server: no window, rendering or sound device (headless), on UDP port N (default 7777); it prints a status line every 5 s ([Networking.md](Networking.md)) |
+| `--connect host:port` | Join a server (`127.0.0.1:7777`); `--headless` - a client without a window too (tests, bots) |
+| `--net-conditioner <spec>` | Delay / lose this side's packets: `latency=100,jitter=20,loss=5,dup=1,reorder=2` |
+| `--net-session-file <file>` | Keep the client's session id and resume token there: a restarted client resumes its session |
+| `--net-bot`, `--net-report <file.json>`, `--quit-after S` | A bot plays; the session's state and statistics at exit; stop after S seconds |
 | `-v`, `--version` | The game and engine versions (section 8) |
 | `-h`, `--help` | Help |
 

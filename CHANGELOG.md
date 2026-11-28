@@ -15,6 +15,14 @@ milestone starts, add a section for it ([CONTRIBUTING.md](CONTRIBUTING.md#9-the-
 
 2026-11-08 · tasks 481–500 · from `670faf9` on (the newest milestone)
 
+- **Networking v1** (2026-11-28, [docs/Networking.md](docs/Networking.md)): a UDP transport of its own (handshake with
+  version/project checks and a challenge token, reliable-ordered and unreliable channels, fragmentation, rate limits,
+  session resume, a link conditioner), a server-authoritative replication session (delta snapshots against the acked
+  state, distance-based interest, networked prefab spawns, interpolation, client-side prediction and reconciliation),
+  C++ and graph RPCs with argument checks, `.zgraph` format 7 (graph RPCs, replicated variables, `Net.*` nodes),
+  `ZaminPlayer --server` / `--connect`, the editor's Play with clients and Network panel, the NetArena sample,
+  `ZaminBench --net`, a multi-process integration test and a GUI test.
+
 - **2D batch order** (`BatchOrder`): sprites / circles / texts that do not overlap on the screen are moved next to
   the batch of their own kind (the picture is the same), rows of sprites with many textures are grouped by texture;
   statistics on why a batch was flushed early (`Flush2DTextures`, `Flush2DKind`, `Flush2DState`). The `mixed2d`

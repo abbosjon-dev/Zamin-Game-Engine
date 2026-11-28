@@ -260,6 +260,12 @@ namespace Zamin::Net {
     {
     }
 
+    LinkConditioner::~LinkConditioner()
+    {
+        std::stable_sort(m_Queue.begin(), m_Queue.end(), [](const Held& a, const Held& b) { return a.Order < b.Order; });
+        for (const auto& held : m_Queue) m_Inner->Send(held.To, held.Data.data(), held.Data.size());
+    }
+
     void LinkConditioner::SetSettings(const ConditionerSettings& settings)
     {
         if (settings.Seed != m_Settings.Seed) m_Random.seed(settings.Seed);

@@ -130,6 +130,56 @@ namespace Zamin {
             return;
         }
         GraphLayout::PushScope("network");
+        // ---- The session
+        ImGui::SeparatorText(Tr("Sessiya###Session"));
+        if (!s.Session)
+        {
+            ImGui::TextDisabled("%s", Tr("Tarmoq sessiyasi yo'q (Play bosing)"));
+            GraphLayout::RecordValue("network/clients", 0.0);
+            GraphLayout::RecordValue("network/role", "none");
+        }
+        else
+        {
+            const auto stats = s.Session->GetStats();
+            const auto clients = s.Session->GetClients();
+            const size_t connected = size_t(std::count_if(clients.begin(), clients.end(), [](const Net::SessionClient& x) { return x.Connected; }));
+            ImGui::Text("%s", TrFormat("Xost, port {} | tick {} | {} obyekt | {} mijoz", s.Session->GetLocalAddress().Port, stats.Tick, stats.NetworkedEntities, connected).c_str());
+            ImGui::Text("%s", TrFormat("Tick: {:.3f} ms (o'rtacha {:.3f}, eng ko'p {:.3f})", stats.TickMs, stats.AverageTickMs, stats.MaxTickMs).c_str());
+            ImGui::Text("%s", TrFormat("Snapshotlar: {} ({:.1f} KB), RPC: {} yuborildi, {} keldi, {} rad etildi", stats.SnapshotsSent, KB(double(stats.SnapshotBytes)),
+                                       stats.RpcsSent, stats.RpcsReceived, stats.RpcsRejected).c_str());
+            GraphLayout::RecordValue("network/role", "host");
+            GraphLayout::RecordValue("network/clients", double(connected));
+            GraphLayout::RecordValue("network/entities", double(stats.NetworkedEntities));
+            GraphLayout::RecordValue("network/rpcsReceived", double(stats.RpcsReceived));
+            if (ImGui::BeginTable("clients", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit))
+            {
+                for (const char* column : { "ID", "Address", "RTT", "Loss", "Down KB/s", "Up KB/s", "Entities" }) ImGui::TableSetupColumn(column);
+                ImGui::TableHeadersRow();
+                for (const auto& client : clients)
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%u%s", client.Id, client.Connected ? "" : " (lost)");
+                    GraphLayout::RecordKey(std::format("client/{}", client.Id));
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(client.Peer.ToString().c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.0f ms", client.Stats.RttMs);
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.1f%%", client.Stats.LossPercent);
+                    // (down / up: the client's view - what the server sends it is its download)
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.2f", KB(client.Stats.SentBytesPerSecond));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.2f", KB(client.Stats.ReceivedBytesPerSecond));
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%zu", client.Relevant);
+                    GraphLayout::RecordValue(std::format("network/client/{}/rttMs", client.Id), client.Stats.RttMs);
+                }
+                ImGui::EndTable();
+            }
+            ImGui::TextDisabled("%s", TrFormat("Mijoz jarayonlari: {}", s.Processes.size()).c_str());
+        }
         // ---- Play with clients
         ImGui::SeparatorText(Tr("Mijozlar bilan o'ynash###Play with clients"));
         const bool running = s.Session != nullptr;
@@ -182,56 +232,6 @@ namespace Zamin {
         ImGui::TextDisabled("%s", Tr("Xostning chiquvchi paketlariga darhol; mijoz jarayonlariga ular ishga tushganda"));
         GraphLayout::RecordValue("network/conditioner", c.Describe());
 
-        // ---- The session
-        ImGui::SeparatorText(Tr("Sessiya###Session"));
-        if (!s.Session)
-        {
-            ImGui::TextDisabled("%s", Tr("Tarmoq sessiyasi yo'q (Play bosing)"));
-            GraphLayout::RecordValue("network/clients", 0.0);
-            GraphLayout::RecordValue("network/role", "none");
-        }
-        else
-        {
-            const auto stats = s.Session->GetStats();
-            const auto clients = s.Session->GetClients();
-            const size_t connected = size_t(std::count_if(clients.begin(), clients.end(), [](const Net::SessionClient& x) { return x.Connected; }));
-            ImGui::Text("%s", TrFormat("Xost, port {} | tick {} | {} obyekt | {} mijoz", s.Session->GetLocalAddress().Port, stats.Tick, stats.NetworkedEntities, connected).c_str());
-            ImGui::Text("%s", TrFormat("Tick: {:.3f} ms (o'rtacha {:.3f}, eng ko'p {:.3f})", stats.TickMs, stats.AverageTickMs, stats.MaxTickMs).c_str());
-            ImGui::Text("%s", TrFormat("Snapshotlar: {} ({:.1f} KB), RPC: {} yuborildi, {} keldi, {} rad etildi", stats.SnapshotsSent, KB(double(stats.SnapshotBytes)),
-                                       stats.RpcsSent, stats.RpcsReceived, stats.RpcsRejected).c_str());
-            GraphLayout::RecordValue("network/role", "host");
-            GraphLayout::RecordValue("network/clients", double(connected));
-            GraphLayout::RecordValue("network/entities", double(stats.NetworkedEntities));
-            GraphLayout::RecordValue("network/rpcsReceived", double(stats.RpcsReceived));
-            if (ImGui::BeginTable("clients", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit))
-            {
-                for (const char* column : { "ID", "Address", "RTT", "Loss", "Down KB/s", "Up KB/s", "Entities" }) ImGui::TableSetupColumn(column);
-                ImGui::TableHeadersRow();
-                for (const auto& client : clients)
-                {
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%u%s", client.Id, client.Connected ? "" : " (lost)");
-                    GraphLayout::RecordKey(std::format("client/{}", client.Id));
-                    ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(client.Peer.ToString().c_str());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.0f ms", client.Stats.RttMs);
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.1f%%", client.Stats.LossPercent);
-                    // (down / up: the client's view - what the server sends it is its download)
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.2f", KB(client.Stats.SentBytesPerSecond));
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.2f", KB(client.Stats.ReceivedBytesPerSecond));
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%zu", client.Relevant);
-                    GraphLayout::RecordValue(std::format("network/client/{}/rttMs", client.Id), client.Stats.RttMs);
-                }
-                ImGui::EndTable();
-            }
-            ImGui::TextDisabled("%s", TrFormat("Mijoz jarayonlari: {}", s.Processes.size()).c_str());
-        }
         // ---- Log
         if (s.Session && ImGui::CollapsingHeader(Tr("Sessiya jurnali###Session log"), ImGuiTreeNodeFlags_DefaultOpen))
         {

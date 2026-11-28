@@ -196,7 +196,7 @@
       "Entity": 9300000000000009,
       "Tag": "Scoreboard",
       "Transform": {
-        "Translation": [-11.0, 6.95, 0.0],
+        "Translation": [-11.0, 7.45, 0.0],
         "Rotation": [0.0, 0.0, 0.0],
         "Scale": [0.5, 0.5, 1.0]
       },

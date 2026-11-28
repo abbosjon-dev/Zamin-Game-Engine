@@ -8,7 +8,7 @@ The gameplay code of these six games is in C++ scripts (`Projects/<Game>/Source/
 from code (`Tools/samples/gen_<game>.py`, [Tools/samples/README.md](../Tools/samples/README.md)). The pictures below come from the real
 game, taken headless in `ZaminPlayer` (a bot is playing).
 
-- [Two vertical slices](#two-vertical-slices-lantern-keeper-and-beacon-pass) · [Six new games](#six-new-games) · [The older samples](#the-older-samples)
+- [Two vertical slices](#two-vertical-slices-lantern-keeper-and-beacon-pass) · [Six new games](#six-new-games) · [Net Arena (networking)](#net-arena-networking) · [The older samples](#the-older-samples)
 - [Common to all of them](#common-to-all-of-them): [menus](#menus), [records (SaveData)](#records-savedata),
   [controls: input actions and gamepad](#controls-input-actions-and-gamepad), [demo mode](#demo-mode)
 - [Tests](#tests) · [Checking by exporting](#checking-by-exporting) · [Performance](#performance)
@@ -132,6 +132,28 @@ handbrake drift, slowing down on grass. **Shows:** a `.obj` track made by the ge
 collisions, wheel smoke, an engine and skid sound (its pitch follows the speed). **Record:** the best
 lap time.
 
+## Net Arena (networking)
+
+![Net Arena](images/game-netarena.jpg)
+
+`Projects/NetArena` ([Networking.md](Networking.md), generator `Tools/samples/gen_netarena.py`, C++ in
+`Projects/NetArena/Source/NetArena.cpp`): a 2D arena for 2+ players. Each player moves its square with predicted movement (a
+`Predict` Network Transform: WASD / the left stick), collects coins with **Space** - a server RPC the server checks (the coin must
+be within reach of where the server has the player) before it adds to the replicated score and multicasts a burst effect - and can
+sound a horn with **H** (a graph RPC). The C++ `ArenaDirector` keeps six coins on the field (networked spawns) and shows the
+scoreboard and the connection (RTT, loss, KB/s); the `ArenaRules` graph spawns a player for every client that connects
+(`Net.Spawn`), counts the joins in a replicated variable with an `Event.Rep`, and has the `Horn` server RPC (any client) that
+multicasts `Honk`. Alone (Play, `ZAMIN_DEMO=1`) it is its own server with one player.
+
+```bash
+./build/bin/ZaminPlayer Projects/NetArena --server                          # a dedicated server (port 7777)
+./build/bin/ZaminPlayer Projects/NetArena --connect 127.0.0.1:7777          # a player (start it again for more)
+./build/bin/ZaminPlayer Projects/NetArena --connect 127.0.0.1:7777 --net-bot --net-conditioner latency=50,jitter=10,loss=5
+```
+
+Tests: `ctest -R SampleNetArena` (alone, the bot collects coins), `ctest -R NetworkIntegration` (a server and two bot clients as
+processes, one killed and resumed), `Tests/network_editor_test.py` (the editor's Play with 3 players).
+
 ## The older samples
 
 | Platformer2D | Showcase3D | Adventure3D |
@@ -207,6 +229,7 @@ level. With a fixed frame time (`ZAMIN_CAPTURE_FPS=20`) the bot plays the same o
 | `menus` | keyboard: main menu → game → pause → resume → pause → main menu (in some, the results window too) |
 | `gamepad` | the gamepad only (simulated: `ZAMIN_PLAYER_INPUT` `pad=A`, `stick=LeftX,0.8`): the game with A, the game's own controls (stick, buttons, triggers), the pause with Start, the main menu with D-pad + A; the hints switch to the gamepad (`Input device: gamepad`) and the game has a result (a shot was fired, a brick broke, a level was solved, a distance) |
 | `smoke` | the older samples start and render a picture |
+| `demo` (NetArena) | alone (its own server): the bot collects at least three coins through the Collect RPC; the burst effect runs |
 
 ```bash
 python3 Tests/samples_test.py --game Racing                # all the cases of one game

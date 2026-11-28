@@ -263,6 +263,12 @@ they register once). An instance method runs on the live instance of its class o
 stops the calling graph with its message. Like classes, the methods come and go with the module: after a hot reload a
 graph re-binds them and marks the ones that changed.
 
+**Networking** ([Networking.md](Networking.md#4-c-scripts)): next to the fields and methods, `ZM_REPLICATED(Class, Field)` (the
+server sends the field to the clients) and `ZM_REPLICATED_NOTIFY(Class, Field, Callback)` (and calls `Callback()` on a client when
+a new value arrived), and the RPCs `ZM_SERVER_RPC`, `ZM_CLIENT_RPC`, `ZM_MULTICAST_RPC` (with `.Unreliable()`, `.AnyClient()`),
+called with `Net::CallRpc(*this, "Method", args...)`. `Net::IsServer(*this)`, `Net::IsOwner(*this)`, `Net::Spawn`, `Net::Despawn`
+come from `Zamin/Network/Net.h` (in `Zamin/Zamin.h`).
+
 ## 5. The life cycle
 
 | Callback | When it is called |

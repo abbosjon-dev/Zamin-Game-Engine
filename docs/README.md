@@ -24,7 +24,7 @@ The home page is the [README](../README.md).
 | [Editor.md](Editor.md) | The editor: the launcher, windows, menus, the viewport, the inspector, the content browser, Play mode, shortcuts, automation |
 | [FAQ.md](FAQ.md) | Frequently asked questions and problems — with the engine's real messages |
 | [Features.md](Features.md) | The full, detailed list of features (editor, engine), the editor controls, the roadmap |
-| [Samples.md](Samples.md) | The sample games gallery: pictures of nine games, what they show, records, controls and gamepad, tests, export, performance |
+| [Samples.md](Samples.md) | The sample games gallery: pictures of ten games, what they show, records, controls and gamepad, tests, export, performance |
 
 ## Making a game
 
@@ -55,6 +55,7 @@ The home page is the [README](../README.md).
 | [ProjectSettings.md](ProjectSettings.md) | Project settings: the player window, quality levels, graphics, time, physics, audio, input, tags, localization |
 | [Core.md](Core.md) | Math and utilities: geometry, noise, splines, colours, Random, the job system, logging, asserts, the file system |
 | [Runtime.md](Runtime.md) | Zamin Player: start-up, the command line, the precedence of settings, log and crash files, the game menu sample |
+| [Networking.md](Networking.md) | Multiplayer: the UDP transport, server-authoritative replication, prediction and interpolation, C++ and graph RPCs, the dedicated server, Play with clients and the Network panel, the security model and what is not done |
 
 ## Build, export and distribution
 

@@ -248,18 +248,20 @@ An error stops that graph instance and is printed to the console/debug panel.
 
 ## Saving, C++ and export
 
-`.zgraph` files are format version 6: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
+`.zgraph` files are format version 7: version 2 added the `Enums` section and the `Enum` key of enum-typed pins, variables and locals;
 version 3 added the `Structs` section (each struct's `Fields`: name, type, default and, for an enum field, `Enum`) and the `Struct` key
 of struct-typed pins, variables and locals; version 4 added the `Macros` section (each macro's `Inputs`/`Outputs`, `Exec` pins
 included), the `Macro` key of a macro's body nodes, the `ArrayEnum` type and struct fields of struct type; version 5 added the `Curve`
 type (its literals: `{"Keys": [{"Time", "Value", "Mode", "In", "Out"}, ...]}`), the `Parent` path, the `Renames` log and the
 Parent.Call/Parent.Event nodes; version 6 added the `Natives` section (the signatures of the C++ methods the graph's
-`Native.Call`/`Native.Pure` nodes call: `Static`, `Pure`, `Inputs`, `Outputs`, `Tooltip`; only the ones in use are saved). A child's
-file holds only its own members. Version 1-5 files load unchanged, including legacy Function/Call nodes, typed functions, enums,
-structs, macros, curves and parents; the window header says `(format 5: saving writes format 6)` until the graph is saved. An enum
+`Native.Call`/`Native.Pure` nodes call: `Static`, `Pure`, `Inputs`, `Outputs`, `Tooltip`; only the ones in use are saved); version 7
+added networking (the `Rpcs` section - each RPC's `Kind`, `Reliable`, `AnyClient`, `Params` -, the `Replicated` key of a variable and
+the [networking nodes](#networking)). A child's file holds only its own members. Version 1-6 files load unchanged, including legacy
+Function/Call nodes, typed functions, enums, structs, macros, curves, parents and native calls; the window header says `(format 6:
+saving writes format 7)` until the graph is saved. An enum
 type in a version 1 file, a struct type in a version 1 or 2 file, macros, enum arrays or nested struct fields in a version 1-3 file,
-curves, a parent, renames or Parent nodes in a version 1-4 file, native method calls in a version 1-5 file, or a newer version is
-rejected.
+curves, a parent, renames or Parent nodes in a version 1-4 file, native method calls in a version 1-5 file, RPCs, replicated
+variables or networking nodes in a version 1-6 file, or a newer version is rejected.
 
 A graph runs in the engine's existing `NativeScriptComponent` lifecycle through the built-in `Zamin.VisualGraph` host.
 That is why either C++ or a visual graph is attached to an entity's single script slot. On an entity with a C++ script the attach button says clearly that it replaces it.
@@ -269,8 +271,8 @@ The enumerated Number pins of the gameplay nodes (AbilityDefine/ProjectileDefine
 EffectDefine Tick/Stacking, AreaDefine Falloff, UIBindHUD Kind, the equipment Slot) show up in the node inspector as a named list
 (a combo, `Visual::PinChoices`) and the index is saved as a plain number; while playing the inspector also shows the
 [combat state](GameplayCombat.md#editor-authoring) of the selected actor.
-Network RPC/replication nodes (the engine has no networking layer yet) and native code generation from graphs are separate
-development stages. Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays),
+Native code generation from graphs is a separate development stage; networking (graph RPCs, replicated variables, the
+`Net.*` nodes) is in [Networking](#networking). Typed functions, collapse to function, enums (with enum arrays), graph structs (nested, with struct arrays),
 inline macros, curves, graph inheritance, native method calls, the bytecode cook, the VM profiler and the array types above are part
 of this one.
 
@@ -318,8 +320,8 @@ The export compiles every `.zgraph` of the game (Export settings `CookGraphs`, o
 it over the exported `.zgraph` (`ExportCook::CookGraphs`, `Scripting/Visual/VisualGraphBytecode.h`). The program is the graph as the
 VM runs it: validated with exactly the runtime's checks (`Machine::Prepare` — a graph the Player would reject is not cooked: it stays
 JSON, the export report lists it as `rejected` with the first error, and its parents stay JSON too), the parent chain resolved, macros
-expanded, one pin description per distinct node shape, the node literals, the wires as indices, the native method signatures and the
-macro/parent origins that error messages name. Positions and breakpoints are dropped.
+expanded, one pin description per distinct node shape, the node literals, the wires as indices, the native method signatures, the
+network RPCs and the replicated flags of variables (bytecode format 2) and the macro/parent origins that error messages name. Positions and breakpoints are dropped.
 
 The format: `ZGBC`, a format version, the hash of the engine's node catalogue (a program of another engine version is refused: export
 again), an FNV-1a hash of the payload and its size, then a string table and the sections (tagged values: null, bool, integers,
@@ -332,6 +334,31 @@ catalogue: an unchanged graph is not compiled again. `export-report.txt/json` an
 VisualWorkshop's eight graphs: 47 KB of JSON → 10 KB of bytecode (4.6x smaller). The large generated graphs of `ZaminBench --graphs`
 (Release, about 4000 nodes): 0.7-1.0 MB → 59-74 KB (10-17x smaller), and loading the VM from the cooked file takes 1.9-2.9 ms against
 26-76 ms from the JSON source ([Benchmarks](Benchmarks.md#large-visual-script-graphs-zaminbench---graphs)).
+
+## Networking
+
+Graphs take part in a networked game ([Networking.md](Networking.md)) with format 7:
+
+- **Graph RPCs**: the **Network RPCs** section of the properties column defines them - a name, the kind (**Server**: a client calls
+  it, the server runs it, for the graph's entity the client owns or for any entity with **Any client**; **Client**: the server calls
+  it, the entity owner's client runs it; **Multicast**: the server calls it, the server and every client the entity is relevant to
+  run it), **Reliable** and typed parameters. `Event.Rpc` (Name) handles one - its outputs are `Sender` (the calling client, 0 for the
+  server) and the parameters -, `Net.CallServerRpc` / `Net.CallClientRpc` / `Net.CallMulticastRpc` (Name) call one - their inputs are
+  the parameters. The node library lists **Network RPC / Call ... RPC <name>** and **On RPC <name>** for every RPC; renaming a
+  parameter keeps the wires and literals of its nodes, changing the kind changes the call nodes, deleting an RPC deletes its nodes
+  (all undoable). The arguments are checked against the parameter types when they arrive; a wrong one is refused and counted.
+- **Replicated variables**: the **Replicated** toggle of a variable makes the server send its value to the clients (delta-compressed
+  with the entity's snapshot); `Event.Rep` (Name: the variable) runs on a client when a value that differs arrives.
+- **Role and ownership**: `Net.IsServer`, `Net.IsClient`, `Net.IsOwner` (Target), `Net.LocalClient`, `Net.OwnerOf` (Target),
+  `Net.OwnedEntity` (Client). Without a session the graph is its own server (`Net.IsServer` true, RPCs run at once).
+- **Connections and spawns** (server): `Event.ClientConnected` / `Event.ClientDisconnected` (Client; the editor's host is client 0),
+  `Net.Spawn` (Path, Position, Owner → the entity; nothing on a client), `Net.Despawn` (Target).
+
+Validation: an unknown RPC, the call node of another kind, two handlers of one RPC, `Event.Rep` of a variable that is not
+replicated, reserved (`Name`, `Sender`, `In`, `Then`) or duplicate parameter names, more than 32 RPCs / 16 parameters / 64
+replicated variables. NetArena's `ArenaRules.zgraph` spawns a player for every client that connects, counts the joins in a
+replicated variable (its `Event.Rep` prints `BLUEPRINT_NET joins=N` on the clients), and has a server RPC `Horn` any client may
+call (H) that multicasts `Honk`. Tests: `ZaminTests --filter NetGraph`, `Tests/network_editor_test.py`.
 
 ## Profiling large graphs
 

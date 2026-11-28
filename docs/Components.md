@@ -2251,6 +2251,53 @@ _In the inspector: **Sub-scene**; add with: **+ Component → Other → Sub-scen
 | `ShowInEditor` | `bool` | `true` |
 <!-- /gen:SubSceneComponent -->
 
+### NetworkIdentityComponent
+
+Makes the entity part of a networked game ([Networking.md](Networking.md)): the server gives it a network id
+(`NetId`) and an owner (`Owner`: a client id, 0 - the server) and sends its transform and the replicated values of its
+script (`ZM_REPLICATED` fields, graph variables marked **Replicated**) to every client it is relevant to - within
+`RelevanceRadius` of the client's own entity (0: the session's radius), or always with `AlwaysRelevant`. An entity
+that comes with the scene is matched by UUID on both sides; one spawned at runtime comes from its prefab
+(`Net::Spawn`, the **Net.Spawn** node). A client hides a scene object that is not relevant to it. Clients cannot
+change it: they send input and server RPCs for the entities they own. **Network Identity** in the inspector.
+
+<!-- gen:NetworkIdentityComponent -->
+_In the inspector: **Network Identity**; add with: **+ Component → Other → Network Identity (a networked object)**; in the scene file: `"NetworkIdentity"`._
+
+| Field | Type | Default |
+|---|---|---|
+| `AlwaysRelevant` | `bool` | `false` |
+| `RelevanceRadius` | `float` | `0.0f` |
+| `NetId` _(runtime only)_ | `uint32_t` | `0` |
+| `Owner` _(runtime only)_ | `uint32_t` | `0` |
+| `Prefab` _(runtime only)_ | `std::string` | — |
+| `SceneObject` _(runtime only)_ | `bool` | `false` |
+<!-- /gen:NetworkIdentityComponent -->
+
+### NetworkTransformComponent
+
+How a networked entity's transform moves on the clients. `Interpolate`: every client shows it `InterpolationDelay`
+seconds behind the server, smoothly between the snapshots. `Predict`: its owner's input (`MoveAction`, an input vector
+of the project's input map, at `MoveSpeed` in the `Plane`, optionally clamped to `BoundsMin`/`BoundsMax`) moves it on
+the server at the fixed tick; the owning client moves it at once and reconciles when the server's state arrives (the
+inputs the server has not processed yet are replayed); the other clients interpolate it. **Network Transform** in the
+inspector.
+
+<!-- gen:NetworkTransformComponent -->
+_In the inspector: **Network Transform**; add with: **+ Component → Other → Network Transform (interpolated / predicted)**; in the scene file: `"NetworkTransform"`._
+
+| Field | Type | Default |
+|---|---|---|
+| `Mode` | `SyncMode` | `SyncMode::Interpolate` |
+| `MoveAction` | `std::string` | `"Move"` |
+| `MoveSpeed` | `float` | `5.0f` |
+| `Plane` | `MovePlane` | `MovePlane::XY` |
+| `ClampToBounds` | `bool` | `false` |
+| `BoundsMin` | `glm::vec2` | `{ -10.0f, -10.0f }` |
+| `BoundsMax` | `glm::vec2` | `{ 10.0f, 10.0f }` |
+| `InterpolationDelay` | `float` | `0.1f` |
+<!-- /gen:NetworkTransformComponent -->
+
 ### EditorMetadataComponent
 
 For the editor only: the eye of the hierarchy (`Hidden` — not drawn in the editor) and the lock (`Locked` — cannot be

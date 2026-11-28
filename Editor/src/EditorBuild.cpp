@@ -53,7 +53,7 @@ namespace Zamin {
         const bool ninja = RunProcess({ "ninja", "--version" }).Succeeded();
         const bool needsConfigure = !fs::exists(buildDir / "CMakeCache.txt");
         std::vector<std::string> configure{ "cmake", "-S", projectDir.string(), "-B", buildDir.string(),
-            "-DCMAKE_BUILD_TYPE=Release", "-DZamin_DIR=" + engineCMakeDir.string() };
+            "-DCMAKE_BUILD_TYPE=Release", "-DZamin_DIR=" + engineCMakeDir.string(), "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" };
         if (ninja) { configure.push_back("-G"); configure.push_back("Ninja"); }
         const fs::path compilerCache = engineCMakeDir / "ZaminModuleCompiler.cmake";
         if (fs::is_regular_file(compilerCache))

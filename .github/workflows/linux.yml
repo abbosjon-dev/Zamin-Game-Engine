@@ -18,11 +18,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # clangd: the code editor's semantic features (ctest ClangdLsp and the code editor GUI test run it; without it they
+      # print SKIP and pass).
       - name: Install dependencies
         run: |
           Tests/install_linux_dependencies.sh ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils \
-            libgl1-mesa-dri libglx-mesa0 xdotool imagemagick
+            libgl1-mesa-dri libglx-mesa0 xdotool imagemagick clangd
 
       - name: Configure
         env:

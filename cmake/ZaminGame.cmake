@@ -49,7 +49,9 @@ function(zamin_add_game_module name)
         LIBRARY_OUTPUT_DIRECTORY ${output_dir}
         LIBRARY_OUTPUT_DIRECTORY_DEBUG ${output_dir}
         LIBRARY_OUTPUT_DIRECTORY_RELEASE ${output_dir}
-        POSITION_INDEPENDENT_CODE ON)
+        POSITION_INDEPENDENT_CODE ON
+        # compile_commands.json for the code editor's clangd (CodeIntelligence: include folders and flags).
+        EXPORT_COMPILE_COMMANDS ON)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         # Without this, GCC's STB_GNU_UNIQUE symbols prevent dlclose() from
         # unloading the module, which breaks hot reload.

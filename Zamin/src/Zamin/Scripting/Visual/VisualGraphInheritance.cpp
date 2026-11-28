@@ -35,6 +35,7 @@ namespace Zamin::Visual {
         if (kind == "Enum") return Inherited.Enums.contains(name);
         if (kind == "Struct") return Inherited.Structs.contains(name);
         if (kind == "Macro") return Inherited.Macros.contains(name);
+        if (kind == "RPC") return Inherited.Rpcs.contains(name);
         if (kind == "Event") return Inherited.Events.contains(name);
         return false;
     }

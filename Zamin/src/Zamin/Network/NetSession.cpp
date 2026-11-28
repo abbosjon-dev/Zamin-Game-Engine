@@ -458,7 +458,9 @@ namespace Zamin::Net {
             std::deque<Sample> Samples;
             FieldValues Applied;
             std::vector<bool> Written;
+            bool SceneObject = false, Hidden = false; // a scene object out of this client's interest is hidden, not destroyed
         };
+        std::set<uint32_t> Gone; // removed because the server destroyed them (not just out of interest)
         std::map<uint32_t, Local> Locals;
         struct Input
         {
@@ -751,7 +753,7 @@ namespace Zamin::Net {
         if (m_Role == Role::Client)
         {
             auto it = m_Impl->Locals.find(netId);
-            return it == m_Impl->Locals.end() ? Entity() : m_Scene->GetEntityByUUID(it->second.Uuid);
+            return it == m_Impl->Locals.end() || it->second.Hidden ? Entity() : m_Scene->GetEntityByUUID(it->second.Uuid);
         }
         auto it = m_Impl->Entities.find(netId);
         return it == m_Impl->Entities.end() ? Entity() : m_Scene->GetEntityByUUID(it->second);
@@ -1158,7 +1160,12 @@ namespace Zamin::Net {
                     }
                     WorldState state = baseline ? *baseline : empty;
                     const size_t removed = in.Count(65536);
-                    for (size_t i = 0; i < removed && in.Ok(); ++i) state.erase(uint32_t(in.VarU(32)));
+                    for (size_t i = 0; i < removed && in.Ok(); ++i)
+                    {
+                        const uint64_t code = in.VarU(33); // network id << 1 | destroyed on the server
+                        if (code & 1) s.Gone.insert(uint32_t(code >> 1));
+                        state.erase(uint32_t(code >> 1));
+                    }
                     const size_t entries = in.Count(65536);
                     for (size_t i = 0; i < entries && in.Ok(); ++i)
                     {
@@ -1260,12 +1267,18 @@ namespace Zamin::Net {
                                 continue;
                             }
                             local.Uuid = ent.GetUUID();
+                            local.SceneObject = st->SceneId != 0;
                             local.Applied.assign(st->Fields.size(), json());
                             local.Written.assign(st->Fields.size(), false);
                             auto& t = ent.GetComponent<TransformComponent>();
                             t.Translation = st->Position;
                             t.Rotation = st->Rotation;
                             t.Scale = st->Scale;
+                        }
+                        if (local.Hidden)
+                        {
+                            ent.SetActive(true); // back in this client's interest
+                            local.Hidden = false;
                         }
                         auto& id = ent.GetComponent<NetworkIdentityComponent>();
                         id.NetId = netId;
@@ -1296,7 +1309,18 @@ namespace Zamin::Net {
                             ++it;
                             continue;
                         }
-                        if (Entity ent = it->second.Uuid ? m_Scene->GetEntityByUUID(it->second.Uuid) : Entity()) m_Scene->DestroyEntityDeferred(ent);
+                        Entity ent = it->second.Uuid ? m_Scene->GetEntityByUUID(it->second.Uuid) : Entity();
+                        if (ent && it->second.SceneObject && !s.Gone.contains(it->first))
+                        {
+                            // Out of interest: the scene's own entity waits, hidden, until it is relevant again.
+                            if (!it->second.Hidden) ent.SetActive(false);
+                            it->second.Hidden = true;
+                            it->second.Samples.clear();
+                            ++it;
+                            continue;
+                        }
+                        if (ent) m_Scene->DestroyEntityDeferred(ent);
+                        s.Gone.erase(it->first);
                         it = s.Locals.erase(it);
                     }
                 }
@@ -1522,6 +1546,9 @@ namespace Zamin::Net {
         }
         s.Current = world;
         s.Stats.NetworkedEntities = world.size();
+        std::map<uint32_t, glm::vec3> views; // client -> the position of its first entity (where is ordered by network id)
+        for (const auto& [netId, info] : where)
+            if (info.second->Owner) views.try_emplace(info.second->Owner, info.first);
         if (m_Settings.StateLogEvery && s.Tick % m_Settings.StateLogEvery == 0) ZM_CORE_INFO("{}", StateLine(s.Tick, world));
         size_t replicated = 0;
         for (auto& [client, r] : s.Clients)
@@ -1536,15 +1563,16 @@ namespace Zamin::Net {
                         baseline = &h.second;
                         baseTick = h.first;
                     }
-            // Interest: what is near the client's own entity (or everything while it has none).
-            Entity view = OwnedEntity(client);
-            const bool hasView = (bool)view;
-            const glm::vec3 viewAt = hasView ? view.GetComponent<TransformComponent>().Translation : glm::vec3(0.0f);
+            // Interest: what is near the client's own entity (its first: the lowest network id), or everything while
+            // it has none.
+            auto view = views.find(client);
+            const bool hasView = view != views.end();
+            const glm::vec3 viewAt = hasView ? view->second : glm::vec3(0.0f);
             std::vector<uint32_t> relevant;
             for (const auto& [netId, info] : where)
             {
                 const auto* id = info.second;
-                bool keep = !hasView || id->AlwaysRelevant || id->SceneObject || id->Owner == client;
+                bool keep = !hasView || id->AlwaysRelevant || id->Owner == client;
                 if (!keep)
                 {
                     float radius = id->RelevanceRadius > 0 ? id->RelevanceRadius : m_Settings.RelevanceRadius;
@@ -1652,7 +1680,7 @@ namespace Zamin::Net {
             msg.VarU(baseTick);
             msg.VarU(r.LastInput);
             msg.VarU(removed.size());
-            for (uint32_t netId : removed) msg.VarU(netId);
+            for (uint32_t netId : removed) msg.VarU((uint64_t(netId) << 1) | (world.contains(netId) ? 0u : 1u));
             msg.VarU(count);
             msg.Bytes(entries.Data().data(), entries.Size());
             if (s.Server->Send(client, msg.Data(), false))

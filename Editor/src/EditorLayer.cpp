@@ -4,6 +4,7 @@
 #include <Zamin/Scene/TerrainStreaming.h>
 #include "EditorSmokeTest.h"
 #include "Panels/WorldStreamingPanel.h"
+#include "Panels/NetworkPanel.h"
 #include "UI.h"
 
 #include <Zamin/Utils/PlatformUtils.h>
@@ -393,6 +394,7 @@ namespace Zamin {
 
     void EditorLayer::OnDetach()
     {
+        NetworkPlayStopped(); // (client processes of a Play left running)
         m_CodeEditorPanel.FlushRecovery();
         // ZAMIN_EDITOR_PANEL_TIMES: what the hierarchy's list and the content browser's grid took per
         // frame (automation: their clippers measured on a large scene / folder).
@@ -5104,6 +5106,8 @@ namespace Zamin {
         m_RuntimeReportSerial = m_RuntimeScenes->GetLoadReportSerial();
         m_SceneHierarchyPanel.SetSceneManager(m_RuntimeScenes.get());
         LoadPlayAdditiveScenes();
+        // Play with clients (the Network panel): the editor hosts, the client processes join.
+        NetworkPlayStarted(*m_ActiveScene, m_EditorScenePath);
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
     }
@@ -5143,6 +5147,7 @@ namespace Zamin {
 
     void EditorLayer::OnSceneStop()
     {
+        NetworkPlayStopped(); // the host session and the client processes end first
         // The game has switched scenes (or the hierarchy shows another of its scenes): the edit scene
         // comes back as it was left - its selection and the editor camera's view.
         bool restoreView = false;
@@ -6384,6 +6389,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Terrain();
         DrawWorldStreamingPanel(m_RuntimeScenes.get());
+        DrawNetworkPanel();
         if (auto requested = TakeWorldSceneRequest(); !requested.empty()) OpenScene(requested);
         {
             ZM_PROFILE_SCOPE("Statistics panel");
@@ -6689,6 +6695,7 @@ namespace Zamin {
             ImGui::MenuItem(Tr(ICON_FA_TABLE_CELLS "  Plitka palitrasi"), nullptr, &m_ShowTilePalette);
             ImGui::MenuItem(Tr("Map tayyorlash (Terrain)"), nullptr, &m_ShowTerrain);
             ImGui::MenuItem("World Streaming", nullptr, WorldStreamingPanelOpen());
+            ImGui::MenuItem(Tr(ICON_FA_CIRCLE_NODES "  Tarmoq"), nullptr, NetworkPanelOpen());
             if (ImGui::MenuItem(Tr(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi"), ShortcutLabel(EditorShortcut::UndoHistory), &m_ShowUndoHistory) && m_ShowUndoHistory)
                 m_UndoHistoryScroll = true;
             ImGui::Separator();

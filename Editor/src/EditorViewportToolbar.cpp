@@ -3,6 +3,7 @@
 // settings) and the view options (2D, grid, view modes, colliders, debug drawing, the statistics
 // overlay, icons and gizmos, entity names, local / global, maximize on play).
 #include "EditorLayer.h"
+#include "Panels/VisualGraphLayout.h"
 #include "UI.h"
 
 #include <imgui.h>
@@ -165,6 +166,7 @@ namespace Zamin {
             if (UI::ToolbarButton(m_SceneState == SceneState::Play ? ICON_FA_STOP : ICON_FA_PLAY,
                                   m_SceneState == SceneState::Play ? "To'xtatish (Ctrl+P)" : "O'ynash (Ctrl+P)", false, size))
                 m_SceneState == SceneState::Play ? OnSceneStop() : OnScenePlay();
+            GraphLayout::RecordRect("toolbar/Play", ImGui::GetItemRectMin(), ImGui::GetItemRectMax()); // (GUI tests)
             ImGui::PopStyleColor();
             ImGui::SameLine();
 

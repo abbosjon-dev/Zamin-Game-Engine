@@ -1,0 +1,18 @@
+{
+  "Build": "Release",
+  "Clients": 64,
+  "Entities": 1000,
+  "Seconds": 5,
+  "RelevanceRadius": 30,
+  "SnapshotBudget": 900,
+  "Results": {
+    "ServerFrameMs": { "Ms": 5.9654 },
+    "ServerFrameP95Ms": { "Ms": 7.2596 },
+    "SessionTickMs": { "Ms": 5.7118 },
+    "SessionTickP95Ms": { "Ms": 6.9611 },
+    "ClientFrameMs": { "Ms": 1.0809 },
+    "BytesPerClientPerSecond": { "Value": 27756, "Unit": "B" },
+    "EntitiesPerClient": { "Value": 105.2, "Unit": "entities" }
+  },
+  "Invariants": { "Connected": true, "Interest": true, "SnapshotsEveryTick": true, "PositionsMatch": true }
+}

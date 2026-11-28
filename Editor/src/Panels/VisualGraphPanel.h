@@ -66,6 +66,9 @@ namespace Zamin {
         void Enums();
         void Structs();
         void Macros();
+        // Network RPCs (format 7): defined in the graph, handled by Event.Rpc, called by the Net.Call*Rpc nodes.
+        void NetworkRpcs();
+        char m_RpcName[65]{ "Shoot" };
         // The parent graph (set/clear), the inherited events (override) and the parent chain.
         void Inheritance();
         // Loads the parent chain again (after open, undo/redo and a parent change): inherited members are refreshed.

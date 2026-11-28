@@ -681,7 +681,9 @@ namespace Zamin {
             m_Error.clear();
         }
         ImGui::SameLine();
-        if (ImGui::Button(Tr("Saqlash###Save")))
+        const bool save = ImGui::Button(Tr("Saqlash###Save"));
+        GraphLayout::RecordRect("header/Save", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        if (save)
         {
             if (m_Path.empty() || !FileSystem::IsSubPathOnDisk(m_Path, Project::GetAssetDirectory())) m_Error = "Choose a path inside Assets.";
             else if (m_Graph.Save(m_Path))
@@ -842,6 +844,22 @@ namespace Zamin {
         for (const auto& [name, macro] : m_Graph.Macros)
             if (name != m_Macro && matches("macro.instance " + name) && ImGui::Selectable((std::string(Tr("Makroslar")) + " / " + name).c_str()))
                 addNode("Macro.Instance", { { "Name", name } });
+        // Then the graph's network RPCs: the call node of each (by its kind) and its handler, found by "rpc" or the name.
+        for (const auto& [name, rpc] : m_Graph.Rpcs)
+        {
+            const std::string call = Visual::RpcCallKind(rpc.Kind);
+            const std::string label = std::string(Tr("Tarmoq RPC")) + " / " + Tr("Chaqirish") + " " + Visual::RpcTargetName(rpc.Kind) + " RPC " + name;
+            if (matches("rpc " + call + " " + name))
+            {
+                if (ImGui::Selectable(label.c_str())) addNode(call, { { "Name", name } });
+                GraphLayout::RecordRect("palette/rpc/" + name + "/call", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            }
+            if (m_Macro.empty() && matches("rpc event.rpc on " + name))
+            {
+                if (ImGui::Selectable((std::string(Tr("Tarmoq RPC")) + " / On RPC " + name).c_str())) addNode("Event.Rpc", { { "Name", name } });
+                GraphLayout::RecordRect("palette/rpc/" + name + "/event", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            }
+        }
         // Then the C++ methods and free functions of the loaded game module.
         NativePalette(matches);
         for (auto& [key, def] : Visual::Catalog())
@@ -857,6 +875,23 @@ namespace Zamin {
                 std::map<std::string, Visual::Value> inputs;
                 if (key.starts_with("Function.")) inputs["Name"] = m_Graph.Functions.empty() ? "MyFunction" : m_Graph.Functions.begin()->first;
                 if (key == "Macro.Instance" && !m_Graph.Macros.empty()) inputs["Name"] = m_Graph.Macros.begin()->first;
+                // Networking: an RPC node starts with the graph's first RPC of its kind, Event.Rep with the first
+                // replicated variable.
+                if (key == "Event.Rpc" && !m_Graph.Rpcs.empty()) inputs["Name"] = m_Graph.Rpcs.begin()->first;
+                if (key.starts_with("Net.Call"))
+                    for (const auto& [name, rpc] : m_Graph.Rpcs)
+                        if (key == Visual::RpcCallKind(rpc.Kind))
+                        {
+                            inputs["Name"] = name;
+                            break;
+                        }
+                if (key == "Event.Rep")
+                    for (const auto& [name, variable] : m_Graph.Variables)
+                        if (variable.Replicated)
+                        {
+                            inputs["Name"] = name;
+                            break;
+                        }
                 // Call parent nodes start with the graph's first override (function / event).
                 if (key == "Parent.Call" && !m_Graph.FunctionOverrides().empty()) inputs["Name"] = *m_Graph.FunctionOverrides().begin();
                 if (key == "Parent.Event" && !m_Graph.EventOverrides().empty()) inputs["Name"] = *m_Graph.EventOverrides().begin();
@@ -1324,6 +1359,7 @@ namespace Zamin {
         Enums();
         Structs();
         Macros();
+        NetworkRpcs();
         ImGui::EndDisabled();
         ImGui::SeparatorText(Tr("Sahnadagi nusxa###Scene instance"));
         SceneInstance();
@@ -1372,6 +1408,15 @@ namespace Zamin {
             }
             ImGui::PushID(name.c_str());
             GraphLayout::PushScope(name);
+            // Networking: the server sends the value to the clients (Event.Rep runs there when a new one arrives).
+            bool replicated = v.Replicated;
+            if (ImGui::Checkbox(Tr("Tarmoqda###Replicated"), &replicated))
+            {
+                Snapshot();
+                v.Replicated = replicated;
+            }
+            GraphLayout::Record(Tr("Tarmoqda###Replicated"));
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", Tr("Server qiymatni mijozlarga yuboradi; yangi qiymat kelganda mijozda Event.Rep ishlaydi"));
             if (GraphLayout::SmallButton(Tr("Olib tashlash###Remove"))) remove = name;
             ImGui::SameLine();
             char renamed[129]{};

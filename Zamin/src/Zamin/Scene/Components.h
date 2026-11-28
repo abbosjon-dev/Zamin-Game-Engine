@@ -3390,8 +3390,9 @@ namespace Zamin {
     /// Makes the entity part of a networked game (Network/NetSession.h, docs/Networking.md): the server gives it a
     /// network id and an owner and sends its transform and its scripts' replicated fields (ZM_REPLICATED, graph
     /// variables marked Replicated) to the clients it is relevant to - within the relevance radius of the client's
-    /// own entity, or always (AlwaysRelevant; an entity that came with the scene always is). The server is the
-    /// authority: a client cannot change it, only send input and server RPCs for the entities it owns.
+    /// own entity, or always (AlwaysRelevant). A client hides a scene object that is not relevant to it (and shows it
+    /// again when it is). The server is the authority: a client cannot change it, only send input and server RPCs
+    /// for the entities it owns.
     struct NetworkIdentityComponent
     {
         bool AlwaysRelevant = false;

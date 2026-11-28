@@ -94,7 +94,7 @@ add_custom_target(update_render_references
 # particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
 # particle_bench target (--nav: the navigation benchmark, the nav_bench target).
 add_executable(ZaminBench ParticleBench.cpp NavBench.cpp PrefabBench.cpp RenderBench.cpp EcsBench.cpp SerializeBench.cpp FontBench.cpp CombatBench.cpp
-    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp FoliageBench.cpp TerrainTilesBench.cpp GraphBench.cpp)
+    PhysicsBench.cpp AnimationBench.cpp SliceStressBench.cpp FoliageBench.cpp TerrainTilesBench.cpp GraphBench.cpp NetBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 zamin_target_settings(ZaminBench)
@@ -133,7 +133,10 @@ add_test(NAME BenchSliceStressSmoke COMMAND ZaminBench --slice-stress --frames 2
 # Large Visual Script graphs (ZaminBench --graphs) at a small size: every case loads, validates, cooks, runs from the
 # source and from the cooked bytecode with the same result, and the VM profiler counts its nodes (exit code 3 otherwise).
 add_test(NAME BenchGraphsSmoke COMMAND ZaminBench --graphs --nodes 600 --repeat 2)
-set_tests_properties(BenchEcsSmoke BenchSerializeSmoke BenchCombatSmoke BenchPhysicsSmoke BenchAnimationSmoke BenchSliceStressSmoke BenchGraphsSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
+# Network replication (ZaminBench --net, Tests/NetBench.cpp) at a small size: every client connects, gets a snapshot
+# every tick, sees fewer entities than exist (interest) and has them where the server has them (exit code 3 otherwise).
+add_test(NAME BenchNetSmoke COMMAND ZaminBench --net --clients 8 --entities 200 --seconds 1)
+set_tests_properties(BenchEcsSmoke BenchSerializeSmoke BenchCombatSmoke BenchPhysicsSmoke BenchAnimationSmoke BenchSliceStressSmoke BenchGraphsSmoke BenchNetSmoke PROPERTIES LABELS "bench" TIMEOUT 600)
 add_custom_target(bench
     COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/bench.sh
     DEPENDS ZaminBench

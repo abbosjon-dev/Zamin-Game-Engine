@@ -234,7 +234,7 @@ namespace Zamin::Net {
             const std::string_view key = item.substr(0, eq), value = item.substr(eq + 1);
             float v = 0;
             if (auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), v); ec != std::errc() || ptr != value.data() + value.size() || v < 0 ||
-                                                                                               v > (key == "latency" || key == "jitter" ? 5000.0f : 100.0f))
+                                                                                               v > (key == "seed" ? 2.0e9f : key == "latency" || key == "jitter" ? 5000.0f : 100.0f))
             {
                 if (error) *error = "a value out of range: " + std::string(item);
                 return false;

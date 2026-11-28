@@ -86,6 +86,7 @@ int RunSliceStressBench(int argc, char** argv);             // SliceStressBench.
 int RunFoliageBench(int argc, char** argv);                 // FoliageBench.cpp
 int RunTerrainTilesBench(int argc, char** argv);            // TerrainTilesBench.cpp
 int RunGraphBench(int argc, char** argv);                   // GraphBench.cpp
+int RunNetBench(int argc, char** argv);                     // NetBench.cpp
 
 namespace {
 
@@ -511,6 +512,8 @@ int main(int argc, char** argv)
             return RunTerrainTilesBench(argc, argv);
         else if (!std::strcmp(argv[i], "--graphs"))
             return RunGraphBench(argc, argv);
+        else if (!std::strcmp(argv[i], "--net"))
+            return RunNetBench(argc, argv);
         else if (!std::strcmp(argv[i], "--build-atlas") && i + 2 < argc)
         {
             // A tool for the sample generators: a sprite atlas from a folder of an asset directory, with the engine's packer.

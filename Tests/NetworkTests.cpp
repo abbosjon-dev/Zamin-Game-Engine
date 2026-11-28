@@ -648,8 +648,13 @@ TEST(NetInterestManagementSpawnsAndDespawnsByDistance)
     CHECK(player && pickup);
     w.Step(20);
     const uint32_t id = pickup.GetComponent<NetworkIdentityComponent>().NetId;
-    // Out of the 15 m radius: not on the client; scene objects are always (Far at 500 m).
-    CHECK(!a.FindEntity(id) && a.FindEntity(w.ServerScene->GetEntityByUUID(UUID(World::Far)).GetComponent<NetworkIdentityComponent>().NetId));
+    // Out of the 15 m radius: not on the client; a scene object out of interest is hidden (Far at 500 m), one that
+    // is always relevant is not.
+    const uint32_t far = w.ServerScene->GetEntityByUUID(UUID(World::Far)).GetComponent<NetworkIdentityComponent>().NetId;
+    CHECK(!a.FindEntity(id) && !a.FindEntity(far) && !w.ClientScenes[0]->GetEntityByUUID(UUID(World::Far)).IsActive());
+    w.ServerScene->GetEntityByUUID(UUID(World::Far)).GetComponent<NetworkIdentityComponent>().AlwaysRelevant = true;
+    w.Step(10);
+    CHECK(a.FindEntity(far) && w.ClientScenes[0]->GetEntityByUUID(UUID(World::Far)).IsActive() && At(a.FindEntity(far)).x == 500);
     pickup.GetComponent<TransformComponent>().Translation.x = 10;
     w.Step(10);
     CHECK(a.FindEntity(id) && std::abs(At(a.FindEntity(id)).x - 10) < 1e-4f);

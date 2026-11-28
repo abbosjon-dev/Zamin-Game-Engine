@@ -23,6 +23,8 @@ namespace Zamin::Visual {
     std::string Graph::EventKey(const Node& n)
     {
         if (n.Kind == "Event.Custom") return "Custom." + NameOf(n);
+        if (n.Kind == "Event.Rpc") return "Rpc." + NameOf(n);
+        if (n.Kind == "Event.Rep") return "Rep." + NameOf(n);
         if (n.Kind.starts_with("Event.")) return n.Kind.substr(6);
         return {};
     }
@@ -48,6 +50,7 @@ namespace Zamin::Visual {
         for (const auto& name : Inherited.Enums) Enums.erase(name);
         for (const auto& name : Inherited.Structs) Structs.erase(name);
         for (const auto& name : Inherited.Macros) Macros.erase(name);
+        for (const auto& name : Inherited.Rpcs) Rpcs.erase(name);
         Inherited = {};
     }
     void Graph::LoadParent(const std::filesystem::path& assets, const std::filesystem::path& self)
@@ -159,6 +162,7 @@ namespace Zamin::Visual {
         inherit(Enums, base->Enums, Inherited.Enums);
         inherit(Structs, base->Structs, Inherited.Structs);
         inherit(Macros, base->Macros, Inherited.Macros);
+        inherit(Rpcs, base->Rpcs, Inherited.Rpcs);
         // The parent chain's native method signatures (for its nodes in the resolved graph; never saved here: a
         // graph saves the ones its own nodes use).
         for (const auto& [key, signature] : base->Natives) Natives.try_emplace(key, signature);
@@ -217,6 +221,7 @@ namespace Zamin::Visual {
         conflicts(Enums, base.Enums, Inherited.Enums, "Enum");
         conflicts(Structs, base.Structs, Inherited.Structs, "Struct");
         conflicts(Macros, base.Macros, Inherited.Macros, "Macro");
+        conflicts(Rpcs, base.Rpcs, Inherited.Rpcs, "RPC");
         return d;
     }
     std::vector<Diagnostic> Graph::Validate() const
@@ -297,6 +302,7 @@ namespace Zamin::Visual {
         r.Macros = base.Macros;
         r.Natives = base.Natives;
         for (const auto& [key, signature] : Natives) r.Natives[key] = signature;
+        r.Rpcs = base.Rpcs;
         // An overridden function: the parent's version moves to "<Parent>::<Name>" (its entry and returns follow;
         // calls keep the name and so run the override).
         std::map<std::string, std::string> hidden;
@@ -321,6 +327,7 @@ namespace Zamin::Visual {
         own_members(r.Enums, Enums, Inherited.Enums);
         own_members(r.Structs, Structs, Inherited.Structs);
         own_members(r.Macros, Macros, Inherited.Macros);
+        own_members(r.Rpcs, Rpcs, Inherited.Rpcs);
         // An overridden event: the parent's live handlers of it run only through this graph's Parent.Event nodes.
         const auto events = EventOverrides();
         std::map<std::string, std::vector<uint32_t>> handlers;

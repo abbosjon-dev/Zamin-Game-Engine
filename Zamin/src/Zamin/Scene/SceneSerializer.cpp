@@ -1373,6 +1373,14 @@ namespace Zamin {
                   { "ShowInEditor", c->ShowInEditor } };
             WriteAssetHandle(j, "Path", c->ScenePath);
         }
+        if (auto* c = entity.TryGetComponent<NetworkIdentityComponent>())
+            e["NetworkIdentity"] = { { "AlwaysRelevant", c->AlwaysRelevant }, { "RelevanceRadius", c->RelevanceRadius } };
+        if (auto* c = entity.TryGetComponent<NetworkTransformComponent>())
+            e["NetworkTransform"] = { { "Mode", c->Mode == NetworkTransformComponent::SyncMode::Predict ? "Predict" : "Interpolate" },
+                                      { "MoveAction", c->MoveAction }, { "MoveSpeed", c->MoveSpeed },
+                                      { "Plane", c->Plane == NetworkTransformComponent::MovePlane::XZ ? "XZ" : "XY" },
+                                      { "ClampToBounds", c->ClampToBounds }, { "BoundsMin", ToJson(c->BoundsMin) },
+                                      { "BoundsMax", ToJson(c->BoundsMax) }, { "InterpolationDelay", c->InterpolationDelay } };
         if (auto* c = entity.TryGetComponent<FootstepsComponent>())
         {
             json sounds = json::array();
@@ -2404,6 +2412,34 @@ namespace Zamin {
             c.LoadOnStart = j.value("LoadOnStart", true);
             c.ApplyTransform = j.value("ApplyTransform", true);
             c.ShowInEditor = j.value("ShowInEditor", true);
+        }
+        if (auto net = e.find("NetworkIdentity"); net != e.end() && net->is_object())
+        {
+            auto& c = entity.AddComponent<NetworkIdentityComponent>();
+            c.AlwaysRelevant = net->value("AlwaysRelevant", false);
+            const float radius = net->value("RelevanceRadius", 0.0f);
+            c.RelevanceRadius = std::isfinite(radius) ? std::clamp(radius, 0.0f, 1.0e6f) : 0.0f;
+        }
+        if (auto net = e.find("NetworkTransform"); net != e.end() && net->is_object())
+        {
+            const json& j = *net;
+            auto& c = entity.AddComponent<NetworkTransformComponent>();
+            auto number = [&](const char* key, float fallback, float lo, float hi) {
+                const float v = j.contains(key) && j[key].is_number() ? j[key].get<float>() : fallback;
+                return std::isfinite(v) ? std::clamp(v, lo, hi) : fallback;
+            };
+            auto vec2 = [&](const char* key, glm::vec2 fallback) {
+                if (!j.contains(key) || !j[key].is_array() || j[key].size() != 2 || !j[key][0].is_number() || !j[key][1].is_number()) return fallback;
+                return glm::vec2(j[key][0].get<float>(), j[key][1].get<float>());
+            };
+            c.Mode = j.value("Mode", std::string("Interpolate")) == "Predict" ? NetworkTransformComponent::SyncMode::Predict : NetworkTransformComponent::SyncMode::Interpolate;
+            c.MoveAction = j.value("MoveAction", std::string("Move"));
+            c.MoveSpeed = number("MoveSpeed", 5.0f, 0.0f, 1000.0f);
+            c.Plane = j.value("Plane", std::string("XY")) == "XZ" ? NetworkTransformComponent::MovePlane::XZ : NetworkTransformComponent::MovePlane::XY;
+            c.ClampToBounds = j.value("ClampToBounds", false);
+            c.BoundsMin = vec2("BoundsMin", c.BoundsMin);
+            c.BoundsMax = vec2("BoundsMax", c.BoundsMax);
+            c.InterpolationDelay = number("InterpolationDelay", 0.1f, 0.0f, 2.0f);
         }
         if (e.contains("Footsteps"))
         {

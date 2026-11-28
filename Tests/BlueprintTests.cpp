@@ -556,7 +556,7 @@ TEST(BlueprintFormatVersion6AndOlderMigration)
 {
     auto g = FunctionGraph();
     auto json = g.Serialize();
-    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 6 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
+    CHECK(json.at("Version") == Graph::FormatVersion && Graph::FormatVersion == 7 && json.at("Enums").is_object() && json.at("Structs").is_object() && json.at("Macros").is_object());
     // A version 1 file (no Enums/Structs/Macros section): typed functions, locals and legacy names read unchanged.
     auto v1 = json;
     v1["Version"] = 1;
@@ -575,7 +575,7 @@ TEST(BlueprintFormatVersion6AndOlderMigration)
     vm.Event("Start");
     CHECK(vm.Error().empty() && vm.Variables().at("Answer") == 14.);
     const auto upgraded = migrated.Serialize();
-    CHECK(upgraded.at("Version") == 6 && Graph::Parse(upgraded).SourceVersion == 6 && Graph::Parse(upgraded).Serialize() == upgraded);
+    CHECK(upgraded.at("Version") == 7 && Graph::Parse(upgraded).SourceVersion == 7 && Graph::Parse(upgraded).Serialize() == upgraded);
     // A version 2 file (enums, no Structs section) loads unchanged and runs the same.
     auto enumV2 = EnumGraph().Serialize();
     enumV2["Version"] = 2;
@@ -608,7 +608,7 @@ TEST(BlueprintFormatVersion6AndOlderMigration)
     try { Graph::Parse(structVariableV2); } catch (const std::exception& e) { threw = std::string(e.what()).find("version 3") != std::string::npos; }
     CHECK(threw);
     auto future = json;
-    future["Version"] = 7;
+    future["Version"] = 8;
     threw = false;
     try { Graph::Parse(future); } catch (const std::exception&) { threw = true; }
     CHECK(threw);
@@ -1672,7 +1672,7 @@ TEST(BlueprintInheritanceInheritsMembersAndOverridesFunctionsAndEvents)
     CHECK(resolved.Inherited.Origins.size() == base.Nodes.size() && resolved.Inherited.OverriddenEvents.size() == 1 && resolved.Inherited.ParentEvents.at(6).size() == 1);
     // Only the child's own members are saved; parsing and inheriting again gives the same graph.
     const auto json = child.Serialize();
-    CHECK(json.at("Version") == 6 && json.at("Parent") == "Scripts/Base.zgraph" && !json.at("Variables").contains("Level") && json.at("Variables").contains("Extra"));
+    CHECK(json.at("Version") == 7 && json.at("Parent") == "Scripts/Base.zgraph" && !json.at("Variables").contains("Level") && json.at("Variables").contains("Extra"));
     CHECK(json.at("Functions").contains("Bonus") && json.at("Enums").empty() && json.at("Structs").empty() && json.at("Macros").empty() && json.at("Nodes").size() == child.Nodes.size());
     auto again = Graph::Parse(json);
     CHECK(again.Parent == child.Parent && again.Inherited.Variables.empty());

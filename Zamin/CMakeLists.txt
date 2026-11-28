@@ -17,6 +17,7 @@ file(GLOB_RECURSE ZAMIN_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Asset/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/ImGui/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Math/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Network/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Utils/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Platform/GLFW/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Platform/OpenGL/*.cpp

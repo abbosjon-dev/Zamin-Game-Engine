@@ -82,7 +82,34 @@ namespace Zamin::Visual {
         Type Kind = Type::Number;
         Value Default = 0.0;
         std::string Enum; // the named type (enum or struct name), see Pin::Enum
+        // Format 7: the server sends the variable's value to the clients (networking); an Event.Rep node named
+        // after it runs on a client when a new value arrived.
+        bool Replicated = false;
     };
+    // A graph-defined network RPC (format 7). Server: a client's Net.CallServerRpc runs the graph's Event.Rpc of
+    // that name on the server (for an entity the client owns, or any client with AnyClient); Client: the server's
+    // Net.CallClientRpc runs it on the entity owner's client; Multicast: the server's Net.CallMulticastRpc runs it on
+    // the server and every client the entity is relevant to. The typed parameters are checked on receipt.
+    struct RpcDefinition
+    {
+        enum class Target
+        {
+            Server,
+            Client,
+            Multicast
+        };
+        Target Kind = Target::Server;
+        bool Reliable = true;
+        bool AnyClient = false;
+        std::vector<Pin> Params; // 0..16, not Exec; names unique, not Name/Sender/In/Then
+        bool operator==(const RpcDefinition&) const = default;
+    };
+    const char* RpcTargetName(RpcDefinition::Target target);
+    // The call node kind of an RPC target: "Net.CallServerRpc" ...
+    const char* RpcCallKind(RpcDefinition::Target target);
+    constexpr size_t MaxRpcs = 32, MaxRpcParams = 16;
+    // The networking nodes (Net.*, Event.Rpc/Rep/ClientConnected/ClientDisconnected): format 7 and later.
+    bool IsNetworkNode(const std::string& kind);
     // One named value of an enum. Values are integers within +-2^53 (exact in JSON); names and values are unique.
     struct EnumEntry
     {
@@ -212,7 +239,7 @@ namespace Zamin::Visual {
         {
             std::vector<std::string> Chain; // the parent paths, the nearest first
             // The members that come from the parents (in this graph's maps for lookups, but not saved with it).
-            std::set<std::string> Variables, Functions, Enums, Structs, Macros;
+            std::set<std::string> Variables, Functions, Enums, Structs, Macros, Rpcs;
             // The event keys ("Start", "Custom.Name" ...) the parents handle.
             std::set<std::string> Events;
             std::vector<Diagnostic> Errors; // missing, unreadable or cyclic parents, conflicting members
@@ -255,7 +282,10 @@ namespace Zamin::Visual {
         // load unchanged and are written back as version 5.
         // Version 6 added native method calls ("Natives", the Native.Call/Native.Pure nodes); version 1-5 files load
         // unchanged and are written back as version 6.
-        static constexpr int FormatVersion = 6;
+        // Version 7 added networking: RPC definitions ("Rpcs", the Event.Rpc/Net.Call*Rpc nodes), replicated variables
+        // (the "Replicated" key) and the Net.* / Event.Rep / Event.Client* nodes; version 1-6 files load unchanged
+        // and are written back as version 7.
+        static constexpr int FormatVersion = 7;
         int SourceVersion = FormatVersion; // the version the graph was parsed from
         std::vector<Node> Nodes;
         std::vector<Link> Links;
@@ -266,6 +296,8 @@ namespace Zamin::Visual {
         std::map<std::string, MacroDefinition> Macros;
         // The native method signatures the graph's Native.* nodes use (only the used ones are saved).
         std::map<std::string, NativeSignature> Natives;
+        // Graph-defined network RPCs by name (format 7).
+        std::map<std::string, RpcDefinition> Rpcs;
         // Sets a native method's signature (e.g. the live one after a C++ change) and drops the literals and wires
         // that no longer fit its pins; returns how many were dropped.
         size_t SetNative(const std::string& key, NativeSignature signature);
@@ -343,7 +375,9 @@ namespace Zamin::Visual {
         Definition DescribeStruct(const Node& node, Definition catalog) const;
         Definition DescribeMacro(const Node& node, Definition catalog) const;
         Definition DescribeNative(const Node& node, Definition catalog) const;
+        Definition DescribeRpc(const Node& node, Definition catalog) const;
         std::vector<Diagnostic> ValidateNatives() const;
+        std::vector<Diagnostic> ValidateNetwork() const;
         // The node/link checks of Validate on this graph's nodes as they are (functions: the typed function scope
         // analysis too).
         std::vector<Diagnostic> ValidateNodes(bool functions) const;
@@ -386,6 +420,9 @@ namespace Zamin::Visual {
         void Tick(double seconds);
         void Stop();
         const std::map<std::string, Value>& Variables() const { return m_Variables; }
+        // Writes a variable from outside the graph (networking: a replicated value from the server); false when the
+        // graph has no such variable or the value does not fit its type.
+        bool SetVariable(const std::string& name, Value value);
         const std::string& Error() const { return m_Error; }
         const std::deque<uint32_t>& Trace() const { return m_Trace; }
         // The native method signatures of the loaded graph (the host binds them to the live C++ methods).

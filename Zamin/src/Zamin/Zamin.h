@@ -62,6 +62,7 @@
 #include "Zamin/Core/Stopwatch.h"
 #include "Zamin/Core/Timer.h"
 #include "Zamin/Core/UUID.h"
+#include "Zamin/Network/Net.h"
 #include "Zamin/Events/Event.h"
 #include "Zamin/Localization/Localization.h"
 

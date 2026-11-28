@@ -7384,10 +7384,12 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<SightSensorComponent>();
     e.AddComponent<PatrolPathComponent>();
     e.AddComponent<FormationComponent>();
+    e.AddComponent<NetworkIdentityComponent>();
+    e.AddComponent<NetworkTransformComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 77);
+    CHECK(types.size() == 79);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());

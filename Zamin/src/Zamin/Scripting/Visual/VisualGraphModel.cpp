@@ -355,6 +355,7 @@ namespace Zamin::Visual {
         auto result = found->second;
         if (n.Kind.starts_with("Macro.")) return DescribeMacro(n, std::move(result));
         if (n.Kind.starts_with("Native.")) return DescribeNative(n, std::move(result));
+        if (n.Kind == "Event.Rpc" || n.Kind.starts_with("Net.Call")) return DescribeRpc(n, std::move(result));
         if (!Typed(n.Kind))
         {
             const auto has = [&](auto test) { return std::any_of(result.Inputs.begin(), result.Inputs.end(), test) || std::any_of(result.Outputs.begin(), result.Outputs.end(), test); };

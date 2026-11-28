@@ -155,6 +155,12 @@ namespace Zamin {
     ::Zamin::MakeScriptField<Class, ZM_FIELD_TYPE(Class, Member)>(#Member, \
         [](::Zamin::ScriptableEntity* s) -> void* { return &static_cast<Class*>(s)->Member; })
 
+/// A field the server replicates to the clients (Network/NetSession.h):  ZM_REPLICATED(Player, Score)
+/// With a callback a client runs after a new value arrived:  ZM_REPLICATED_NOTIFY(Player, Score, OnScoreChanged)
+#define ZM_REPLICATED(Class, Member) ZM_FIELD(Class, Member).Replicated()
+#define ZM_REPLICATED_NOTIFY(Class, Member, Callback) \
+    ZM_FIELD(Class, Member).Notify([](::Zamin::ScriptableEntity* s) { static_cast<Class*>(s)->Callback(); })
+
 /// glm::vec3 / glm::vec4 edited with a color picker (HDR: components may exceed 1).
 #define ZM_FIELD_COLOR(Class, Member) \
     ::Zamin::ScriptFieldAttributes::Color<ZM_FIELD_TYPE(Class, Member)>(ZM_FIELD(Class, Member), false)

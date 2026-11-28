@@ -270,7 +270,7 @@ TEST(BlueprintNativeFormatVersionAndValidation)
     const Graph g = ProbeGraph();
     // Format 6 round trip: only the signatures the nodes use are saved.
     auto json = g.Serialize();
-    CHECK(json.at("Version") == 6 && json.at("Natives").size() == 8 && json.at("Natives").at("NativeProbe.Add").at("Pure") == false);
+    CHECK(json.at("Version") == 7 && json.at("Natives").size() == 8 && json.at("Natives").at("NativeProbe.Add").at("Pure") == false);
     Graph extra = g;
     extra.Natives["NativeProbe.Unused"] = g.Natives.at("NativeProbe.Echo");
     CHECK(extra.Serialize() == json && Graph::Parse(json).Serialize() == json);

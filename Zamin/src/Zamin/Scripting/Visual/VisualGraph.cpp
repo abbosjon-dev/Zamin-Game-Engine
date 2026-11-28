@@ -268,6 +268,22 @@ for(auto name:{"SetVelocity3D","ApplyForce3D","ApplyImpulse3D","ApplyTorque3D"})
 add("GetVelocity2D","Physics 2D",{EntityPin()},{V("Value",2)},true);add("GetVelocity3D","Physics 3D",{EntityPin()},{V("Value")},true);
 add("Axis","Input",{S("Name")},{N("Value")},true);add("ActionPressed","Input",{S("Name")},{B("Value")},true);add("ActionJustPressed","Input",{S("Name")},{B("Value")},true);
 add("Print","Debug",{E("In"),S("Text")},{E("Then")});
+// Networking (format 7; Network/NetSession.h): the role of this process, ownership, connections, graph-defined RPCs
+// (Graph::Rpcs: Event.Rpc handles one, the Net.Call*Rpc nodes call it; their parameter pins come from the definition,
+// Graph::Describe), replicated variables (Event.Rep runs on a client after a new value arrived) and server spawns.
+add("Net.IsServer", "Networking", {}, { B("Value") }, true);
+add("Net.IsClient", "Networking", {}, { B("Value") }, true);
+add("Net.IsOwner", "Networking", { EntityPin() }, { B("Value") }, true);
+add("Net.LocalClient", "Networking", {}, { N("Value") }, true);
+add("Net.OwnerOf", "Networking", { EntityPin() }, { N("Value") }, true);
+add("Net.OwnedEntity", "Networking", { N("Client") }, { EntityPin("Value") }, true);
+add("Event.ClientConnected", "Networking", {}, { E("Then"), N("Client") });
+add("Event.ClientDisconnected", "Networking", {}, { E("Then"), N("Client") });
+add("Event.Rpc", "Networking", { S("Name", "MyRpc") }, { E("Then"), N("Sender") });
+add("Event.Rep", "Networking", { S("Name") }, { E("Then") });
+for (auto kind : { "Net.CallServerRpc", "Net.CallClientRpc", "Net.CallMulticastRpc" }) add(kind, "Networking", { E("In"), S("Name", "MyRpc") }, { E("Then") });
+add("Net.Spawn", "Networking", { E("In"), S("Path"), V("Position"), N("Owner") }, { E("Then"), EntityPin("Value") });
+add("Net.Despawn", "Networking", { E("In"), EntityPin() }, { E("Then") });
 add("PlaySound","Audio",{E("In"),S("Path"),N("Volume",1),N("Pitch",1)},{E("Then")});
 
 add("Gameplay.Input", "Gameplay input", { EntityPin(), S("Move", "Move"), S("Jump", "Jump"), S("Sprint", "Sprint"), B("Enabled", true) }, { V("Move", 2), V("Look", 2), B("Jump"), B("JumpHeld"), B("Sprint"), B("Enabled") }, true);
@@ -565,6 +581,7 @@ return c; }();
             shell.Enums = g.Enums;
             shell.Structs = g.Structs;
             shell.Natives = g.Natives;
+            shell.Rpcs = g.Rpcs;
             return shell;
         }
         bool UsesMacros(const Graph& g)
@@ -635,6 +652,8 @@ return c; }();
         auto d = ValidateTypes();
         auto natives = ValidateNatives();
         d.insert(d.end(), natives.begin(), natives.end());
+        auto network = ValidateNetwork();
+        d.insert(d.end(), network.begin(), network.end());
         if (!UsesMacros(*this))
         {
             auto nodes = ValidateNodes(true);
@@ -796,7 +815,7 @@ return c; }();
             }
             if (i->Kind != Type::Exec && !inputs.insert({ l.To, l.Input }).second) error(l.To, "Data input already linked");
             if (i->Kind == Type::Exec && !execOutputs.insert({ l.From, l.Output }).second) error(l.From, "Execution output already linked; use Sequence");
-            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Macro.Instance" || b->Kind.starts_with("Parent.") || b->Kind == "Event.Custom" || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
+            if (l.Input == "Name" && (b->Kind == "Function" || b->Kind == "Call" || b->Kind.starts_with("Function.") || b->Kind == "Macro.Instance" || b->Kind.starts_with("Parent.") || b->Kind == "Event.Custom" || b->Kind == "Event.Rpc" || b->Kind == "Event.Rep" || b->Kind.ends_with("Rpc") || b->Kind.starts_with("Local.") || b->Kind.starts_with("Get.") || b->Kind.starts_with("Set."))) error(l.To, "Variable name must be a literal");
             if (l.Input == "Enum" && i->Kind == Type::String && b->Kind.find("Enum") != std::string::npos) error(l.To, "Enum type must be a literal");
             if (l.Input == "Method" && b->Kind.starts_with("Native.")) error(l.To, "Native method name must be a literal");
             if ((l.Input == "Struct" || l.Input == "Field") && i->Kind == Type::String && b->Kind.find("Struct") != std::string::npos) error(l.To, "Struct type and field must be literals");
@@ -829,7 +848,11 @@ return c; }();
         }
         for (auto& l : Links) j["Links"].push_back({ { "From", l.From }, { "Output", l.Output }, { "To", l.To }, { "Input", l.Input } });
         for (auto& [name, v] : Variables)
-            if (!Inherited.Variables.contains(name)) j["Variables"][name] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
+            if (!Inherited.Variables.contains(name))
+            {
+                j["Variables"][name] = typed(v.Kind, v.Enum, { { "Type", TypeName(v.Kind) }, { "Default", v.Default } });
+                if (v.Replicated) j["Variables"][name]["Replicated"] = true;
+            }
         j["Enums"] = Value::object();
         for (const auto& [name, definition] : Enums)
         {
@@ -864,6 +887,15 @@ return c; }();
             for (const auto& p : macro.Inputs) entry["Inputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
             for (const auto& p : macro.Outputs) entry["Outputs"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
             j["Macros"][name] = std::move(entry);
+        }
+        // Network RPCs (format 7; written only when there are).
+        for (const auto& [name, rpc] : Rpcs)
+        {
+            if (Inherited.Rpcs.contains(name)) continue;
+            Value entry = { { "Kind", RpcTargetName(rpc.Kind) }, { "Reliable", rpc.Reliable }, { "AnyClient", rpc.AnyClient }, { "Params", Value::array() } };
+            for (const auto& p : rpc.Params) entry["Params"].push_back(typed(p.Kind, p.Enum, { { "Name", p.Name }, { "Type", TypeName(p.Kind) }, { "Default", p.Default } }));
+            if (!j.contains("Rpcs")) j["Rpcs"] = Value::object();
+            j["Rpcs"][name] = std::move(entry);
         }
         // Native method signatures: the ones this graph's own nodes call (format 6; written only when there are).
         const auto used = NativesUsed();
@@ -931,6 +963,12 @@ return c; }();
                 if (it.value().at("Type") == TypeName((Type)i))
                 {
                     g.Variables[it.key()] = { (Type)i, it.value().at("Default"), enumName(Type(i), it.value()) };
+                    if (it.value().contains("Replicated"))
+                    {
+                        Require(version >= 7, "Replicated variables need graph format version 7");
+                        Require(it.value().at("Replicated").is_boolean(), "Replicated must be true or false");
+                        g.Variables[it.key()].Replicated = it.value().at("Replicated").get<bool>();
+                    }
                     found = true;
                 }
             Require(found, "Unknown variable type");
@@ -1048,6 +1086,30 @@ return c; }();
             }
         }
         for (const auto& n : g.Nodes) Require(version >= 6 || !n.Kind.starts_with("Native."), "Native method nodes need graph format version 6");
+        if (j.contains("Rpcs"))
+        {
+            Require(version >= 7, "Network RPCs need graph format version 7");
+            const auto& rpcs = j.at("Rpcs");
+            Require(rpcs.is_object() && rpcs.size() <= MaxRpcs, "RPC definition limit/type");
+            for (auto it = rpcs.begin(); it != rpcs.end(); ++it)
+            {
+                RpcDefinition rpc;
+                const auto kind = it.value().value("Kind", std::string("Server"));
+                Require(kind == "Server" || kind == "Client" || kind == "Multicast", "Unknown RPC kind");
+                rpc.Kind = kind == "Server" ? RpcDefinition::Target::Server : kind == "Client" ? RpcDefinition::Target::Client : RpcDefinition::Target::Multicast;
+                rpc.Reliable = it.value().value("Reliable", true);
+                rpc.AnyClient = it.value().value("AnyClient", false);
+                const auto& params = it.value().at("Params");
+                Require(params.is_array() && params.size() <= MaxRpcParams, "RPC parameter limit/type");
+                for (const auto& pin : params)
+                {
+                    const auto pinKind = type(pin.at("Type"));
+                    rpc.Params.push_back({ pin.at("Name").get<std::string>(), pinKind, pin.at("Default"), enumName(pinKind, pin) });
+                }
+                g.Rpcs[it.key()] = std::move(rpc);
+            }
+        }
+        for (const auto& n : g.Nodes) Require(version >= 7 || !IsNetworkNode(n.Kind), "Networking nodes need graph format version 7");
         if (j.contains("Parent"))
         {
             Require(version >= 5, "Graph inheritance needs graph format version 5");
@@ -1210,6 +1272,7 @@ return c; }();
             // A parent handler of an event the child handles too runs only through the child's Parent.Event.
             if (m_Graph.Inherited.OverriddenEvents.contains(n.ID)) continue;
             if (n.Kind == "Event.Custom") m_Events["Custom." + (n.Inputs.contains("Name") ? functionName : "MyEvent")].push_back(n.ID);
+            else if (n.Kind == "Event.Rpc" || n.Kind == "Event.Rep") m_Events[Graph::EventKey(n)].push_back(n.ID);
             else if (n.Kind.starts_with("Event.")) m_Events[n.Kind.substr(6)].push_back(n.ID);
             if (n.Kind == "Function") m_Functions[n.Inputs.contains("Name") ? n.Inputs.at("Name").get<std::string>() : "MyFunction"] = n.ID;
         }

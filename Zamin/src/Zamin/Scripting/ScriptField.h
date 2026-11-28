@@ -132,6 +132,17 @@ namespace Zamin {
         std::vector<ScriptEnumOption> EnumOptions; ///< Enum (or Int) shown as a dropdown
         /// @}
 
+        /// @name Networking (Network/NetSession.h)
+        /// @{
+        /// The server sends the field's value to the clients (ZM_REPLICATED): a client's copy follows the
+        /// server's, delta-compressed (only changes are sent). Not for Curve fields.
+        bool IsReplicated = false;
+        /// Called on a client after a new replicated value was written into the field (ZM_REPLICATED_NOTIFY).
+        void (*RepNotify)(ScriptableEntity*) = nullptr;
+        ScriptFieldInfo& Replicated(bool replicated = true) { IsReplicated = replicated; return *this; }
+        ScriptFieldInfo& Notify(void (*callback)(ScriptableEntity*)) { RepNotify = callback; IsReplicated = true; return *this; }
+        /// @}
+
         ScriptFieldInfo& Range(float min, float max);
         ScriptFieldInfo& Tooltip(std::string text);
         ScriptFieldInfo& Label(std::string text);

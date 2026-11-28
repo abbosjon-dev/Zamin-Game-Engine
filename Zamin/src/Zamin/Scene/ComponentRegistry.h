@@ -91,6 +91,8 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, BoneAttachmentComponent>) return "BoneAttachment";
         else if constexpr (std::is_same_v<T, FootstepsComponent>) return "Footsteps";
         else if constexpr (std::is_same_v<T, SubSceneComponent>) return "SubScene";
+        else if constexpr (std::is_same_v<T, NetworkIdentityComponent>) return "NetworkIdentity";
+        else if constexpr (std::is_same_v<T, NetworkTransformComponent>) return "NetworkTransform";
         else if constexpr (std::is_same_v<T, NativeScriptComponent>) return "NativeScript";
         else static_assert(sizeof(T) == 0, "ComponentKey: this component has no scene-file name");
     }

@@ -13,13 +13,14 @@
 /// Layout (little endian): "ZGBC", u32 format version, u64 engine catalogue hash (the node catalogue the program
 /// was compiled against; another engine refuses it), u64 FNV-1a hash of the payload, u32 payload size, payload.
 /// The payload is a string table followed by the Program (VisualGraph.h): the variables, enums, structs, typed
-/// function signatures, native method signatures, the shared pin descriptions, the nodes (kind and literals,
+/// function signatures, native method signatures, network RPCs, the shared pin descriptions, the nodes (kind and literals,
 /// a description index), links as string-table indices, the macro and parent origins of nodes (error messages)
 /// and the parent event table. Values use a tagged encoding (null, bool, integers, doubles, strings, arrays,
 /// objects). Positions and breakpoints are not kept.
 namespace Zamin::Visual::Bytecode {
     constexpr char Magic[4] = { 'Z', 'G', 'B', 'C' };
-    constexpr uint32_t FormatVersion = 1;
+    // Version 2 added the network RPCs and the replicated flag of variables (graph format 7).
+    constexpr uint32_t FormatVersion = 2;
     constexpr size_t HeaderSize = 4 + 4 + 8 + 8 + 4;
     constexpr size_t MaxBytes = 8 * 1024 * 1024;
 

@@ -61,6 +61,12 @@ namespace Zamin {
         ScriptValueType Type;
     };
 
+    /// A network RPC (ZM_SERVER_RPC / ZM_CLIENT_RPC / ZM_MULTICAST_RPC; Network/NetSession.h). Server: a client
+    /// calls it, it runs on the server (only for an entity the client owns, unless AnyClient). Client: the server
+    /// calls it, it runs on the entity owner's client. Multicast: the server calls it, it runs on the server and on
+    /// every client the entity is relevant to. The arguments are checked against the parameter types on receipt.
+    enum class ScriptRpc : uint8_t { None = 0, Server, Client, Multicast };
+
     /// A reflected method (ZM_METHOD) or free function (ZM_FUNCTION). An instance method runs on the live script
     /// instance of its class on the graph's Target entity; a static method or a free function needs none.
     struct ScriptMethodInfo
@@ -83,6 +89,16 @@ namespace Zamin {
         ScriptMethodInfo& Returns(std::string name) { ResultName = std::move(name); return *this; }
         /// The parameters' names, in order (also given in ZM_METHOD's extra arguments).
         ScriptMethodInfo& Params(std::initializer_list<const char*> names);
+
+        /// @name Networking
+        /// @{
+        ScriptRpc Rpc = ScriptRpc::None;
+        bool RpcReliable = true;   ///< reliable-ordered (false: unreliable - may be lost, for frequent cosmetic calls)
+        bool RpcAnyClient = false; ///< a Server RPC any connected client may call (not only the entity's owner)
+        ScriptMethodInfo& AsRpc(ScriptRpc kind) { Rpc = kind; return *this; }
+        ScriptMethodInfo& Unreliable() { RpcReliable = false; return *this; }
+        ScriptMethodInfo& AnyClient() { RpcAnyClient = true; return *this; }
+        /// @}
     };
 
     /// A C++ enum graphs can use (ZM_SCRIPT_ENUM): its named values.
@@ -363,6 +379,14 @@ namespace Zamin {
             return { name, Marshal<T>::Type(), get, set };
         }
 
+        // Compile-time check of the RPC macros: an instance method without a result.
+        template<auto Method>
+        constexpr void RequireRpc()
+        {
+            static_assert(Callable<decltype(Method)>::Member, "ZM_*_RPC: an RPC is an instance method of the script class");
+            static_assert(std::is_void_v<typename Callable<decltype(Method)>::Result>, "ZM_*_RPC: an RPC returns void");
+        }
+
         // Compile-time check of ZM_PURE_METHOD / ZM_PURE_FUNCTION.
         template<auto Method>
         constexpr void RequireResult()
@@ -418,6 +442,16 @@ namespace Zamin {
     ::Zamin::ScriptReflection::Make<&Class::Method, Class>(#Method __VA_OPT__(,) __VA_ARGS__)
 #define ZM_PURE_METHOD(Class, Method, ...) \
     (::Zamin::ScriptReflection::RequireResult<&Class::Method>(), ZM_METHOD(Class, Method __VA_OPT__(,) __VA_ARGS__).Pure())
+
+/// Network RPCs (in ZM_REGISTER_SCRIPT, next to ZM_METHOD; Network/NetSession.h): call them with Net::CallServer /
+/// Net::CallClient / Net::Multicast. Chain .Unreliable() or .AnyClient() (server RPCs):
+///   ZM_SERVER_RPC(Player, Shoot, "Direction"), ZM_MULTICAST_RPC(Player, HitEffect, "Position").Unreliable()
+#define ZM_SERVER_RPC(Class, Method, ...) \
+    (::Zamin::ScriptReflection::RequireRpc<&Class::Method>(), ZM_METHOD(Class, Method __VA_OPT__(,) __VA_ARGS__).AsRpc(::Zamin::ScriptRpc::Server))
+#define ZM_CLIENT_RPC(Class, Method, ...) \
+    (::Zamin::ScriptReflection::RequireRpc<&Class::Method>(), ZM_METHOD(Class, Method __VA_OPT__(,) __VA_ARGS__).AsRpc(::Zamin::ScriptRpc::Client))
+#define ZM_MULTICAST_RPC(Class, Method, ...) \
+    (::Zamin::ScriptReflection::RequireRpc<&Class::Method>(), ZM_METHOD(Class, Method __VA_OPT__(,) __VA_ARGS__).AsRpc(::Zamin::ScriptRpc::Multicast))
 
 /// A free function for graphs (inside ZM_REGISTER_FUNCTIONS):  ZM_FUNCTION(Hypot, "X", "Y")
 #define ZM_FUNCTION(Function, ...) \

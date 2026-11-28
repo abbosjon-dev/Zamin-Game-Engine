@@ -1231,6 +1231,8 @@ namespace Zamin {
                 DisplayAddComponentEntry<AmbientZoneComponent>(Tr("Ambient Zone (hajmdagi fon ovozi)"), ICON_FA_TREE);
                 DisplayAddComponentEntry<FootstepsComponent>(Tr("Footsteps (animatsiya event'idan qadam tovushi)"), ICON_FA_SHOE_PRINTS);
                 DisplayAddComponentEntry<SubSceneComponent>(Tr("Sub-sahna (boshqa sahna fayli shu joyda)"), ICON_FA_LAYER_GROUP);
+                DisplayAddComponentEntry<NetworkIdentityComponent>(Tr("Network Identity (tarmoqdagi obyekt)"), ICON_FA_GLOBE);
+                DisplayAddComponentEntry<NetworkTransformComponent>(Tr("Network Transform (interpolatsiya / bashorat)"), ICON_FA_ROUTE);
                 DisplayAddComponentEntry<NativeScriptComponent>("Script / Visual graph", ICON_FA_CODE);
                 DisplayAddComponentEntry<TagsComponent>(Tr("Teglar (Tags)"), ICON_FA_TAGS);
                 ImGui::EndPopup();
@@ -3839,6 +3841,51 @@ namespace Zamin {
 
         AddSection<SubSceneComponent>(ICON_FA_LAYER_GROUP, Tr("Sub-sahna"), entity, [&](SubSceneComponent& c) {
             return DrawSubScene(entity, c);
+        }, true, modified);
+
+        // Networking (Network/NetSession.h, docs/Networking.md).
+        AddSection<NetworkIdentityComponent>(ICON_FA_GLOBE, "Network Identity", entity, [&](NetworkIdentityComponent& c) {
+            bool changed = UI::PropertyBool("Doim yuboriladi", c.AlwaysRelevant);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Yoqilgan: masofadan qat'i nazar har bir mijozga yuboriladi. Sahnaning o'z obyektlari doim yuboriladi"));
+            changed |= UI::PropertyFloat("Ko'rinish radiusi", c.RelevanceRadius, 0.1f, 0.0f, 100000.0f, "%.1f");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Mijozning o'z obyektidan shu masofagacha yuboriladi (0: sessiyaniki)"));
+            if (c.NetId)
+                ImGui::TextDisabled("%s %u, %s %u", Tr("Tarmoq ID"), c.NetId, Tr("Egasi"), c.Owner);
+            return changed;
+        }, true, modified);
+
+        AddSection<NetworkTransformComponent>(ICON_FA_ROUTE, "Network Transform", entity, [&](NetworkTransformComponent& c) {
+            static const char* modes[] = { "Interpolatsiya", "Bashorat" };
+            static const char* planes[] = { "XY (2D)", "XZ (3D)" };
+            int mode = int(c.Mode), plane = int(c.Plane);
+            bool changed = false;
+            if (UI::PropertyCombo("Sinxronlash", mode, modes, 2))
+            {
+                c.Mode = NetworkTransformComponent::SyncMode(mode);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(Tr("Interpolatsiya: mijozlar serverni biroz orqada silliq ko'rsatadi. Bashorat: egasining kiritishi uni darhol suradi, server holati kelganda tuzatiladi"));
+            if (c.Mode == NetworkTransformComponent::SyncMode::Predict)
+            {
+                changed |= UI::PropertyString("Harakat amali", c.MoveAction);
+                changed |= UI::PropertyFloat("Harakat tezligi", c.MoveSpeed, 0.05f, 0.0f, 1000.0f, "%.2f");
+                if (UI::PropertyCombo("Tekislik", plane, planes, 2))
+                {
+                    c.Plane = NetworkTransformComponent::MovePlane(plane);
+                    changed = true;
+                }
+                changed |= UI::PropertyBool("Chegarada ushlash", c.ClampToBounds);
+                if (c.ClampToBounds)
+                {
+                    changed |= UI::PropertyFloat2("Chegara min", c.BoundsMin, 0.1f);
+                    changed |= UI::PropertyFloat2("Chegara max", c.BoundsMax, 0.1f);
+                }
+            }
+            changed |= UI::PropertyFloat("Interpolatsiya kechikishi", c.InterpolationDelay, 0.005f, 0.0f, 2.0f, "%.3f s");
+            return changed;
         }, true, modified);
 
         DrawScriptComponent(entity, modified);

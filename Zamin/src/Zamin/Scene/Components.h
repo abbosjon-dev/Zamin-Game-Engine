@@ -3387,6 +3387,53 @@ namespace Zamin {
         void ResetRuntime() { LastSound = -1; LastStepTime = -1.0e9; StepCount = 0; }
     };
 
+    /// Makes the entity part of a networked game (Network/NetSession.h, docs/Networking.md): the server gives it a
+    /// network id and an owner and sends its transform and its scripts' replicated fields (ZM_REPLICATED, graph
+    /// variables marked Replicated) to the clients it is relevant to - within the relevance radius of the client's
+    /// own entity, or always (AlwaysRelevant; an entity that came with the scene always is). The server is the
+    /// authority: a client cannot change it, only send input and server RPCs for the entities it owns.
+    struct NetworkIdentityComponent
+    {
+        bool AlwaysRelevant = false;
+        /// The distance from a client's own entity within which it is sent to that client (0: the session's).
+        float RelevanceRadius = 0.0f;
+
+        /// Runtime.
+        uint32_t NetId = 0;       ///< given by the server (0: not networked yet)
+        uint32_t Owner = 0;       ///< the owning client's id (0: the server)
+        std::string Prefab;       ///< the prefab Net::Spawn made it from (clients spawn the same one)
+        bool SceneObject = false; ///< it came with the scene: both sides have it
+
+        void ResetRuntime()
+        {
+            NetId = 0;
+            Owner = 0;
+            Prefab.clear();
+            SceneObject = false;
+        }
+    };
+
+    /// How a networked entity's transform moves on the clients (with a Network Identity). Interpolate: every
+    /// client shows it InterpolationDelay behind the server, smoothly between the snapshots. Predict: the owner's
+    /// input moves it (MoveAction, an input vector of the project's input map, at MoveSpeed in the Plane) on the
+    /// server, and the owning client moves it at once and corrects itself when the server's state arrives (client
+    /// prediction and reconciliation); the other clients interpolate it.
+    struct NetworkTransformComponent
+    {
+        enum class SyncMode { Interpolate = 0, Predict };
+        enum class MovePlane { XY = 0, XZ };
+        SyncMode Mode = SyncMode::Interpolate;
+        std::string MoveAction = "Move";
+        float MoveSpeed = 5.0f;
+        MovePlane Plane = MovePlane::XY;
+        /// Keeps the predicted movement inside a rectangle of the plane.
+        bool ClampToBounds = false;
+        glm::vec2 BoundsMin{ -10.0f, -10.0f };
+        glm::vec2 BoundsMax{ 10.0f, 10.0f };
+        /// Seconds the clients show the entity behind the server (more: smoother under jitter and loss).
+        float InterpolationDelay = 0.1f;
+    };
+
     /// Puts a C++ script on the entity: ClassName is a class registered with ZM_REGISTER_SCRIPT, Fields
     /// the values its ZM_FIELD members get. Play mode creates the instance (Instance) and runs it.
     struct NativeScriptComponent
@@ -3524,5 +3571,5 @@ namespace Zamin {
                                          UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
                                          UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
                                          UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,
-                                         BoneAttachmentComponent, SubSceneComponent, NativeScriptComponent, EditorMetadataComponent, PrefabLinkComponent>;
+                                         BoneAttachmentComponent, SubSceneComponent, NetworkIdentityComponent, NetworkTransformComponent, NativeScriptComponent, EditorMetadataComponent, PrefabLinkComponent>;
 }

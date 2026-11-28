@@ -290,6 +290,7 @@ namespace Zamin::Visual::Bytecode {
             {
                 w.S(name);
                 variable(v);
+                w.U8(v.Replicated ? 1 : 0);
             }
             w.Var(g.Enums.size());
             for (const auto& [name, e] : g.Enums)
@@ -330,6 +331,14 @@ namespace Zamin::Visual::Bytecode {
                 w.S(n.Tooltip);
                 w.Pins(n.Inputs);
                 w.Pins(n.Outputs);
+            }
+            // Network RPCs (bytecode format 2).
+            w.Var(g.Rpcs.size());
+            for (const auto& [name, rpc] : g.Rpcs)
+            {
+                w.S(name);
+                w.U8(uint8_t(uint8_t(rpc.Kind) | (rpc.Reliable ? 4 : 0) | (rpc.AnyClient ? 8 : 0)));
+                w.Pins(rpc.Params);
             }
             // The pin descriptions, each once; nodes refer to them by index.
             std::map<const Definition*, uint32_t> index;
@@ -468,6 +477,9 @@ namespace Zamin::Visual::Bytecode {
             {
                 const auto& name = r.S();
                 g.Variables[name] = variable();
+                const uint8_t flags = r.U8();
+                if (flags > 1) throw std::runtime_error("Damaged variable flags");
+                g.Variables[name].Replicated = flags == 1;
             }
             for (size_t i = 0, n = r.Count(MaxMembers); i < n; ++i)
             {
@@ -511,6 +523,19 @@ namespace Zamin::Visual::Bytecode {
                 s.Inputs = r.Pins();
                 s.Outputs = r.Pins();
                 g.Natives[key] = std::move(s);
+            }
+            for (size_t i = 0, n = r.Count(MaxRpcs); i < n; ++i)
+            {
+                const auto& name = r.S();
+                RpcDefinition rpc;
+                const uint8_t flags = r.U8();
+                if ((flags & 3) > 2 || (flags & ~15)) throw std::runtime_error("Damaged RPC flags");
+                rpc.Kind = RpcDefinition::Target(flags & 3);
+                rpc.Reliable = flags & 4;
+                rpc.AnyClient = flags & 8;
+                rpc.Params = r.Pins();
+                if (rpc.Params.size() > MaxRpcParams) throw std::runtime_error("Damaged RPC parameters");
+                g.Rpcs[name] = std::move(rpc);
             }
             std::vector<std::shared_ptr<const Definition>> definitions(r.Count(MaxNodes));
             for (auto& d : definitions)

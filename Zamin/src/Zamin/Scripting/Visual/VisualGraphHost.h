@@ -49,7 +49,12 @@ namespace Zamin {
         void OnScrollChanged(const glm::vec2& v) override { Emit("ScrollChanged", { { "Vector", { v.x, v.y } } }); }
         void OnPatrolPointReached(int v) override { Emit("PatrolPointReached", { { "Number", v } }); }
         void OnLanguageChanged(const std::string& v) override { Emit("LanguageChanged", { { "Text", v } }); }
-        void OnMessage(const ScriptMessage& m) override { Emit("Message", { { "Text", m.Name }, { "Payload", m.Get<std::string>() }, { "Other", m.Sender ? (uint64_t)m.Sender.GetUUID() : 0ull }, { "Number", m.Get<double>() } }); }
+        void OnMessage(const ScriptMessage& m) override
+        {
+            // The network session's connection events (Network/NetSession.h) are graph events of their own.
+            if (m.Name == "Net.ClientConnected" || m.Name == "Net.ClientDisconnected")
+                return Emit(m.Name == "Net.ClientConnected" ? "ClientConnected" : "ClientDisconnected", { { "Client", m.Get<double>() } });
+            Emit("Message", { { "Text", m.Name }, { "Payload", m.Get<std::string>() }, { "Other", m.Sender ? (uint64_t)m.Sender.GetUUID() : 0ull }, { "Number", m.Get<double>() } }); }
         void OnAnimationEvent(const AnimationEventInfo& e) override { Emit("AnimationEvent", { { "Text", e.Name }, { "Number", e.Time } }); }
         void OnSceneLoaded(const SceneEventInfo& e) override { Emit("SceneLoaded", { { "Text", e.Path }, { "Number", e.BuildIndex } }); }
         void OnSceneUnloaded(const SceneEventInfo& e) override { Emit("SceneUnloaded", { { "Text", e.Path }, { "Number", e.BuildIndex } }); }

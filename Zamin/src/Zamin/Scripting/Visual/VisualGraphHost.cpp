@@ -1,6 +1,7 @@
 #include "VisualGraphHost.h"
 #include "VisualGraphBytecode.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Network/NetSession.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/WorldStreaming.h"
@@ -269,6 +270,42 @@ namespace Zamin {
             return V{ { "Hit", hit.Hit }, { "Entity", (uint64_t)hit.EntityID }, { "Point", value(hit.Point) }, { "Normal", value(hit.Normal) }, { "Distance", hit.Distance } };
         }
 
+        // Networking (Network/NetSession.h). Without a session the game is its own server.
+        if (k.starts_with("Net."))
+        {
+            auto* session = Net::Session::Of(GetScene());
+            if (k == "Net.IsServer") return Net::IsServer(GetScene());
+            if (k == "Net.IsClient") return Net::IsClient(GetScene());
+            if (k == "Net.LocalClient") return double(session ? session->GetLocalClient() : 0);
+            if (k == "Net.OwnedEntity")
+            {
+                const double client = a.at("Client").get<double>();
+                if (!session || client < 0 || client > 4294967295.0) return 0ull;
+                auto owned = session->OwnedEntity(uint32_t(client));
+                return owned ? (uint64_t)owned.GetUUID() : 0ull;
+            }
+            if (k == "Net.Spawn")
+            {
+                const double owner = a.at("Owner").get<double>();
+                if (owner < 0 || owner > 4294967295.0 || std::floor(owner) != owner) throw std::runtime_error("Net.Spawn: Owner must be a client id");
+                if (!Net::IsServer(GetScene())) return V{ { "Value", 0ull } }; // only the server spawns: nothing on a client
+                Entity spawned = session ? session->Spawn(s("Path"), vec("Position"), uint32_t(owner)) : Instantiate(s("Path"), vec("Position"));
+                return V{ { "Value", spawned ? (uint64_t)spawned.GetUUID() : 0ull } };
+            }
+            if (k.starts_with("Net.Call") && k.ends_with("Rpc"))
+            {
+                const auto name = s("Name");
+                const auto& rpcs = VM.Loaded().Rpcs;
+                auto rpc = rpcs.find(name);
+                if (rpc == rpcs.end()) throw std::runtime_error("Unknown RPC " + name);
+                V args = V::array();
+                for (const auto& p : rpc->second.Params) args.push_back(a.at(p.Name));
+                std::string error;
+                const bool ok = session ? session->Call(GetEntity(), name, args, true, &error) : Net::Call(GetEntity(), name, args, true, &error);
+                if (!ok) ZM_CORE_WARN("[Graph {}] RPC {}: {}", GetName(), name, error);
+                return nullptr;
+            }
+        }
 // An omitted Target means Self. An explicitly linked zero UUID stays invalid.
         Entity target = GetEntity();
         auto it = a.find("Target");
@@ -280,6 +317,19 @@ namespace Zamin {
         if (k == "EntityValid") return (bool)target;
         if (!target) throw std::runtime_error("Target entity no longer exists");
         if (k == "Native.Call" || k == "Native.Pure") return CallNative(target, a);
+        if (k == "Net.IsOwner") return Net::IsOwner(target);
+        if (k == "Net.OwnerOf")
+        {
+            auto* id = target.TryGetComponent<NetworkIdentityComponent>();
+            return double(id ? id->Owner : 0);
+        }
+        if (k == "Net.Despawn")
+        {
+            if (!Net::IsServer(GetScene())) return nullptr; // only the server despawns
+            auto* session = Net::Session::Of(GetScene());
+            if (!session || !session->Despawn(target)) Destroy(target);
+            return nullptr;
+        }
         if (k.starts_with("ReadField.") || k.starts_with("WriteField."))
         {
             auto* script = target.TryGetComponent<NativeScriptComponent>();

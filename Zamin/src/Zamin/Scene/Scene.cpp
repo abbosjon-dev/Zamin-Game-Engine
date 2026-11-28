@@ -2,6 +2,7 @@
 #include "Zamin/Scene/TerrainStreaming.h"
 #include "Zamin/Asset/AsyncLoader.h"
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/Network/NetSession.h"
 #include "Zamin/Scene/SceneLoadTiming.h"
 #include "Zamin/Core/Stopwatch.h"
 #include "Zamin/Asset/AssetImporter.h"
@@ -425,6 +426,7 @@ namespace Zamin {
         }
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : registry.view<AudioListenerComponent>()) registry.get<AudioListenerComponent>(e).ResetRuntime();
+        for (auto e : registry.view<NetworkIdentityComponent>()) registry.get<NetworkIdentityComponent>(e).ResetRuntime();
         for (auto e : registry.view<AmbientZoneComponent>()) registry.get<AmbientZoneComponent>(e).ResetRuntime();
         for (auto e : registry.view<FootstepsComponent>()) registry.get<FootstepsComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).ResetRuntime();
@@ -499,6 +501,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AudioListenerComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<NetworkIdentityComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AmbientZoneComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<FootstepsComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID() | 1u; }
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->ResetRuntime();
@@ -627,6 +630,7 @@ namespace Zamin {
 
     Scene::~Scene()
     {
+        Net::SceneDestroyed(*this);
         Time::ClearGameClock(this);
         if (m_ScriptsRunning)
             StopScripts();
@@ -5332,7 +5336,10 @@ namespace Zamin {
 
     void Scene::UpdateRuntime(Timestep ts)
     {
+        const float realDelta = ts;
         m_FrameIndex++;
+        // The network session (Network/NetSession.h): snapshots in, predicted / interpolated entities, server ticks.
+        Net::SceneBeforeUpdate(*this, realDelta);
         Gameplay::BeginRulesFrame(*this);
         Gameplay::BeginAIFrame(*this);
         Gameplay::BeginSaveFrame(*this);
@@ -5479,6 +5486,7 @@ namespace Zamin {
         Gameplay::RefreshGameplayUI(*this);
         Gameplay::RefreshQuests(*this);
         m_UIDeferred = false;
+        Net::SceneAfterUpdate(*this, realDelta); // snapshots, inputs and acks out
     }
 
     bool Scene::GetRuntimeView(RuntimeView& out)

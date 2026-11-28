@@ -93,6 +93,8 @@ namespace Zamin {
             MakeTypeInfo<AmbientZoneComponent>(),
             MakeTypeInfo<FootstepsComponent>(),
             MakeTypeInfo<SubSceneComponent>(),
+            MakeTypeInfo<NetworkIdentityComponent>(),
+            MakeTypeInfo<NetworkTransformComponent>(),
             MakeTypeInfo<NativeScriptComponent>(),
         };
         return s_Types;

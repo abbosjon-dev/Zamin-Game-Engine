@@ -310,6 +310,8 @@ def semantic_phase():
     # Ctrl+click on an engine class (ScriptableEntity, HotReloadProbe.cpp) opens the SDK header read-only.
     click('CodeEditor/Title')
     open_source('HotReloadProbe.cpp')
+    focus_text()
+    key('ctrl+Home')  # the class line in view (the earlier phase left the end of the file shown)
     lines = source.read_text().splitlines()
     row = next(n for n, l in enumerate(lines) if l.startswith('class HotReloadProbe'))
     column = lines[row].index('ScriptableEntity') + 3

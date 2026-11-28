@@ -1,0 +1,78 @@
+{
+    "ZaminEntities": 1,
+    "Entities": [
+        {
+            "Entity": 1,
+            "Tag": "Player",
+            "Transform": {
+                "Translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.9,
+                    0.9,
+                    1.0
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 10,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "NetworkIdentity": {
+                "AlwaysRelevant": false,
+                "RelevanceRadius": 0.0
+            },
+            "NetworkTransform": {
+                "Mode": "Predict",
+                "MoveAction": "Move",
+                "MoveSpeed": 6.0,
+                "Plane": "XY",
+                "ClampToBounds": true,
+                "BoundsMin": [
+                    -11.0,
+                    -6.0
+                ],
+                "BoundsMax": [
+                    11.0,
+                    6.0
+                ],
+                "InterpolationDelay": 0.1
+            },
+            "NativeScript": {
+                "Class": "NetPlayer",
+                "Fields": {
+                    "Score": {
+                        "Type": "Int",
+                        "Value": 0
+                    },
+                    "Tint": {
+                        "Type": "Vec4",
+                        "Value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}

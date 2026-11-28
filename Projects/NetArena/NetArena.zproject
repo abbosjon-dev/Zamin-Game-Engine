@@ -1,0 +1,122 @@
+{
+    "Version": 2,
+    "Project": {
+        "Name": "NetArena",
+        "StartScene": "Scenes/Arena.zscene",
+        "StartSceneUUID": "0eaddac49f2bc11a",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libNetArena.so",
+        "EngineVersion": "0.1.0",
+        "Description": "Networking: a 2D arena for 2+ players - predicted movement, a replicated score, server RPCs and multicast effects from C++ and a graph; ZaminPlayer --server / --connect",
+        "Thumbnail": "Thumbnail.jpg"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Net Arena",
+        "Version": "1.0.0",
+        "Width": 1280,
+        "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true,
+        "VSync": true,
+        "Title": "",
+        "VersionInTitle": false,
+        "TargetFrameRate": 0,
+        "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [
+        {
+            "Path": "Scenes/Arena.zscene",
+            "Enabled": true,
+            "UUID": "0eaddac49f2bc11a"
+        }
+    ],
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Collect",
+                "Bindings": [
+                    "Key:Space",
+                    "Key:E",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Horn",
+                "Bindings": [
+                    "Key:H",
+                    "Gamepad:Y"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Name": "MoveX",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight"
+                ],
+                "Deadzone": 0.2,
+                "Invert": false,
+                "GamepadAxis": "LeftX"
+            },
+            {
+                "Name": "MoveY",
+                "Negative": [
+                    "Key:S",
+                    "Key:Down",
+                    "Gamepad:DPadDown"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up",
+                    "Gamepad:DPadUp"
+                ],
+                "Deadzone": 0.2,
+                "Invert": true,
+                "GamepadAxis": "LeftY"
+            }
+        ],
+        "Vectors": [
+            {
+                "Name": "Move",
+                "X": "MoveX",
+                "Y": "MoveY",
+                "Mode": "Clamp",
+                "Deadzone": 0.0
+            }
+        ]
+    },
+    "Audio": {
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.55
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 0.9
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            }
+        ],
+        "StreamThresholdMB": 4.0
+    }
+}

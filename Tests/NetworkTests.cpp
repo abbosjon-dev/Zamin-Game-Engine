@@ -705,14 +705,14 @@ TEST(NetPredictionAndReconciliationConvergeUnderLatencyAndLoss)
     CHECK(std::abs(At(server).x - 20) < 1e-4f && std::abs(At(mine).x - 20) < 1e-3f);
     // Lost inputs were caught up by the redundancy; the server never moved faster than one input a tick.
     CHECK(w.Server.GetStats().InputsReceived > 300);
-    // A cheating input (longer than 1) is refused, not applied.
+    // A cheating input (a diagonal of length 1.41) is refused, not applied.
     Writer cheat;
     cheat.U8(10);
     cheat.VarU(0);
     cheat.VarU(1);
     cheat.VarU(1000000);
-    cheat.F32(50.0f);
-    cheat.F32(0.0f);
+    cheat.U16(32767); // (1, 1): longer than 1
+    cheat.U16(32767);
     const uint64_t rejected = w.Server.GetStats().InputsRejected;
     // (sent on b's own connection: its transport is reachable through a raw ClientTransport of its own)
     ClientTransport raw;

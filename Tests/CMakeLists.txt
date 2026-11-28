@@ -263,7 +263,7 @@ if(Python3_Interpreter_FOUND)
     set_tests_properties(SliceAssets PROPERTIES LABELS "samples;slices" TIMEOUT 300)
 endif()
 if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
-    set(ZAMIN_SAMPLE_GAMES TopDownShooter Breakout FPSArena Sokoban EndlessRunner Racing Platformer2D Showcase3D Adventure3D)
+    set(ZAMIN_SAMPLE_GAMES TopDownShooter Breakout FPSArena Sokoban EndlessRunner Racing Platformer2D Showcase3D Adventure3D NetArena)
     foreach(game ${ZAMIN_SAMPLE_GAMES})
         add_test(NAME Sample${game} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_test.py --game ${game}
             --out ${CMAKE_BINARY_DIR}/SampleTests/${game}
@@ -284,6 +284,13 @@ if(TARGET ZaminPlayer AND ZAMIN_BUILD_EXAMPLES AND Python3_Interpreter_FOUND)
             TIMEOUT 5400
             RUN_SERIAL TRUE)
     endif()
+    # The networking integration test: a real dedicated server and two headless bot clients of NetArena as separate
+    # processes on localhost through the link conditioner (100 +- 20 ms round trip, 5% loss each way), one client
+    # killed and resumed; state agreement, RPC effects, RTT and bandwidth (Tests/network_integration_test.py).
+    add_test(NAME NetworkIntegration COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/network_integration_test.py
+        --build ${CMAKE_BINARY_DIR} --out ${CMAKE_BINARY_DIR}/NetworkIntegration
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    set_tests_properties(NetworkIntegration PROPERTIES LABELS "network;slow" TIMEOUT 300 RUN_SERIAL TRUE)
     add_custom_target(samples_test
         COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR}
             ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/Tests/samples_test.py --out ${CMAKE_BINARY_DIR}/SampleTests

@@ -71,6 +71,8 @@ if(ZAMIN_BUILD_EXAMPLES)
     add_subdirectory(Projects/WorldWorkshop2D)
     # VisualWorkshop: graphs only, plus the native methods its NativeMethods graph calls.
     add_subdirectory(Projects/VisualWorkshop)
+    # NetArena: the networking sample (ZaminPlayer --server / --connect, the editor's Play with clients).
+    add_subdirectory(Projects/NetArena)
 endif()
 if(ZAMIN_BUILD_TESTS)
     enable_testing()

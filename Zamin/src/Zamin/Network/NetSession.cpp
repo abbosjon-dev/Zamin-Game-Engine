@@ -45,6 +45,14 @@ namespace Zamin::Net {
         constexpr double PendingRpcSeconds = 1.0;
         const ValueLimits FieldLimits{ 6, 1024, 256, 2048 };
 
+        // A move input on the wire: two signed 16-bit fractions of 1.
+        std::pair<int16_t, int16_t> Quantize(glm::vec2 v)
+        {
+            auto q = [](float f) { return int16_t(std::lround(std::clamp(f, -1.0f, 1.0f) * 32767.0f)); };
+            return { q(v.x), q(v.y) };
+        }
+        glm::vec2 Dequantize(int16_t x, int16_t y) { return { float(x) / 32767.0f, float(y) / 32767.0f }; }
+
         double Seconds()
         {
             return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -364,6 +372,22 @@ namespace Zamin::Net {
     }
 
     uint32_t RpcSender() { return s_RpcSender; }
+
+    namespace {
+        // "NETSTATE tick=T id:owner:x,y,z:{fields}" (StateLogEvery): the same text on both sides for the same state.
+        template<typename World>
+        std::string StateLine(uint32_t tick, const World& world)
+        {
+            std::string line = std::format("NETSTATE tick={}", tick);
+            for (const auto& [netId, st] : world)
+            {
+                json fields = json::object();
+                for (size_t i = 0; st->Names && i < st->Names->size() && i < st->Fields.size(); ++i) fields[(*st->Names)[i]] = st->Fields[i];
+                line += std::format(" {}:{}:{:.3f},{:.3f},{:.3f}:{}", netId, st->Owner, st->Position.x, st->Position.y, st->Position.z, fields.dump());
+            }
+            return line;
+        }
+    }
 
     // ===================================================================== state
     struct Session::EntityState
@@ -715,6 +739,7 @@ namespace Zamin::Net {
         m_Impl->Server.reset();
         m_Impl->Client.reset();
         m_Conditioner = nullptr;
+        m_InputSource = {}; // (it may be a game module's lambda: the module may be unloaded next)
         m_Role = Role::None;
         Detach();
     }
@@ -938,12 +963,12 @@ namespace Zamin::Net {
                     {
                         const uint32_t ack = uint32_t(in.VarU(32));
                         const size_t count = in.Count(MaxInputsPerMessage);
+                        const uint32_t first = count ? uint32_t(in.VarU(32)) : 0;
                         std::vector<std::pair<uint32_t, glm::vec2>> inputs;
                         for (size_t i = 0; i < count && in.Ok(); ++i)
                         {
-                            const uint32_t seq = uint32_t(in.VarU(32));
-                            const glm::vec2 v{ in.F32(), in.F32() };
-                            inputs.push_back({ seq, v });
+                            const int16_t x = int16_t(in.U16()), y = int16_t(in.U16());
+                            inputs.push_back({ first + uint32_t(i), Dequantize(x, y) });
                         }
                         bad = bad || !in.AtEnd();
                         if (!bad)
@@ -1207,10 +1232,10 @@ namespace Zamin::Net {
                         else local.Samples.push_back({ time, st->Position, st->Rotation, st->Scale });
                         while (local.Samples.size() > 32) local.Samples.pop_front();
                     }
+                    if (m_Settings.StateLogEvery && tick % m_Settings.StateLogEvery == 0) ZM_CORE_INFO("{}", StateLine(tick, state));
                     s.Received.push_back({ tick, std::move(state) });
                     std::sort(s.Received.begin(), s.Received.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
                     while (s.Received.size() > ReceivedSize) s.Received.pop_front();
-                    s.SendTick = true;
                     if (s.HaveApplied && tick <= s.AppliedTick) continue;
                     s.HaveApplied = true;
                     s.AppliedTick = tick;
@@ -1357,6 +1382,8 @@ namespace Zamin::Net {
             glm::vec2 input = m_InputSource ? m_InputSource(own.front()) : Input::GetVector(nt.MoveAction.empty() ? m_Settings.MoveAction : nt.MoveAction);
             if (!std::isfinite(input.x) || !std::isfinite(input.y)) input = glm::vec2(0.0f);
             if (glm::length(input) > 1.0f) input = glm::normalize(input);
+            // Both sides move with exactly the value the server will get.
+            input = Dequantize(Quantize(input).first, Quantize(input).second);
             s.Pending.push_back({ ++s.InputSeq, input });
             while (s.Pending.size() > MaxPendingInputs) s.Pending.pop_front();
             for (auto& ent : own)
@@ -1420,13 +1447,15 @@ namespace Zamin::Net {
                 Writer w;
                 w.U8(uint8_t(Msg::ClientTick));
                 w.VarU(s.Received.empty() ? 0 : s.Received.back().first);
+                // The inputs the server has not acknowledged yet (consecutive: the first's number, then the values).
                 const size_t count = std::min(s.Pending.size(), MaxInputsPerMessage);
                 w.VarU(count);
+                if (count) w.VarU(s.Pending[s.Pending.size() - count].Seq);
                 for (size_t i = s.Pending.size() - count; i < s.Pending.size(); ++i)
                 {
-                    w.VarU(s.Pending[i].Seq);
-                    w.F32(s.Pending[i].Move.x);
-                    w.F32(s.Pending[i].Move.y);
+                    const auto [x, y] = Quantize(s.Pending[i].Move);
+                    w.U16(uint16_t(x));
+                    w.U16(uint16_t(y));
                 }
                 s.Client->Send(w.Data(), false);
             }
@@ -1493,6 +1522,7 @@ namespace Zamin::Net {
         }
         s.Current = world;
         s.Stats.NetworkedEntities = world.size();
+        if (m_Settings.StateLogEvery && s.Tick % m_Settings.StateLogEvery == 0) ZM_CORE_INFO("{}", StateLine(s.Tick, world));
         size_t replicated = 0;
         for (auto& [client, r] : s.Clients)
         {
@@ -1673,6 +1703,29 @@ namespace Zamin::Net {
             c.RpcsRejected = r.RpcsRejected;
             c.InputsRejected = r.InputsRejected;
             out.push_back(c);
+        }
+        return out;
+    }
+
+    json Session::DescribeEntities() const
+    {
+        json out = json::array();
+        if (!m_Scene) return out;
+        auto& registry = m_Scene->GetRegistry();
+        std::vector<std::pair<uint32_t, entt::entity>> list;
+        for (auto e : registry.view<NetworkIdentityComponent>())
+            if (registry.get<NetworkIdentityComponent>(e).NetId) list.push_back({ registry.get<NetworkIdentityComponent>(e).NetId, e });
+        std::sort(list.begin(), list.end());
+        for (const auto& [netId, e] : list)
+        {
+            Entity ent{ e, m_Scene };
+            const auto& t = ent.GetComponent<TransformComponent>();
+            FieldValues values;
+            const auto names = FieldNamesOf(ent, &values);
+            json fields = json::object();
+            for (size_t i = 0; i < names.size(); ++i) fields[names[i]] = values[i];
+            out.push_back({ { "NetId", netId }, { "Owner", ent.GetComponent<NetworkIdentityComponent>().Owner }, { "Name", ent.GetName() },
+                            { "Position", { t.Translation.x, t.Translation.y, t.Translation.z } }, { "Fields", std::move(fields) } });
         }
         return out;
     }

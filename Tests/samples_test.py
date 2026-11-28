@@ -16,6 +16,7 @@ Cases:
           "Play"), the pause menu (Esc), back to the game, the pause menu again and its "Main menu" button; where it
           comes quickly, the results panel too. The games log "Menu: ..." for each panel they open.
   smoke - the three older samples (Platformer2D, Showcase3D, Adventure3D): they start, run, show a picture.
+  NetArena (demo) - the networking sample alone (its own server): the bot collects coins through its RPCs.
   records - with every demo (ZAMIN_DEMO_RECORDS=1: the bot's results count as records): the run must log a new record
           ("New record: ...") and leave it in the game's SaveData file (savedata.json under the run's HOME); a second,
           short run with the same HOME (no bot) must read it back - "Records: ..." with the same value - and show
@@ -316,6 +317,12 @@ CASES = [
         note="from Menu.zscene: Play -> Loading -> Level1 (loaded on a background thread), Esc - pause"),
     Case("Showcase3D", "smoke", 120, [present("the scene loaded", r"Scene load time")]),
     Case("Adventure3D", "smoke", 150, [present("the hero is ready", r"Hero ready")]),
+    # ---- Net Arena (the networking sample): alone it is its own server; the demo bot collects coins through the
+    # same Collect RPC and multicast burst a networked game uses (Tests/network_integration_test.py runs it networked).
+    Case("NetArena", "demo", 400, [present("no network: one local player", r"NETARENA no network: playing alone"),
+                                   at_least("the bot collected coins (server RPC, multicast burst)", r"NETARENA demo score=(\d+)", 3),
+                                   present("the burst effect ran", r"NETARENA burst #1 ")],
+         env={"ZAMIN_DEMO": "1"}),
     *GAMEPAD_CASES,
 ]
 

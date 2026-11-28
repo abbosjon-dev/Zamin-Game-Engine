@@ -36,6 +36,7 @@ SAMPLES = [
     ("Racing", {"ZAMIN_DEMO": "1"}, 300, ""),
     ("LanternKeeper", {"ZAMIN_DEMO": "1"}, 1000, ""),
     ("BeaconPass", {"ZAMIN_DEMO": "1"}, 760, ""),
+    ("NetArena", {"ZAMIN_DEMO": "1"}, 300, ""),
 ]
 
 

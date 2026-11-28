@@ -55,7 +55,7 @@ import wave
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True
 
-GAMES = ["TopDownShooter", "Breakout", "FPSArena", "Sokoban", "EndlessRunner", "Racing"]
+GAMES = ["TopDownShooter", "Breakout", "FPSArena", "Sokoban", "EndlessRunner", "Racing", "NetArena"]
 # The vertical slices (graph mode): project -> generator
 GRAPH_GAMES = {"LanternKeeper": "gen_lantern_keeper.py", "BeaconPass": "gen_beacon_pass.py"}
 GRAPH_MAX_ASSETS = 6 * 1024 * 1024
@@ -417,6 +417,15 @@ def check_input(game, project, sources, assets):
                 problem(game, f"{where}: Input::{kind}(\"{name}\") - no such name in the map")
         for m in re.finditer(r'Input::(IsKey\w*|IsGamepad\w*|GetGamepadAxis|IsAnyKeyJustPressed)\(', text):
             problem(game, f"{where}: Input::{m.group(1)} - the script reads a key directly (use an action of the input map)")
+    # Graphs read actions through their input nodes; a predicted Network Transform reads its move vector.
+    for folder, _, names in os.walk(assets):
+        for name in names:
+            if not name.endswith((".zgraph", ".zprefab", ".zscene")):
+                continue
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                text = f.read()
+            read.update(re.findall(r'"Kind":\s*"(?:ActionPressed|ActionJustPressed|Axis)"[^}]*?"Name":\s*"([^"]+)"', text))
+            read.update(re.findall(r'"MoveAction":\s*"([^"]+)"', text))
     used_axes = read | {vectors[v][k] for v in read if v in vectors for k in ("X", "Y")}
     for name in list(actions) + list(axes) + list(vectors):
         if name not in read and name not in used_axes:

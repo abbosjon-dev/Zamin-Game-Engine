@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/GraphicsContext.h"
 #include "Zamin/Utils/StringUtils.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Renderer/Renderer.h"
@@ -799,7 +800,10 @@ namespace Zamin {
             return it->second;
         if (!AssetImportLog::ShouldRetry(path))
             return nullptr; // failed before and not changed since
-        auto font = CreateRef<Font>(path);
+        // No GPU context (a dedicated server, a headless client): the metrics without textures.
+        auto font = GraphicsContext::GetInfo().Valid ? CreateRef<Font>(path) : CreateHeadless(path);
+        if (!font)
+            return nullptr;
         if (!font->IsLoaded())
             return nullptr;
         font->SetKerningEnabled(AssetImporter::GetFontSettings(path).Kerning);

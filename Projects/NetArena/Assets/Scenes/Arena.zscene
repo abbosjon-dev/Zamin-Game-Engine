@@ -1,0 +1,250 @@
+{
+  "Scene": "Arena",
+  "Version": 5,
+  "Settings": {
+    "DrawSky": false,
+    "Ambient": 0.6,
+    "Exposure": 1.0,
+    "Gravity": [0.0, 0.0],
+    "Post": {
+      "Tonemap": 1,
+      "Bloom": true,
+      "BloomThreshold": 0.9,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
+      "BloomRadius": 1.0,
+      "Vignette": 0.25,
+      "ChromaticAberration": 0.0,
+      "FilmGrain": 0.0,
+      "Saturation": 1.1,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [1, 1, 1],
+      "FXAA": false
+    },
+    "Lighting2D": {
+      "AmbientColor": [0.5, 0.55, 0.8],
+      "AmbientIntensity": 0.6
+    }
+  },
+  "RootOrder": [9300000000000001, 9300000000000002, 9300000000000003, 9300000000000004, 9300000000000005, 9300000000000006, 9300000000000007, 9300000000000008, 9300000000000009, 9300000000000010, 9300000000000011],
+  "Entities": [
+    {
+      "Entity": 9300000000000001,
+      "Tag": "Camera",
+      "Transform": {
+        "Translation": [0.0, 0.0, 10.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [1.0, 1.0, 1.0]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "PerspectiveFOV": 0.7854,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 1000,
+        "OrthographicSize": 16.0,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [0.03, 0.04, 0.08, 1.0]
+      }
+    },
+    {
+      "Entity": 9300000000000002,
+      "Tag": "Floor",
+      "Transform": {
+        "Translation": [0.0, 0.0, -1.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [22.6, 12.6, 1.0]
+      },
+      "SpriteRenderer": {
+        "Color": [0.09, 0.11, 0.18, 1.0],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -10,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 9300000000000003,
+      "Tag": "Wall 1",
+      "Transform": {
+        "Translation": [0.0, 6.45, -0.5],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [23.5, 0.3, 1.0]
+      },
+      "SpriteRenderer": {
+        "Color": [0.3, 0.55, 0.95, 1.0],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 9300000000000004,
+      "Tag": "Wall 2",
+      "Transform": {
+        "Translation": [0.0, -6.45, -0.5],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [23.5, 0.3, 1.0]
+      },
+      "SpriteRenderer": {
+        "Color": [0.3, 0.55, 0.95, 1.0],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 9300000000000005,
+      "Tag": "Wall 3",
+      "Transform": {
+        "Translation": [11.45, 0.0, -0.5],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [0.3, 13.5, 1.0]
+      },
+      "SpriteRenderer": {
+        "Color": [0.3, 0.55, 0.95, 1.0],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 9300000000000006,
+      "Tag": "Wall 4",
+      "Transform": {
+        "Translation": [-11.45, 0.0, -0.5],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [0.3, 13.5, 1.0]
+      },
+      "SpriteRenderer": {
+        "Color": [0.3, 0.55, 0.95, 1.0],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -5,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 9300000000000007,
+      "Tag": "Arena",
+      "Transform": {
+        "Translation": [0.0, 0.0, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [1.0, 1.0, 1.0]
+      },
+      "NetworkIdentity": {
+        "AlwaysRelevant": true,
+        "RelevanceRadius": 0.0
+      },
+      "NativeScript": {
+        "Class": "ArenaDirector",
+        "Fields": {
+          "Coins": {
+            "Type": "Int",
+            "Value": 6
+          },
+          "Scoreboard": {
+            "Type": "Entity",
+            "Value": 9300000000000009
+          },
+          "Status": {
+            "Type": "Entity",
+            "Value": 9300000000000010
+          }
+        }
+      }
+    },
+    {
+      "Entity": 9300000000000008,
+      "Tag": "Rules",
+      "Transform": {
+        "Translation": [0.0, 0.0, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [1.0, 1.0, 1.0]
+      },
+      "NetworkIdentity": {
+        "AlwaysRelevant": true,
+        "RelevanceRadius": 0.0
+      },
+      "NativeScript": {
+        "Class": "Zamin.VisualGraph",
+        "Fields": {
+          "Graph": {
+            "Type": "String",
+            "Value": "Scripts/ArenaRules.zgraph"
+          }
+        }
+      }
+    },
+    {
+      "Entity": 9300000000000009,
+      "Tag": "Scoreboard",
+      "Transform": {
+        "Translation": [-11.0, 6.95, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [0.5, 0.5, 1.0]
+      },
+      "Text": {
+        "Text": "",
+        "Color": [0.95, 0.95, 1.0, 1.0],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 9300000000000010,
+      "Tag": "Status",
+      "Transform": {
+        "Translation": [11.0, 6.95, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [0.4, 0.4, 1.0]
+      },
+      "Text": {
+        "Text": "",
+        "Color": [0.6, 0.8, 1.0, 1.0],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 9300000000000011,
+      "Tag": "Hint",
+      "Transform": {
+        "Translation": [0.0, -7.0, 0.0],
+        "Rotation": [0.0, 0.0, 0.0],
+        "Scale": [0.36, 0.36, 1.0]
+      },
+      "Text": {
+        "Text": "WASD / stick: move   Space: collect a coin   H: horn",
+        "Color": [0.55, 0.6, 0.75, 1.0],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    }
+  ]
+}

@@ -62,6 +62,25 @@ namespace Zamin {
         std::string GLVersion;              // --gl 4.1 | 4.3 | 4.5 | 4.6
         int MSAA = -1;                      // --msaa 0 | 2 | 4 | 8 | 16 (-1: not given)
         int GLDebug = -1, SRGB = -1;        // --gl-debug / --no-gl-debug, --srgb / --no-srgb: 1 / 0 (-1: not given)
+        // Networking (docs/Networking.md): --server runs a dedicated server (headless: no window, no rendering, no
+        // audio device) on --port N (default 7777); --connect host:port joins one; --headless runs a client without
+        // a window too (tests, bots). --max-clients N, --tick-rate N (the server's); --net-conditioner
+        // latency=100,jitter=20,loss=5,dup=1,reorder=2 conditions this side's outgoing packets; --net-session-file
+        // <file> keeps the client's session (id and resume token) so that a restarted client resumes it;
+        // --net-bot moves the owned entity in a pattern and presses the Collect action now and then;
+        // --net-report <file.json> writes the session's state and statistics at exit; --quit-after S stops after
+        // S seconds.
+        struct NetworkOptions
+        {
+            bool Server = false, Headless = false, Bot = false;
+            uint16_t Port = 0;          // 0: not given (7777)
+            std::string Connect;        // host:port
+            std::string Conditioner, SessionFile, Report;
+            double QuitAfter = 0;       // seconds (0: no limit)
+            uint32_t MaxClients = 0, TickRate = 0; // 0: not given
+            bool Enabled() const { return Server || !Connect.empty(); }
+        };
+        NetworkOptions Network;
         // What could not be understood (unknown options, missing / wrong values), a message each (the
         // player logs them as warnings and uses the rest).
         std::vector<std::string> Errors;

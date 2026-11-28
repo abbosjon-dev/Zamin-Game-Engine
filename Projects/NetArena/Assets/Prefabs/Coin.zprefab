@@ -1,0 +1,45 @@
+{
+    "ZaminEntities": 1,
+    "Entities": [
+        {
+            "Entity": 1,
+            "Tag": "Coin",
+            "Transform": {
+                "Translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.6,
+                    0.6,
+                    1.0
+                ]
+            },
+            "CircleRenderer": {
+                "Color": [
+                    1.0,
+                    0.82,
+                    0.2,
+                    1.0
+                ],
+                "Thickness": 0.35,
+                "Fade": 0.02,
+                "SortingOrder": 5
+            },
+            "NetworkIdentity": {
+                "AlwaysRelevant": false,
+                "RelevanceRadius": 0.0
+            },
+            "NetworkTransform": {
+                "Mode": "Interpolate",
+                "InterpolationDelay": 0.1
+            }
+        }
+    ]
+}

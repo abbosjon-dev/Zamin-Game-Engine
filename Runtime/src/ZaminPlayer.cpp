@@ -22,6 +22,7 @@
 #include <Zamin/Gameplay/GameplayUI.h>
 #include <Zamin/UI/UIAudit.h>
 #include <Zamin/Scene/WorldTour.h>
+#include <Zamin/Network/NetGame.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -35,6 +36,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <thread>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -755,6 +758,7 @@ namespace Zamin {
 
         void OnDetach() override
         {
+            StopNetwork();
             WriteWorldTourReport(); // (a tour the player's end cut short still reports: "Complete": false)
             if (std::getenv("ZAMIN_PLAYER_STATS"))
             {
@@ -1033,6 +1037,7 @@ namespace Zamin {
             glm::vec4 clear = view->GetClearColor();
             RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a });
             RenderCommand::Clear();
+            UpdateNetwork(ts);
             m_Scenes->OnUpdate(ts);
             RunUIAudit(area.Width, area.Height);
             RunSoakStats();
@@ -1155,6 +1160,59 @@ namespace Zamin {
             }
         }
 
+        // --connect host:port: joins the server once the first scene runs (docs/Networking.md); the session follows
+        // that scene (a switch to another scene ends it).
+        void UpdateNetwork(Timestep ts)
+        {
+            const auto& options = m_CommandLine.Network;
+            if (!options.Enabled() || !m_GameStarted || !m_Scenes || !m_Scenes->GetActiveScene())
+                return;
+            if (!m_NetworkTried)
+            {
+                m_NetworkTried = true;
+                m_Network = std::make_unique<Net::Session>();
+                Net::LaunchOptions launch;
+                launch.Server = options.Server;
+                launch.Port = options.Port ? options.Port : Net::DefaultPort;
+                launch.Connect = options.Connect;
+                launch.Conditioner = options.Conditioner;
+                launch.SessionFile = options.SessionFile;
+                launch.MaxClients = options.MaxClients;
+                launch.TickRate = options.TickRate;
+                std::string error;
+                if (!Net::Launch(*m_Network, *m_Scenes->GetActiveScene(), Net::SettingsFor(Project::GetActive()->GetConfig()), launch, &error))
+                {
+                    ZM_ERROR("Network: {}", error);
+                    m_BannerText = "Network: " + error;
+                    m_BannerTime = 8.0f;
+                    m_Network.reset();
+                    return;
+                }
+                if (options.Bot)
+                    m_NetBot.Attach(*m_Network);
+            }
+            if (!m_Network)
+                return;
+            m_NetworkTime += ts;
+            m_NetBot.Update(ts);
+            Net::SaveSessionFile(*m_Network, options.SessionFile);
+            if (options.QuitAfter > 0 && m_NetworkTime >= options.QuitAfter)
+            {
+                ZM_INFO("Network: --quit-after {} s reached", options.QuitAfter);
+                Application::Get().Close();
+            }
+        }
+
+        void StopNetwork()
+        {
+            if (!m_Network)
+                return;
+            if (!m_CommandLine.Network.Report.empty())
+                FileSystem::WriteTextFile(m_CommandLine.Network.Report, Net::Report(*m_Network).dump(2) + "\n");
+            m_Network->Stop();
+            m_Network.reset();
+        }
+
         // Paused in the background (Project settings > Player > "Fonda ishlash" off, the window lost the focus):
         // the last frame dimmed, "Paused" over it. Nothing of the game runs meanwhile (Application).
         bool OnRenderPaused() override
@@ -1232,6 +1290,11 @@ namespace Zamin {
         bool m_ProjectLoaded = false, m_GameStarted = false;
         // --benchmark: the frames timed, the start of the last one, the time the first scene took.
         PlayerBenchmark m_Benchmark;
+        // --connect: the client session on the game's scene (started with the first scene), the bot, the clock.
+        std::unique_ptr<Net::Session> m_Network;
+        Net::Bot m_NetBot;
+        bool m_NetworkTried = false;
+        double m_NetworkTime = 0;
         Clock::time_point m_AttachTime{}, m_LastFrameStart{};
         bool m_HasLastFrameStart = false, m_BenchmarkFinished = false, m_QuitRequested = false;
         double m_SlowestFrameMs = 0.0;      // --benchmark: the slowest measured frame and its profiler tree
@@ -1485,6 +1548,127 @@ namespace Zamin {
         }
     };
 
+    // --server / --headless: the game without a window, rendering or sound - a dedicated server (or a headless
+    // client: tests, bots). The scene runs at a fixed step (the server: its tick rate) in real time until
+    // --quit-after, SIGINT / SIGTERM or (a client) a connection that is gone for good.
+    static volatile std::sig_atomic_t s_HeadlessStop = 0;
+
+    static int RunHeadless(const std::filesystem::path& project, const PlayerCommandLine& commandLine)
+    {
+        using Clock = std::chrono::steady_clock;
+        const auto& options = commandLine.Network;
+        std::signal(SIGINT, [](int) { s_HeadlessStop = 1; });
+        std::signal(SIGTERM, [](int) { s_HeadlessStop = 1; });
+        SceneSerializer::SetReadPrefabLinks(false);
+        PrefabCache::SetCheckForChanges(false);
+        if (!Project::Load(project))
+        {
+            ZM_CRITICAL("Project failed to load: {}", project.string());
+            return 1;
+        }
+        const ProjectConfig& config = Project::GetActive()->GetConfig();
+        if (auto module = Project::GetScriptModulePath(); !module.empty())
+            ScriptEngine::LoadModule(module);
+        std::filesystem::path start = commandLine.Scene.empty() ? Project::ResolveStartScene(config, Project::GetAssetDirectory()) : std::filesystem::path(commandLine.Scene);
+        if (start.empty())
+            start = Project::GetBuildScenePath(0);
+        const std::filesystem::path scenePath = Project::GetAssetFileSystemPath(start);
+        Ref<Scene> scene = CreateRef<Scene>();
+        if (!SceneSerializer(scene).Deserialize(scenePath))
+        {
+            ZM_CRITICAL("Start scene failed to load: {}", scenePath.string());
+            return 1;
+        }
+        scene->OnRuntimeStart();
+        Net::Session session;
+        Net::LaunchOptions launch;
+        launch.Server = options.Server;
+        launch.Port = options.Port ? options.Port : Net::DefaultPort;
+        launch.Connect = options.Connect;
+        launch.Conditioner = options.Conditioner;
+        launch.SessionFile = options.SessionFile;
+        launch.MaxClients = options.MaxClients;
+        launch.TickRate = options.TickRate;
+        std::string error;
+        if (options.Enabled() && !Net::Launch(session, *scene, Net::SettingsFor(config), launch, &error))
+        {
+            ZM_CRITICAL("Network: {}", error);
+            scene->OnRuntimeStop();
+            return 2;
+        }
+        Net::Bot bot;
+        if (options.Bot)
+            bot.Attach(session);
+        const uint32_t rate = session.IsServer() ? session.GetSettings().TickRate : 60;
+        const float dt = 1.0f / float(rate);
+        ZM_INFO("Headless {} '{}' ({}, {} steps a second){}", options.Server ? "server" : "client", config.Name, start.generic_string(), rate,
+                options.QuitAfter > 0 ? std::format(", stops after {} s", options.QuitAfter) : std::string());
+        auto next = Clock::now();
+        const auto began = next;
+        auto lastStatus = next;
+        bool wasConnected = false;
+        int exitCode = 0;
+        while (!s_HeadlessStop)
+        {
+            Input::Update();
+            bot.Update(dt);
+            scene->UpdateRuntime(dt);
+            Net::SaveSessionFile(session, options.SessionFile);
+            const auto now = Clock::now();
+            const double elapsed = std::chrono::duration<double>(now - began).count();
+            if (options.QuitAfter > 0 && elapsed >= options.QuitAfter)
+                break;
+            if (session.IsClient())
+            {
+                wasConnected |= session.IsConnected();
+                if (wasConnected && !session.IsConnected() && !session.IsReconnecting())
+                {
+                    ZM_WARN("The connection to the server is gone ({})", Net::DisconnectReasonName(session.GetLastDisconnectReason()));
+                    exitCode = 4;
+                    break;
+                }
+                if (!wasConnected && session.GetLastDisconnectReason() != Net::DisconnectReason::None)
+                {
+                    ZM_ERROR("Could not connect: {}", Net::DisconnectReasonName(session.GetLastDisconnectReason()));
+                    exitCode = 4;
+                    break;
+                }
+            }
+            if (session.IsServer() && now - lastStatus >= std::chrono::seconds(5))
+            {
+                lastStatus = now;
+                const Net::SessionStats st = session.GetStats();
+                double out = 0, in = 0;
+                std::string rtt;
+                for (const auto& c : session.GetClients())
+                {
+                    out += c.Stats.SentBytesPerSecond;
+                    in += c.Stats.ReceivedBytesPerSecond;
+                    rtt += std::format("{}{}:{:.0f}ms", rtt.empty() ? "" : " ", c.Id, c.Stats.RttMs);
+                }
+                ZM_INFO("[server] tick {} | {} clients | {} entities | tick {:.3f} ms (avg {:.3f}, max {:.3f}) | out {:.1f} KB/s in {:.1f} KB/s{}", st.Tick,
+                        session.GetClients().size(), st.NetworkedEntities, st.TickMs, st.AverageTickMs, st.MaxTickMs, out / 1024.0, in / 1024.0,
+                        rtt.empty() ? std::string() : " | RTT " + rtt);
+            }
+            next += std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(dt));
+            if (Clock::now() - next > std::chrono::milliseconds(250))
+                next = Clock::now(); // fell behind (a breakpoint, a busy machine): no catch-up burst
+            std::this_thread::sleep_until(next);
+        }
+        if (s_HeadlessStop)
+            ZM_INFO("Stopping (signal)");
+        if (!options.Report.empty())
+        {
+            if (FileSystem::WriteTextFile(options.Report, Net::Report(session).dump(2) + "\n"))
+                ZM_INFO("Network report: {}", options.Report);
+        }
+        session.Stop();
+        scene->OnRuntimeStop();
+        scene.reset();
+        ScriptEngine::UnloadModule(); // before the static destructors (the module's registrars)
+        return exitCode;
+    }
+
     static std::filesystem::path FindProject(const char* arg)
     {
         namespace fs = std::filesystem;
@@ -1625,6 +1809,14 @@ namespace Zamin {
             crash.DialogArguments = { "--crash-dialog" };
             if (CrashHandler::Install(crash))
                 ZM_INFO("Crash reports: {}", crash.ReportDirectory.string());
+        }
+
+        // A dedicated server / headless client: no window at all.
+        if (commandLine.Network.Headless)
+        {
+            const int code = RunHeadless(project, commandLine);
+            LogFile::Close();
+            std::exit(code);
         }
 
         PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, saved, commandLine);

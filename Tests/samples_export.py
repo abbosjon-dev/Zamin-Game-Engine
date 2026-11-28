@@ -27,7 +27,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True
 
 SAMPLES = ["TopDownShooter", "Breakout", "FPSArena", "Sokoban", "EndlessRunner", "Racing",
-           "Platformer2D", "Showcase3D", "Adventure3D"]
+           "Platformer2D", "Showcase3D", "Adventure3D", "NetArena"]
 
 
 def folder_size(path):

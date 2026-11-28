@@ -72,7 +72,9 @@ namespace Zamin {
         static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps", "--jobs",
                                                       "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file", "--log-level",
                                                       "--crash-dialog", "--gamma", "--brightness", "--benchmark", "--benchmark-warmup",
-                                                      "--benchmark-out", "--benchmark-max-avg", "--benchmark-max-p95" };
+                                                      "--benchmark-out", "--benchmark-max-avg", "--benchmark-max-p95", "--port", "--connect",
+                                                      "--max-clients", "--tick-rate", "--net-conditioner", "--net-session-file",
+                                                      "--net-report", "--quit-after" };
         for (size_t i = 0; i < args.size(); i++)
         {
             const std::string& arg = args[i];
@@ -130,6 +132,42 @@ namespace Zamin {
                 }
                 else if (name == "--crash-dialog")
                     c.CrashDialog = value;
+                else if (name == "--port")
+                {
+                    if (ParseInt(value, number) && number > 0 && number <= 65535)
+                        c.Network.Port = uint16_t(number);
+                    else
+                        c.Errors.push_back(std::format("--port {}: 1 ... 65535", value));
+                }
+                else if (name == "--connect")
+                {
+                    if (value.find(':') == std::string::npos)
+                        c.Errors.push_back(std::format("--connect {}: host:port is needed (127.0.0.1:7777)", value));
+                    else
+                        c.Network.Connect = value;
+                }
+                else if (name == "--max-clients" || name == "--tick-rate")
+                {
+                    if (ParseInt(value, number) && number >= 1 && number <= (name == "--tick-rate" ? 120 : 1024))
+                        (name == "--tick-rate" ? c.Network.TickRate : c.Network.MaxClients) = uint32_t(number);
+                    else
+                        c.Errors.push_back(std::format("{} {}: {}", name, value, name == "--tick-rate" ? "1 ... 120" : "1 ... 1024"));
+                }
+                else if (name == "--net-conditioner")
+                    c.Network.Conditioner = value;
+                else if (name == "--net-session-file")
+                    c.Network.SessionFile = value;
+                else if (name == "--net-report")
+                    c.Network.Report = value;
+                else if (name == "--quit-after")
+                {
+                    char* end = nullptr;
+                    const double seconds = std::strtod(value.c_str(), &end);
+                    if (end && *end == 0 && seconds > 0 && seconds < 1e7)
+                        c.Network.QuitAfter = seconds;
+                    else
+                        c.Errors.push_back(std::format("--quit-after {}: seconds (> 0)", value));
+                }
                 else if (name == "--resolution")
                 {
                     uint32_t w = 0, h = 0;
@@ -242,6 +280,12 @@ namespace Zamin {
                 c.VSync = false;
             else if (name == "--no-splash")
                 c.NoSplash = true;
+            else if (name == "--server")
+                c.Network.Server = c.Network.Headless = true;
+            else if (name == "--headless")
+                c.Network.Headless = true;
+            else if (name == "--net-bot")
+                c.Network.Bot = true;
             else if (name == "--no-log-file")
                 c.NoLogFile = true;
             else if (name == "--no-crash-handler")
@@ -331,6 +375,19 @@ namespace Zamin {
             "                                wins over the project settings and ZAMIN_LOG_LEVEL\n"
             "  --no-crash-handler            no report is written on a crash (for a debugger, a core dump)\n"
             "  --no-crash-dialog             the crash report is written but no message window is shown\n"
+            "\n"
+            "Network (docs/Networking.md):\n"
+            "  --server                      a dedicated server: no window, rendering or sound (headless)\n"
+            "  --port N                      the server's UDP port (default 7777)\n"
+            "  --connect host:port           join a server (127.0.0.1:7777)\n"
+            "  --headless                    a client without a window too (tests, bots)\n"
+            "  --max-clients N               the server's client limit (default 16)\n"
+            "  --tick-rate N                 the server's ticks a second (default 30)\n"
+            "  --net-conditioner <spec>      delay / lose this side's packets: latency=100,jitter=20,loss=5,dup=1,reorder=2\n"
+            "  --net-session-file <file>     keep the client's session id and resume token there (a restart resumes it)\n"
+            "  --net-bot                     a bot plays: moves the own entity and presses Collect now and then\n"
+            "  --net-report <file.json>      the session's state and statistics at exit\n"
+            "  --quit-after S                stop after S seconds\n"
             "\n"
             "Benchmark:\n"
             "  --benchmark N                 measure N frames instead of playing (no splash, FPS limit or VSync) - average,\n"

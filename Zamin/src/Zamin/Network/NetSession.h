@@ -59,6 +59,9 @@ namespace Zamin::Net {
         /// The input vector (an InputVector of the project's input map) a predicted entity is moved with, unless
         /// the entity names its own (NetworkTransformComponent::MoveAction).
         std::string MoveAction = "Move";
+        /// Every this many ticks, a "NETSTATE tick=..." line with the server's state of every entity (the server:
+        /// what it sends; a client: what it decoded) - tests compare the lines of both sides (0: off).
+        uint32_t StateLogEvery = 0;
     };
 
     /// One line of the session's own log (the Network panel, the dedicated server's console).
@@ -173,11 +176,14 @@ namespace Zamin::Net {
         std::vector<SessionClient> GetClients() const;
         const Connection* GetServerConnection() const;
         const std::deque<SessionLogEntry>& GetLog() const { return m_Log; }
+        /// Every networked entity on this side: NetId, Owner, Name, Position and its replicated values by name.
+        nlohmann::json DescribeEntities() const;
         /// The link conditioner the session's socket goes through (nullptr: it was not started in one).
         LinkConditioner* GetConditioner() const { return m_Conditioner; }
         /// @}
 
-        /// Replaces where a predicted entity's input comes from (tests, bots): the move vector for this tick.
+        /// Replaces where a predicted entity's input comes from (tests, bots): the move vector for this tick. Stop
+        /// forgets it.
         void SetInputSource(std::function<glm::vec2(Entity)> source) { m_InputSource = std::move(source); }
         /// Lines the session logs also go here (the dedicated server prints them).
         void SetLogSink(std::function<void(const std::string&)> sink) { m_LogSink = std::move(sink); }

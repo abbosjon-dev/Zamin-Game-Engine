@@ -157,11 +157,19 @@ try:
     time.sleep(3)
     shot('foliage-hlod-cpu.png')
     # Undo takes the backend back to GPU and keeps the HLOD settings.
-    x('mousemove', 800, 500)
-    time.sleep(.5)
-    x('key', 'ctrl+z')
-    time.sleep(2)
-    save_until(lambda f: f['Backend'] == 2 and f.get('HLODDistance') == 30, 'Undo of the culling change')
+    # A key press can be lost under xvfb; Ctrl+Z is sent again only when the saved scene shows it did not land
+    # (the backend still CPU), so a second press can never undo the earlier HLOD edit.
+    for attempt in range(3):
+        x('mousemove', 800, 500)
+        time.sleep(.5)
+        x('key', 'ctrl+z')
+        time.sleep(2)
+        try:
+            save_until(lambda f: f['Backend'] == 2 and f.get('HLODDistance') == 30, 'Undo of the culling change', tries=2)
+            break
+        except RuntimeError:
+            if attempt == 2 or foliage()['Backend'] != 1:
+                raise
     # The LOD/HLOD debug colours (a renderer view setting: not saved in the scene): the viewport turns magenta (HLOD)
     # and yellow (far LOD) where it was green.
     before = magenta('foliage-hlod-cpu.png')
